@@ -1,5 +1,6 @@
 // Perfis: tela "Quem está assistindo?", avatar e troca de perfil.
 // Cada perfil tem sua própria conta Stremio (histórico, biblioteca, addons) e preferências.
+import { LOGO_HTML } from '../lib/logo.js';
 import { h } from '../lib/dom.js';
 import * as nav from '../lib/nav.js';
 import * as store from '../lib/store.js';
@@ -115,7 +116,7 @@ export function showPicker(onPicked) {
     ])
   );
   const el = h('div.view.profile-picker', null, [
-    h('div.boot-logo', { html: 'Sera<b>flix</b>' }),
+    h('div.boot-logo', { html: LOGO_HTML }),
     h('h1', { text: t('Quem está assistindo?') }),
     h('div.profile-row', { 'data-group': '' }, cards),
     h('p.profile-hint', { text: t('Cada perfil tem sua própria conta Stremio, com histórico e biblioteca separados.') }),

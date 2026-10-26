@@ -1,4 +1,4 @@
-// Ajustes: conta, servidor do PC, Hero Banner, tema OLED, legendas, addons e depuração.
+// Ajustes: conta, servidor do PC, Hero Banner, tema, legendas, addons e depuração.
 import { h, clear } from '../lib/dom.js';
 import * as nav from '../lib/nav.js';
 import * as store from '../lib/store.js';
@@ -15,6 +15,7 @@ import * as router from '../router.js';
 import { openLogin } from './login.js';
 import { avatar, switchProfile, createProfile } from './profiles.js';
 import { t } from '../lib/i18n.js';
+import { themeOf, applyTheme } from '../lib/theme.js';
 
 const SUB_LANGS = [
   { label: 'Português (BR) e Português', value: ['pob', 'por', 'pt', 'pt-br'] },
@@ -276,12 +277,11 @@ export function SettingsView() {
       )
     );
     body.appendChild(
-      row(t('Tema OLED (preto puro)'), t('Fundo totalmente preto'), '', () => {
-        const on = !store.settings().oled;
-        store.saveSettings({ oled: on });
-        document.body.classList.toggle('oled', on);
+      row(t('Modo claro'), t('Creme de dia, escuro de noite'), '', () => {
+        store.saveSettings({ theme: themeOf(store.settings()) === 'light' ? 'dark' : 'light' });
+        applyTheme(store.settings());
         render();
-      }, toggle(s.oled))
+      }, toggle(themeOf(s) === 'light'))
     );
     body.appendChild(
       row(t('Rolagem animada'), t('Mais bonita, porém mais pesada na TV'), '', () => {

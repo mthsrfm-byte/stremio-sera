@@ -1,4 +1,5 @@
 // Componentes compartilhados: toast, menus modais, barra superior, cartões.
+import { LOGO_HTML } from './lib/logo.js';
 import { h, clear } from './lib/dom.js';
 import * as nav from './lib/nav.js';
 import { smallPoster, smallBackground } from './lib/img.js';
@@ -90,7 +91,7 @@ export function topbar(activeId, onTab) {
   tick();
   const timer = setInterval(tick, 20000);
   const bar = h('div.topbar', { 'data-group': '' }, [
-    h('div.brand', { html: 'Sera<b>flix</b>' }),
+    h('div.brand', { html: LOGO_HTML }),
     TABS.map((tab) =>
       h('div.tab', {
         focusable: true,

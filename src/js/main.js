@@ -19,12 +19,14 @@ import { openPlayer } from './views/player.js';
 import * as update from './api/update.js';
 import { toast } from './ui.js';
 import * as profiles from './views/profiles.js';
+import { applyTheme } from './lib/theme.js';
 import { openLogin } from './views/login.js';
 import { registerTizenKeys } from './lib/platform.js';
 
 function boot() {
   const s = store.settings();
-  initI18n(s.language);
+  initI18n();
+  applyTheme(s);
   if (s.devlogUrl) log.setRemote(s.devlogUrl);
   log.info('Iniciando', navigator.userAgent);
 
@@ -72,7 +74,7 @@ function boot() {
 function start() {
   stremio.reloadProfile();
   const s = store.settings();
-  document.body.classList.toggle('oled', !!s.oled);
+  applyTheme(s);
   log.info('Perfil', store.activeProfile().name);
 
   // Atualiza a conta em segundo plano; a tela inicial abre com o cache.
