@@ -114,25 +114,6 @@ export function SettingsView() {
     const keepIndex = keep ? Array.prototype.indexOf.call(body.querySelectorAll('.set-row'), keep) : -1;
     clear(body);
 
-    // ---- Idioma do app (vale para a TV inteira; o nome fica bilíngue para quem não lê o atual) ----
-    const LANGS = [
-      { id: 'auto', label: t('Automático (idioma da TV)') },
-      { id: 'pt', label: 'Português' },
-      { id: 'en', label: 'English' },
-    ];
-    body.appendChild(h('div.set-section', { text: 'Idioma / Language' }));
-    body.appendChild(
-      row('Idioma / Language', '', (LANGS.find((l) => l.id === s.language) || LANGS[0]).label, () =>
-        menu('Idioma / Language', LANGS.map((l) => ({ label: l.label, value: l.id, checked: l.id === s.language })), {
-          onPick: (v) => {
-            if (v === s.language) return;
-            store.saveSettings({ language: v });
-            window.location.reload(); // recarrega para todas as telas mudarem de idioma
-          },
-        })
-      )
-    );
-
     // ---- Perfil (cada perfil tem sua conta Stremio, histórico e preferências) ----
     const prof = store.activeProfile();
     const allProfiles = store.profiles();
@@ -463,7 +444,7 @@ export function SettingsView() {
         logInput,
       ])
     );
-    body.appendChild(row(t('Versão'), device || 'Stremio Kai Timeworn', 'v' + update.VERSION, null));
+    body.appendChild(row(t('Versão'), device || 'Seraflix', 'v' + update.VERSION, null));
     body.appendChild(
       row(t('Procurar atualização'), t('Baixa a versão nova do GitHub ({repo})', { repo: update.REPO }), '', () => checkForUpdate())
     );

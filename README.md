@@ -1,4 +1,4 @@
-# Stremio Kai for Tizen
+# Seraflix
 
 Stremio for Samsung Tizen TVs, including older models (2017 and newer, Tizen 3.0+) that can't
 run the official Stremio app. It runs as a [TizenBrew](https://github.com/reisxd/TizenBrew)
@@ -104,14 +104,14 @@ TizenBrew needs this to run:
 
 Leave Developer Mode on from now on, or TizenBrew won't open.
 
-### 5. Add Stremio Kai
+### 5. Add Seraflix
 
 1. Open **TizenBrew** and go to **Module Manager → Add module**.
 2. Choose **GitHub** (not NPM) and enter:
    ```
-   ITzAkai/stremio-kai-tizen
+   mthsrfm-byte/stremio-sera
    ```
-3. **Stremio Kai** now appears in TizenBrew. Open it.
+3. **Seraflix** now appears in TizenBrew. Open it.
 
 ### 6. First launch
 

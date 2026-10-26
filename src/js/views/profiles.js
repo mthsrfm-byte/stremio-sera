@@ -115,7 +115,7 @@ export function showPicker(onPicked) {
     ])
   );
   const el = h('div.view.profile-picker', null, [
-    h('div.boot-logo', { html: 'Stremio <b>Kai</b>' }),
+    h('div.boot-logo', { html: 'Sera<b>flix</b>' }),
     h('h1', { text: t('Quem está assistindo?') }),
     h('div.profile-row', { 'data-group': '' }, cards),
     h('p.profile-hint', { text: t('Cada perfil tem sua própria conta Stremio, com histórico e biblioteca separados.') }),
