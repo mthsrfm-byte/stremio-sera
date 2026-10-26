@@ -8,7 +8,7 @@ import * as addons from '../api/addons.js';
 import { toast, refreshProfileChips } from '../ui.js';
 import * as router from '../router.js';
 import { openLogin } from './login.js';
-import { t, current as currentLang } from '../lib/i18n.js';
+import { t } from '../lib/i18n.js';
 
 export function maybeShowWizard() {
   const s = store.settings();
@@ -133,8 +133,7 @@ function WizardView() {
     card.appendChild(h('p', { text: t('Em qual idioma o app deve ligar a legenda sozinho quando o áudio não for no seu idioma?') }));
     const pt = { label: t('Português (BR)'), value: ['pob', 'por', 'pt', 'pt-br'] };
     const en = { label: t('Inglês'), value: ['eng', 'en'] };
-    // O idioma do app vem primeiro.
-    const choices = (currentLang() === 'en' ? [en, pt] : [pt, en]).concat([{ label: t('Não ligar sozinho'), value: [] }]);
+    const choices = [pt, en].concat([{ label: t('Não ligar sozinho'), value: [] }]);
     card.appendChild(
       h(
         'div.opts',

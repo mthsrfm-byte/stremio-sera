@@ -1,33 +1,24 @@
-// Idiomas do app: português (base) e inglês. A chave é o próprio texto em português;
-// t('Olá {nome}', { nome: 'Ana' }) troca os {parâmetros}. Idioma: escolhido nos Ajustes
-// ou automático pelo idioma da TV.
-import { EN } from './i18n-en.js';
+// Textos do app: só português do Brasil. A chave é o próprio texto em português e a
+// versão Seraflix (i18n-fun.js) troca o que tiver graça; t('Olá {nome}', { nome: 'Ana' })
+// troca os {parâmetros}.
+import { FUN } from './i18n-fun.js';
 
-let lang = 'pt';
-
-// The Samsung build defaults to English; Portuguese is still available in Settings.
-export function detect() {
-  return 'en';
-}
-
-// setting: 'auto' | 'pt' | 'en'
-export function init(setting) {
-  lang = setting === 'pt' || setting === 'en' ? setting : detect();
-  document.documentElement.setAttribute('lang', lang === 'pt' ? 'pt-BR' : 'en');
-  return lang;
+export function init() {
+  document.documentElement.setAttribute('lang', 'pt-BR');
+  return 'pt';
 }
 
 export function current() {
-  return lang;
+  return 'pt';
 }
 
 // Idioma para APIs de metadados (TMDB).
 export function apiLang() {
-  return lang === 'pt' ? 'pt-BR' : 'en-US';
+  return 'pt-BR';
 }
 
 export function t(text, params) {
-  let out = lang === 'en' && EN[text] !== undefined ? EN[text] : text;
+  let out = FUN[text] !== undefined ? FUN[text] : text;
   if (params) {
     Object.keys(params).forEach((k) => {
       out = out.split('{' + k + '}').join(String(params[k]));

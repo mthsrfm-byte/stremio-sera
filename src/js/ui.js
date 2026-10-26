@@ -90,7 +90,7 @@ export function topbar(activeId, onTab) {
   tick();
   const timer = setInterval(tick, 20000);
   const bar = h('div.topbar', { 'data-group': '' }, [
-    h('div.brand', { html: 'Stremio <b>Kai</b>' }),
+    h('div.brand', { html: 'Sera<b>flix</b>' }),
     TABS.map((tab) =>
       h('div.tab', {
         focusable: true,

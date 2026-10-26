@@ -30,7 +30,7 @@
     "url": "https://github.com/mthsrfm-byte/stremio-sera.git"
   },
   "packageType": "app",
-  "appName": "Stremio Kai",
+  "appName": "Seraflix",
   "appPath": "dist/index.html",
   "keys": [
     "MediaPlayPause",
