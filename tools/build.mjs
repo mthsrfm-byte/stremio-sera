@@ -75,6 +75,18 @@ async function emit(result) {
       }
     }
   }
+  // Fontes do Seraflix (as mesmas de matheusserafim.com): Bricolage Grotesque nos títulos, Geist no texto.
+  for (const [name, weights, subs] of [['bricolage-grotesque', [600, 700, 800], ['latin', 'latin-ext']], ['geist-sans', [400, 500, 600, 700], ['latin']]]) {
+    const dir = path.join(root, 'node_modules', '@fontsource', name, 'files');
+    for (const w of weights) {
+      for (const sub of subs) {
+        for (const ext of ['woff2', 'woff']) {
+          const f = `${name}-${sub}-${w}-normal.${ext}`;
+          fs.copyFileSync(path.join(dir, f), path.join(dist, 'fonts', f));
+        }
+      }
+    }
+  }
   const code = await downlevel(result.outputFiles[0].text);
   fs.writeFileSync(path.join(dist, 'app.js'), code);
   // Guarda simples: nada de sintaxe que o Chromium 38 não entende pode sobrar.

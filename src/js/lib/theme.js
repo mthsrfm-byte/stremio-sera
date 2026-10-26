@@ -1,18 +1,16 @@
-// Tema do app: 'light' (claro, padrão do Seraflix) | 'dark' (escuro do Kai) | 'oled' (preto puro).
+// Modo do app, com as cores de matheusserafim.com: 'dark' (escuro, padrão) | 'light' (claro).
+// A classe "sera" (fontes, logo e acento azul) vale sempre; "light" troca as cores para o creme.
 export const THEMES = [
-  { id: 'light', label: 'Claro' },
   { id: 'dark', label: 'Escuro' },
-  { id: 'oled', label: 'OLED (preto puro)' },
+  { id: 'light', label: 'Claro' },
 ];
 
-// Perfis antigos só tinham o liga/desliga do OLED.
 export function themeOf(s) {
-  if (s.theme) return s.theme;
-  return s.oled ? 'oled' : 'light';
+  return s.theme === 'light' ? 'light' : 'dark';
 }
 
 export function applyTheme(s) {
-  const theme = themeOf(s);
-  document.body.classList.toggle('light', theme === 'light');
-  document.body.classList.toggle('oled', theme === 'oled');
+  document.body.classList.add('sera');
+  document.body.classList.toggle('light', themeOf(s) === 'light');
+  document.body.classList.remove('oled');
 }

@@ -4064,8 +4064,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     wizardDone: false,
     // Perfil
     heroSource: "cinemeta",
-    theme: "",
-    // vazio = claro (ou OLED, se o perfil já tinha o OLED ligado); ver lib/theme.js
+    theme: "dark",
+    // 'dark' | 'light'; ver lib/theme.js
     oled: false,
     subtitleLangs: ["pob", "por", "pt", "pt-br"],
     audioLangs: [],
@@ -4957,6 +4957,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
   }
 
+  // src/js/lib/logo.js
+  var LOGO_HTML = '<svg class="sera-logo" xmlns="http://www.w3.org/2000/svg" viewBox="9.45 13.36 305.55 98.86"><path d="M189.18 13.37 L9.45 13.37 L9.45 22.36 L9.45 112.22 L18.43 112.22 L18.43 22.36 L189.18 22.36Z"/><path d="M189.18 94.24 L189.18 40.32 L189.18 31.34 L162.22 31.34 L153.24 31.34 L153.24 94.24 L162.22 94.24 L162.22 40.32 L180.2 40.32 L180.2 94.24Z"/><path d="M198.17 13.36 L198.17 22.35 L198.17 94.24 L207.16 94.24 L207.16 49.31 L234.12 49.31 L234.12 40.32 L207.16 40.32 L207.16 22.35 L252.09 22.35 L252.09 94.24 L261.08 94.24 L261.08 22.35 L306.01 22.35 L306.01 103.23 L18.43 103.23 L18.43 112.22 L306.01 112.22 L315 112.22 L315 22.35 L315 13.36Z"/><path d="M136.26 67.28 L144.25 67.28 L144.25 40.32 L144.25 31.34 L135.26 31.34 L27.42 31.34 L27.42 40.32 L27.42 67.28 L36.41 67.28 L54.38 67.28 L54.38 85.26 L27.42 85.26 L27.42 94.24 L54.38 94.24 L63.37 94.24 L63.37 67.28 L63.37 58.3 L36.41 58.3 L36.41 40.32 L135.26 40.32 L135.26 58.3 L109.3 58.3 L109.3 67.28 L109.44 67.28 L136.4 94.24 L144.25 94.24 L144.25 89.39 L122.15 67.28 L135.26 67.28Z"/><path d="M72.36 58.3h26.96v8.99h-26.96Z"/><path d="M72.36 85.26h26.96v8.99h-26.96Z"/><path d="M225.13 67.28h8.99v26.96h-8.99Z"/><path d="M279.05 40.32h8.99v53.92h-8.99Z"/></svg><b>flix</b>';
+
   // src/js/views/profiles.js
   var SESSION_PICKED = "kai.profilePicked";
   var SESSION_NEW = "kai.newProfile";
@@ -5080,7 +5083,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       text: t("Adicionar perfil")
     })]));
     var el = h("div.view.profile-picker", null, [h("div.boot-logo", {
-      html: "Sera<b>flix</b>"
+      html: LOGO_HTML
     }), h("h1", {
       text: t("Quem está assistindo?")
     }), h("div.profile-row", {
@@ -5221,7 +5224,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var bar = h("div.topbar", {
       "data-group": ""
     }, [h("div.brand", {
-      html: "Sera<b>flix</b>"
+      html: LOGO_HTML
     }), TABS.map(function (tab) {
       return h("div.tab", {
         focusable: true,
@@ -8571,24 +8574,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
 
   // src/js/lib/theme.js
-  var THEMES = [{
-    id: "light",
-    label: "Claro"
-  }, {
-    id: "dark",
-    label: "Escuro"
-  }, {
-    id: "oled",
-    label: "OLED (preto puro)"
-  }];
   function themeOf(s) {
-    if (s.theme) return s.theme;
-    return s.oled ? "oled" : "light";
+    return s.theme === "light" ? "light" : "dark";
   }
   function applyTheme(s) {
-    var theme = themeOf(s);
-    document.body.classList.toggle("light", theme === "light");
-    document.body.classList.toggle("oled", theme === "oled");
+    document.body.classList.add("sera");
+    document.body.classList.toggle("light", themeOf(s) === "light");
+    document.body.classList.remove("oled");
   }
 
   // src/js/views/settings.js
@@ -8928,25 +8920,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           }
         });
       }));
-      body.appendChild(row(t("Tema"), t("Claro, escuro ou preto puro"), t((THEMES.find(function (x) {
-        return x.id === themeOf(s);
-      }) || THEMES[0]).label), function () {
-        return menu(t("Tema"), THEMES.map(function (x) {
-          return {
-            label: t(x.label),
-            value: x.id,
-            checked: x.id === themeOf(s)
-          };
-        }), {
-          onPick: function onPick(v) {
-            saveSettings({
-              theme: v
-            });
-            applyTheme(settings());
-            render();
-          }
+      body.appendChild(row(t("Modo claro"), t("Creme de dia, escuro de noite"), "", function () {
+        saveSettings({
+          theme: themeOf(settings()) === "light" ? "dark" : "light"
         });
-      }));
+        applyTheme(settings());
+        render();
+      }, toggle(themeOf(s) === "light")));
       body.appendChild(row(t("Rolagem animada"), t("Mais bonita, porém mais pesada na TV"), "", function () {
         var on = !settings().smoothScroll;
         saveSettings({

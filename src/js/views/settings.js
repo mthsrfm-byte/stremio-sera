@@ -15,7 +15,7 @@ import * as router from '../router.js';
 import { openLogin } from './login.js';
 import { avatar, switchProfile, createProfile } from './profiles.js';
 import { t } from '../lib/i18n.js';
-import { THEMES, themeOf, applyTheme } from '../lib/theme.js';
+import { themeOf, applyTheme } from '../lib/theme.js';
 
 const SUB_LANGS = [
   { label: 'Português (BR) e Português', value: ['pob', 'por', 'pt', 'pt-br'] },
@@ -277,15 +277,11 @@ export function SettingsView() {
       )
     );
     body.appendChild(
-      row(t('Tema'), t('Claro, escuro ou preto puro'), t((THEMES.find((x) => x.id === themeOf(s)) || THEMES[0]).label), () =>
-        menu(t('Tema'), THEMES.map((x) => ({ label: t(x.label), value: x.id, checked: x.id === themeOf(s) })), {
-          onPick: (v) => {
-            store.saveSettings({ theme: v });
-            applyTheme(store.settings());
-            render();
-          },
-        })
-      )
+      row(t('Modo claro'), t('Creme de dia, escuro de noite'), '', () => {
+        store.saveSettings({ theme: themeOf(store.settings()) === 'light' ? 'dark' : 'light' });
+        applyTheme(store.settings());
+        render();
+      }, toggle(themeOf(s) === 'light'))
     );
     body.appendChild(
       row(t('Rolagem animada'), t('Mais bonita, porém mais pesada na TV'), '', () => {
