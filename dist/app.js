@@ -4064,6 +4064,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     wizardDone: false,
     // Perfil
     heroSource: "cinemeta",
+    theme: "",
+    // vazio = claro (ou OLED, se o perfil já tinha o OLED ligado); ver lib/theme.js
     oled: false,
     subtitleLangs: ["pob", "por", "pt", "pt-br"],
     audioLangs: [],
@@ -8568,6 +8570,27 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     };
   }
 
+  // src/js/lib/theme.js
+  var THEMES = [{
+    id: "light",
+    label: "Claro"
+  }, {
+    id: "dark",
+    label: "Escuro"
+  }, {
+    id: "oled",
+    label: "OLED (preto puro)"
+  }];
+  function themeOf(s) {
+    if (s.theme) return s.theme;
+    return s.oled ? "oled" : "light";
+  }
+  function applyTheme(s) {
+    var theme = themeOf(s);
+    document.body.classList.toggle("light", theme === "light");
+    document.body.classList.toggle("oled", theme === "oled");
+  }
+
   // src/js/views/settings.js
   var SUB_LANGS = [{
     label: "Português (BR) e Português",
@@ -8905,14 +8928,25 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           }
         });
       }));
-      body.appendChild(row(t("Tema OLED (preto puro)"), t("Fundo totalmente preto"), "", function () {
-        var on = !settings().oled;
-        saveSettings({
-          oled: on
+      body.appendChild(row(t("Tema"), t("Claro, escuro ou preto puro"), t((THEMES.find(function (x) {
+        return x.id === themeOf(s);
+      }) || THEMES[0]).label), function () {
+        return menu(t("Tema"), THEMES.map(function (x) {
+          return {
+            label: t(x.label),
+            value: x.id,
+            checked: x.id === themeOf(s)
+          };
+        }), {
+          onPick: function onPick(v) {
+            saveSettings({
+              theme: v
+            });
+            applyTheme(settings());
+            render();
+          }
         });
-        document.body.classList.toggle("oled", on);
-        render();
-      }, toggle(s.oled)));
+      }));
       body.appendChild(row(t("Rolagem animada"), t("Mais bonita, porém mais pesada na TV"), "", function () {
         var on = !settings().smoothScroll;
         saveSettings({
@@ -9535,7 +9569,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   // src/js/main.js
   function boot() {
     var s = settings();
-    init(s.language);
+    init();
+    applyTheme(s);
     if (s.devlogUrl) log.setRemote(s.devlogUrl);
     log.info("Iniciando", navigator.userAgent);
     registerTizenKeys();
@@ -9574,7 +9609,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   function start() {
     reloadProfile();
     var s = settings();
-    document.body.classList.toggle("oled", !!s.oled);
+    applyTheme(s);
     log.info("Perfil", activeProfile().name);
     if (isLoggedIn()) {
       refreshUser().catch(function () {});

@@ -128,6 +128,7 @@ const DEFAULT_SETTINGS = {
   wizardDone: false,
   // Perfil
   heroSource: 'cinemeta',
+  theme: '', // vazio = claro (ou OLED, se o perfil já tinha o OLED ligado); ver lib/theme.js
   oled: false,
   subtitleLangs: ['pob', 'por', 'pt', 'pt-br'],
   audioLangs: [], // vazio = mantém o áudio padrão do arquivo (geralmente o original)

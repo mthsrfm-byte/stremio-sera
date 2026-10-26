@@ -309,3 +309,86 @@ body.oled .details-shade { background: linear-gradient(to right, #000 25%, rgba(
 .modal-text .input { width: 100%; }
 .err-text { color: #ff8a8a; min-height: 34px; padding-bottom: 6px; font-size: 21px; }
 .wizard .input { width: 100%; margin-bottom: 14px; }
+
+/* ---------- Tema claro (padrão do Seraflix) ----------
+   Fundo #f5f3fa, cartões #fff, texto #1d1830, acento #6a4be8. O player continua escuro. */
+body.light { background: #f5f3fa; color: #1d1830; }
+body.light .view, body.light .details-panel { background-color: #f5f3fa; }
+body.light .player { background: #000; color: #f2f0f8; }
+body.light .boot-logo b, body.light .brand b, body.light .wizard-step { color: #6a4be8; }
+body.light .spinner { border-color: rgba(29,24,48,0.12); border-top-color: #7b5bf5; }
+
+body.light .tab { color: rgba(29,24,48,0.65); }
+body.light .tab.active { color: #1d1830; background: rgba(29,24,48,0.08); }
+body.light .tab.focused, body.light .chip.focused, body.light .profile-chip.focused { color: #fff; background: #7b5bf5; border-color: #b9a8ff; }
+body.light .clock, body.light .user-chip, body.light .profile-chip { color: rgba(29,24,48,0.7); }
+
+body.light .hero-shade-left { background: linear-gradient(to right, #f5f3fa 30%, rgba(245,243,250,0.88) 50%, rgba(245,243,250,0) 100%); }
+body.light .hero-shade-bottom { background: linear-gradient(to top, #f5f3fa 0%, rgba(245,243,250,0) 100%); }
+body.light .hero-title, body.light .hero-desc { text-shadow: none; }
+body.light .hero-meta, body.light .details-meta { color: rgba(29,24,48,0.75); }
+body.light .hero-desc, body.light .details-desc { color: rgba(29,24,48,0.8); }
+body.light .hero-meta .imdb, body.light .details-meta .imdb { color: #b38600; }
+body.light .hero-dots span { background: rgba(29,24,48,0.2); }
+body.light .hero-dots span.on { background: #7b5bf5; }
+
+body.light .btn { background: rgba(29,24,48,0.08); color: #1d1830; }
+body.light .btn.primary { background: #1d1830; color: #fff; }
+body.light .btn.focused { background: #7b5bf5; color: #fff; border-color: #c9bbff; }
+
+body.light .row-title small, body.light .row-empty, body.light .hint, body.light .profile-hint { color: rgba(29,24,48,0.5); }
+body.light .card .poster-wrap { background: #e6e2f0; }
+body.light .card .poster-wrap .ph { color: rgba(29,24,48,0.5); }
+body.light .card .name, body.light .profile-card .profile-name { color: rgba(29,24,48,0.65); }
+body.light .card.focused .name, body.light .profile-card.focused .profile-name { color: #1d1830; }
+body.light .card.focused .poster-wrap { border-color: #7b5bf5; }
+body.light .card .badge { color: #fff; }
+body.light .profile-card.focused .avatar { border-color: #1d1830; }
+
+body.light .chip { background: rgba(29,24,48,0.07); }
+body.light .chip.active { background: rgba(123,91,245,0.18); color: #4a2fc0; }
+body.light .input { color: #1d1830; background: #fff; border-color: rgba(29,24,48,0.12); }
+body.light .input.focused, body.light .input:focus { border-color: #7b5bf5; background: #fff; }
+
+body.light .details-bg { opacity: 0.35; }
+body.light .details-shade { background: linear-gradient(to right, #f5f3fa 25%, rgba(245,243,250,0.8) 55%, rgba(245,243,250,0.45) 100%); }
+body.light .details-panel { background: rgba(255,255,255,0.92); }
+body.light .details-genres span { background: rgba(29,24,48,0.08); }
+body.light .details-cast { color: rgba(29,24,48,0.6); }
+body.light .details-cast b { color: #1d1830; }
+body.light .rating { background: #fff; box-shadow: 0 1px 3px rgba(29,24,48,0.15); }
+body.light .rating.imdb b { color: #b38600; }
+body.light .cast .ph { background: #e6e2f0; }
+body.light .cast .ch { color: rgba(29,24,48,0.55); }
+
+body.light .load-bar { background: rgba(29,24,48,0.1); }
+body.light .panel-sub, body.light .loading-line, body.light .episode .ep-sub { color: rgba(29,24,48,0.55); }
+body.light .episode .thumb { background: #e6e2f0; }
+body.light .episode .ep-desc { color: rgba(29,24,48,0.65); }
+body.light .episode.watched .ep-title:after { color: #6a4be8; }
+body.light .episode.focused, body.light .stream.focused, body.light .set-row.focused { background: rgba(123,91,245,0.16); border-color: #7b5bf5; }
+body.light .stream { background: #fff; }
+body.light .stream .s-addon { color: #5b3fd6; }
+body.light .stream .s-title { color: rgba(29,24,48,0.85); }
+body.light .stream .s-tag { background: rgba(29,24,48,0.08); }
+body.light .stream .s-tag.warn { background: rgba(255,170,0,0.2); color: #9a5c00; }
+body.light .stream .s-tag.ok { background: rgba(80,200,120,0.2); color: #1e7a3d; }
+
+body.light .modal { background: rgba(29,24,48,0.35); }
+body.light .modal-box { background: #fff; border-color: rgba(29,24,48,0.08); box-shadow: 0 20px 60px rgba(29,24,48,0.25); }
+body.light .opt small, body.light .set-row .label small { color: rgba(29,24,48,0.55); }
+body.light .opt.checked:before { color: #6a4be8; }
+body.light .opt.focused { background: rgba(123,91,245,0.16); border-left-color: #7b5bf5; }
+body.light .modal-text { color: rgba(29,24,48,0.8); }
+
+body.light .set-section, body.light .set-row .value, body.light .login .code { color: #5b3fd6; }
+body.light .set-row { background: #fff; }
+body.light .toggle { background: rgba(29,24,48,0.18); }
+body.light .toggle.on { background: #7b5bf5; }
+body.light .login-card, body.light .wizard-card { background: #fff; box-shadow: 0 10px 40px rgba(29,24,48,0.1); }
+body.light .login-col + .login-col { border-left-color: rgba(29,24,48,0.1); }
+body.light .login p, body.light .wizard p { color: rgba(29,24,48,0.7); }
+body.light .login .err, body.light .err-text { color: #c62828; }
+body.light .wizard .opts .opt { background: rgba(29,24,48,0.05); }
+body.light .avatar.add { background: rgba(29,24,48,0.08); color: rgba(29,24,48,0.6); }
+body.light .toast { background: #1d1830; color: #fff; }
