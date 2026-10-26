@@ -13,7 +13,8 @@
     "logs": "node tools/devlog-server.mjs",
     "release": "node tools/release.mjs",
     "serve": "node tools/serve.mjs",
-    "ship": "node tools/publish.mjs"
+    "ship": "node tools/publish.mjs",
+    "wgt": "npm run build && cp tizen/config.xml dist/ && rm -f wgt/Seraflix.wgt && mkdir -p wgt && cd dist && zip -qr ../wgt/Seraflix.wgt . -x appinfo.json && rm config.xml"
   },
   "devDependencies": {
     "@babel/core": "^7.28.0",
