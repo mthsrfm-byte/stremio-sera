@@ -256,6 +256,13 @@ body.oled .details-shade { background: linear-gradient(to right, #000 25%, rgba(
 .login .input { width: 100%; margin-bottom: 20px; }
 .login .err { color: #ff8a8a; font-size: 21px; min-height: 30px; margin-bottom: 10px; }
 
+/* ---------- QR do controle no celular ---------- */
+.qr-box { width: 760px; text-align: center; }
+.qr-box .modal-text { text-align: center; }
+.qr-big { display: block; width: 420px; height: 420px; margin: 0 auto 18px; border-radius: 18px; background: #fff; padding: 14px; image-rendering: pixelated; }
+.qr-url { font-size: 26px; font-weight: 700; margin-bottom: 26px; }
+.qr-box .modal-actions { -webkit-justify-content: center; justify-content: center; }
+
 /* ---------- Toast ---------- */
 .toast { position: absolute; left: 50%; bottom: 60px; -webkit-transform: translateX(-50%); transform: translateX(-50%); background: rgba(27,23,40,0.96); color: #fff; padding: 18px 36px; border-radius: 16px; font-size: 23px; font-weight: 600; opacity: 0; -webkit-transition: opacity 0.25s; transition: opacity 0.25s; z-index: 100; max-width: 1400px; border: 2px solid rgba(157,133,255,0.4); }
 .toast.show { opacity: 1; }

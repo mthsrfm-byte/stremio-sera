@@ -142,8 +142,9 @@ WebSocket on `127.0.0.1:8002`, so the phone needs no certificate and it works on
 time, the TV asks to allow "Seraflix Controle"; the token is saved in
 `/home/owner/share/seraflixRemote.json`.
 
-`https://mthsrfm-byte.github.io/stremio-sera/` (the `remote/` folder on GitHub Pages) only asks
-for the TV's IP and opens `http://TV-IP:8090`.
+On the TV, **Ajustes → Controle no celular → Abrir o controle no celular** shows a QR code with that
+address (the service reports the TV's IP at `/api/ip`). `https://mthsrfm-byte.github.io/stremio-sera/`
+(the `remote/` folder on GitHub Pages) asks for the TV's IP and opens `http://TV-IP:8090`.
 
 The page is locked with a 6-digit PIN (only its SHA-256 is in the code). After the right PIN the
 device stays unlocked (cookie renewed on every visit + localStorage). To lock every device again,

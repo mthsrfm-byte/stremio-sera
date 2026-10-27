@@ -6,6 +6,7 @@ import { log } from '../lib/log.js';
 import { deviceInfo } from '../lib/luna.js';
 import * as substyle from '../lib/substyle.js';
 import * as update from '../api/update.js';
+import * as phoneRemote from '../api/phoneRemote.js';
 import * as stremio from '../api/stremio.js';
 import * as server from '../api/server.js';
 import * as addons from '../api/addons.js';
@@ -57,6 +58,31 @@ export function SettingsView() {
       h('div.label', null, [label, sub ? h('small', { text: sub }) : null]),
       extra || h('div.value', { text: value || '' }),
     ]);
+  }
+
+  // QR code do controle pelo celular, grande no meio da tela.
+  function showPhoneRemote() {
+    toast(t('Gerando o QR code...'));
+    phoneRemote
+      .remoteUrl()
+      .then((url) => {
+        const box = h('div.modal-box.center.qr-box', null, [
+          h('h3', { text: t('Controle no celular') }),
+          h('p.modal-text', { text: t('Aponte a câmera do celular (na mesma Wi-Fi) para o código. O controle abre direto, sem digitar nada.') }),
+          h('img.qr-big', { src: phoneRemote.qrDataUrl(url, 10), alt: url }),
+          h('p.qr-url', { text: url }),
+          h('div.modal-actions', null, [h('div.btn.primary', { focusable: true, 'data-autofocus': '', text: t('Fechar'), onSelect: () => close() })]),
+        ]);
+        const modal = h('div.modal', null, box);
+        document.getElementById('app').appendChild(modal);
+        const layer = nav.pushLayer(modal, { onBack: () => close() });
+        nav.focusFirst(modal);
+        function close() {
+          nav.popLayer(layer);
+          if (modal.parentNode) modal.parentNode.removeChild(modal);
+        }
+      })
+      .catch(() => toast(t('Não consegui descobrir o IP da TV. Veja em Configurações → Geral → Rede.'), 6000));
   }
 
   let updateStatus = '';
@@ -437,6 +463,10 @@ export function SettingsView() {
         addInput,
       ])
     );
+
+    // ---- Controle pelo celular ----
+    body.appendChild(h('div.set-section', { text: t('Controle no celular') }));
+    body.appendChild(row(t('Abrir o controle no celular'), t('Mostra um QR code: é só apontar a câmera'), '', () => showPhoneRemote()));
 
     // ---- Atualizações (direto do GitHub, sem fechar o app) ----
     body.appendChild(h('div.set-section', { text: t('Atualizações') }));
