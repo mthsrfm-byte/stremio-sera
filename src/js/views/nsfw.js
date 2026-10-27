@@ -257,7 +257,7 @@ function catalogRow(entry, parent) {
 
 // Grade com o catálogo inteiro (opcionalmente filtrado por categoria), paginada.
 function GridView(entry, extra) {
-  const el = h('div.view');
+  const el = h('div.view.nsfw-view');
   const scroller = h('div.scroll-y', { 'data-scroll-y': '' });
   const crumb = [h('span', { text: 'NSFW › ' + (entry.addon.manifest.name || '') }), ' › ', h('b', { text: extra.genre ? tr.genre(extra.genre) : catName(entry) })];
   const grid = h('div.grid');

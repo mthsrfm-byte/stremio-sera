@@ -20,6 +20,7 @@ import * as router from '../router.js';
 import { openLogin } from './login.js';
 import { avatar, switchProfile, createProfile } from './profiles.js';
 import { t } from '../lib/i18n.js';
+import * as pinLock from './pin.js';
 import { themeOf, applyTheme } from '../lib/theme.js';
 
 const SUB_LANGS = [
@@ -212,23 +213,39 @@ export function SettingsView() {
   function nsfwSection(list) {
     const s = store.settings();
     const adult = list.filter(addons.isAdult);
+    // Mexer nas opções NSFW também pede o PIN (uma vez por sessão).
+    const guarded = (fn) => () => pinLock.requirePin(fn);
     body.appendChild(
-      row(t('Mostrar aba NSFW'), adult.length ? t('Conteúdo adulto fica só nela, fora do Início, Busca e Biblioteca') : t('Aparece quando houver um addon adulto'), '', () => {
+      row(t('Mostrar aba NSFW'), adult.length ? t('Conteúdo adulto fica só nela, fora do Início, Busca e Biblioteca') : t('Aparece quando houver um addon adulto'), '', guarded(() => {
         store.saveSettings({ nsfwTab: store.settings().nsfwTab === false });
         refreshTabs();
         router.dropTab('nsfw');
         render();
-      }, toggle(s.nsfwTab !== false))
+      }), toggle(s.nsfwTab !== false))
+    );
+    const pinInput = h('input.input', { type: 'password', placeholder: t('Novo PIN (4 a 8 números)') });
+    pinInput.__submit = (v) => {
+      const p = v.trim();
+      if (!/^\d{4,8}$/.test(p)) return toast(t('O PIN precisa ter de 4 a 8 números'));
+      store.saveSettings({ nsfwPin: p });
+      pinInput.value = '';
+      toast(t('PIN da aba NSFW trocado'));
+    };
+    body.appendChild(
+      h('div.set-row', { focusable: true, onSelect: guarded(() => nav.select(pinInput)) }, [
+        h('div.label', null, [t('PIN da aba NSFW'), h('small', { text: t('Pedido ao entrar na aba; vale até o app fechar ou ir para segundo plano') })]),
+        pinInput,
+      ])
     );
     body.appendChild(
-      row(t('Traduzir títulos NSFW'), t('Nomes dos vídeos em português (precisa de internet; sem tradução fica o original)'), '', () => {
+      row(t('Traduzir títulos NSFW'), t('Nomes dos vídeos em português (precisa de internet; sem tradução fica o original)'), '', guarded(() => {
         store.saveSettings({ nsfwTranslate: store.settings().nsfwTranslate === false });
         router.dropTab('nsfw');
         render();
-      }, toggle(s.nsfwTranslate !== false))
+      }), toggle(s.nsfwTranslate !== false))
     );
     body.appendChild(
-      row(t('Addons adultos'), t('Detectados sozinhos; marque ou desmarque à mão'), adult.map((a) => a.manifest.name || a.manifest.id).join(', ') || t('nenhum'), () =>
+      row(t('Addons adultos'), t('Detectados sozinhos; marque ou desmarque à mão'), adult.length ? t('{n} addon(s)', { n: adult.length }) : t('nenhum'), guarded(() =>
         menu(
           t('Addons adultos'),
           list.map((a) => ({ label: a.manifest.name || a.manifest.id, sub: addons.adultByManifest(a) ? t('Detectado como adulto') : '', value: a.manifest.id, checked: addons.isAdult(a) })),
@@ -251,7 +268,7 @@ export function SettingsView() {
             },
           }
         )
-      )
+      ))
     );
   }
 

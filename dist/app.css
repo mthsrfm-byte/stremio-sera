@@ -670,3 +670,18 @@ body.light .card.ranked .rank { color: #F5F4EF; -webkit-text-stroke-color: rgba(
 .chip-track { display: -webkit-flex; display: flex; padding: 0 96px 10px; white-space: nowrap; overflow: hidden; }
 .chip-track .chip { -webkit-flex-shrink: 0; flex-shrink: 0; }
 .nsfw-genres { height: auto; }
+
+/* PIN da aba NSFW (teclado de banco: dois números por botão) */
+.pin-box { width: 760px; padding: 36px 40px 30px; text-align: center; }
+.pin-box h3 { padding: 0 0 18px; }
+.pin-dots { margin: 6px 0 30px; }
+.pin-dots i { display: inline-block; width: 22px; height: 22px; margin: 0 10px; border-radius: 50%; border: 3px solid rgba(255,255,255,0.5); }
+.pin-dots i.on { background: #fff; border-color: #fff; }
+.pin-pad { display: -webkit-flex; display: flex; -webkit-flex-wrap: wrap; flex-wrap: wrap; -webkit-justify-content: center; justify-content: center; }
+.pin-key { width: 200px; margin: 10px; text-align: center; font-size: 30px; font-weight: 800; }
+.pin-msg { min-height: 34px; margin-top: 14px; color: #ff8a8a; font-size: 22px; }
+.pin-box.shake { -webkit-animation: pinShake 0.35s; animation: pinShake 0.35s; }
+@-webkit-keyframes pinShake { 25% { -webkit-transform: translate(-52%, -50%); } 75% { -webkit-transform: translate(-48%, -50%); } }
+@keyframes pinShake { 25% { transform: translate(-52%, -50%); } 75% { transform: translate(-48%, -50%); } }
+body.light .pin-dots i { border-color: rgba(17,17,16,0.4); }
+body.light .pin-dots i.on { background: #111110; border-color: #111110; }

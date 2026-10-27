@@ -5172,7 +5172,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   function registerTizenKeys() {
     var input = window.tizen && window.tizen.tvinputdevice;
     if (!input) return;
-    ["MediaPlayPause", "MediaPlay", "MediaPause", "MediaStop", "MediaFastForward", "MediaRewind", "ColorF0Red", "ColorF1Green", "ColorF2Yellow", "ColorF3Blue", "ChannelUp", "ChannelDown"].forEach(function (k) {
+    ["MediaPlayPause", "MediaPlay", "MediaPause", "MediaStop", "MediaFastForward", "MediaRewind", "ColorF0Red", "ColorF1Green", "ColorF2Yellow", "ColorF3Blue", "ChannelUp", "ChannelDown", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"].forEach(function (k) {
       try {
         input.registerKey(k);
       } catch (e) {}
@@ -6670,6 +6670,150 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
   }
 
+  // src/js/views/pin.js
+  var DEFAULT_PIN = "7789";
+  var MAX_TRIES = 3;
+  var LOCK_MS = 6e4;
+  var unlocked = false;
+  var failures = 0;
+  var lockedUntil = 0;
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden) return;
+    unlocked = false;
+    var v = currentView();
+    if (v && v.el.classList.contains("nsfw-view")) goTab("home");else if (tabView("nsfw")) dropTab("nsfw");
+  });
+  function pin() {
+    var p = settings().nsfwPin;
+    return /^\d{4,8}$/.test(p || "") ? p : DEFAULT_PIN;
+  }
+  function shuffle(a) {
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var x = a[i];
+      a[i] = a[j];
+      a[j] = x;
+    }
+    return a;
+  }
+  function requirePin(onOk) {
+    if (unlocked) return onOk();
+    askPin(t("Aba protegida"), function (ok) {
+      if (!ok) return;
+      unlocked = true;
+      onOk();
+    });
+  }
+  function askPin(title, onDone) {
+    var dots = h("div.pin-dots");
+    var msg = h("div.pin-msg");
+    var pad = h("div.pin-pad", {
+      "data-group": ""
+    });
+    var box = h("div.modal-box.center.pin-box", null, [h("h3", {
+      text: title
+    }), dots, pad, msg]);
+    var modal = h("div.modal", null, box);
+    var want = pin();
+    var entered = [];
+    function renderDots() {
+      clear(dots);
+      for (var i = 0; i < want.length; i++) dots.appendChild(h("i", {
+        cls: i < entered.length ? "on" : ""
+      }));
+    }
+    function renderPad() {
+      clear(pad);
+      var digits = shuffle(["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]);
+      var _loop3 = function _loop3() {
+        var pair = [digits[i], digits[i + 1]];
+        pad.appendChild(h("div.btn.pin-key", {
+          focusable: true,
+          text: pair[0] + " " + t("ou") + " " + pair[1],
+          onSelect: function onSelect() {
+            return press(pair);
+          }
+        }));
+      };
+      for (var i = 0; i < 10; i += 2) {
+        _loop3();
+      }
+      pad.appendChild(h("div.btn.pin-key", {
+        focusable: true,
+        text: "⌫",
+        onSelect: function onSelect() {
+          return erase();
+        }
+      }));
+    }
+    function erase() {
+      entered.pop();
+      renderDots();
+    }
+    function press(options) {
+      if (Date.now() < lockedUntil) {
+        msg.textContent = t("Muitas tentativas. Espere {s}s.", {
+          s: Math.ceil((lockedUntil - Date.now()) / 1e3)
+        });
+        return;
+      }
+      msg.textContent = "";
+      entered.push(options);
+      renderDots();
+      if (entered.length < want.length) return;
+      var ok = entered.every(function (opts, i) {
+        return opts.indexOf(want[i]) >= 0;
+      });
+      entered = [];
+      if (ok) {
+        failures = 0;
+        close();
+        onDone(true);
+        return;
+      }
+      failures++;
+      if (failures >= MAX_TRIES) {
+        failures = 0;
+        lockedUntil = Date.now() + LOCK_MS;
+        msg.textContent = t("Muitas tentativas. Espere {s}s.", {
+          s: LOCK_MS / 1e3
+        });
+      } else msg.textContent = t("PIN incorreto");
+      box.classList.remove("shake");
+      void box.offsetWidth;
+      box.classList.add("shake");
+      renderPad();
+      renderDots();
+      focusFirst(pad);
+    }
+    function close() {
+      popLayer(layer);
+      if (modal.parentNode) modal.parentNode.removeChild(modal);
+    }
+    renderDots();
+    renderPad();
+    document.getElementById("app").appendChild(modal);
+    var layer = pushLayer(modal, {
+      onBack: function onBack() {
+        return close();
+      },
+      onKey: function onKey(e) {
+        var c = e.keyCode;
+        var d = c >= 48 && c <= 57 ? c - 48 : c >= 96 && c <= 105 ? c - 96 : -1;
+        if (d >= 0) {
+          press([String(d)]);
+          return true;
+        }
+        if (c === KEY.BACKSPACE && entered.length) {
+          erase();
+          return true;
+        }
+        return false;
+      }
+    });
+    focusFirst(pad);
+  }
+
   // src/js/ui.js
   var toastTimer = null;
   function toast(msg, ms) {
@@ -6807,7 +6951,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         } : null,
         text: t(tab.label),
         onSelect: function onSelect() {
-          return onTab(tab.id);
+          return tab.id === "nsfw" ? requirePin(function () {
+            return onTab(tab.id);
+          }) : onTab(tab.id);
         }
       });
     }), h("div.spacer"), profileButton(onTab), clock]);
@@ -7127,7 +7273,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
   function pickLogo(logos) {
     var pref = ["pt", "en", null];
-    var _loop3 = function _loop3(i) {
+    var _loop4 = function _loop4(i) {
         var l = (logos || []).find(function (x) {
           return x.iso_639_1 === pref[i];
         });
@@ -7137,7 +7283,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       },
       _ret;
     for (var i = 0; i < pref.length; i++) {
-      _ret = _loop3(i);
+      _ret = _loop4(i);
       if (_ret) return _ret.v;
     }
     return null;
@@ -7891,7 +8037,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         }
       }
       if (autoDone.sub || !settings2.subtitlesAuto || !prefSubs.length || !addonSubs) return;
-      var _loop4 = function _loop4(p) {
+      var _loop5 = function _loop5(p) {
           var s = addonSubs.find(function (x) {
             return String(x.lang).toLowerCase() === prefSubs[p];
           });
@@ -7905,7 +8051,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         },
         _ret2;
       for (var p = 0; p < prefSubs.length; p++) {
-        _ret2 = _loop4(p);
+        _ret2 = _loop5(p);
         if (_ret2) return _ret2.v;
       }
     }
@@ -10621,7 +10767,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     function loadNearby() {
       if (el.offsetParent === null) return;
       var limit = window.innerHeight * 2.2;
-      var _loop5 = function _loop5() {
+      var _loop6 = function _loop6() {
           var p = pending[i];
           if (p.state !== "idle") return 0; // continue
           if (!p.row.parentNode) {
@@ -10639,7 +10785,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         },
         _ret3;
       for (var i = 0; i < pending.length && active < 2; i++) {
-        _ret3 = _loop5();
+        _ret3 = _loop6();
         if (_ret3 === 0) continue;
         if (_ret3 === 1) break;
       }
@@ -11183,7 +11329,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     function loadNearby() {
       if (el.offsetParent === null) return;
       var limit = window.innerHeight * 2.2;
-      var _loop6 = function _loop6() {
+      var _loop7 = function _loop7() {
           var p = pending[i];
           if (p.state !== "idle") return 0; // continue
           if (!p.row.parentNode) {
@@ -11201,7 +11347,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         },
         _ret4;
       for (var i = 0; i < pending.length && active < 2; i++) {
-        _ret4 = _loop6();
+        _ret4 = _loop7();
         if (_ret4 === 0) continue;
         if (_ret4 === 1) break;
       }
@@ -11482,7 +11628,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     };
   }
   function GridView(entry, extra) {
-    var el = h("div.view");
+    var el = h("div.view.nsfw-view");
     var scroller = h("div.scroll-y", {
       "data-scroll-y": ""
     });
@@ -11747,9 +11893,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "e38344cdcde83fd6ac08a414d090c2a46dab9a4e",
-    date: "2026-10-27T05:13:47+00:00",
-    message: "NSFW tab: adult add-ons detected and kept out of Home, Search and Library"
+    commit: "1324d4dd60d8cfa48e4a0ed0b1e7e85a120042ef",
+    date: "2026-10-27T05:15:07+00:00",
+    message: "NSFW tab: Portuguese category names, translated titles, hide Indian categories"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -12325,24 +12471,50 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     function nsfwSection(list2) {
       var s = settings();
       var adult = list2.filter(isAdult);
-      body.appendChild(row(t("Mostrar aba NSFW"), adult.length ? t("Conteúdo adulto fica só nela, fora do Início, Busca e Biblioteca") : t("Aparece quando houver um addon adulto"), "", function () {
+      var guarded = function guarded(fn) {
+        return function () {
+          return requirePin(fn);
+        };
+      };
+      body.appendChild(row(t("Mostrar aba NSFW"), adult.length ? t("Conteúdo adulto fica só nela, fora do Início, Busca e Biblioteca") : t("Aparece quando houver um addon adulto"), "", guarded(function () {
         saveSettings({
           nsfwTab: settings().nsfwTab === false
         });
         refreshTabs();
         dropTab("nsfw");
         render();
-      }, toggle(s.nsfwTab !== false)));
-      body.appendChild(row(t("Traduzir títulos NSFW"), t("Nomes dos vídeos em português (precisa de internet; sem tradução fica o original)"), "", function () {
+      }), toggle(s.nsfwTab !== false)));
+      var pinInput = h("input.input", {
+        type: "password",
+        placeholder: t("Novo PIN (4 a 8 números)")
+      });
+      pinInput.__submit = function (v) {
+        var p = v.trim();
+        if (!/^\d{4,8}$/.test(p)) return toast(t("O PIN precisa ter de 4 a 8 números"));
+        saveSettings({
+          nsfwPin: p
+        });
+        pinInput.value = "";
+        toast(t("PIN da aba NSFW trocado"));
+      };
+      body.appendChild(h("div.set-row", {
+        focusable: true,
+        onSelect: guarded(function () {
+          return select(pinInput);
+        })
+      }, [h("div.label", null, [t("PIN da aba NSFW"), h("small", {
+        text: t("Pedido ao entrar na aba; vale até o app fechar ou ir para segundo plano")
+      })]), pinInput]));
+      body.appendChild(row(t("Traduzir títulos NSFW"), t("Nomes dos vídeos em português (precisa de internet; sem tradução fica o original)"), "", guarded(function () {
         saveSettings({
           nsfwTranslate: settings().nsfwTranslate === false
         });
         dropTab("nsfw");
         render();
-      }, toggle(s.nsfwTranslate !== false)));
-      body.appendChild(row(t("Addons adultos"), t("Detectados sozinhos; marque ou desmarque à mão"), adult.map(function (a) {
-        return a.manifest.name || a.manifest.id;
-      }).join(", ") || t("nenhum"), function () {
+      }), toggle(s.nsfwTranslate !== false)));
+      body.appendChild(row(t("Addons adultos"), t("Detectados sozinhos; marque ou desmarque à mão"), adult.length ? t("{n} addon(s)", {
+        n: adult.length
+      }) : t("nenhum"), guarded(function () {
         return menu(t("Addons adultos"), list2.map(function (a) {
           return {
             label: a.manifest.name || a.manifest.id,
@@ -12373,7 +12545,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             render();
           }
         });
-      }));
+      })));
     }
     function toggle(on) {
       return h("div.toggle", {

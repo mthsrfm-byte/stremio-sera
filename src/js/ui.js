@@ -7,6 +7,7 @@ import * as store from './lib/store.js';
 import { avatar, switchProfile, createProfile } from './views/profiles.js';
 import { t } from './lib/i18n.js';
 import * as addons from './api/addons.js';
+import { requirePin } from './views/pin.js';
 
 let toastTimer = null;
 export function toast(msg, ms) {
@@ -102,7 +103,7 @@ export function topbar(activeId, onTab) {
         cls: (tab.id === activeId ? 'active' : '') + (tab.id === 'nsfw' ? ' tab-nsfw' : ''),
         style: tab.when && !tab.when() ? { display: 'none' } : null,
         text: t(tab.label),
-        onSelect: () => onTab(tab.id),
+        onSelect: () => (tab.id === 'nsfw' ? requirePin(() => onTab(tab.id)) : onTab(tab.id)),
       })
     ),
     h('div.spacer'),
