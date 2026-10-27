@@ -8369,9 +8369,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "189aaf0707bd11401240de3b7deefd2b7c651241",
-    date: "2026-10-26T21:37:53-03:00",
-    message: "Botão de atualizar dentro do app, com versão e data"
+    commit: "f861df7e872eb24f5bb4ed9a94907e3bb40be452",
+    date: "2026-10-26T22:03:32-03:00",
+    message: "Controle remoto pelo celular (GitHub Pages)"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
