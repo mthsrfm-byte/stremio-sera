@@ -1,6 +1,6 @@
 {
   "version": "1.2.0",
-  "commit": "1e245ab1d9d85a34b4dcf7a9a0123bcc9a9b5975",
-  "date": "2026-10-27T06:08:38+00:00",
-  "message": "See-all grids: centered, always-full rows, auto-load at the last row, focus returns to last row after Load more"
+  "commit": "396349afdc3cca784ef7ae218922a674a860bd2b",
+  "date": "2026-10-27T03:15:47-03:00",
+  "message": "Correções de play, Smart Choice direto no player, perfil do ator, grade do Ver tudo, barra com ícones e nova abertura"
 }

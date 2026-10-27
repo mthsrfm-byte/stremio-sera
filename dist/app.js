@@ -7725,8 +7725,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return m ? m[0] : null;
   }
   var BUILTIN_KEYS = {
-    tmdbKey: true ? "" : "",
-    mdblistKey: true ? "" : ""
+    tmdbKey: true ? "9c57ed7ea044b2f01eea2fcc2e954c2e" : "",
+    mdblistKey: true ? "t9e4f1z29b3c36i1j25rul1wx" : ""
   };
   function keyOf(name) {
     return (settings()[name] || "").trim() || BUILTIN_KEYS[name];
@@ -13282,9 +13282,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "1e245ab1d9d85a34b4dcf7a9a0123bcc9a9b5975",
-    date: "2026-10-27T06:08:38+00:00",
-    message: "See-all grids: centered, always-full rows, auto-load at the last row, focus returns to last row after Load more"
+    commit: "396349afdc3cca784ef7ae218922a674a860bd2b",
+    date: "2026-10-27T03:15:47-03:00",
+    message: "Correções de play, Smart Choice direto no player, perfil do ator, grade do Ver tudo, barra com ícones e nova abertura"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
