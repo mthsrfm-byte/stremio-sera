@@ -7702,8 +7702,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return m ? m[0] : null;
   }
   var BUILTIN_KEYS = {
-    tmdbKey: true ? "" : "",
-    mdblistKey: true ? "" : ""
+    tmdbKey: true ? "9c57ed7ea044b2f01eea2fcc2e954c2e" : "",
+    mdblistKey: true ? "t9e4f1z29b3c36i1j25rul1wx" : ""
   };
   function keyOf(name) {
     return (settings()[name] || "").trim() || BUILTIN_KEYS[name];
@@ -13458,9 +13458,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "8123c707678aa0e61e2570b0f11195724b90b2ff",
-    date: "2026-10-27T07:06:18+00:00",
-    message: "Seraflix Tube: XVideos and Pornhub add-ons served by the TV service (links requested from the TV's own IP), auto-attached in the app; new adult PIN screen; readable playback error panel"
+    commit: "5a32729ce2d371528c2094f73c2cca5a47ec7676",
+    date: "2026-10-27T04:10:52-03:00",
+    message: "XVideos e Pornhub pela própria TV, salvar vídeos adultos, nova tela de PIN"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
