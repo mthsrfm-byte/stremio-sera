@@ -606,7 +606,8 @@ function DetailsView(type, id, opts) {
     const info = si.parse(s);
     const tags = [];
     if (info.res) tags.push(h('span.s-tag.res', { cls: info.res === '4K' ? 'uhd' : '', text: info.res }));
-    if (info.dv) tags.push(h('span.s-tag.dv', { text: 'Dolby Vision' }));
+    // A Samsung não tem Dolby Vision: o arquivo DV pode nem abrir (o Smart Choice deixa por último).
+    if (info.dv) tags.push(h('span.s-tag.dv', { text: t('Dolby Vision · pode não abrir') }));
     else if (info.hdr) tags.push(h('span.s-tag.hdr', { text: 'HDR' }));
     if (info.dub) tags.push(h('span.s-tag.dub', { html: BR_FLAG + (info.original ? t('Original + Dublado') : t('Dublado')) }));
     if (info.remux) tags.push(h('span.s-tag', { text: 'REMUX' }));
