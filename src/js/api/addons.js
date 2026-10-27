@@ -65,7 +65,7 @@ function defaultAddons() {
 // SERVICE_MIN: versão do serviço que este app espera (o /api/version dele); mais velha, pede a nova.
 const TUBES = ['xv', 'ph'];
 const TUBE_PORT = 8092;
-const SERVICE_MIN = 6;
+const SERVICE_MIN = 7;
 let tubes = null; // null: ainda procurando; [] ou lista: já respondeu
 let tubeTries = 0;
 // 'searching' | 'ok' | 'old' (serviço antigo, sem os addons) | 'off' (serviço não responde)
@@ -226,8 +226,18 @@ export function isAdult(addon) {
   return (s.nsfwAddons || []).indexOf(id) >= 0 || adultByManifest(addon);
 }
 
+// Ordem na aba NSFW: Pornhub e XVideos (os do serviço da TV) primeiro, depois os outros na ordem da conta.
+const ADULT_FIRST = ['seraflix.pornhub', 'seraflix.xvideos'];
 export function adultAddons() {
-  return list().filter(isAdult);
+  const rank = (a) => {
+    const i = ADULT_FIRST.indexOf(a.manifest && a.manifest.id);
+    return i < 0 ? ADULT_FIRST.length : i;
+  };
+  return list()
+    .filter(isAdult)
+    .map((a, i) => ({ a: a, i: i }))
+    .sort((x, y) => rank(x.a) - rank(y.a) || x.i - y.i)
+    .map((x) => x.a);
 }
 
 // Aba NSFW fica sempre disponível; só some se o perfil desativar em Ajustes.
