@@ -6303,9 +6303,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "954bd0b110382b4eb46df405f8c7c2a5a752232d",
-    date: "2026-10-27T07:27:22-03:00",
-    message: "Player: prévia ao avançar/voltar em qualquer vídeo, pelo servidor do PC"
+    commit: "3bde2c9d779e149e20c7ef38e9552e255a102442",
+    date: "2026-10-27T07:47:14-03:00",
+    message: "NSFW redesenhada: por site, números de qualidade e Favoritar em tudo"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -6456,7 +6456,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
   var TUBES = ["xv", "ph"];
   var TUBE_PORT = 8092;
-  var SERVICE_MIN = 9;
+  var SERVICE_MIN = 10;
   var tubes = null;
   var tubeTries = 0;
   var tubeState = "searching";
@@ -7427,6 +7427,34 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return out;
   }
 
+  // src/js/lib/nsfwSaved.js
+  var KEY2 = "nsfwSaved";
+  var MAX = 500;
+  function list2() {
+    return get(KEY2, []) || [];
+  }
+  function has(id) {
+    return list2().some(function (x) {
+      return x.id === id;
+    });
+  }
+  function toggle(meta) {
+    var items = list2();
+    var i = items.findIndex(function (x) {
+      return x.id === meta.id;
+    });
+    if (i >= 0) items.splice(i, 1);else items.unshift({
+      id: meta.id,
+      type: meta.type || "movie",
+      name: meta.name || "",
+      poster: meta.poster || meta.background || "",
+      posterShape: meta.posterShape || "",
+      savedAt: Date.now()
+    });
+    set(KEY2, items.slice(0, MAX));
+    return i < 0;
+  }
+
   // src/js/ui.js
   var toastTimer = null;
   function toast(msg, ms) {
@@ -7834,6 +7862,64 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var hh = Math.floor(sec / 3600);
     return (hh ? hh + ":" + ("0" + m).slice(-2) : m) + ":" + ("0" + s).slice(-2);
   }
+  var HEART = '<svg viewBox="0 0 24 24"><path d="M12 20.5s-7.5-4.6-9.3-9.2C1.5 8 3.6 4.5 7.2 4.5c2 0 3.6 1.1 4.8 2.8 1.2-1.7 2.8-2.8 4.8-2.8 3.6 0 5.7 3.5 4.5 6.8-1.8 4.6-9.3 9.2-9.3 9.2z"/></svg>';
+  function isFavorite(item) {
+    var id = item && (item.id || item._id);
+    if (!id) return false;
+    return isAdultId(id) ? has(id) : isInLibrary(id);
+  }
+  function toggleFavorite(item) {
+    var id = item.id || item._id;
+    if (isAdultId(id)) {
+      var on2 = toggle(Object.assign({}, item, {
+        id: id
+      }));
+      toast(on2 ? t("♥ Favoritado") : t("Tirado dos favoritos"));
+      return Promise.resolve(on2);
+    }
+    var on = !isInLibrary(id);
+    return setInLibrary(Object.assign({}, item, {
+      id: id
+    }), on).then(function () {
+      toast(on ? t("♥ Favoritado") : t("Tirado dos favoritos"));
+      return on;
+    });
+  }
+  function paintFavs(id) {
+    Array.prototype.forEach.call(document.querySelectorAll(".card"), function (c) {
+      if (c.__fav && (c.__fav.id || c.__fav._id) === id) c.classList.toggle("faved", isFavorite(c.__fav));
+    });
+  }
+  document.addEventListener("keydown", function (e) {
+    if (e.keyCode !== KEY_YELLOW) return;
+    var cur = current2();
+    var el = cur && cur.closest && cur.closest(".card");
+    if (!el || !el.__fav) return;
+    e.preventDefault();
+    toggleFavorite(el.__fav).then(function () {
+      return paintFavs(el.__fav.id || el.__fav._id);
+    });
+  });
+  var KEY_YELLOW = 405;
+  function statsLine(st) {
+    if (!st) return null;
+    var parts = [];
+    if (st.views) parts.push(h("span.cs-views", {
+      html: ICON_EYE + "<b></b>"
+    }));
+    if (st.approval) parts.push(h("span.cs-like", {
+      cls: st.approval >= 85 ? "hot" : "",
+      html: ICON_LIKE + "<b></b>"
+    }));
+    if (st.channel) parts.push(h("span.cs-by", {
+      text: st.channel
+    }));
+    if (st.views) parts[0].lastChild.textContent = st.views;
+    if (st.approval) parts[st.views ? 1 : 0].lastChild.textContent = st.approval + "%";
+    return parts.length ? h("div.card-stats", null, parts) : null;
+  }
+  var ICON_EYE = '<svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+  var ICON_LIKE = '<svg viewBox="0 0 24 24"><path d="M7 10v11H3V10h4z"/><path d="M7 10l4-8a3 3 0 0 1 3 3v4h5.5a2 2 0 0 1 2 2.3l-1.4 8A2 2 0 0 1 18.1 21H7"/></svg>';
   function _card(item, opts) {
     var o = opts || {};
     var wrap = h("div.poster-wrap");
@@ -7866,16 +7952,31 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     if (o.badge) wrap.appendChild(h("div.badge", {
       text: o.badge
     }));
+    if (o.corner) wrap.appendChild(h("div.card-corner", {
+      cls: o.corner === "4K" ? "uhd" : "",
+      text: o.corner
+    }));
+    if (o.duration) wrap.appendChild(h("div.card-dur", {
+      text: o.duration
+    }));
+    var favItem = o.fav === false ? null : o.favItem || ((item.id || item._id) && item.type ? item : null);
+    if (favItem) wrap.appendChild(h("div.card-fav", {
+      html: HEART
+    }));
     var el = h("div.card", {
       focusable: true,
-      cls: o.wide ? "wide" : o.rank ? "ranked" : "",
+      cls: (o.wide ? "wide" : o.rank ? "ranked" : "") + (o.rich ? " rich" : ""),
       onSelect: o.onSelect,
       onFocus: o.onFocus
     }, [o.rank ? h("div.rank", {
       text: String(o.rank)
     }) : null, wrap, h("div.name", {
       text: o.title || item.name || ""
-    })]);
+    }), o.stats || null]);
+    if (favItem) {
+      el.__fav = favItem;
+      if (isFavorite(favItem)) el.classList.add("faved");
+    }
     function dropCard() {
       var parent = el.parentNode;
       if (!parent) return;
@@ -10857,34 +10958,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
   }
 
-  // src/js/lib/nsfwSaved.js
-  var KEY2 = "nsfwSaved";
-  var MAX = 500;
-  function list2() {
-    return get(KEY2, []) || [];
-  }
-  function has(id) {
-    return list2().some(function (x) {
-      return x.id === id;
-    });
-  }
-  function toggle(meta) {
-    var items = list2();
-    var i = items.findIndex(function (x) {
-      return x.id === meta.id;
-    });
-    if (i >= 0) items.splice(i, 1);else items.unshift({
-      id: meta.id,
-      type: meta.type || "movie",
-      name: meta.name || "",
-      poster: meta.poster || meta.background || "",
-      posterShape: meta.posterShape || "",
-      savedAt: Date.now()
-    });
-    set(KEY2, items.slice(0, MAX));
-    return i < 0;
-  }
-
   // src/js/api/phoneRemote.js
   var import_qrcode_generator = __toESM(require_qrcode(), 1);
   var PORT = 8090;
@@ -12532,6 +12605,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       info.appendChild(title);
       info.appendChild(metaLine2);
       info.appendChild(ratingsEl);
+      if (isAdult2() && meta.stats) info.appendChild(adultStats(meta.stats));
       info.appendChild(genres);
       info.appendChild(desc);
       info.appendChild(h("div.details-buttons", {
@@ -12654,7 +12728,36 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         label = t("Continuar") + (ep ? " T" + ep.season + "E" + ep.episode : "");
       }
       watchBtn.innerHTML = '<span class="ico">▶</span>' + label;
-      if (isAdult2()) libBtn.innerHTML = has(meta.id) ? '<span class="ico">♥</span>' + t("Salvo") : '<span class="ico">♡</span>' + t("Salvar");else libBtn.innerHTML = isInLibrary(meta.id) ? '<span class="ico">✓</span>' + t("Na biblioteca") : '<span class="ico">＋</span>' + t("Biblioteca");
+      var fav = isAdult2() ? has(meta.id) : isInLibrary(meta.id);
+      libBtn.classList.toggle("faved", fav);
+      libBtn.innerHTML = fav ? '<span class="ico fav">♥</span>' + t("Favoritado") : '<span class="ico">♡</span>' + t("Favoritar");
+    }
+    function adultStats(st) {
+      var box = function box(label, value, extra2) {
+        return h("div.astat", {
+          cls: extra2 || ""
+        }, [h("span.astat-label", {
+          text: label
+        }), h("b.astat-value", {
+          text: value
+        })]);
+      };
+      var items = [];
+      if (st.approval) {
+        var a = box(t("Aprovação"), st.approval + "%", st.approval >= 85 ? "hot" : "");
+        a.appendChild(h("div.astat-bar", null, h("i", {
+          style: {
+            width: Math.min(100, st.approval) + "%"
+          }
+        })));
+        items.push(a);
+      }
+      if (st.likes) items.push(box(t("Curtidas"), st.likes));
+      if (st.views) items.push(box(t("Visualizações"), st.views));
+      if (st.duration) items.push(box(t("Duração"), st.duration));
+      return h("div.adult-stats", null, [st.channel ? h("div.astat-channel", {
+        text: st.channel
+      }) : null, h("div.astat-row", null, items)]);
     }
     function isAdult2() {
       return isAdultId(meta.id);
@@ -12674,13 +12777,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       if (isAdult2()) {
         var on = toggle(meta);
         updateButtons();
-        toast(on ? t("Salvo na aba NSFW") : t("Removido dos salvos"));
+        toast(on ? t("♥ Favoritado") : t("Tirado dos favoritos"));
         return;
       }
       var inLib = isInLibrary(meta.id);
       setInLibrary(meta, !inLib).then(function () {
         updateButtons();
-        toast(inLib ? t("Removido da biblioteca") : t("Adicionado à biblioteca"));
+        toast(inLib ? t("Tirado dos favoritos") : t("♥ Favoritado"));
       });
     }
     function uniqueSeasons() {
@@ -13694,11 +13797,73 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // src/js/views/nsfw.js
   var ROW_LIMIT3 = 20;
-  var ICON_ALL = '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>';
   var ICON_SEARCH = '<svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg>';
+  var SITE_MARK = {
+    "seraflix.pornhub": {
+      text: "PH",
+      bg: "#FF9000",
+      fg: "#111110"
+    },
+    "seraflix.xvideos": {
+      text: "XV",
+      bg: "#DE2600",
+      fg: "#FFFFFF"
+    }
+  };
   function initialsOf(name) {
     var words = String(name || "?").replace(/[^A-Za-z0-9À-ú+ ]/g, " ").trim().split(/\s+/);
-    return (words.length > 1 ? words[0][0] + words[1][0] : words[0].slice(0, 2)).toUpperCase();
+    if (/^[A-Z0-9]{2,4}$/.test(words[0])) return words[0];
+    return (words.length > 1 ? words[0][0] + words[1][0] : words[0].slice(0, 3)).toUpperCase();
+  }
+  function siteName(a) {
+    return String(a.manifest.name || a.manifest.id).replace(/\s*[([]\s*\d+\s*\/\s*\d+\s*[)\]]\s*$/, "").replace(/\s+(?:part|parte|pt\.?)\s*\d+\s*$/i, "").trim();
+  }
+  function sites() {
+    var out = [];
+    adultAddons().forEach(function (a) {
+      var name = siteName(a);
+      var id = SITE_MARK[a.manifest.id] ? a.manifest.id : "site:" + name.toLowerCase();
+      var s = out.filter(function (x) {
+        return x.id === id;
+      })[0];
+      if (!s) {
+        s = {
+          id: id,
+          name: name,
+          addons: [],
+          mark: SITE_MARK[a.manifest.id] || null
+        };
+        out.push(s);
+      }
+      s.addons.push(a);
+    });
+    return out;
+  }
+  function sitePrefixes(site) {
+    var out = [];
+    site.addons.forEach(function (a) {
+      var m = a.manifest;
+      [m.idPrefixes || []].concat((m.resources || []).map(function (r) {
+        return _typeof(r) === "object" && r.idPrefixes || [];
+      })).forEach(function (l) {
+        return l.forEach(function (p) {
+          return p && p !== "tt" && out.indexOf(p) < 0 && out.push(p);
+        });
+      });
+    });
+    return out;
+  }
+  function belongsTo(site, all, id) {
+    var mine = sitePrefixes(site);
+    if (mine.some(function (p) {
+      return id.indexOf(p) === 0;
+    })) return true;
+    if (mine.length) return false;
+    return !all.some(function (s) {
+      return s !== site && sitePrefixes(s).some(function (p) {
+        return id.indexOf(p) === 0;
+      });
+    });
   }
   function openDetails2(type, id, opts, item) {
     markAdult(id);
@@ -13708,14 +13873,27 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
   function itemCard(m, entry) {
     var wide = m.posterShape === "landscape" || entry && entry.catalog.posterShape === "landscape";
+    var st = m.stats || {};
+    var extra2 = !m.stats && m.releaseInfo ? h("div.card-stats", null, h("span.cs-by", {
+      text: String(m.releaseInfo)
+    })) : null;
     return _card(m, {
       wide: wide,
+      rich: true,
       image: wide ? m.poster || m.background : void 0,
       dropWithoutImage: true,
+      corner: st.quality,
+      duration: st.duration,
+      stats: statsLine(st) || extra2,
       onSelect: function onSelect() {
         return openDetails2(m.type || entry.catalog.type, m.id, null, m);
       }
     });
+  }
+  function catalogOrder(e) {
+    var n = (e.catalog.name || e.catalog.id || "") + " " + (e.catalog.id || "");
+    if (!/creampie/i.test(n)) return 2;
+    return /gay/i.test(n) ? 1 : 0;
   }
   function NsfwView() {
     var el = h("div.view.nsfw-view");
@@ -13723,16 +13901,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       "data-scroll-y": ""
     });
     var bar = topbar("nsfw", goTab);
-    var filters = h("div.provider-rail.nsfw-rail", {
+    var filters = h("div.provider-rail.nsfw-rail.site-rail", {
       "data-group": "",
       "data-trap": ""
     });
-    var nowEl = h("div.nsfw-now");
     var body = h("div.rows");
     scroller.appendChild(bar);
-    scroller.appendChild(h("div.page-head.nsfw-head", null, [h("h1.page-title", null, [t("NSFW"), h("span.nsfw-badge", {
-      text: "18+"
-    })]), nowEl]));
     scroller.appendChild(filters);
     scroller.appendChild(body);
     el.appendChild(scroller);
@@ -13740,63 +13914,76 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var switchTimer = null;
     var pending = [];
     var active = 0;
+    var personalSlot = null;
     function scopes() {
-      var list3 = adultAddons();
-      var out = [];
-      if (list3.length > 1) out.push({
-        id: "all",
-        label: t("Tudo"),
-        sub: t("{n} provedores", {
-          n: list3.length
-        }),
-        icon: ICON_ALL
+      var list3 = sites();
+      var out = list3.map(function (s) {
+        return {
+          id: s.id,
+          label: s.name,
+          sub: siteSub(s),
+          site: s
+        };
       });
-      list3.forEach(function (a) {
-        return out.push({
-          id: a.manifest.id,
-          label: a.manifest.name || a.manifest.id,
-          sub: catalogCount(a),
-          addon: a
-        });
-      });
-      if (list3.some(function (a) {
-        return adultCatalogs(a).some(function (e) {
-          return supportsSearch(e.catalog);
+      if (list3.some(function (s) {
+        return s.addons.some(function (a) {
+          return adultCatalogs(a).some(function (e) {
+            return supportsSearch(e.catalog);
+          });
         });
       })) out.push({
         id: "search",
         label: t("Buscar"),
-        sub: t("em todos os provedores"),
+        sub: t("em todos os sites"),
         icon: ICON_SEARCH
       });
       return out;
     }
-    function catalogCount(a) {
-      var n = adultCatalogs(a).filter(function (e) {
-        return isBoardable(e.catalog);
-      }).length;
-      return t(n === 1 ? "{n} catálogo" : "{n} catálogos", {
+    function siteSub(s) {
+      var n = s.addons.reduce(function (acc, a) {
+        return acc + adultCatalogs(a).filter(function (e) {
+          return isBoardable(e.catalog);
+        }).length;
+      }, 0);
+      var cats = t(n === 1 ? "{n} catálogo" : "{n} catálogos", {
         n: n
       });
+      return s.addons.length > 1 ? t("{n} instalações", {
+        n: s.addons.length
+      }) + " · " + cats : cats;
     }
-    function pillLogo(f) {
+    function siteMark(f) {
       var box = h("div.provider-logo");
       if (f.icon) {
-        box.classList.add("img-loaded", "icon");
+        box.classList.add("img-loaded");
+        box.classList.add("icon");
         box.innerHTML = f.icon;
+        return box;
+      }
+      var mark = f.site.mark;
+      if (mark) {
+        box.classList.add("img-loaded");
+        box.appendChild(h("span.mono.site-mark", {
+          text: mark.text,
+          style: {
+            background: mark.bg,
+            color: mark.fg
+          }
+        }));
         return box;
       }
       box.appendChild(h("span.mono", {
         text: initialsOf(f.label)
       }));
-      var logo2 = f.addon.manifest.logo;
+      var logo2 = f.site.addons[0].manifest.logo;
       if (logo2) {
         var im = h("img", {
           alt: ""
         });
         im.onload = function () {
           im.classList.add("ready");
-          box.classList.add("img-loaded", "has-img");
+          box.classList.add("img-loaded");
+          box.classList.add("has-img");
         };
         im.onerror = function () {
           return box.classList.add("img-loaded");
@@ -13811,9 +13998,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var list3 = scopes();
       if (!list3.some(function (f) {
         return f.id === scope;
-      })) scope = list3.length ? list3[0].id : "all";
+      })) scope = list3.length ? list3[0].id : null;
       list3.forEach(function (f) {
-        return filters.appendChild(h("div.provider", {
+        return filters.appendChild(h("div.provider.site-tile", {
           focusable: true,
           cls: f.id === scope ? "on" : "",
           title: f.label,
@@ -13823,16 +14010,15 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           onSelect: function onSelect() {
             return pick2(f.id, true);
           }
-        }, [pillLogo(f), h("div.provider-name", {
+        }, [siteMark(f), h("div.site-text", null, [h("div.provider-name", {
           text: f.label
-        })]));
+        }), h("div.site-sub", {
+          text: f.sub
+        })])]));
       });
-      var cur = list3.filter(function (f) {
-        return f.id === scope;
-      })[0];
-      nowEl.textContent = cur ? (cur.addon ? t("Provedor: {name}", {
-        name: cur.label
-      }) : cur.label) + "  ·  " + cur.sub : "";
+      if (list3.length) filters.appendChild(h("div.nsfw-badge.site-18", {
+        text: "18+"
+      }));
     }
     function scheduleSwitch(id) {
       clearTimeout(switchTimer);
@@ -13843,7 +14029,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     function pick2(id, enter) {
       clearTimeout(switchTimer);
       if (id === scope) {
-        var first = enter && body.querySelector("[data-focus]");
+        var first = enter && body.querySelector(".card, .chip");
         if (first) focus(first);
         return;
       }
@@ -13858,115 +14044,192 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         noScroll: true
       });
     }
+    function startLoad(p) {
+      p.state = "loading";
+      active++;
+      p.load().then(function () {
+        p.state = "done";
+        active--;
+        loadNearby();
+      });
+    }
     function loadNearby() {
       if (el.offsetParent === null) return;
       var limit = window.innerHeight * 2.2;
-      var _loop5 = function _loop5() {
-          var p = pending[i];
-          if (p.state !== "idle") return 0; // continue
-          if (!p.row.parentNode) {
-            p.state = "done";
-            return 0; // continue
-          }
-          if (p.row.getBoundingClientRect().top > limit) return 1; // break
-          p.state = "loading";
-          active++;
-          p.load().then(function () {
-            p.state = "done";
-            active--;
-            loadNearby();
-          });
-        },
-        _ret3;
       for (var i = 0; i < pending.length && active < 2; i++) {
-        _ret3 = _loop5();
-        if (_ret3 === 0) continue;
-        if (_ret3 === 1) break;
+        var p = pending[i];
+        if (p.state !== "idle") continue;
+        if (!p.row.parentNode) {
+          p.state = "done";
+          continue;
+        }
+        if (p.row.getBoundingClientRect().top > limit) break;
+        startLoad(p);
       }
+    }
+    function jumpTo(p) {
+      var first = p.row.querySelector(".card");
+      if (first) return focus(first);
+      p.wantFocus = true;
+      if (p.state === "idle") startLoad(p);
     }
     function renderBody() {
       pending = [];
       clear(body);
       if (scope === "search") return renderSearch();
-      var list3 = adultAddons().filter(function (a) {
-        return scope === "all" || a.manifest.id === scope;
-      });
-      if (!list3.length) {
+      var all = sites();
+      var site = all.filter(function (s) {
+        return s.id === scope;
+      })[0];
+      if (!site) {
         body.appendChild(h("div.hint", {
           text: emptyHint()
         }));
         return;
       }
-      personalRows();
-      list3.forEach(function (addon) {
-        if (scope === "all" && adultAddons().length > 1) body.appendChild(h("div.nsfw-section", {
-          text: addon.manifest.name || addon.manifest.id
-        }));
-        var entries = adultCatalogs(addon);
-        genreStrip(entries);
-        entries.filter(function (e) {
-          return isBoardable(e.catalog) && !isHiddenCategory(e.catalog.name || e.catalog.id);
-        }).forEach(function (e) {
-          return pending.push(Object.assign(catalogRow(e, body), {
-            state: "idle"
-          }));
-        });
-      });
-      loadVisibleImages(el);
-      loadNearby();
-    }
-    var savedSlot = h("div.nsfw-saved");
-    function renderSaved() {
-      clear(savedSlot);
-      var items = list2();
-      if (!items.length) return;
-      var cards = items.slice(0, 40).map(function (it) {
-        return _card(it, {
-          wide: it.posterShape === "landscape",
-          image: it.posterShape === "landscape" ? it.poster : void 0,
-          onSelect: function onSelect() {
-            return openDetails2(it.type, it.id, null, it);
-          }
-        });
-      });
-      savedSlot.appendChild(h("div.row", {
-        "data-anchor": "30"
-      }, [h("div.row-title", null, ["♥ " + t("Salvos"), h("small", {
-        text: t("{n} vídeo(s)", {
-          n: items.length
-        })
-      })]), h("div.row-track", {
+      var chips = h("div.chip-track.jump-chips", {
         "data-scroll-x": "",
         "data-group": "",
         "data-trap": ""
-      }, cards)]));
-      loadVisibleImages(savedSlot);
+      });
+      body.appendChild(h("div.row.nsfw-jumps", {
+        "data-anchor": "30"
+      }, chips));
+      personalSlot = h("div.nsfw-personal");
+      body.appendChild(personalSlot);
+      renderPersonal(site, all, chips);
+      var entries = [];
+      site.addons.forEach(function (a) {
+        return adultCatalogs(a).forEach(function (e) {
+          if (isBoardable(e.catalog) && !isHiddenCategory(e.catalog.name || e.catalog.id)) entries.push(e);
+        });
+      });
+      if (!entries.some(function (e) {
+        return catalogOrder(e) < 2;
+      })) {
+        var searchable = [];
+        site.addons.forEach(function (a) {
+          return adultCatalogs(a).forEach(function (e) {
+            return supportsSearch(e.catalog) && searchable.push(e);
+          });
+        });
+        if (searchable.length) {
+          entries.unshift(Object.assign({}, searchable[0], {
+            extra: {
+              search: "gay creampie"
+            },
+            title: t("Creampie gay")
+          }));
+          entries.unshift(Object.assign({}, searchable[0], {
+            extra: {
+              search: "creampie"
+            },
+            title: t("Creampie hétero")
+          }));
+        }
+      }
+      var ordered = entries.map(function (e, i) {
+        return {
+          e: e,
+          i: i
+        };
+      }).sort(function (a, b) {
+        return (a.e.extra ? a.e.extra.search === "creampie" ? 0 : 1 : catalogOrder(a.e)) - (b.e.extra ? b.e.extra.search === "creampie" ? 0 : 1 : catalogOrder(b.e)) || a.i - b.i;
+      });
+      var genresDone = false;
+      ordered.forEach(function (x) {
+        var isCreampie = x.e.extra || catalogOrder(x.e) < 2;
+        if (!isCreampie && !genresDone) {
+          genresDone = true;
+          genreStrip(site, chips);
+        }
+        var p = Object.assign(catalogRow(x.e, body), {
+          state: "idle"
+        });
+        pending.push(p);
+        chips.appendChild(h("div.chip", {
+          focusable: true,
+          text: x.e.title || catName(x.e),
+          onSelect: function onSelect() {
+            return jumpTo(p);
+          }
+        }));
+      });
+      if (!genresDone) genreStrip(site, chips);
+      if (scopes().some(function (f) {
+        return f.id === "search";
+      })) chips.appendChild(h("div.chip", {
+        focusable: true,
+        html: ICON_SEARCH + t("Busca"),
+        onSelect: function onSelect() {
+          return pick2("search", true);
+        }
+      }));
+      loadVisibleImages(el);
+      loadNearby();
     }
-    function personalRows() {
-      body.appendChild(savedSlot);
-      renderSaved();
+    function renderPersonal(site, all, chips) {
+      if (!personalSlot) return;
+      clear(personalSlot);
+      var mine = function mine(id) {
+        return !!id && belongsTo(site, all, id);
+      };
       var lib = cachedLibrary().filter(function (it) {
-        return isAdultId(it._id) && it.name;
+        return isAdultId(it._id) && it.name && mine(it._id);
       });
       var watching = lib.filter(function (it) {
         return (!it.removed || it.temp) && it.state && it.state.timeOffset > 0;
       }).sort(function (a, b) {
         return String(b.state.lastWatched || "").localeCompare(String(a.state.lastWatched || ""));
       });
-      var saved = lib.filter(function (it) {
-        return !it.removed && !it.temp && watching.indexOf(it) < 0;
+      var favs = list2().filter(function (it) {
+        return mine(it.id);
       });
-      if (watching.length) staticRow(t("Continuar assistindo"), watching.slice(0, ROW_LIMIT3).map(function (it) {
+      lib.filter(function (it) {
+        return !it.removed && !it.temp && watching.indexOf(it) < 0 && !favs.some(function (f) {
+          return f.id === it._id;
+        });
+      }).forEach(function (it) {
+        return favs.push({
+          id: it._id,
+          type: it.type,
+          name: it.name,
+          poster: it.poster,
+          posterShape: it.posterShape
+        });
+      });
+      var rows = [];
+      if (favs.length) rows.push(staticRow("♥ " + t("Favoritos"), t("{n} vídeo(s)", {
+        n: favs.length
+      }), favs.slice(0, 40).map(function (it) {
+        return _card(it, {
+          wide: it.posterShape === "landscape",
+          rich: true,
+          image: it.posterShape === "landscape" ? it.poster : void 0,
+          onSelect: function onSelect() {
+            return openDetails2(it.type, it.id, null, it);
+          }
+        });
+      })));
+      if (watching.length) rows.push(staticRow(t("Continuar assistindo"), "", watching.slice(0, ROW_LIMIT3).map(function (it) {
+        var s = it.state;
+        var left = s.duration ? Math.max(1, Math.round((s.duration - s.timeOffset) / 6e4)) : 0;
         return _card({
+          id: it._id,
+          type: it.type,
           name: it.name,
           poster: it.poster
         }, {
           wide: true,
+          rich: true,
           image: it.background || it.poster,
-          progress: it.state.duration ? it.state.timeOffset / it.state.duration : 0,
+          duration: left ? t("faltam {n} min", {
+            n: left
+          }) : "",
+          progress: s.duration ? s.timeOffset / s.duration : 0,
           onSelect: function onSelect() {
             return openDetails2(it.type, it._id, {
-              videoId: it.state.video_id,
+              videoId: s.video_id,
               autoStreams: true
             }, {
               name: it.name,
@@ -13974,56 +14237,66 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             });
           }
         });
-      }));
-      if (saved.length) staticRow(t("Minha lista"), saved.slice(0, ROW_LIMIT3).map(function (it) {
-        return _card({
-          name: it.name,
-          poster: it.poster
-        }, {
-          onSelect: function onSelect() {
-            return openDetails2(it.type, it._id, null, {
-              name: it.name,
-              poster: it.poster
-            });
-          }
+      })));
+      if (chips) {
+        var jumps = rows.map(function (r) {
+          return h("div.chip", {
+            focusable: true,
+            text: r.title,
+            onSelect: function onSelect() {
+              var c = r.row.querySelector(".card");
+              if (c) focus(c);
+            }
+          });
         });
-      }));
+        jumps.reverse().forEach(function (j) {
+          return chips.insertBefore(j, chips.firstChild);
+        });
+      }
+      loadVisibleImages(personalSlot);
     }
-    function staticRow(title, cards) {
+    function staticRow(title, sub, cards) {
       var track = h("div.row-track", {
         "data-scroll-x": "",
         "data-group": "",
         "data-trap": ""
       }, cards);
-      body.appendChild(h("div.row", {
+      var row = h("div.row", {
         "data-anchor": "30"
-      }, [h("div.row-title", {
-        text: title
-      }), track]));
+      }, [h("div.row-title", null, [title, sub ? h("small", {
+        text: sub
+      }) : null]), track]);
+      personalSlot.appendChild(row);
+      return {
+        row: row,
+        title: title
+      };
     }
-    function genreStrip(entries) {
+    function genreStrip(site) {
       var seen = {};
       var chips = [];
-      entries.forEach(function (e) {
-        return genreOptions(e.catalog).forEach(function (g) {
-          if (seen[g] || isHiddenCategory(g)) return;
-          seen[g] = true;
-          chips.push(h("div.chip", {
-            focusable: true,
-            text: genre(g),
-            onSelect: function onSelect() {
-              return push(GridView(e, {
-                genre: g
-              }));
-            }
-          }));
+      site.addons.forEach(function (a) {
+        return adultCatalogs(a).forEach(function (e) {
+          return genreOptions(e.catalog).forEach(function (g) {
+            if (seen[g] || isHiddenCategory(g)) return;
+            seen[g] = true;
+            chips.push(h("div.chip", {
+              focusable: true,
+              text: genre(g),
+              onSelect: function onSelect() {
+                return push(GridView(e, {
+                  genre: g
+                }));
+              }
+            }));
+          });
         });
       });
       if (!chips.length) return;
       body.appendChild(h("div.row.nsfw-genres", {
         "data-anchor": "30"
       }, [h("div.row-title", {
-        text: t("Categorias")
+        text: t("Mais categorias")
       }), h("div.chip-track", {
         "data-scroll-x": "",
         "data-group": "",
@@ -14076,7 +14349,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           var row = h("div.row", {
             "data-anchor": "30"
           }, [h("div.row-title", null, [catName(entry), h("small", {
-            text: entry.addon.manifest.name || ""
+            text: siteName(entry.addon)
           })]), track]);
           fetchCatalog(entry, {
             search: query
@@ -14103,7 +14376,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       lastKey = providersKey();
       if (!scopes().some(function (f) {
         return f.id === scope;
-      })) scope = get("nsfwScope", null) || "all";
+      })) scope = get("nsfwScope", null);
       renderFilters();
       renderBody();
     }
@@ -14144,7 +14417,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         return true;
       }
       if (e.keyCode === KEY.UP && body.contains(cur)) {
-        var firstRow = body.querySelector("[data-focus]");
+        var firstRow = body.querySelector(".chip, .card");
         var top2 = firstRow ? firstRow.getBoundingClientRect().top : 0;
         if (Math.abs(cur.getBoundingClientRect().top - top2) < 10) {
           onRail();
@@ -14158,7 +14431,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       onKey: onKey,
       onShow: function onShow() {
         if (ready2) {
-          renderSaved();
+          if (scope !== "search") {
+            var all = sites();
+            var site = all.filter(function (s) {
+              return s.id === scope;
+            })[0];
+            if (site && personalSlot && !personalSlot.contains(current2())) renderPersonal(site, all, null);
+          }
           return loadNearby();
         }
         load().then(function () {
@@ -14178,26 +14457,31 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     };
   }
   function catName(entry) {
-    return genre(entry.catalog.name || entry.catalog.id);
+    return entry.title || genre(entry.catalog.name || entry.catalog.id);
   }
   function catalogRow(entry, parent) {
     var row = h("div.row", {
       "data-anchor": "30"
     });
-    var typeName = catalogTitle(entry).split(" · ").pop();
+    var sub = entry.extra && entry.extra.search ? t("busca no {site}", {
+      site: siteName(entry.addon)
+    }) : /creampie/i.test(entry.catalog.name || "") ? t("mais vistos primeiro") : siteName(entry.addon);
     var track = h("div.row-track.pending", {
       "data-scroll-x": "",
       "data-group": "",
       "data-trap": ""
     }, skeletonCards());
     row.appendChild(h("div.row-title", null, [catName(entry), h("small", {
-      text: typeName + " · " + (entry.addon.manifest.name || "")
+      text: sub
     })]));
     row.appendChild(track);
     parent.appendChild(row);
+    var out = {
+      row: row
+    };
     var _load = function load4() {
       return retrying(function () {
-        return fetchCatalog(entry);
+        return fetchCatalog(entry, entry.extra);
       }).then(function (metas) {
         clear(track);
         track.classList.remove("pending");
@@ -14211,7 +14495,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         if (metas.length > ROW_LIMIT3) track.appendChild(h("div.card.see-all", {
           focusable: true,
           onSelect: function onSelect() {
-            return push(GridView(entry, {}));
+            return push(GridView(entry, entry.extra || {}));
           }
         }, [h("div.poster-wrap", null, h("div.see-all-label", null, [h("b", {
           text: t("Ver tudo")
@@ -14219,16 +14503,15 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           text: catName(entry)
         })]))]));
         loadVisibleImages(row);
+        if (out.wantFocus && track.firstChild) focus(track.firstChild);
       }).catch(function () {
         return showRetry(track, function () {
           return _load();
         });
       });
     };
-    return {
-      row: row,
-      load: _load
-    };
+    out.load = _load;
+    return out;
   }
   function GridView(entry, extra2) {
     var el = h("div.view.nsfw-view");
@@ -14236,7 +14519,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       "data-scroll-y": ""
     });
     var crumb = [h("span", {
-      text: "NSFW › " + (entry.addon.manifest.name || "")
+      text: "NSFW › " + siteName(entry.addon)
     }), " › ", h("b", {
       text: extra2.genre ? genre(extra2.genre) : catName(entry)
     })];
