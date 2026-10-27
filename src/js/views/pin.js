@@ -86,11 +86,14 @@ export function askPin(title, onDone) {
 
   function renderPad() {
     clear(pad);
-    const digits = shuffle(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']);
-    for (let i = 0; i < 10; i += 2) {
-      const pair = [digits[i], digits[i + 1]];
+    // Sempre um botão "8 ou 9" e um "7 ou ?"; o resto, a ordem dos botões e a de cada par mudam sempre.
+    const rest = shuffle(['0', '1', '2', '3', '4', '5', '6']);
+    const pairs = [['8', '9'], ['7', rest[0]]];
+    for (let i = 1; i < 7; i += 2) pairs.push([rest[i], rest[i + 1]]);
+    shuffle(pairs).forEach((pair) => {
+      shuffle(pair);
       pad.appendChild(h('div.pin-key', { focusable: true, onSelect: () => press(pair) }, [h('b', { text: pair[0] }), h('i'), h('b', { text: pair[1] })]));
-    }
+    });
     pad.appendChild(h('div.pin-key.erase', { focusable: true, html: ERASE_SVG, onSelect: () => erase() }));
   }
 

@@ -167,7 +167,7 @@ export function NsfwView() {
     if (scope === 'search') return renderSearch();
     const list = addons.adultAddons().filter((a) => scope === 'all' || a.manifest.id === scope);
     if (!list.length) {
-      body.appendChild(h('div.hint', { text: t('Nenhum provedor adulto disponível ainda. Eles aparecem aqui quando estiverem instalados ou com o serviço da TV no ar.') }));
+      body.appendChild(h('div.hint', { text: emptyHint() }));
       return;
     }
     personalRows();
@@ -298,8 +298,9 @@ export function NsfwView() {
   }
 
   function render() {
+    lastKey = providersKey();
     // O addon do filtro pode ter sido desmarcado em Ajustes.
-    if (!scopes().some((f) => f.id === scope)) scope = 'all';
+    if (!scopes().some((f) => f.id === scope)) scope = store.get('nsfwScope', null) || 'all';
     renderFilters();
     renderBody();
   }
@@ -307,7 +308,32 @@ export function NsfwView() {
   body.appendChild(h('div.hint', { text: t('Carregando addons...') }));
   let ready = false;
 
-  const onRail = () => nav.focus(filters.querySelector('.provider.on') || filters.firstChild);
+  // Sem provedor: explica o porquê (o XVideos e o Pornhub vêm do serviço do Seraflix na TV).
+  function emptyHint() {
+    const st = addons.tubeStatus();
+    if (st === 'searching') return t('Procurando os provedores no serviço da TV...');
+    if (st === 'old')
+      return t('O serviço da TV está numa versão antiga e não tem os provedores. Desligue a TV da tomada por 30 segundos e abra o Seraflix de novo.');
+    return t('O serviço do Seraflix na TV não respondeu. Abra o TizenBrew, confira se o Seraflix está na lista de serviços e abra o app de novo. Continuo procurando.');
+  }
+
+  // Provedores que chegam depois (serviço da TV ligou atrasado) ou mudaram: refaz a aba.
+  let lastKey = null;
+  const providersKey = () => addons.tubeStatus() + '|' + addons.adultAddons().map((a) => a.manifest.id).join(',');
+  const stopWatch = addons.onChange(() => {
+    if (!ready) return;
+    const key = providersKey();
+    if (key === lastKey) return;
+    const cur = nav.current();
+    const hadFocus = cur && el.contains(cur);
+    render();
+    if (hadFocus) onRail();
+  });
+
+  const onRail = () => {
+    const target = filters.querySelector('.provider.on') || filters.firstChild;
+    if (target) nav.focus(target);
+  };
 
   // Como em Streamings: ↓ da barra de cima vai para o trilho de provedores, e ↑ do primeiro item
   // do conteúdo volta para ele.
@@ -345,6 +371,7 @@ export function NsfwView() {
     },
     onScroll: () => loadNearby(),
     destroy: () => {
+      stopWatch();
       clearTimeout(switchTimer);
       if (bar.__destroy) bar.__destroy();
     },

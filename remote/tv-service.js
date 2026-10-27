@@ -12,6 +12,8 @@ var fs = require('fs');
 var os = require('os');
 
 var PORT = 8090;
+var ADDON_PORT = 8091; // addons XVideos/Pornhub (também na 8090)
+var SERVICE_VERSION = 2;
 var PAGE_BASE = 'https://cdn.jsdelivr.net/gh/mthsrfm-byte/stremio-sera/remote/';
 var APP_NAME = 'Seraflix Controle';
 var TOKEN_FILE = '/home/owner/share/seraflixRemote.json';
@@ -32,6 +34,7 @@ function saveToken(token) {
 
 // ---------- Cliente WebSocket mínimo para o controle remoto da TV ----------
 var tv = { socket: null, state: 'off', queue: [], retry: null };
+var quitting = false; // outra versão do serviço assumiu
 
 function tvConnect() {
   if (tv.socket) return;
@@ -79,6 +82,7 @@ function tvConnect() {
     if (tv.socket !== s) return;
     tv.socket = null;
     if (tv.state === 'on' || tv.state === 'connecting') tv.state = 'off';
+    if (quitting) return;
     tv.retry = setTimeout(tvConnect, tv.state === 'refused' ? 15000 : 3000);
   }
   s.on('error', done);
@@ -527,6 +531,19 @@ var server = http.createServer(function (req, res) {
     return res.end();
   }
   if (url === '/api/ip') return json(res, 200, { ip: lanIp() });
+  if (url === '/api/version') return json(res, 200, { version: SERVICE_VERSION });
+  // Uma versão mais nova deste serviço quer a porta: sai e deixa ela assumir.
+  if (url === '/api/quit' && req.method === 'POST') {
+    json(res, 200, { ok: true });
+    quitting = true;
+    clearTimeout(tv.retry);
+    setTimeout(function () {
+      server.close();
+      addonServer.close();
+      if (tv.socket) tv.socket.destroy();
+    }, 100);
+    return;
+  }
   if (url === '/api/pending') {
     lastPoll = Date.now();
     return json(res, 200, { open: takePending() });
@@ -595,7 +612,31 @@ function enableAutoLaunch() {
   } catch (e) {}
 }
 
-server.on('error', function () {}); // porta ocupada (serviço já rodando): ignora
+// Porta ocupada: costuma ser uma versão antiga deste serviço que o TizenBrew deixou rodando (ele só
+// some quando a TV reinicia). Pede para ela sair (versões novas atendem /api/quit) e tenta de novo.
+// Enquanto isso os addons ficam também na porta 8091, que a versão antiga não usa: o app procura nas duas.
+var listenTries = 0;
+server.on('error', function (e) {
+  if (e && e.code === 'EADDRINUSE' && listenTries++ < 10) {
+    var q = http.request({ host: '127.0.0.1', port: PORT, path: '/api/quit', method: 'POST' }, function (r) { r.resume(); });
+    q.on('error', function () {});
+    q.end();
+    setTimeout(function () { server.listen(PORT, '0.0.0.0'); }, 1500);
+  }
+});
 server.listen(PORT, '0.0.0.0');
+var addonServer = http.createServer(function (req, res) {
+  var url = req.url.split('?')[0];
+  if (url === '/api/version') return json(res, 200, { version: SERVICE_VERSION });
+  if (addonRoute(url, res)) return;
+  res.writeHead(404, { 'Content-Type': 'text/plain' });
+  res.end('404');
+});
+var addonTries = 0;
+addonServer.on('error', function (e) {
+  // A versão anterior ainda está saindo: espera ela soltar a porta.
+  if (e && e.code === 'EADDRINUSE' && addonTries++ < 10) setTimeout(function () { addonServer.listen(ADDON_PORT, '0.0.0.0'); }, 1500);
+});
+addonServer.listen(ADDON_PORT, '0.0.0.0');
 tvConnect();
 enableAutoLaunch();
