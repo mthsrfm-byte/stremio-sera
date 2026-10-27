@@ -7702,8 +7702,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return m ? m[0] : null;
   }
   var BUILTIN_KEYS = {
-    tmdbKey: true ? "" : "",
-    mdblistKey: true ? "" : ""
+    tmdbKey: true ? "9c57ed7ea044b2f01eea2fcc2e954c2e" : "",
+    mdblistKey: true ? "t9e4f1z29b3c36i1j25rul1wx" : ""
   };
   function keyOf(name) {
     return (settings()[name] || "").trim() || BUILTIN_KEYS[name];
@@ -13458,9 +13458,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "9378b08af3dae61fd98236f0558235107e5422c8",
-    date: "2026-10-27T07:12:48+00:00",
-    message: "Player intro: title and episode as the main left-aligned block, loading row secondary below it, floating background art"
+    commit: "9f508ff4ea7e98b860458dc76ebe01de9720eeb6",
+    date: "2026-10-27T04:14:25-03:00",
+    message: "Tela de carregamento do player alinhada à esquerda e logos XVideos/Pornhub"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
