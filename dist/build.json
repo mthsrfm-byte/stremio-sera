@@ -1,6 +1,6 @@
 {
   "version": "1.2.0",
-  "commit": "c682b02e29e343acfc41fc75f15d4425261c7d3a",
-  "date": "2026-10-27T21:14:38Z",
-  "message": "Agenda: skeleton ao carregar, só o que falta do dia e detalhes do evento"
+  "commit": "bb43431151692caa8a2103d03dd9c69e41857843",
+  "date": "2026-10-27T21:14:57+00:00",
+  "message": "Build da dist/ para a TV"
 }

@@ -6316,9 +6316,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "c682b02e29e343acfc41fc75f15d4425261c7d3a",
-    date: "2026-10-27T21:14:38Z",
-    message: "Agenda: skeleton ao carregar, só o que falta do dia e detalhes do evento"
+    commit: "bb43431151692caa8a2103d03dd9c69e41857843",
+    date: "2026-10-27T21:14:57+00:00",
+    message: "Build da dist/ para a TV"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -7156,7 +7156,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var timer = null;
   var inFlight = null;
   var listeners2 = [];
-  var BUILTIN = true ? "https://calendar.google.com/calendar/ical/matheus.serafim%40pagaleve.com.br/private-9d7111ae13c15982affb7c795403fcdd/basic.ics" : "";
+  var BUILTIN = true ? "" : "";
   function urls() {
     return String(settings().calendarUrl || BUILTIN || "").split(/[\s,]+/).filter(function (u) {
       return /^(https?|webcal):\/\//i.test(u);
@@ -7889,14 +7889,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     };
     if (e.calendar) row(t("Agenda"), e.calendar);
     if (e.location) row(t("Onde"), e.location);
-    if (e.organizer) row(t("Organizador"), e.organizer.name + (e.organizer.email ? " · " + e.organizer.email : ""));
+    if (e.organizer) row(t("Organizador"), e.organizer.name);
     var people = (e.attendees || []).map(function (p) {
       var answer = ATTEND[p.status] || t("sem resposta");
       return h("div.ev-person", null, [h("span.ev-name", {
         text: p.name
-      }), p.email ? h("span.ev-mail", {
-        text: p.email
-      }) : null, h("span.ev-answer", {
+      }), h("span.ev-answer", {
         text: answer
       })]);
     });
@@ -8560,8 +8558,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return m ? m[0] : null;
   }
   var BUILTIN_KEYS = {
-    tmdbKey: true ? "9c57ed7ea044b2f01eea2fcc2e954c2e" : "",
-    mdblistKey: true ? "t9e4f1z29b3c36i1j25rul1wx" : ""
+    tmdbKey: true ? "" : "",
+    mdblistKey: true ? "" : ""
   };
   function keyOf(name) {
     return (settings()[name] || "").trim() || BUILTIN_KEYS[name];

@@ -283,11 +283,11 @@ export function eventDetail(e) {
   const row = (label, value) => info.push(h('div.ev-row', null, [h('span.ev-label', { text: label }), h('span.ev-value', { text: value })]));
   if (e.calendar) row(t('Agenda'), e.calendar);
   if (e.location) row(t('Onde'), e.location);
-  if (e.organizer) row(t('Organizador'), e.organizer.name + (e.organizer.email ? ' · ' + e.organizer.email : ''));
+  if (e.organizer) row(t('Organizador'), e.organizer.name);
 
   const people = (e.attendees || []).map((p) => {
     const answer = ATTEND[p.status] || t('sem resposta');
-    return h('div.ev-person', null, [h('span.ev-name', { text: p.name }), p.email ? h('span.ev-mail', { text: p.email }) : null, h('span.ev-answer', { text: answer })]);
+    return h('div.ev-person', null, [h('span.ev-name', { text: p.name }), h('span.ev-answer', { text: answer })]);
   });
 
   const scroll = h('div.ev-scroll', { 'data-scroll-y': '' }, [
