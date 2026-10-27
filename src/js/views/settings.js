@@ -216,7 +216,7 @@ export function SettingsView() {
     // Mexer nas opções NSFW também pede o PIN (uma vez por sessão).
     const guarded = (fn) => () => pinLock.requirePin(fn);
     body.appendChild(
-      row(t('Mostrar aba NSFW'), adult.length ? t('Conteúdo adulto fica só nela, fora do Início, Busca e Biblioteca') : t('Aparece quando houver um addon adulto'), '', guarded(() => {
+      row(t('Mostrar aba NSFW'), t('Conteúdo adulto fica só nela, fora do Início, Busca e Biblioteca'), '', guarded(() => {
         store.saveSettings({ nsfwTab: store.settings().nsfwTab === false });
         refreshTabs();
         router.dropTab('nsfw');

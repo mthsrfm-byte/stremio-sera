@@ -179,9 +179,9 @@ export function adultAddons() {
   return list().filter(isAdult);
 }
 
-// Aba NSFW aparece com addon adulto instalado, a não ser que o perfil tenha escondido.
+// Aba NSFW fica sempre disponível; só some se o perfil desativar em Ajustes.
 export function nsfwEnabled() {
-  return store.settings().nsfwTab !== false && adultAddons().length > 0;
+  return store.settings().nsfwTab !== false;
 }
 
 // Prefixos de id dos addons adultos ("tt" do IMDb fica de fora: é de filme comum).
