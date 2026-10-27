@@ -79,6 +79,7 @@ export function confirmDialog(text, okLabel, onOk) {
 // Barra superior com as abas principais.
 export const TABS = [
   { id: 'home', label: 'Início' },
+  { id: 'recommended', label: 'Recomendado' },
   { id: 'search', label: 'Buscar' },
   { id: 'library', label: 'Biblioteca' },
   { id: 'calendar', label: 'Animes' },

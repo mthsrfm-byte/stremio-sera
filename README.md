@@ -159,6 +159,16 @@ The page is locked with a 6-digit PIN (only its SHA-256 is in the code). After t
 device stays unlocked (cookie renewed on every visit + localStorage). To lock every device again,
 change `AUTH_VERSION` in `remote/index.html`.
 
+## Recomendado tab
+
+Rows built from TMDB (needs the TMDB key): **Em alta agora** (this week's trending releases from the
+last 6 months, already out), **True crime** (documentary films and series with the "true crime"
+keyword, best rated first), **Suspense** and **Terror** (popular, well-rated movies). Resting on a
+title shows its art and synopsis at the top; after 3 seconds the YouTube trailer plays there
+(shown only once YouTube reports it is playing; on an embedding error it tries the next trailer).
+**Ver tudo** at the end of each row opens the whole category (Recomendado › Suspense) with
+"Carregar mais".
+
 ## Tizen integration
 
 - Samsung **Return**, media, colour and channel keys, registered through the Tizen

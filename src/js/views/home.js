@@ -36,7 +36,7 @@ export function HomeView() {
     }
     cwRow.style.display = '';
     cwRow.appendChild(h('div.row-title', { text: t('Continuar assistindo') }));
-    const track = h('div.row-track', { 'data-scroll-x': '', 'data-group': '' });
+    const track = h('div.row-track', { 'data-scroll-x': '', 'data-group': '', 'data-trap': '' });
     items.forEach((it) => {
       const s = it.state;
       const ep = episodeLabel(s.video_id, it._id);
@@ -146,7 +146,7 @@ const ROW_LIMIT = 20;
 function buildRow(entry, parent) {
   const row = h('div.row', { 'data-anchor': '30' });
   const title = h('div.row-title', null, [entry.catalog.name || entry.catalog.id, h('small', { text: typeLabel(entry.catalog.type) + ' · ' + (entry.addon.manifest.name || '') })]);
-  const track = h('div.row-track.pending', { 'data-scroll-x': '', 'data-group': '' }, spinnerLine(t('Carregando...')));
+  const track = h('div.row-track.pending', { 'data-scroll-x': '', 'data-group': '', 'data-trap': '' }, spinnerLine(t('Carregando...')));
   row.appendChild(title);
   row.appendChild(track);
   parent.appendChild(row);

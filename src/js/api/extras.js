@@ -34,7 +34,8 @@ export function hasTmdb() {
   return !!tmdbKey();
 }
 
-function tmdb(path, params) {
+// GET na API do TMDB com a chave (do usuário ou embutida), com cache de 6h.
+export function tmdb(path, params) {
   const q = ['api_key=' + encodeURIComponent(tmdbKey())];
   Object.keys(params || {}).forEach((k) => q.push(k + '=' + encodeURIComponent(params[k])));
   return cachedJSON(TMDB + path + '?' + q.join('&'), 6 * 3600000, { quiet: true });

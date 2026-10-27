@@ -5229,9 +5229,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         primary = Math.max(0, cr.top - r.bottom);
         secondary = overlap(r.left, r.right, cr.left, cr.right) ? Math.abs(r.left - cr.left) / 10 : Math.abs(center(r).x - cc.x);
       }
-      var score = primary + secondary * 2.5;
-      if (score < bestScore) {
-        bestScore = score;
+      var score2 = primary + secondary * 2.5;
+      if (score2 < bestScore) {
+        bestScore = score2;
         best = el;
       }
     }
@@ -6657,6 +6657,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     id: "home",
     label: "Início"
   }, {
+    id: "recommended",
+    label: "Recomendado"
+  }, {
     id: "search",
     label: "Buscar"
   }, {
@@ -6904,8 +6907,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return m ? m[0] : null;
   }
   var BUILTIN_KEYS = {
-    tmdbKey: true ? "9c57ed7ea044b2f01eea2fcc2e954c2e" : "",
-    mdblistKey: true ? "t9e4f1z29b3c36i1j25rul1wx" : ""
+    tmdbKey: true ? "" : "",
+    mdblistKey: true ? "" : ""
   };
   function keyOf(name) {
     return (settings()[name] || "").trim() || BUILTIN_KEYS[name];
@@ -8604,7 +8607,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           n: seasons.length
         }));
       }
-      var metaLine = h("div.details-meta", {
+      var metaLine2 = h("div.details-meta", {
         text: parts.join("  ·  ")
       });
       var ratingsEl = h("div.ratings");
@@ -8640,7 +8643,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       updateButtons();
       info.appendChild(logo2);
       info.appendChild(title);
-      info.appendChild(metaLine);
+      info.appendChild(metaLine2);
       info.appendChild(ratingsEl);
       info.appendChild(genres);
       info.appendChild(desc);
@@ -9200,7 +9203,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }));
       var track = h("div.row-track", {
         "data-scroll-x": "",
-        "data-group": ""
+        "data-group": "",
+        "data-trap": ""
       });
       items.forEach(function (it) {
         var s = it.state;
@@ -9329,7 +9333,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     })]);
     var track = h("div.row-track.pending", {
       "data-scroll-x": "",
-      "data-group": ""
+      "data-group": "",
+      "data-trap": ""
     }, spinnerLine(t("Carregando...")));
     row.appendChild(title);
     row.appendChild(track);
@@ -9526,6 +9531,479 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
   }
 
+  // src/js/api/recommend.js
+  var IMG = "https://image.tmdb.org/t/p/";
+  var TRUE_CRIME_KEYWORD = 33722;
+  var DOCUMENTARY = 99;
+  var THRILLER = 53;
+  var HORROR = 27;
+  function isoDaysAgo(days) {
+    var d = new Date(Date.now() - days * 864e5);
+    return d.toISOString().slice(0, 10);
+  }
+  function toItem(r, mediaType) {
+    var type = mediaType || r.media_type;
+    var date = r.release_date || r.first_air_date || "";
+    return {
+      tmdbId: r.id,
+      mediaType: type,
+      name: r.title || r.name || "",
+      poster: r.poster_path ? IMG + "w342" + r.poster_path : null,
+      backdrop: r.backdrop_path ? IMG + "w1280" + r.backdrop_path : null,
+      overview: r.overview || "",
+      year: date.slice(0, 4),
+      date: date,
+      rating: r.vote_average || 0,
+      votes: r.vote_count || 0
+    };
+  }
+  function score(it) {
+    var m = 150;
+    return (it.rating * it.votes + 7 * m) / (it.votes + m);
+  }
+  function pages(fetchPage, from, count) {
+    var list2 = [];
+    for (var p = from; p < from + count; p++) list2.push(fetchPage(p).catch(function () {
+      return [];
+    }));
+    return Promise.all(list2).then(function (all) {
+      return [].concat.apply([], all);
+    });
+  }
+  function dedupe(items) {
+    var seen = {};
+    return items.filter(function (it) {
+      var k = it.mediaType + ":" + it.tmdbId;
+      if (seen[k] || !it.poster) return false;
+      seen[k] = true;
+      return true;
+    });
+  }
+  var lang = {
+    language: "pt-BR"
+  };
+  function trending(page) {
+    var today = isoDaysAgo(0);
+    var since = isoDaysAgo(180);
+    return pages(function (p) {
+      return tmdb("trending/all/week", Object.assign({
+        page: p
+      }, lang)).then(function (r) {
+        return r.results || [];
+      });
+    }, (page - 1) * 3 + 1, 3).then(function (rs) {
+      return dedupe(rs.filter(function (r) {
+        return r.media_type === "movie" || r.media_type === "tv";
+      }).map(function (r) {
+        return toItem(r);
+      }).filter(function (it) {
+        return it.date && it.date >= since && it.date <= today;
+      }));
+    });
+  }
+  function trueCrime(page) {
+    var q = function q(type, p) {
+      return tmdb("discover/" + type, Object.assign({
+        page: p,
+        with_keywords: TRUE_CRIME_KEYWORD,
+        with_genres: DOCUMENTARY,
+        sort_by: "vote_count.desc",
+        "vote_count.gte": 15
+      }, lang)).then(function (r) {
+        return (r.results || []).map(function (x) {
+          return toItem(x, type);
+        });
+      });
+    };
+    return Promise.all([q("tv", page).catch(function () {
+      return [];
+    }), q("movie", page).catch(function () {
+      return [];
+    })]).then(function (both) {
+      return dedupe(both[0].concat(both[1])).sort(function (a, b) {
+        return score(b) - score(a);
+      });
+    });
+  }
+  function genreMovies(genre) {
+    return function (page) {
+      return pages(function (p) {
+        return tmdb("discover/movie", Object.assign({
+          page: p,
+          with_genres: genre,
+          sort_by: "popularity.desc",
+          "vote_average.gte": 6.5,
+          "vote_count.gte": 400
+        }, lang)).then(function (r) {
+          return (r.results || []).map(function (x) {
+            return toItem(x, "movie");
+          });
+        });
+      }, (page - 1) * 2 + 1, 2).then(dedupe);
+    };
+  }
+  var ROWS = [{
+    id: "trending",
+    title: "Em alta agora",
+    sub: "Lançamentos de que todo mundo está falando",
+    load: trending
+  }, {
+    id: "truecrime",
+    title: "True crime",
+    sub: "Documentários e séries, dos mais bem avaliados",
+    load: trueCrime
+  }, {
+    id: "thriller",
+    title: "Suspense",
+    sub: "Filmes populares e bem avaliados",
+    load: genreMovies(THRILLER)
+  }, {
+    id: "horror",
+    title: "Terror",
+    sub: "Filmes populares e bem avaliados",
+    load: genreMovies(HORROR)
+  }];
+  function available() {
+    return hasTmdb();
+  }
+  function imdbId(it) {
+    return tmdb(it.mediaType + "/" + it.tmdbId + "/external_ids", {}).then(function (r) {
+      return r && r.imdb_id || null;
+    });
+  }
+  function trailerKeys(it) {
+    var list2 = function list2(r) {
+      var vids = (r && r.results || []).filter(function (v) {
+        return v.site === "YouTube" && (v.type === "Trailer" || v.type === "Teaser");
+      });
+      vids.sort(function (a, b) {
+        return (b.type === "Trailer") - (a.type === "Trailer") || (b.official === true) - (a.official === true);
+      });
+      return vids.map(function (v) {
+        return v.key;
+      });
+    };
+    var base = it.mediaType + "/" + it.tmdbId + "/videos";
+    return Promise.all([tmdb(base, {
+      language: "pt-BR"
+    }).then(list2).catch(function () {
+      return [];
+    }), tmdb(base, {
+      language: "en-US"
+    }).then(list2).catch(function () {
+      return [];
+    })]).then(function (both) {
+      return both[0].concat(both[1].filter(function (k) {
+        return both[0].indexOf(k) < 0;
+      })).slice(0, 4);
+    });
+  }
+
+  // src/js/views/recommended.js
+  var ROW_LIMIT2 = 20;
+  var PREVIEW_MS = 350;
+  var TRAILER_MS = 3e3;
+  function openItem(it) {
+    toast(t("Abrindo {name}...", {
+      name: it.name
+    }), 2e3);
+    imdbId(it).then(function (imdb) {
+      if (!imdb) return toast(t("Esse ainda não está no catálogo do Stremio."));
+      openDetails(it.mediaType === "tv" ? "series" : "movie", imdb);
+    }).catch(function () {
+      return toast(t("Não foi possível abrir"));
+    });
+  }
+  function metaLine(it) {
+    return [it.year, it.mediaType === "tv" ? t("Série") : t("Filme"), it.rating ? "★ " + it.rating.toFixed(1) : ""].filter(Boolean).join(" · ");
+  }
+  function Billboard() {
+    var bg = h("div.reco-bg");
+    var frameBox = h("div.reco-trailer");
+    var title = h("div.reco-title");
+    var meta = h("div.reco-meta");
+    var desc = h("div.reco-desc");
+    var el = h("div.reco-bill", null, [bg, frameBox, h("div.reco-shade-left"), h("div.reco-shade-bottom"), h("div.reco-info", null, [title, meta, desc])]);
+    var current3 = null;
+    var previewTimer = null;
+    var trailerTimer = null;
+    var token = 0;
+    var queue = [];
+    var frameWin = null;
+    function stopTrailer() {
+      clearTimeout(trailerTimer);
+      el.classList.remove("playing");
+      queue = [];
+      frameWin = null;
+      clear(frameBox);
+    }
+    function show2(it) {
+      current3 = it;
+      token++;
+      clearTimeout(previewTimer);
+      stopTrailer();
+      previewTimer = setTimeout(function () {
+        return render(it, token);
+      }, PREVIEW_MS);
+    }
+    function render(it, tk) {
+      if (tk !== token) return;
+      bg.style.backgroundImage = it.backdrop ? 'url("' + it.backdrop + '")' : "none";
+      title.textContent = it.name;
+      meta.textContent = metaLine(it);
+      desc.textContent = it.overview || "";
+      trailerTimer = setTimeout(function () {
+        return playTrailer(it, tk);
+      }, TRAILER_MS);
+    }
+    function onYouTubeMessage(e) {
+      if (!frameWin || e.source !== frameWin) return;
+      var msg = e.data;
+      try {
+        if (typeof msg === "string") msg = JSON.parse(msg);
+      } catch (err) {
+        return;
+      }
+      if (!msg) return;
+      var state = msg.event === "onStateChange" ? msg.info : msg.info && msg.info.playerState;
+      if (state === 1) el.classList.add("playing");else if (state === 0) stopTrailer();
+      if (msg.event === "onError") nextTrailer(token);
+    }
+    window.addEventListener("message", onYouTubeMessage);
+    function playTrailer(it, tk) {
+      trailerKeys(it).then(function (keys) {
+        if (tk !== token || document.hidden) return;
+        queue = keys;
+        nextTrailer(tk);
+      });
+    }
+    function nextTrailer(tk) {
+      var key = queue.shift();
+      el.classList.remove("playing");
+      frameWin = null;
+      clear(frameBox);
+      if (!key || tk !== token) return;
+      var origin = window.location.protocol + "//" + window.location.host;
+      var src = "https://www.youtube-nocookie.com/embed/" + key + "?autoplay=1&controls=0&rel=0&modestbranding=1&playsinline=1&iv_load_policy=3&disablekb=1&fs=0&enablejsapi=1&origin=" + encodeURIComponent(origin);
+      var frame = h("iframe", {
+        src: src,
+        allow: "autoplay; encrypted-media",
+        referrerpolicy: "strict-origin-when-cross-origin",
+        tabindex: "-1",
+        frameborder: "0"
+      });
+      frame.onload = function () {
+        if (tk !== token || !frame.contentWindow) return;
+        frameWin = frame.contentWindow;
+        frameWin.postMessage(JSON.stringify({
+          event: "listening",
+          id: 1,
+          channel: "widget"
+        }), "*");
+        ["onStateChange", "onError"].forEach(function (name) {
+          return frameWin.postMessage(JSON.stringify({
+            event: "command",
+            func: "addEventListener",
+            args: [name],
+            id: 1,
+            channel: "widget"
+          }), "*");
+        });
+      };
+      frameBox.appendChild(frame);
+    }
+    function stop() {
+      token++;
+      clearTimeout(previewTimer);
+      stopTrailer();
+    }
+    return {
+      el: el,
+      show: show2,
+      stop: stop,
+      resume: function resume() {
+        return current3 && show2(current3);
+      },
+      destroy: function destroy() {
+        stop();
+        window.removeEventListener("message", onYouTubeMessage);
+      }
+    };
+  }
+  function buildRow2(def, billboard) {
+    var row = h("div.row", {
+      "data-anchor": "20"
+    });
+    var title = h("div.row-title", null, [t(def.title), h("small", {
+      text: t(def.sub)
+    })]);
+    var track = h("div.row-track.pending", {
+      "data-scroll-x": "",
+      "data-group": "",
+      "data-trap": ""
+    }, spinnerLine(t("Carregando...")));
+    row.appendChild(title);
+    row.appendChild(track);
+    var load4 = function load4() {
+      return def.load(1).then(function (items) {
+        clear(track);
+        track.classList.remove("pending");
+        if (!items.length) {
+          if (row.parentNode) row.parentNode.removeChild(row);
+          return;
+        }
+        items.slice(0, ROW_LIMIT2).forEach(function (it) {
+          return track.appendChild(card(it, {
+            onSelect: function onSelect() {
+              return openItem(it);
+            },
+            onFocus: function onFocus() {
+              return billboard.show(it);
+            }
+          }));
+        });
+        track.appendChild(h("div.card.see-all", {
+          focusable: true,
+          onSelect: function onSelect() {
+            return openCategory(def);
+          },
+          onFocus: function onFocus() {
+            return billboard.stop();
+          }
+        }, [h("div.poster-wrap", null, h("div.see-all-label", null, [h("b", {
+          text: t("Ver tudo")
+        }), h("span", {
+          text: t(def.title)
+        })]))]));
+        loadVisibleImages(row);
+      }).catch(function () {
+        if (row.parentNode) row.parentNode.removeChild(row);
+      });
+    };
+    return {
+      row: row,
+      load: load4
+    };
+  }
+  function RecommendedView() {
+    var el = h("div.view.reco");
+    var bar = topbar("recommended", goTab);
+    var billboard = Billboard();
+    var rows = h("div.reco-rows.scroll-y", {
+      "data-scroll-y": "",
+      "data-pad-y": "40"
+    });
+    el.appendChild(billboard.el);
+    el.appendChild(h("div.reco-top", null, bar));
+    el.appendChild(rows);
+    var loaded = false;
+    function load4() {
+      if (loaded) return;
+      loaded = true;
+      if (!available()) {
+        rows.appendChild(h("div.hint", {
+          text: t("A aba Recomendado precisa da chave do TMDB (Ajustes → Metadados extras).")
+        }));
+        return;
+      }
+      var built = ROWS.map(function (def) {
+        return buildRow2(def, billboard);
+      });
+      built.forEach(function (b) {
+        return rows.appendChild(b.row);
+      });
+      built[0].load().then(function () {
+        var first = rows.querySelector(".card");
+        if (first && current2() && current2().closest(".topbar")) focus(first);
+      });
+      built.slice(1).forEach(function (b) {
+        return b.load();
+      });
+    }
+    var onVisibility = function onVisibility() {
+      return document.hidden ? billboard.stop() : null;
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return {
+      el: el,
+      onShow: function onShow() {
+        load4();
+        var cur = current2();
+        if (cur && cur.classList.contains("card") && !cur.classList.contains("see-all")) billboard.resume();
+      },
+      onHide: function onHide() {
+        return billboard.stop();
+      },
+      destroy: function destroy() {
+        billboard.destroy();
+        document.removeEventListener("visibilitychange", onVisibility);
+        if (bar.__destroy) bar.__destroy();
+      }
+    };
+  }
+  function openCategory(def) {
+    push(CategoryView(def));
+  }
+  function CategoryView(def) {
+    var el = h("div.view");
+    var scroller = h("div.scroll-y", {
+      "data-scroll-y": ""
+    });
+    var header = h("div.reco-crumb", null, [h("span", {
+      text: t("Recomendado")
+    }), " › ", h("b", {
+      text: t(def.title)
+    })]);
+    var grid = h("div.grid");
+    var more = h("div.btn.reco-more", {
+      focusable: true,
+      text: t("Carregar mais"),
+      onSelect: function onSelect() {
+        return loadPage();
+      }
+    });
+    scroller.appendChild(header);
+    scroller.appendChild(grid);
+    scroller.appendChild(h("div.reco-more-wrap", null, more));
+    el.appendChild(scroller);
+    var page = 0;
+    var busy = false;
+    var seen = {};
+    function loadPage() {
+      if (busy) return;
+      busy = true;
+      more.textContent = t("Carregando...");
+      var firstPage = page === 0;
+      def.load(++page).then(function (items) {
+        var fresh = items.filter(function (it) {
+          return !seen[it.mediaType + ":" + it.tmdbId];
+        });
+        fresh.forEach(function (it) {
+          seen[it.mediaType + ":" + it.tmdbId] = true;
+          grid.appendChild(card(it, {
+            onSelect: function onSelect() {
+              return openItem(it);
+            }
+          }));
+        });
+        if (!fresh.length) more.style.display = "none";
+        loadVisibleImages(el, 400);
+        if (firstPage && grid.firstChild) focus(grid.firstChild);
+      }).catch(function () {
+        return toast(t("Não foi possível carregar"));
+      }).then(function () {
+        busy = false;
+        more.textContent = t("Carregar mais");
+      });
+    }
+    return {
+      el: el,
+      onShow: function onShow() {
+        if (!page) loadPage();
+      }
+    };
+  }
+
   // src/js/views/search.js
   function SearchView() {
     var el = h("div.view");
@@ -9576,7 +10054,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           });
           var track = h("div.row-track", {
             "data-scroll-x": "",
-            "data-group": ""
+            "data-group": "",
+            "data-trap": ""
           });
           row.appendChild(h("div.row-title", null, [entry.catalog.name || entry.catalog.id, h("small", {
             text: catalogTitle(entry).split(" · ").pop()
@@ -9710,9 +10189,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "4d6030233ca44436c23a6549537709eb20101ec0",
-    date: "2026-10-26T23:56:54-03:00",
-    message: "Mandar para a TV pelo celular e diagnóstico da TV"
+    commit: "ffdd8d7614a4d46acdd5180f2d1e0218bf67ce57",
+    date: "2026-10-27T02:57:11+00:00",
+    message: "Build da dist/ para a TV"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -10976,6 +11455,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }, 120);
     });
     registerTab("home", HomeView);
+    registerTab("recommended", RecommendedView);
     registerTab("search", SearchView);
     registerTab("library", LibraryView);
     registerTab("settings", SettingsView);

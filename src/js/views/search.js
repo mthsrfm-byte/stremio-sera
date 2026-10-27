@@ -39,7 +39,7 @@ export function SearchView() {
       let pending = cats.length;
       cats.forEach((entry) => {
         const row = h('div.row', { 'data-anchor': '30' });
-        const track = h('div.row-track', { 'data-scroll-x': '', 'data-group': '' });
+        const track = h('div.row-track', { 'data-scroll-x': '', 'data-group': '', 'data-trap': '' });
         row.appendChild(h('div.row-title', null, [entry.catalog.name || entry.catalog.id, h('small', { text: addons.catalogTitle(entry).split(' · ').pop() })]));
         row.appendChild(track);
         addons
