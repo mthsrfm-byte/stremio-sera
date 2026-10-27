@@ -18,8 +18,11 @@ let timer = null;
 let loading = null;
 const listeners = [];
 
+// Link embutido no build (segredo CALENDAR_ICAL_URL do GitHub); o de Ajustes, se tiver, vale no lugar.
+export const BUILTIN = typeof __KAI_CALENDAR__ !== 'undefined' ? __KAI_CALENDAR__ : '';
+
 export function urls() {
-  return String(store.settings().calendarUrl || '')
+  return String(store.settings().calendarUrl || BUILTIN || '')
     .split(/[\s,]+/)
     .filter((u) => /^(https?|webcal):\/\//i.test(u))
     .map((u) => u.replace(/^webcal:/i, 'https:'));
