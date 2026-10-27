@@ -186,6 +186,15 @@ export function focusFirst(root) {
   if (el) focus(el);
 }
 
+// Subindo para a barra de cima: a aba da tela atual (Início, Favoritos, Biblioteca...). Na NSFW,
+// o foco não fica no cadeado: vai para o Início.
+function topbarTarget(bar) {
+  const active = bar.querySelector('.tab.active');
+  if (active && active.getAttribute('data-tab') !== 'nsfw' && isVisible(active)) return active;
+  const home = bar.querySelector('.tab[data-tab="home"]');
+  return home && isVisible(home) ? home : null;
+}
+
 export function move(dir) {
   const layer = top();
   if (!layer) return false;
@@ -209,7 +218,12 @@ export function move(dir) {
   let best = pick(all, cur, dir);
   if (!best) return false;
   const bg = best.closest('[data-group]');
-  if (bg && bg !== group && bg.__last && bg.contains(bg.__last) && isVisible(bg.__last)) best = bg.__last;
+  if (bg && bg !== group) {
+    if (bg.classList.contains('topbar')) best = topbarTarget(bg) || best;
+    // Fileira (rolagem na horizontal) chegando de cima ou de baixo: sempre o primeiro item dela.
+    else if (!horizontal && bg.hasAttribute('data-scroll-x')) best = all.filter((e) => bg.contains(e))[0] || best;
+    else if (bg.__last && bg.contains(bg.__last) && isVisible(bg.__last)) best = bg.__last;
+  }
   focus(best);
   return true;
 }
