@@ -1,0 +1,7 @@
+/* A mídia é desenhada pelo libmpv, atrás do WKWebView transparente. */
+html.mac-playing, html.mac-playing body, html.mac-playing #app,
+html.mac-playing .view.player { background: transparent !important; }
+html.mac-playing #app > .view:not(.player) { visibility: hidden; }
+.mac-video { position: absolute; inset: 0; background: transparent; }
+/* O Mac pode mostrar o cache imediatamente; não espera a vinheta da TV. */
+.boot { transition: none !important; animation: none !important; }
