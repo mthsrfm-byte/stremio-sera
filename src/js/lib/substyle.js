@@ -1,14 +1,30 @@
 // Estilo das legendas. Padrão igual ao mpv.conf do Kai:
 // sub-font='Nata Sans', sub-bold=yes, sub-font-size=48 (≈64px em 1080p), sub-border-size=0.5, sub-shadow-offset=1.3.
 
+// Cada fonte pode trazer sua própria diagramação (tamanho, peso, espaçamento, largura da linha).
+// Bricolage Grotesque (a do Seraflix) é uma fonte de título: na legenda ela fica um pouco menor,
+// em peso 600, com mais ar entre letras e palavras, entrelinha justa, linha de ~40 caracteres e um
+// halo suave no lugar do contorno duro (que comeria os detalhes dela).
 export const FONTS = [
-  { id: 'nata', label: 'Nata Sans (padrão Kai)', css: "'Nata Sans', 'Montserrat', sans-serif" },
+  {
+    id: 'bricolage',
+    label: 'Bricolage Grotesque (padrão Seraflix)',
+    css: "'Bricolage Grotesque', 'Geist', sans-serif",
+    scale: 0.9,
+    weights: { normal: 600, bold: 700 },
+    letterSpacing: '0.012em',
+    wordSpacing: '0.06em',
+    lineHeight: 1.18,
+    measure: 1320,
+    halo: '0 0 2px rgba(0,0,0,0.95), 0 1px 3px rgba(0,0,0,0.9), 0 3px 14px rgba(0,0,0,0.6)',
+  },
+  { id: 'nata', label: 'Nata Sans (Kai)', css: "'Nata Sans', 'Montserrat', sans-serif" },
   { id: 'montserrat', label: 'Montserrat', css: "'Montserrat', sans-serif" },
   { id: 'classic', label: 'Clássica (Arial)', css: 'Arial, Helvetica, sans-serif' },
 ];
 
 export const STYLES = [
-  { id: 'kai', label: 'Contorno fino + sombra (Kai)' },
+  { id: 'kai', label: 'Padrão (contorno suave)' },
   { id: 'outline', label: 'Contorno grosso' },
   { id: 'shadow', label: 'Só sombra' },
   { id: 'box', label: 'Caixa de fundo' },
@@ -47,11 +63,20 @@ function find(list, id) {
 export function apply(el, s) {
   const font = find(FONTS, s.subtitleFont);
   const pos = find(POSITIONS, s.subtitlePosition);
+  const w = font.weights || { normal: 500, bold: 700 };
   el.style.fontFamily = font.css;
-  el.style.fontSize = Math.round(BASE_PX * ((s.subtitleSize || 100) / 100)) + 'px';
-  el.style.fontWeight = s.subtitleBold === false ? '500' : '700';
+  el.style.fontSize = Math.round(BASE_PX * (font.scale || 1) * ((s.subtitleSize || 100) / 100)) + 'px';
+  el.style.fontWeight = String(s.subtitleBold === false ? w.normal : w.bold);
+  el.style.letterSpacing = font.letterSpacing || '';
+  el.style.wordSpacing = font.wordSpacing || '';
+  el.style.lineHeight = font.lineHeight ? String(font.lineHeight) : '';
+  // Largura máxima da linha, centralizada (o contêiner ocupa a tela toda menos as margens).
+  el.style.maxWidth = font.measure ? font.measure + 'px' : '';
+  el.style.marginLeft = el.style.marginRight = font.measure ? 'auto' : '';
   el.style.color = s.subtitleColor || '#ffffff';
-  el.style.textShadow = SHADOWS[s.subtitleStyle] || SHADOWS.kai;
+  // No estilo padrão, a fonte pode pedir um halo próprio em vez do contorno fino.
+  const style = s.subtitleStyle || 'kai';
+  el.style.textShadow = style === 'kai' && font.halo ? font.halo : SHADOWS[style] || SHADOWS.kai;
   el.style.bottom = pos.bottom + 'px';
   el.classList.toggle('box', s.subtitleStyle === 'box');
 }

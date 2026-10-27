@@ -96,8 +96,6 @@ export const FUN = {
   'Aparência (Kai)': 'Aparência',
   'Rolagem animada': 'Rolagem chiquetosa',
   'Mais bonita, porém mais pesada na TV': 'Mais bonita, mas a TV velhinha pode sofrer',
-  'Nata Sans (padrão Kai)': 'Nata Sans (padrão)',
-  'Contorno fino + sombra (Kai)': 'Contorno fino + sombra',
   'O Kai usa negrito': 'Negrito deixa tudo mais confiante',
   'Instalar {name} na sua conta Stremio?': 'Instalar {name} na sua conta?',
   'Instala na sua conta Stremio': 'Instala na sua conta',

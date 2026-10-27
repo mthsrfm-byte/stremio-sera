@@ -133,7 +133,7 @@ const DEFAULT_SETTINGS = {
   subtitleLangs: ['pob', 'por', 'pt', 'pt-br'],
   audioLangs: [], // vazio = mantém o áudio padrão do arquivo (geralmente o original)
   subtitleSize: 100,
-  subtitleFont: 'nata',
+  subtitleFont: 'bricolage',
   subtitleStyle: 'kai',
   subtitleColor: '#ffffff',
   subtitleBold: true,

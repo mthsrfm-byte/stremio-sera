@@ -20,7 +20,8 @@ export function LibraryView() {
   const filters = h('div.filters', { 'data-group': '' });
   const grid = h('div.grid');
   scroller.appendChild(bar);
-  scroller.appendChild(filters);
+  // Cabeçalho da página: título à esquerda, filtros à direita na mesma linha.
+  scroller.appendChild(h('div.page-head', null, [h('h1.page-title', { text: t('Biblioteca') }), filters]));
   scroller.appendChild(grid);
   el.appendChild(scroller);
 
