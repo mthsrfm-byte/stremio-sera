@@ -11,5 +11,9 @@ xcrun swiftc -parse-as-library -swift-version 5 -target "$ARCH-apple-macosx13.0"
     -Xlinker -rpath -Xlinker "$DEPS/lib" \
     "$ROOT/Sources/Seraflix/MPVPlayer.swift" "$ROOT/scripts/PlayerProbe.swift" \
     -o "$ROOT/.build/player-probe/PlayerProbe"
+PROBE_ARGS=("$ROOT/artifacts/player-probe.json")
+if [ "$#" -gt 0 ]; then
+    PROBE_ARGS=("$ROOT/artifacts/player-probe-video.json" --smoke-test --video "$1")
+fi
 DYLD_LIBRARY_PATH="$DEPS/lib${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}" \
-    "$ROOT/.build/player-probe/PlayerProbe" "$ROOT/artifacts/player-probe.json"
+    "$ROOT/.build/player-probe/PlayerProbe" "${PROBE_ARGS[@]}"
