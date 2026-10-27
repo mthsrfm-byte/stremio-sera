@@ -7702,8 +7702,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return m ? m[0] : null;
   }
   var BUILTIN_KEYS = {
-    tmdbKey: true ? "9c57ed7ea044b2f01eea2fcc2e954c2e" : "",
-    mdblistKey: true ? "t9e4f1z29b3c36i1j25rul1wx" : ""
+    tmdbKey: true ? "" : "",
+    mdblistKey: true ? "" : ""
   };
   function keyOf(name) {
     return (settings()[name] || "").trim() || BUILTIN_KEYS[name];
@@ -8715,7 +8715,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var introSub = h("div.pi-sub");
     var introStatus = h("div.pi-main");
     var introCaption = h("div.pi-caption");
-    var intro = h("div.p-intro", null, [introBg, h("div.pi-shade"), h("div.pi-center", null, [h("div.pi-ring"), introStatus, introCaption]), h("div.pi-info", null, [introLogo, introTitle, introSub])]);
+    var intro = h("div.p-intro", null, [introBg, h("div.pi-shade"), h("div.pi-info", null, [introLogo, introTitle, introSub, h("div.pi-status-row", null, [h("div.pi-ring"), h("div.pi-texts", null, [introStatus, introCaption])])])]);
     var el = h("div.view.player.intro-on", null, [videoEl, subsEl, overlay, skipBox, spinner, msgEl, intro]);
     var renderer = Renderer(subsEl);
     apply(subsEl, settings2);
@@ -13458,9 +13458,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "5a32729ce2d371528c2094f73c2cca5a47ec7676",
-    date: "2026-10-27T04:10:52-03:00",
-    message: "XVideos e Pornhub pela própria TV, salvar vídeos adultos, nova tela de PIN"
+    commit: "516bfd13f8dec18aca0c64d17f3348d94012f44f",
+    date: "2026-10-27T07:11:10+00:00",
+    message: "Build da dist/ para a TV"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {

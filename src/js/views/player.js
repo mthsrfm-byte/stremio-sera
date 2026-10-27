@@ -80,14 +80,18 @@ function PlayerView(opts) {
   const introLogo = h('img.pi-logo', { alt: '' });
   const introTitle = h('div.pi-title', { text: meta.name || '' });
   const introSub = h('div.pi-sub');
-  // Centro: círculo, o que está acontecendo (destaque) e o contexto (menor). Título no canto.
   const introStatus = h('div.pi-main');
   const introCaption = h('div.pi-caption');
+  // Tudo no canto esquerdo: título (destaque) em cima, e o carregamento (secundário) logo abaixo.
   const intro = h('div.p-intro', null, [
     introBg,
     h('div.pi-shade'),
-    h('div.pi-center', null, [h('div.pi-ring'), introStatus, introCaption]),
-    h('div.pi-info', null, [introLogo, introTitle, introSub]),
+    h('div.pi-info', null, [
+      introLogo,
+      introTitle,
+      introSub,
+      h('div.pi-status-row', null, [h('div.pi-ring'), h('div.pi-texts', null, [introStatus, introCaption])]),
+    ]),
   ]);
   const el = h('div.view.player.intro-on', null, [videoEl, subsEl, overlay, skipBox, spinner, msgEl, intro]);
 
