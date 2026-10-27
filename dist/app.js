@@ -7660,8 +7660,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return m ? m[0] : null;
   }
   var BUILTIN_KEYS = {
-    tmdbKey: true ? "" : "",
-    mdblistKey: true ? "" : ""
+    tmdbKey: true ? "9c57ed7ea044b2f01eea2fcc2e954c2e" : "",
+    mdblistKey: true ? "t9e4f1z29b3c36i1j25rul1wx" : ""
   };
   function keyOf(name) {
     return (settings()[name] || "").trim() || BUILTIN_KEYS[name];
@@ -13345,9 +13345,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "e7735260f7613ffc3cedccacd45f9b813c9d72ca",
-    date: "2026-10-27T06:50:46+00:00",
-    message: "Restore the pre-Netflix intro exactly; remove NSFW title translation (and its setting)"
+    commit: "45156f5c9a91848dbe3116f43b6978819a7b173a",
+    date: "2026-10-27T03:52:13-03:00",
+    message: "NSFW mais leve e tocando, abertura anterior de volta, teste de torrent na TV"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
