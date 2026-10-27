@@ -6,7 +6,7 @@
 import { h, clear, loadVisibleImages } from '../lib/dom.js';
 import * as nav from '../lib/nav.js';
 import { KEY } from '../lib/nav.js';
-import { topbar, card, spinnerLine, toast } from '../ui.js';
+import { topbar, card, skeletonCards, retrying, rowRetry, toast } from '../ui.js';
 import * as router from '../router.js';
 import { openDetails } from './details.js';
 import * as reco from '../api/recommend.js';
@@ -312,22 +312,41 @@ function Rail(defs) {
 }
 
 // ---------- Fileiras ----------
+// Fileira que não carregou: botão "Tentar de novo" que volta o esqueleto e recarrega.
+export function showRetry(track, load) {
+  clear(track);
+  track.appendChild(
+    rowRetry(() => {
+      clear(track);
+      track.classList.add('pending');
+      skeletonCards().forEach((c) => track.appendChild(c));
+      load().then(() => {
+        const first = track.querySelector('.card');
+        if (first) nav.focus(first);
+      });
+    })
+  );
+}
+
 function buildRow(def, index, ctx) {
   const row = h('div.row.reco-row', { 'data-anchor': '0' });
   // data-trap: no fim da fileira o foco para ali (antes pulava para outra fileira fora da tela).
-  const track = h('div.row-track.pending', { 'data-scroll-x': '', 'data-group': '', 'data-trap': '' }, spinnerLine(t('Carregando...')));
+  const track = h('div.row-track.pending', { 'data-scroll-x': '', 'data-group': '', 'data-trap': '' }, skeletonCards());
   row.appendChild(track);
-  const focusRow = () => ctx.rail.set(index);
+  // Fileiras acima da que está em foco somem (o espaço de cima é do destaque): sem nomes soltos
+  // da fileira anterior aparecendo quando se chega na última.
+  const focusRow = () => {
+    ctx.rail.set(index);
+    const all = row.parentNode ? row.parentNode.children : [];
+    for (let i = 0; i < all.length; i++) all[i].classList.toggle('past', i < index);
+  };
+  const failed = () => showRetry(track, () => load());
   const load = () =>
-    def
-      .load(1)
+    retrying(() => def.load(1))
       .then((items) => {
         clear(track);
         track.classList.remove('pending');
-        if (!items.length) {
-          track.appendChild(h('div.row-empty', { text: t('Nada por aqui.') }));
-          return;
-        }
+        if (!items.length) return failed();
         items.slice(0, ROW_LIMIT).forEach((it) =>
           track.appendChild(
             card(it, {
@@ -355,10 +374,7 @@ function buildRow(def, index, ctx) {
         );
         loadVisibleImages(row);
       })
-      .catch(() => {
-        clear(track);
-        track.appendChild(h('div.row-empty', { text: t('Não foi possível carregar') }));
-      });
+      .catch(failed);
   return { row: row, load: load };
 }
 
@@ -442,7 +458,10 @@ export function StreamingsView() {
   const rail = Rail([]);
   const rows = h('div.reco-rows.scroll-y', { 'data-scroll-y': '', 'data-pad-y': '40' });
   const logos = reco.STREAMINGS.map((p) =>
-    h('div.provider', { focusable: true, title: p.name, onFocus: () => scheduleSwitch(p), onSelect: () => switchTo(p, true) }, [providerLogo(p)])
+    h('div.provider', { focusable: true, title: p.name, onFocus: () => scheduleSwitch(p), onSelect: () => switchTo(p, true) }, [
+      h('div.provider-logo', null, providerLogo(p)),
+      h('div.provider-name', { text: p.name }),
+    ])
   );
   const providerRail = h('div.provider-rail', { 'data-group': '', 'data-trap': '' }, logos);
   el.appendChild(billboard.el);
@@ -536,18 +555,15 @@ export function StreamingsView() {
 export function simpleRow(def, crumb) {
   const row = h('div.row', { 'data-anchor': '30' });
   row.appendChild(h('div.row-title', null, [t(def.title), h('small', { text: t(def.caption) })]));
-  const track = h('div.row-track.pending', { 'data-scroll-x': '', 'data-group': '', 'data-trap': '' }, spinnerLine(t('Carregando...')));
+  const track = h('div.row-track.pending', { 'data-scroll-x': '', 'data-group': '', 'data-trap': '' }, skeletonCards());
   row.appendChild(track);
+  const failed = () => showRetry(track, () => load());
   const load = () =>
-    def
-      .load(1)
+    retrying(() => def.load(1))
       .then((items) => {
         clear(track);
         track.classList.remove('pending');
-        if (!items.length) {
-          if (row.parentNode) row.parentNode.removeChild(row);
-          return;
-        }
+        if (!items.length) return failed();
         items.slice(0, ROW_LIMIT).forEach((it) => track.appendChild(card(it, { onSelect: () => openItem(it) })));
         track.appendChild(
           h('div.card.see-all', { focusable: true, onSelect: () => openCategory(crumb, def) }, [
@@ -556,9 +572,7 @@ export function simpleRow(def, crumb) {
         );
         loadVisibleImages(row);
       })
-      .catch(() => {
-        if (row.parentNode) row.parentNode.removeChild(row);
-      });
+      .catch(failed);
   return { row: row, load: load };
 }
 

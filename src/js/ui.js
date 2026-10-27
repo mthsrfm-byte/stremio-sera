@@ -181,6 +181,37 @@ export function card(item, opts) {
   ]);
 }
 
+// Cartões de esqueleto (com brilho) no lugar de uma fileira que ainda está carregando.
+export function skeletonCards(n) {
+  const list = [];
+  for (let i = 0; i < (n || 8); i++) list.push(h('div.card.skeleton', null, [h('div.poster-wrap'), h('div.name-sk')]));
+  return list;
+}
+
+// Carrega uma fileira tentando de novo se vier vazia ou com erro: na TV a rede às vezes engasga
+// com várias fileiras pedindo ao mesmo tempo (antes a fileira simplesmente sumia).
+export function retrying(fn) {
+  const delays = [1500, 4000];
+  const later = (n) => new Promise((ok) => setTimeout(ok, delays[n]));
+  const attempt = (n) =>
+    fn().then(
+      (items) => ((items && items.length) || n >= delays.length ? items || [] : later(n).then(() => attempt(n + 1))),
+      (err) => {
+        if (n >= delays.length) throw err;
+        return later(n).then(() => attempt(n + 1));
+      }
+    );
+  return attempt(0);
+}
+
+// Fileira que não carregou: aviso curto e um botão para tentar de novo.
+export function rowRetry(onRetry) {
+  return h('div.row-fail', null, [
+    h('span', { text: t('Essa fileira não carregou agora.') }),
+    h('div.btn.small', { focusable: true, text: t('Tentar de novo'), onSelect: onRetry }),
+  ]);
+}
+
 export function spinnerLine(text) {
   return h('div.loading-line', null, [h('div.spinner.small'), text]);
 }

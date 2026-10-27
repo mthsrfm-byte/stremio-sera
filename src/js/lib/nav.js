@@ -259,11 +259,12 @@ function onKeyDown(e) {
   const active = document.activeElement;
   const typing = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA');
   if (typing) {
-    if (code === KEY.ENTER) {
+    // 65376/65385: "Concluído"/"Cancelar" do teclado na tela da Samsung (não mandam Enter).
+    if (code === KEY.ENTER || code === 65376) {
       e.preventDefault();
       active.blur();
       if (active.__submit) active.__submit(active.value);
-    } else if (code === KEY.BACK || code === KEY.ESC) {
+    } else if (code === KEY.BACK || code === KEY.ESC || code === 65385) {
       e.preventDefault();
       active.blur();
     } else if (code === KEY.UP || code === KEY.DOWN) {

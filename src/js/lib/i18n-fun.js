@@ -4,6 +4,7 @@ export const FUN = {
   // Navegação e geral
   'Nada por aqui.': 'Nada por aqui. Só um vento e uma pipoca perdida.',
   'Carregando...': 'Carregando... respira fundo.',
+  'Essa fileira não carregou agora.': 'Essa fileira tropeçou no caminho.',
   'carregando...': 'carregando... calma, calabreso.',
   'Sair do Stremio Kai?': 'Já vai embora do Seraflix?',
   'Desconhecido': 'Mistério',
@@ -51,7 +52,7 @@ export const FUN = {
   'Carregando catálogos...': 'Arrumando a prateleira...',
   'Nenhum catálogo. Entre na sua conta em Ajustes.': 'Prateleira vazia. Entra na conta em Ajustes que ela enche.',
   'Buscar filmes e séries...': 'O que vamos maratonar hoje?',
-  'Digite pelo menos 2 letras e confirme no teclado.': 'Pelo menos 2 letrinhas, vai.',
+  'Digite pelo menos 2 letras e aperte Buscar.': 'Pelo menos 2 letrinhas e aperta Buscar, vai.',
   'Buscando "{q}"...': 'Revirando tudo atrás de "{q}"...',
   'Nada encontrado para "{q}".': 'Procurei "{q}" até embaixo do sofá. Nada.',
   'Sua biblioteca está vazia.': 'Biblioteca vazia. Bora mudar isso?',

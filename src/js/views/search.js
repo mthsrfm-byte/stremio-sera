@@ -2,7 +2,7 @@
 import { h, clear, loadVisibleImages } from '../lib/dom.js';
 import * as nav from '../lib/nav.js';
 import * as addons from '../api/addons.js';
-import { topbar, card, spinnerLine } from '../ui.js';
+import { topbar, card, skeletonCards } from '../ui.js';
 import * as router from '../router.js';
 import { openDetails } from './details.js';
 import { t } from '../lib/i18n.js';
@@ -12,9 +12,10 @@ export function SearchView() {
   const scroller = h('div.scroll-y', { 'data-scroll-y': '' });
   const bar = topbar('search', router.goTab);
   const input = h('input.input', { type: 'text', placeholder: t('Buscar filmes e séries...'), focusable: true, 'data-autofocus': '' });
+  const go = h('div.btn.primary.search-go', { focusable: true, text: t('Buscar'), onSelect: () => run(input.value) });
   const results = h('div.rows');
   scroller.appendChild(bar);
-  scroller.appendChild(h('div.search-box', null, input));
+  scroller.appendChild(h('div.search-box', { 'data-group': '' }, [input, go]));
   scroller.appendChild(results);
   el.appendChild(scroller);
 
@@ -25,11 +26,11 @@ export function SearchView() {
     const query = (q || '').trim();
     clear(results);
     if (query.length < 2) {
-      results.appendChild(h('div.hint', { text: t('Digite pelo menos 2 letras e confirme no teclado.') }));
+      results.appendChild(h('div.hint', { text: t('Digite pelo menos 2 letras e aperte Buscar.') }));
       return;
     }
     const my = ++token;
-    results.appendChild(spinnerLine(t('Buscando "{q}"...', { q: query })));
+    results.appendChild(h('div.row', null, [h('div.row-title', { text: t('Buscando "{q}"...', { q: query }) }), h('div.row-track', null, skeletonCards())]));
     addons.load().then(() => {
       if (my !== token) return;
       clear(results);
