@@ -167,7 +167,7 @@ export function NsfwView() {
     if (scope === 'search') return renderSearch();
     const list = addons.adultAddons().filter((a) => scope === 'all' || a.manifest.id === scope);
     if (!list.length) {
-      body.appendChild(h('div.hint', { text: t('Nenhum addon adulto encontrado. Marque um addon em Ajustes › NSFW.') }));
+      body.appendChild(h('div.hint', { text: t('Nenhum provedor adulto disponível ainda. Eles aparecem aqui quando estiverem instalados ou com o serviço da TV no ar.') }));
       return;
     }
     personalRows();

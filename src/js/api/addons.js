@@ -54,16 +54,19 @@ function defaultAddons() {
 // Addons que o serviço do Seraflix na TV serve (XVideos e Pornhub pedidos pela própria TV).
 // Entram sozinhos quando o serviço responde; fora da TV (PC, testes) simplesmente não aparecem.
 const TUBE_URLS = ['http://127.0.0.1:8090/xv/manifest.json', 'http://127.0.0.1:8090/ph/manifest.json'];
-let tubes = null;
+let tubes = null; // null: ainda procurando; [] ou lista: já respondeu
+let tubeTries = 0;
 
 function withTubes(list) {
   if (!tubes || !tubes.length) return list;
   return list.concat(tubes.filter((t) => !list.some((a) => a.transportUrl === t.transportUrl)));
 }
 
+// O serviço da TV pode ligar depois do app (TizenBrew): procura de novo a cada poucos segundos,
+// e mais devagar depois, para a aba NSFW aparecer sem precisar recarregar o app.
+let tubeTimer = null;
 function attachTubes() {
-  if (tubes) return;
-  tubes = [];
+  if ((tubes && tubes.length) || tubeTimer) return;
   Promise.all(
     TUBE_URLS.map((u) =>
       getJSON(u, { timeout: 3000, quiet: true }).then(
@@ -72,8 +75,18 @@ function attachTubes() {
       )
     )
   ).then((list) => {
-    tubes = normalize(list.filter(Boolean));
-    if (tubes.length && addons) changed(withTubes(addons));
+    const found = normalize(list.filter(Boolean));
+    tubeTries++;
+    if (found.length) {
+      tubes = found;
+      if (addons) changed(withTubes(addons));
+      return;
+    }
+    tubes = [];
+    tubeTimer = setTimeout(() => {
+      tubeTimer = null;
+      attachTubes();
+    }, tubeTries < 20 ? 4000 : 60000);
   });
 }
 
@@ -166,9 +179,9 @@ export function adultAddons() {
   return list().filter(isAdult);
 }
 
-// Aba NSFW aparece com addon adulto instalado, a não ser que o perfil tenha escondido.
+// Aba NSFW fica sempre disponível; só some se o perfil desativar em Ajustes.
 export function nsfwEnabled() {
-  return store.settings().nsfwTab !== false && adultAddons().length > 0;
+  return store.settings().nsfwTab !== false;
 }
 
 // Prefixos de id dos addons adultos ("tt" do IMDb fica de fora: é de filme comum).
