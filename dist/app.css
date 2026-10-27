@@ -1018,3 +1018,67 @@ body.light .card-stats { color: rgba(17,17,16,0.6); }
 .fp-insta b svg, .fp-net svg { width: 24px; height: 24px; margin-right: 10px; -webkit-flex-shrink: 0; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .fp-nets { display: -webkit-flex; display: flex; -webkit-flex-wrap: wrap; flex-wrap: wrap; margin-top: 4px; }
 .fp-net { display: -webkit-inline-flex; display: inline-flex; -webkit-align-items: center; align-items: center; margin: 0 14px 14px 0; padding: 10px 22px 10px 16px; font-size: 20px; }
+
+/* ---------- Sincronizar legenda (manual) ---------- */
+.sub-sync { position: absolute; left: 50%; top: 64px; width: 860px; margin-left: -430px; z-index: 40; padding: 30px 44px 28px; border-radius: 28px; background: rgba(17,17,16,0.88); border: 2px solid rgba(245,244,239,0.1); text-align: center; box-shadow: 0 30px 80px rgba(0,0,0,0.5); }
+.ss-title { font-size: 22px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: rgba(245,244,239,0.55); }
+.ss-val { margin-top: 6px; font-size: 96px; font-weight: 800; line-height: 1.05; color: #F5F4EF; }
+.ss-val.later { color: #A9B4F5; }
+.ss-val.sooner { color: #FFC37A; }
+.ss-hint { margin-top: 4px; font-size: 24px; color: rgba(245,244,239,0.75); }
+.ss-track { position: relative; height: 10px; margin: 34px 70px 30px; border-radius: 5px; background: rgba(245,244,239,0.14); }
+.ss-mid { position: absolute; left: 50%; top: -8px; width: 2px; height: 26px; margin-left: -1px; background: rgba(245,244,239,0.4); }
+.ss-knob { position: absolute; top: -9px; width: 28px; height: 28px; margin-left: -14px; border-radius: 50%; background: #3347FF; border: 3px solid #F5F4EF; -webkit-transition: left 0.15s; transition: left 0.15s; }
+.ss-end { position: absolute; top: -8px; font-size: 18px; color: rgba(245,244,239,0.5); }
+.ss-end.l { right: 100%; margin-right: 16px; }
+.ss-end.r { left: 100%; margin-left: 16px; }
+.ss-keys { font-size: 20px; color: rgba(245,244,239,0.6); }
+.ss-key { display: inline-block; margin: 0 14px; }
+.ss-key b { display: inline-block; min-width: 30px; padding: 4px 10px; margin-right: 8px; border-radius: 8px; background: rgba(245,244,239,0.12); color: #F5F4EF; font-weight: 700; }
+.ss-key svg { width: 18px; height: 18px; vertical-align: -3px; fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ---------- Sincronizar legenda (automático) ---------- */
+.modal-box.sync-box { right: auto; left: 50%; top: 80px; bottom: auto; width: 1100px; margin-left: -550px; max-height: 920px; }
+.sync-box .modal-text { padding-bottom: 16px; }
+.sync-list { max-height: 720px; }
+.opt.sync-opt { white-space: normal; padding: 18px 36px; font-size: 28px; line-height: 1.3; }
+.opt.sync-opt small { margin-top: 6px; font-size: 18px; }
+
+/* ---------- Protetor de tela ---------- */
+.saver { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; z-index: 1000; background: #000; overflow: hidden; opacity: 0; -webkit-transition: opacity 0.45s; transition: opacity 0.45s; color: #F5F4EF; }
+.saver.on { opacity: 1; }
+.sv-bg { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: hidden; }
+.sv-img { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; background: #000 center / cover no-repeat; opacity: 0; }
+.sv-img.front { opacity: 1; }
+.sv-shade { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px;
+  background: -webkit-linear-gradient(left, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.55) 38%, rgba(0,0,0,0) 70%), -webkit-linear-gradient(bottom, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0) 46%), -webkit-linear-gradient(top, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0) 22%);
+  background: linear-gradient(to right, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.55) 38%, rgba(0,0,0,0) 70%), linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0) 46%), linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0) 22%); }
+.sv-brand { position: absolute; left: 96px; top: 64px; font-size: 30px; font-weight: 800; letter-spacing: 8px; color: #3347FF; text-shadow: 0 2px 18px rgba(51,71,255,0.45); }
+.sv-clock { position: absolute; right: 96px; top: 52px; text-align: right; text-shadow: 0 2px 20px rgba(0,0,0,0.6); }
+.sv-time { font-size: 96px; font-weight: 300; line-height: 1; letter-spacing: -2px; }
+.sv-date { margin-top: 8px; font-size: 26px; font-weight: 500; color: rgba(245,244,239,0.75); }
+.sv-info { position: absolute; left: 96px; bottom: 150px; width: 900px; opacity: 0; -webkit-transform: translateY(30px); transform: translateY(30px); -webkit-transition: opacity 0.6s, -webkit-transform 0.8s; transition: opacity 0.6s, transform 0.8s; }
+.sv-info.in { opacity: 1; -webkit-transform: none; transform: none; }
+.sv-rank { display: -webkit-box; display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; margin-bottom: 18px; }
+.sv-num { font-size: 190px; font-weight: 800; line-height: 0.82; letter-spacing: -8px; color: rgba(0,0,0,0.15); -webkit-text-stroke: 4px #F5F4EF; margin-right: 26px; }
+.sv-rank-txt b { display: inline-block; padding: 6px 14px; border-radius: 8px; background: #3347FF; color: #fff; font-size: 20px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; }
+.sv-rank-txt span { display: block; margin-top: 10px; font-size: 30px; font-weight: 700; }
+.sv-logo-box { height: 220px; display: -webkit-box; display: -webkit-flex; display: flex; -webkit-align-items: flex-end; align-items: flex-end; }
+.sv-logo { max-width: 640px; max-height: 220px; opacity: 0; -webkit-transition: opacity 0.6s; transition: opacity 0.6s; -webkit-filter: drop-shadow(0 4px 20px rgba(0,0,0,0.6)); filter: drop-shadow(0 4px 20px rgba(0,0,0,0.6)); }
+.sv-logo.ready { opacity: 1; }
+.sv-title { font-size: 84px; font-weight: 800; line-height: 1.02; letter-spacing: -1px; }
+.sv-meta { margin-top: 24px; font-size: 24px; font-weight: 600; color: rgba(245,244,239,0.85); }
+.sv-meta span { display: inline-block; margin-right: 22px; vertical-align: middle; }
+.sv-meta .sv-new { padding: 4px 12px; border-radius: 6px; background: #F5F4EF; color: #111110; font-weight: 800; font-size: 19px; text-transform: uppercase; letter-spacing: 1px; }
+.sv-imdb b { display: inline-block; margin-right: 8px; padding: 2px 8px; border-radius: 5px; background: #F5C518; color: #000; font-size: 18px; font-weight: 800; }
+.sv-desc { margin-top: 18px; font-size: 25px; line-height: 1.45; color: rgba(245,244,239,0.78); max-height: 109px; overflow: hidden; }
+.sv-next { position: absolute; right: 96px; bottom: 150px; display: -webkit-box; display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; padding: 12px 22px 12px 12px; border-radius: 18px; background: rgba(17,17,16,0.55); border: 1px solid rgba(245,244,239,0.12); }
+.sv-next-img { width: 176px; height: 99px; margin-right: 18px; border-radius: 10px; background: #222 center / cover no-repeat; }
+.sv-next small { display: block; font-size: 16px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: rgba(245,244,239,0.55); }
+.sv-next-name { max-width: 300px; margin-top: 4px; font-size: 24px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sv-bars { position: absolute; left: 96px; right: 96px; bottom: 80px; display: -webkit-box; display: -webkit-flex; display: flex; }
+.sv-bar { -webkit-box-flex: 1; -webkit-flex: 1; flex: 1; height: 5px; margin-right: 8px; border-radius: 3px; background: rgba(245,244,239,0.22); overflow: hidden; }
+.sv-bar:last-child { margin-right: 0; }
+.sv-bar i { display: block; width: 0; height: 5px; background: #F5F4EF; }
+.sv-hint { position: absolute; left: 0; right: 0; bottom: 30px; text-align: center; font-size: 20px; color: rgba(245,244,239,0.6); -webkit-transition: opacity 1s; transition: opacity 1s; }
+.saver.hint-off .sv-hint { opacity: 0; }

@@ -1104,17 +1104,17 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var toAbsoluteIndex = require_to_absolute_index();
       var lengthOfArrayLike = require_length_of_array_like();
       var createMethod = function createMethod(IS_INCLUDES) {
-        return function ($this, el, fromIndex) {
+        return function ($this, el2, fromIndex) {
           var O = toIndexedObject($this);
           var length = lengthOfArrayLike(O);
           if (length === 0) return !IS_INCLUDES && -1;
           var index = toAbsoluteIndex(fromIndex, length);
           var value;
-          if (IS_INCLUDES && el !== el) while (length > index) {
+          if (IS_INCLUDES && el2 !== el2) while (length > index) {
             value = O[index++];
             if (value !== value) return true;
           } else for (; length > index; index++) {
-            if ((IS_INCLUDES || index in O) && O[index] === el) return IS_INCLUDES || index || 0;
+            if ((IS_INCLUDES || index in O) && O[index] === el2) return IS_INCLUDES || index || 0;
           }
           return !IS_INCLUDES && -1;
         };
@@ -2711,8 +2711,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         proto: true,
         forced: BROKEN_ON_SPARSE || BROKEN_ON_SPARSE_WITH_FROM_INDEX
       }, {
-        includes: function includes(el) {
-          return $includes(this, el, arguments.length > 1 ? arguments[1] : void 0);
+        includes: function includes(el2) {
+          return $includes(this, el2, arguments.length > 1 ? arguments[1] : void 0);
         }
       });
       addToUnscopables("includes");
@@ -4701,10 +4701,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
   if (!Element.prototype.closest) {
     Element.prototype.closest = function (sel) {
-      var el = this;
-      while (el && el.nodeType === 1) {
-        if (el.matches(sel)) return el;
-        el = el.parentNode;
+      var el2 = this;
+      while (el2 && el2.nodeType === 1) {
+        if (el2.matches(sel)) return el2;
+        el2 = el2.parentNode;
       }
       return null;
     };
@@ -5070,34 +5070,34 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // src/js/lib/dom.js
   function h(tag, props, children) {
-    var parts = tag.split(/(?=[.#])/);
-    var el = document.createElement(parts[0] || "div");
-    for (var i = 1; i < parts.length; i++) {
-      var p = parts[i];
-      if (p[0] === ".") el.classList.add(p.slice(1));else if (p[0] === "#") el.id = p.slice(1);
+    var parts2 = tag.split(/(?=[.#])/);
+    var el2 = document.createElement(parts2[0] || "div");
+    for (var i = 1; i < parts2.length; i++) {
+      var p = parts2[i];
+      if (p[0] === ".") el2.classList.add(p.slice(1));else if (p[0] === "#") el2.id = p.slice(1);
     }
     if (props) {
       for (var key in props) {
         var val = props[key];
         if (val === void 0 || val === null || val === false) continue;
-        if (key === "text") el.textContent = val;else if (key === "html") el.innerHTML = val;else if (key === "style" && _typeof(val) === "object") Object.assign(el.style, val);else if (key === "on") for (var ev in val) el.addEventListener(ev, val[ev]);else if (key === "onSelect") el.__select = val;else if (key === "onFocus") el.__focus = val;else if (key === "focusable") el.setAttribute("data-focus", "");else if (key === "cls") String(val).split(" ").forEach(function (c) {
-          return c && el.classList.add(c);
-        });else el.setAttribute(key, val === true ? "" : val);
+        if (key === "text") el2.textContent = val;else if (key === "html") el2.innerHTML = val;else if (key === "style" && _typeof(val) === "object") Object.assign(el2.style, val);else if (key === "on") for (var ev in val) el2.addEventListener(ev, val[ev]);else if (key === "onSelect") el2.__select = val;else if (key === "onFocus") el2.__focus = val;else if (key === "focusable") el2.setAttribute("data-focus", "");else if (key === "cls") String(val).split(" ").forEach(function (c) {
+          return c && el2.classList.add(c);
+        });else el2.setAttribute(key, val === true ? "" : val);
       }
     }
-    append(el, children);
-    return el;
+    append(el2, children);
+    return el2;
   }
-  function append(el, children) {
-    if (children === void 0 || children === null || children === false) return el;
+  function append(el2, children) {
+    if (children === void 0 || children === null || children === false) return el2;
     if (Array.isArray(children)) children.forEach(function (c) {
-      return append(el, c);
-    });else if (typeof children === "string" || typeof children === "number") el.appendChild(document.createTextNode(String(children)));else el.appendChild(children);
-    return el;
+      return append(el2, c);
+    });else if (typeof children === "string" || typeof children === "number") el2.appendChild(document.createTextNode(String(children)));else el2.appendChild(children);
+    return el2;
   }
-  function clear(el) {
-    while (el.firstChild) el.removeChild(el.firstChild);
-    return el;
+  function clear(el2) {
+    while (el2.firstChild) el2.removeChild(el2.firstChild);
+    return el2;
   }
   function $$(sel, root) {
     return Array.prototype.slice.call((root || document).querySelectorAll(sel));
@@ -5108,31 +5108,31 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     this.classList.add("ready");
     if (this.parentNode) this.parentNode.classList.add("img-loaded");
   }
-  function setOn(el, on) {
-    if (on && !el.__on) {
-      el.__on = true;
-      if (!el.__readyHook) {
-        el.__readyHook = true;
-        el.addEventListener("load", onLoaded);
+  function setOn(el2, on) {
+    if (on && !el2.__on) {
+      el2.__on = true;
+      if (!el2.__readyHook) {
+        el2.__readyHook = true;
+        el2.addEventListener("load", onLoaded);
       }
-      var url2 = el.getAttribute("data-lazy");
+      var url2 = el2.getAttribute("data-lazy");
       var kitsu = kitsuInfo(url2);
       if (!kitsu) {
-        el.src = url2;
+        el2.src = url2;
         return;
       }
       kitsuSmall(kitsu).then(function (small) {
-        if (!el.__on) return;
+        if (!el2.__on) return;
         if (small) {
-          el.setAttribute("data-lazy", small);
-          el.src = small;
-        } else if (el.onerror) el.onerror();
+          el2.setAttribute("data-lazy", small);
+          el2.src = small;
+        } else if (el2.onerror) el2.onerror();
       });
-    } else if (!on && el.__on) {
-      el.__on = false;
-      el.classList.remove("ready");
-      if (el.parentNode) el.parentNode.classList.remove("img-loaded");
-      el.src = BLANK;
+    } else if (!on && el2.__on) {
+      el2.__on = false;
+      el2.classList.remove("ready");
+      if (el2.parentNode) el2.parentNode.classList.remove("img-loaded");
+      el2.src = BLANK;
     }
   }
   function loadVisibleImages(root, margin) {
@@ -5147,26 +5147,26 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       if (track.offsetParent === null) return;
       var tr = track.getBoundingClientRect();
       if (tr.bottom < -H * 0.8 || tr.top > H * 1.8) {
-        $$("img[data-lazy]", track).forEach(function (el) {
-          return setOn(el, false);
+        $$("img[data-lazy]", track).forEach(function (el2) {
+          return setOn(el2, false);
         });
         handled.push(track);
       }
     });
-    $$("img[data-lazy]", root).forEach(function (el) {
-      if (el.offsetParent === null) return;
-      for (var i = 0; i < handled.length; i++) if (handled[i].contains(el)) return;
-      var r = el.getBoundingClientRect();
+    $$("img[data-lazy]", root).forEach(function (el2) {
+      if (el2.offsetParent === null) return;
+      for (var i = 0; i < handled.length; i++) if (handled[i].contains(el2)) return;
+      var r = el2.getBoundingClientRect();
       var near = r.right > -m && r.left < W + m && r.bottom > -m && r.top < H + m;
-      if (near) setOn(el, true);else if (isFar(r)) setOn(el, false);
+      if (near) setOn(el2, true);else if (isFar(r)) setOn(el2, false);
     });
   }
   function unloadImages(root) {
-    $$("img[data-lazy]", root).forEach(function (el) {
-      if (el.__on) {
-        el.__on = false;
-        el.classList.remove("ready");
-        el.src = BLANK;
+    $$("img[data-lazy]", root).forEach(function (el2) {
+      if (el2.__on) {
+        el2.__on = false;
+        el2.classList.remove("ready");
+        el2.src = BLANK;
       }
     });
   }
@@ -5221,9 +5221,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   function top() {
     return layers[layers.length - 1] || null;
   }
-  function isVisible(el) {
-    if (!el || el.offsetParent === null) return false;
-    if (el.hasAttribute("disabled")) return false;
+  function isVisible(el2) {
+    if (!el2 || el2.offsetParent === null) return false;
+    if (el2.hasAttribute("disabled")) return false;
     return true;
   }
   function candidates(root) {
@@ -5242,8 +5242,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var best = null;
     var bestScore = Infinity;
     for (var i = 0; i < list3.length; i++) {
-      var el = list3[i];
-      var r = el.getBoundingClientRect();
+      var el2 = list3[i];
+      var r = el2.getBoundingClientRect();
       var primary = void 0;
       var secondary = void 0;
       if (dir === "right") {
@@ -5268,7 +5268,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var score2 = primary + secondary * 2.5;
       if (score2 < bestScore) {
         bestScore = score2;
-        best = el;
+        best = el2;
       }
     }
     return best;
@@ -5278,8 +5278,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
   function animateScroll(node, prop2, target) {
     if (node.__anim) cancelAnimationFrame(node.__anim);
-    var start4 = node[prop2];
-    var delta = target - start4;
+    var start5 = node[prop2];
+    var delta = target - start5;
     if (!smooth || Math.abs(delta) < 2) {
       node[prop2] = target;
       if (scrollHook) scrollHook(node);
@@ -5289,7 +5289,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var t0 = Date.now();
     var _step2 = function step() {
       var k = Math.min(1, (Date.now() - t0) / dur);
-      node[prop2] = start4 + delta * (1 - Math.pow(1 - k, 3));
+      node[prop2] = start5 + delta * (1 - Math.pow(1 - k, 3));
       if (k < 1) node.__anim = requestAnimationFrame(_step2);else {
         node.__anim = null;
         if (scrollHook) scrollHook(node);
@@ -5297,12 +5297,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     };
     node.__anim = requestAnimationFrame(_step2);
   }
-  function ensureVisible(el) {
-    var node = el.parentNode;
+  function ensureVisible(el2) {
+    var node = el2.parentNode;
     while (node && node.nodeType === 1) {
       if (node.hasAttribute("data-scroll-x")) {
         var pad = parseInt(node.getAttribute("data-pad") || "96", 10);
-        var er = el.getBoundingClientRect();
+        var er = el2.getBoundingClientRect();
         var nr = node.getBoundingClientRect();
         var target = node.scrollLeft;
         if (er.left < nr.left + pad) target -= nr.left + pad - er.left;else if (er.right > nr.right - pad) target += er.right - (nr.right - pad);
@@ -5311,10 +5311,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }
       if (node.hasAttribute("data-scroll-y")) {
         var _pad = parseInt(node.getAttribute("data-pad-y") || "140", 10);
-        var _er = el.getBoundingClientRect();
+        var _er = el2.getBoundingClientRect();
         var _nr = node.getBoundingClientRect();
         var _target = node.scrollTop;
-        var anchor = el.closest("[data-anchor]");
+        var anchor = el2.closest("[data-anchor]");
         if (anchor && node.contains(anchor)) {
           var ar = anchor.getBoundingClientRect();
           _target += ar.top - _nr.top - parseInt(anchor.getAttribute("data-anchor") || "0", 10);
@@ -5325,20 +5325,20 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       node = node.parentNode;
     }
   }
-  function focus(el, opts) {
+  function focus(el2, opts) {
     var layer = top();
-    if (!layer || !el) return;
+    if (!layer || !el2) return;
     var prev = layer.current;
-    if (prev && prev !== el) {
+    if (prev && prev !== el2) {
       prev.classList.remove("focused");
       if (prev.__blur) prev.__blur();
     }
-    layer.current = el;
-    el.classList.add("focused");
-    var group = el.closest("[data-group]");
-    if (group) group.__last = el;
-    if (!(opts && opts.noScroll)) ensureVisible(el);
-    if (el.__focus && prev !== el) el.__focus(el);
+    layer.current = el2;
+    el2.classList.add("focused");
+    var group = el2.closest("[data-group]");
+    if (group) group.__last = el2;
+    if (!(opts && opts.noScroll)) ensureVisible(el2);
+    if (el2.__focus && prev !== el2) el2.__focus(el2);
   }
   function current2() {
     var layer = top();
@@ -5349,8 +5349,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     if (!layer) return;
     var scope = root || layer.root;
     var pref = $$("[data-autofocus]", scope).filter(isVisible)[0];
-    var el = pref || candidates(scope)[0];
-    if (el) focus(el);
+    var el2 = pref || candidates(scope)[0];
+    if (el2) focus(el2);
   }
   function topbarTarget(bar) {
     var active = bar.querySelector(".tab.active");
@@ -5393,8 +5393,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     focus(best);
     return true;
   }
-  function select(el) {
-    var target = el || current2();
+  function select(el2) {
+    var target = el2 || current2();
     if (!target) return;
     if (target.tagName === "INPUT") {
       target.focus();
@@ -5477,20 +5477,20 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var layer = top();
     if (!layer) return;
     pointerMode = true;
-    var el = e.target.closest ? e.target.closest("[data-focus]") : null;
-    if (el && layer.root.contains(el) && el !== layer.current) focus(el, {
+    var el2 = e.target.closest ? e.target.closest("[data-focus]") : null;
+    if (el2 && layer.root.contains(el2) && el2 !== layer.current) focus(el2, {
       noScroll: true
     });
   }
   function onClick(e) {
     var layer = top();
     if (!layer) return;
-    var el = e.target.closest ? e.target.closest("[data-focus]") : null;
-    if (el && layer.root.contains(el)) {
-      focus(el, {
+    var el2 = e.target.closest ? e.target.closest("[data-focus]") : null;
+    if (el2 && layer.root.contains(el2)) {
+      focus(el2, {
         noScroll: true
       });
-      select(el);
+      select(el2);
     }
   }
   var wheelLock = 0;
@@ -5611,7 +5611,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   function set(key, value) {
     rawSet(profileKey(activeProfile().id, key), value);
   }
-  var DEVICE_KEYS = ["introSound", "serverUrl", "tmdbKey", "mdblistKey", "smoothScroll", "devlogUrl", "lastUpdateCheck", "askProfile", "wizardDone", "language"];
+  var DEVICE_KEYS = ["introSound", "serverUrl", "tmdbKey", "mdblistKey", "smoothScroll", "devlogUrl", "lastUpdateCheck", "askProfile", "wizardDone", "language", "screensaver"];
   var DEFAULT_SETTINGS = {
     // TV
     serverUrl: "",
@@ -5628,6 +5628,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     askProfile: true,
     // "Quem está assistindo?" ao abrir, se houver mais de um perfil
     wizardDone: false,
+    screensaver: 5,
+    // minutos parado até o protetor de tela (0 = desligado)
     // Perfil
     heroSource: "cinemeta",
     theme: "dark",
@@ -5811,8 +5813,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       collection: "libraryItem",
       ids: [],
       all: true
-    }).then(function (items) {
-      var list3 = Array.isArray(items) ? items : [];
+    }).then(function (items2) {
+      var list3 = Array.isArray(items2) ? items2 : [];
       setLibrary(list3);
       return list3;
     });
@@ -5833,9 +5835,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     if (!libMem) libMem = get("library", []);
     return libMem;
   }
-  function putLibraryItems(items) {
+  function putLibraryItems(items2) {
     var lib = cachedLibrary();
-    items.forEach(function (it) {
+    items2.forEach(function (it) {
       var i = lib.findIndex(function (x) {
         return x._id === it._id;
       });
@@ -5846,7 +5848,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return call("datastorePut", {
       authKey: auth.authKey,
       collection: "libraryItem",
-      changes: items
+      changes: items2
     }).catch(function (e) {
       log.warn("Falha ao salvar na biblioteca", e.message);
     });
@@ -6100,9 +6102,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var found = null;
       var done = 0;
       var batch2 = 24;
-      var _runBatch = function runBatch(start4) {
-        if (found || start4 >= hosts.length) return Promise.resolve(found);
-        var slice = hosts.slice(start4, start4 + batch2);
+      var _runBatch = function runBatch(start5) {
+        if (found || start5 >= hosts.length) return Promise.resolve(found);
+        var slice = hosts.slice(start5, start5 + batch2);
         return Promise.all(slice.map(function (h2) {
           return getJSON("http://" + h2 + ":11470/settings", {
             timeout: 1500,
@@ -6114,7 +6116,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             if (onProgress) onProgress(done, hosts.length);
           });
         })).then(function () {
-          return _runBatch(start4 + batch2);
+          return _runBatch(start5 + batch2);
         });
       };
       return _runBatch(0);
@@ -6189,14 +6191,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   function proxyUrl(base, streamUrl, reqHeaders, resHeaders) {
     var m = streamUrl.match(/^(https?:\/\/[^/?#]+)([^?#]*)(\?[^#]*)?/);
     if (!m) return streamUrl;
-    var parts = ["d=" + encodeURIComponent(m[1])];
+    var parts2 = ["d=" + encodeURIComponent(m[1])];
     Object.keys(reqHeaders || {}).forEach(function (k) {
-      return parts.push("h=" + encodeURIComponent(k + ":" + reqHeaders[k]));
+      return parts2.push("h=" + encodeURIComponent(k + ":" + reqHeaders[k]));
     });
     Object.keys(resHeaders || {}).forEach(function (k) {
-      return parts.push("r=" + encodeURIComponent(k + ":" + resHeaders[k]));
+      return parts2.push("r=" + encodeURIComponent(k + ":" + resHeaders[k]));
     });
-    return base + "proxy/" + parts.join("&") + (m[2] || "/") + (m[3] || "");
+    return base + "proxy/" + parts2.join("&") + (m[2] || "/") + (m[3] || "");
   }
   function _corsProxyUrl(url2) {
     var base = _isAvailable() ? _baseUrl() : "";
@@ -6313,9 +6315,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "b4f39f01715ee6b611ef07fa69264cd18aebb888",
-    date: "2026-10-27T08:56:15-03:00",
-    message: "Tira o painel de críticas do Rotten Tomatoes"
+    commit: "e27fce9f58b46d1b020375199f060c49e25c320a",
+    date: "2026-10-27T15:56:01-03:00",
+    message: "Sincronizar legenda (automático e manual), PT-BR x PT-PT, correção de fps e protetor de tela (#50)"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -6599,12 +6601,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   function url(addon, resource, type, id, extra2) {
     var path = "/" + resource + "/" + encodeURIComponent(type) + "/" + encodeURIComponent(id);
     if (extra2) {
-      var parts = Object.keys(extra2).filter(function (k) {
+      var parts2 = Object.keys(extra2).filter(function (k) {
         return extra2[k] !== void 0 && extra2[k] !== null && extra2[k] !== "";
       }).map(function (k) {
         return encodeURIComponent(k) + "=" + encodeURIComponent(extra2[k]);
       });
-      if (parts.length) path += "/" + parts.join("&");
+      if (parts2.length) path += "/" + parts2.join("&");
     }
     return addon.base + path + ".json" + addon.query;
   }
@@ -6964,7 +6966,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }), h("div.profile-name", {
       text: t("Adicionar perfil")
     })]));
-    var el = h("div.view.profile-picker", null, [h("div.boot-logo", {
+    var el2 = h("div.view.profile-picker", null, [h("div.boot-logo", {
       html: LOGO_HTML
     }), h("h1", {
       text: t("Quem está assistindo?")
@@ -6973,18 +6975,18 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }, cards), h("p.profile-hint", {
       text: t("Cada perfil tem sua própria conta Stremio, com histórico e biblioteca separados.")
     })]);
-    document.getElementById("app").appendChild(el);
-    var layer = pushLayer(el, {
+    document.getElementById("app").appendChild(el2);
+    var layer = pushLayer(el2, {
       onBack: function onBack() {
         return pick2(active.id);
       }
     });
-    focusFirst(el);
+    focusFirst(el2);
     function pick2(id) {
       setActiveProfile(id);
       session(SESSION_PICKED, "1");
       popLayer(layer);
-      if (el.parentNode) el.parentNode.removeChild(el);
+      if (el2.parentNode) el2.parentNode.removeChild(el2);
       onPicked();
     }
   }
@@ -7363,7 +7365,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var lastDay = new Date(year, month + 1, 0);
     return lastDay.getDate() - (lastDay.getDay() - wd + 7) % 7 + (n + 1) * 7;
   }
-  function expand(start4, rrule, from, to, len) {
+  function expand(start5, rrule, from, to, len) {
     var r = {};
     rrule.split(";").forEach(function (kv) {
       var p = kv.split("=");
@@ -7389,7 +7391,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return parseInt(x, 10);
     });
     function matches(d) {
-      var dd = daysBetween(start4, d);
+      var dd = daysBetween(start5, d);
       if (dd < 0) return false;
       if (freq === "DAILY") return dd % interval === 0 && (!byDay.length || byDay.some(function (b) {
         return b.wd === d.getDay();
@@ -7398,37 +7400,37 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         var weekOf = function weekOf(x) {
           return addDays(dayStart(x), -((x.getDay() + 6) % 7));
         };
-        var weeks = Math.round(daysBetween(weekOf(start4), weekOf(d)) / 7);
+        var weeks = Math.round(daysBetween(weekOf(start5), weekOf(d)) / 7);
         var days2 = byDay.length ? byDay.map(function (b) {
           return b.wd;
-        }) : [start4.getDay()];
+        }) : [start5.getDay()];
         return weeks % interval === 0 && days2.indexOf(d.getDay()) >= 0;
       }
       if (freq === "MONTHLY") {
-        var months = (d.getFullYear() - start4.getFullYear()) * 12 + d.getMonth() - start4.getMonth();
+        var months = (d.getFullYear() - start5.getFullYear()) * 12 + d.getMonth() - start5.getMonth();
         if (months % interval !== 0) return false;
         if (byDay.length) return byDay.some(function (b) {
           return b.wd === d.getDay() && (b.n === 0 || nthWeekday(d.getFullYear(), d.getMonth(), b.wd, b.n) === d.getDate());
         });
-        var monthDays = byMonthDay.length ? byMonthDay : [start4.getDate()];
+        var monthDays = byMonthDay.length ? byMonthDay : [start5.getDate()];
         var last = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
         return monthDays.some(function (md) {
           return (md > 0 ? md : last + md + 1) === d.getDate();
         });
       }
       if (freq === "YEARLY") {
-        var years = d.getFullYear() - start4.getFullYear();
-        return years % interval === 0 && d.getMonth() === start4.getMonth() && d.getDate() === start4.getDate();
+        var years = d.getFullYear() - start5.getFullYear();
+        return years % interval === 0 && d.getMonth() === start5.getMonth() && d.getDate() === start5.getDate();
       }
       return false;
     }
     var out = [];
     var spanDays = Math.ceil(Math.max(len, 0) / 864e5) + 1;
-    var day = count ? dayStart(start4) : dayStart(addDays(from, -spanDays) > start4 ? addDays(from, -spanDays) : start4);
+    var day = count ? dayStart(start5) : dayStart(addDays(from, -spanDays) > start5 ? addDays(from, -spanDays) : start5);
     var n = 0;
     for (var guard = 0; guard < 2e4 && day < to; guard++, day = addDays(day, 1)) {
       if (!matches(day)) continue;
-      var s = new Date(day.getFullYear(), day.getMonth(), day.getDate(), start4.getHours(), start4.getMinutes(), start4.getSeconds());
+      var s = new Date(day.getFullYear(), day.getMonth(), day.getDate(), start5.getHours(), start5.getMinutes(), start5.getSeconds());
       if (until && s > until.date) break;
       n++;
       if (count && n > count) break;
@@ -7449,11 +7451,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
   }
   function toggle(meta) {
-    var items = list2();
-    var i = items.findIndex(function (x) {
+    var items2 = list2();
+    var i = items2.findIndex(function (x) {
       return x.id === meta.id;
     });
-    if (i >= 0) items.splice(i, 1);else items.unshift({
+    if (i >= 0) items2.splice(i, 1);else items2.unshift({
       id: meta.id,
       type: meta.type || "movie",
       name: meta.name || "",
@@ -7461,19 +7463,19 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       posterShape: meta.posterShape || "",
       savedAt: Date.now()
     });
-    set(KEY2, items.slice(0, MAX));
+    set(KEY2, items2.slice(0, MAX));
     return i < 0;
   }
 
   // src/js/ui.js
   var toastTimer = null;
   function toast(msg, ms) {
-    var el = document.getElementById("toast");
-    el.textContent = msg;
-    el.classList.add("show");
+    var el2 = document.getElementById("toast");
+    el2.textContent = msg;
+    el2.classList.add("show");
     clearTimeout(toastTimer);
     toastTimer = setTimeout(function () {
-      return el.classList.remove("show");
+      return el2.classList.remove("show");
     }, ms || 3500);
   }
   function menu(title, options, opts) {
@@ -7647,12 +7649,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
   }
   function topbar(activeId, onTab) {
-    var clock = h("div.clock");
-    var tick = function tick() {
-      return clock.textContent = timeHM(/* @__PURE__ */new Date());
+    var clock2 = h("div.clock");
+    var tick2 = function tick2() {
+      return clock2.textContent = timeHM(/* @__PURE__ */new Date());
     };
-    tick();
-    var timer3 = setInterval(tick, 2e4);
+    tick2();
+    var timer3 = setInterval(tick2, 2e4);
     var bar = h("div.topbar", {
       "data-group": ""
     }, [h("div.brand", {
@@ -7665,7 +7667,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return tab.right;
     }).map(function (tab) {
       return tabEl(tab, activeId, onTab);
-    }), calendarButton(), profileButton(onTab), clock]);
+    }), calendarButton(), profileButton(onTab), clock2]);
     var offCal = onChange2(refreshCalendarButtons);
     bar.__destroy = function () {
       return clearInterval(timer3), offCal();
@@ -7682,9 +7684,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     TABS.filter(function (tab) {
       return tab.when;
     }).forEach(function (tab) {
-      var show2 = tab.when();
-      Array.prototype.forEach.call(document.querySelectorAll('.topbar .tab[data-tab="' + tab.id + '"]'), function (el) {
-        return el.style.display = show2 ? "" : "none";
+      var show3 = tab.when();
+      Array.prototype.forEach.call(document.querySelectorAll('.topbar .tab[data-tab="' + tab.id + '"]'), function (el2) {
+        return el2.style.display = show3 ? "" : "none";
       });
     });
   }
@@ -7908,30 +7910,30 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   document.addEventListener("keydown", function (e) {
     if (e.keyCode !== KEY_YELLOW) return;
     var cur = current2();
-    var el = cur && cur.closest && cur.closest(".card");
-    if (!el || !el.__fav) return;
+    var el2 = cur && cur.closest && cur.closest(".card");
+    if (!el2 || !el2.__fav) return;
     e.preventDefault();
-    toggleFavorite(el.__fav).then(function () {
-      return paintFavs(el.__fav.id || el.__fav._id);
+    toggleFavorite(el2.__fav).then(function () {
+      return paintFavs(el2.__fav.id || el2.__fav._id);
     });
   });
   var KEY_YELLOW = 405;
   function statsLine(st) {
     if (!st) return null;
-    var parts = [];
-    if (st.views) parts.push(h("span.cs-views", {
+    var parts2 = [];
+    if (st.views) parts2.push(h("span.cs-views", {
       html: ICON_EYE + "<b></b>"
     }));
-    if (st.approval) parts.push(h("span.cs-like", {
+    if (st.approval) parts2.push(h("span.cs-like", {
       cls: st.approval >= 85 ? "hot" : "",
       html: ICON_LIKE + "<b></b>"
     }));
-    if (st.channel) parts.push(h("span.cs-by", {
+    if (st.channel) parts2.push(h("span.cs-by", {
       text: st.channel
     }));
-    if (st.views) parts[0].lastChild.textContent = st.views;
-    if (st.approval) parts[st.views ? 1 : 0].lastChild.textContent = st.approval + "%";
-    return parts.length ? h("div.card-stats", null, parts) : null;
+    if (st.views) parts2[0].lastChild.textContent = st.views;
+    if (st.approval) parts2[st.views ? 1 : 0].lastChild.textContent = st.approval + "%";
+    return parts2.length ? h("div.card-stats", null, parts2) : null;
   }
   var ICON_EYE = '<svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
   var ICON_LIKE = '<svg viewBox="0 0 24 24"><path d="M7 10v11H3V10h4z"/><path d="M7 10l4-8a3 3 0 0 1 3 3v4h5.5a2 2 0 0 1 2 2.3l-1.4 8A2 2 0 0 1 18.1 21H7"/></svg>';
@@ -7978,7 +7980,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     if (favItem) wrap.appendChild(h("div.card-fav", {
       html: HEART
     }));
-    var el = h("div.card", {
+    var el2 = h("div.card", {
       focusable: true,
       cls: (o.wide ? "wide" : o.rank ? "ranked" : "") + (o.rich ? " rich" : ""),
       onSelect: o.onSelect,
@@ -7989,21 +7991,21 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       text: o.title || item.name || ""
     }), o.stats || null]);
     if (favItem) {
-      el.__fav = favItem;
-      if (isFavorite(favItem)) el.classList.add("faved");
+      el2.__fav = favItem;
+      if (isFavorite(favItem)) el2.classList.add("faved");
     }
     function dropCard() {
-      var parent = el.parentNode;
+      var parent = el2.parentNode;
       if (!parent) return;
-      if (current2() === el) {
-        var next = el.nextElementSibling || el.previousElementSibling;
+      if (current2() === el2) {
+        var next = el2.nextElementSibling || el2.previousElementSibling;
         if (next) focus(next);
       }
-      parent.removeChild(el);
+      parent.removeChild(el2);
       loadVisibleImages(parent);
     }
     if (o.dropWithoutImage && !src) setTimeout(dropCard, 0);
-    return el;
+    return el2;
   }
   function skeletonCards(n) {
     var list3 = [];
@@ -8018,8 +8020,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       });
     };
     var _attempt = function attempt(n) {
-      return fn().then(function (items) {
-        return items && items.length || n >= delays.length ? items || [] : later(n).then(function () {
+      return fn().then(function (items2) {
+        return items2 && items2.length || n >= delays.length ? items2 || [] : later(n).then(function () {
           return _attempt(n + 1);
         });
       }, function (err) {
@@ -8051,18 +8053,18 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }
     });
     var moreWrap = h("div.reco-more-wrap.paged-more", null, more);
-    var el = h("div.paged-wrap", null, [grid, moreWrap]);
+    var el2 = h("div.paged-wrap", null, [grid, moreWrap]);
     var GAP = 26;
     var seen = {};
     var page = 0;
-    var busy = false;
+    var busy2 = false;
     var ended = false;
     var cols = 0;
     var buffer2 = [];
     var count = 0;
     function layout(sample) {
       if (cols) return;
-      var width = el.clientWidth || window.innerWidth;
+      var width = el2.clientWidth || window.innerWidth;
       var cw = sample.offsetWidth || 210;
       cols = Math.max(1, Math.floor((width - 2 * 96 + GAP) / (cw + GAP)));
       var side = Math.floor((width - (cols * (cw + GAP) - GAP)) / 2);
@@ -8072,11 +8074,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
     function add(item) {
       var c = opts.card(item);
-      var idx = count++;
+      var idx2 = count++;
       var prev = c.__focus;
       c.__focus = function (x) {
         if (prev) prev(x);
-        if (!ended && idx >= count - cols) loadMore(false);
+        if (!ended && idx2 >= count - cols) loadMore(false);
       };
       grid.appendChild(c);
       return c;
@@ -8093,13 +8095,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       buffer2 = pool.slice(n);
     }
     function loadMore(byButton) {
-      if (busy || ended) return;
-      busy = true;
+      if (busy2 || ended) return;
+      busy2 = true;
       more.textContent = t("Carregando...");
       var lastRowFirst = count ? grid.children[count - (count % cols || cols)] : null;
       var first = page === 0;
-      opts.load(++page).then(function (items) {
-        var fresh = (items || []).filter(function (it) {
+      opts.load(++page).then(function (items2) {
+        var fresh = (items2 || []).filter(function (it) {
           var k = opts.key(it);
           if (seen[k]) return false;
           seen[k] = true;
@@ -8109,21 +8111,21 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         buffer2 = buffer2.concat(fresh);
         var before = count;
         flush3();
-        busy = false;
+        busy2 = false;
         more.textContent = t("Carregar mais");
         moreWrap.style.display = ended ? "none" : "";
-        loadVisibleImages(el, 400);
+        loadVisibleImages(el2, 400);
         if (first && !count && opts.onEmpty) opts.onEmpty();
         if (first && grid.firstChild) focus(grid.firstChild);else if (byButton && lastRowFirst) focus(lastRowFirst);
         if (!ended && count === before) loadMore(byButton);
       }).catch(function () {
-        busy = false;
+        busy2 = false;
         more.textContent = t("Carregar mais");
         toast(t("Não foi possível carregar"));
       });
     }
     return {
-      el: el,
+      el: el2,
       start: function start() {
         return page === 0 && loadMore(false);
       },
@@ -8409,18 +8411,18 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   function text(str) {
     var src = String(str || "").trim();
     if (!src) return Promise.resolve(null);
-    var parts = [];
+    var parts2 = [];
     var cur = "";
     (src.match(/[^.!?]+[.!?]*\s*/g) || [src]).map(function (x) {
       return x.trim();
     }).forEach(function (sentence) {
       if ((cur + " " + sentence).length > 1500 && cur) {
-        parts.push(cur);
+        parts2.push(cur);
         cur = sentence;
       } else cur = cur ? cur + " " + sentence : sentence;
     });
-    if (cur) parts.push(cur);
-    return Promise.all(parts.map(function (q) {
+    if (cur) parts2.push(cur);
+    return Promise.all(parts2.map(function (q) {
       return getJSON("https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=pt&dt=t&q=" + encodeURIComponent(q), {
         timeout: 1e4
       }).then(function (r) {
@@ -8723,9 +8725,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return interleave(r[0], r[1]);
     });
   }
-  function localize(items) {
-    if (!hasTmdb()) return items;
-    return Promise.all(items.map(function (it) {
+  function localize(items2) {
+    if (!hasTmdb()) return items2;
+    return Promise.all(items2.map(function (it) {
       return tmdbFind(it.id).then(function (f) {
         if (f && f.overview) it.description = f.overview;
         if (f && f.title) it.name = f.title;
@@ -8735,9 +8737,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       });
     }));
   }
+  function saverItems() {
+    return cinemeta("top").then(function (items2) {
+      return localize(items2.slice(0, 16));
+    });
+  }
   function load2() {
-    return loadRaw().then(function (items) {
-      return localize(items.slice(0, 12));
+    return loadRaw().then(function (items2) {
+      return localize(items2.slice(0, 12));
     });
   }
   function loadRaw() {
@@ -8767,13 +8774,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var j = 0;
       while (j < lines.length && lines[j].indexOf("-->") < 0) j++;
       if (j >= lines.length) continue;
-      var parts = lines[j].split("-->");
-      var start4 = toSec(parts[0]);
-      var end = toSec(parts[1].trim().split(/\s+/)[0]);
-      if (!isFinite(start4) || !isFinite(end)) continue;
+      var parts2 = lines[j].split("-->");
+      var start5 = toSec(parts2[0]);
+      var end = toSec(parts2[1].trim().split(/\s+/)[0]);
+      if (!isFinite(start5) || !isFinite(end)) continue;
       var body = lines.slice(j + 1).join("\n").replace(/\{\\[^}]*\}/g, "").trim();
       if (body) cues.push({
-        start: start4,
+        start: start5,
         end: end,
         text: sanitize(body)
       });
@@ -8797,34 +8804,37 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       throw e;
     }).then(parse2);
   }
-  function Renderer(el) {
-    var cues = [];
+  function Renderer(el2) {
+    var _cues = [];
     var _offset = 0;
     var lastHtml = "";
-    var idx = 0;
+    var idx2 = 0;
     function find2(t2) {
-      if (idx >= cues.length || cues[idx] && cues[idx].start > t2) idx = 0;
-      while (idx < cues.length && cues[idx].end < t2) idx++;
+      if (idx2 >= _cues.length || _cues[idx2] && _cues[idx2].start > t2) idx2 = 0;
+      while (idx2 < _cues.length && _cues[idx2].end < t2) idx2++;
       var out = [];
-      for (var k = idx; k < cues.length && cues[k].start <= t2; k++) {
-        if (cues[k].end >= t2) out.push(cues[k].text);
+      for (var k = idx2; k < _cues.length && _cues[k].start <= t2; k++) {
+        if (_cues[k].end >= t2) out.push(_cues[k].text);
       }
       return out.join("\n");
     }
     return {
       set: function set(c) {
-        cues = c || [];
-        idx = 0;
+        _cues = c || [];
+        idx2 = 0;
         lastHtml = "";
-        el.innerHTML = "";
+        el2.innerHTML = "";
       },
       clear: function clear() {
-        cues = [];
+        _cues = [];
         lastHtml = "";
-        el.innerHTML = "";
+        el2.innerHTML = "";
       },
       active: function active() {
-        return cues.length > 0;
+        return _cues.length > 0;
+      },
+      cues: function cues() {
+        return _cues;
       },
       setOffset: function setOffset(sec) {
         return _offset = sec;
@@ -8833,11 +8843,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         return _offset;
       },
       update: function update(t2) {
-        if (!cues.length) return;
+        if (!_cues.length) return;
         var html = find2(t2 - _offset);
         if (html === lastHtml) return;
         lastHtml = html;
-        el.innerHTML = html ? "<span>" + html + "</span>" : "";
+        el2.innerHTML = html ? "<span>" + html + "</span>" : "";
       }
     };
   }
@@ -8956,8 +8966,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         why: "poucas falas"
       };
     }
-    var minutes = duration2 / 60;
-    if (cues.length < Math.max(20, minutes)) return {
+    var minutes2 = duration2 / 60;
+    if (cues.length < Math.max(20, minutes2)) return {
       ok: false,
       why: "poucas falas (" + cues.length + ")"
     };
@@ -8976,6 +8986,50 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return {
       ok: true
     };
+  }
+  function words(list3) {
+    return new RegExp("(?:^|[^a-zA-ZÀ-ÿ])(?:" + list3.join("|") + ")(?![a-zA-ZÀ-ÿ])", "gi");
+  }
+  var PT_PT = words(["(?:estou|estás|está|estamos|estão|estava|estavas|estive|andas|anda|continua|vou|vais|começa|começou) a [a-zà-ÿ]+(?:ar|er|ir)", "telemóvel", "autocarro", "comboio", "raparigas?", "miúd[oa]s?", "fixe", "bué", "casa de banho", "pequeno-almoço", "ecrã", "equipa", "facto", "acç(?:ão|ões)", "óptim[oa]", "actual(?:mente)?", "direcção", "projecto", "exact(?:o|a|amente)", "contacto", "frigorífico", "malta", "gaj[oa]", "pá", "chávena", "t(?:ens|enho|emos|em) de", "há-de", "percebes(?:te)?", "connosco"]);
+  var PT_BR = words(["(?:estou|está|estamos|estão|estava|estive|fico|ficou) [a-zà-ÿ]+(?:ando|endo|indo)", "vocês?", "ônibus", "trem", "banheiro", "garot[oa]s?", "celular", "legal", "cara", "tela", "café da manhã", "geladeira", "a gente", "pra", "pro", "tá", "tô", "né", "cadê", "moleque", "grana", "tchau", "ótim[oa]", "atual(?:mente)?", "direção", "projeto", "exat(?:o|a|amente)", "contato", "fato"]);
+  function ptVariant(cues) {
+    if (!cues || !cues.length) return "";
+    var text2 = "";
+    for (var i = 0; i < cues.length && text2.length < 6e4; i += cues.length > 600 ? 2 : 1) text2 += " " + cues[i].text;
+    text2 = text2.replace(/<[^>]+>/g, "");
+    var pt = (text2.match(PT_PT) || []).length;
+    var br = (text2.match(PT_BR) || []).length;
+    if (pt >= 4 && pt > br * 1.5) return "pt";
+    if (br >= 4 && br > pt * 1.5) return "br";
+    return "";
+  }
+  var FPS_RATIOS = [23.976 / 25, 25 / 23.976, 24 / 25, 25 / 24, 23.976 / 24, 24 / 23.976];
+  function scaleCues(cues, f) {
+    return cues.map(function (c) {
+      return {
+        start: c.start * f,
+        end: c.end * f,
+        text: c.text
+      };
+    });
+  }
+  function fixFps(cues, duration2) {
+    if (!cues || cues.length < 20 || !isFinite(duration2) || duration2 <= 0) return null;
+    if (plausible(cues, duration2).ok) return null;
+    var last = cues[cues.length - 1].end;
+    var best = null;
+    FPS_RATIOS.forEach(function (f) {
+      var end = last * f;
+      if (!best && end <= duration2 + 5 && end >= duration2 * 0.7) best = {
+        f: f
+      };
+    });
+    if (!best) return null;
+    var scaled = scaleCues(cues, best.f);
+    return plausible(scaled, duration2).ok ? {
+      cues: scaled,
+      factor: best.f
+    } : null;
   }
 
   // src/js/lib/substyle.js
@@ -9071,26 +9125,26 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return x.id === id;
     }) || list3[0];
   }
-  function apply(el, s) {
+  function apply(el2, s) {
     var font = find(FONTS, s.subtitleFont);
     var pos = find(POSITIONS, s.subtitlePosition);
     var w = font.weights || {
       normal: 500,
       bold: 700
     };
-    el.style.fontFamily = font.css;
-    el.style.fontSize = Math.round(BASE_PX * (font.scale || 1) * ((s.subtitleSize || 100) / 100)) + "px";
-    el.style.fontWeight = String(s.subtitleBold === false ? w.normal : w.bold);
-    el.style.letterSpacing = font.letterSpacing || "";
-    el.style.wordSpacing = font.wordSpacing || "";
-    el.style.lineHeight = font.lineHeight ? String(font.lineHeight) : "";
-    el.style.maxWidth = font.measure ? font.measure + "px" : "";
-    el.style.marginLeft = el.style.marginRight = font.measure ? "auto" : "";
-    el.style.color = s.subtitleColor || "#ffffff";
+    el2.style.fontFamily = font.css;
+    el2.style.fontSize = Math.round(BASE_PX * (font.scale || 1) * ((s.subtitleSize || 100) / 100)) + "px";
+    el2.style.fontWeight = String(s.subtitleBold === false ? w.normal : w.bold);
+    el2.style.letterSpacing = font.letterSpacing || "";
+    el2.style.wordSpacing = font.wordSpacing || "";
+    el2.style.lineHeight = font.lineHeight ? String(font.lineHeight) : "";
+    el2.style.maxWidth = font.measure ? font.measure + "px" : "";
+    el2.style.marginLeft = el2.style.marginRight = font.measure ? "auto" : "";
+    el2.style.color = s.subtitleColor || "#ffffff";
     var style = s.subtitleStyle || "kai";
-    el.style.textShadow = style === "kai" && font.halo ? font.halo : SHADOWS[style] || SHADOWS.kai;
-    el.style.bottom = pos.bottom + "px";
-    el.classList.toggle("box", s.subtitleStyle === "box");
+    el2.style.textShadow = style === "kai" && font.halo ? font.halo : SHADOWS[style] || SHADOWS.kai;
+    el2.style.bottom = pos.bottom + "px";
+    el2.classList.toggle("box", s.subtitleStyle === "box");
   }
   function labels(s) {
     return {
@@ -9449,7 +9503,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var SLOW_COUNTDOWN = 5;
   var SAVE_MS = 15e3;
   var LANG_NAMES = {
-    por: "Português",
+    por: "Português (Portugal)",
     pob: "Português (BR)",
     pt: "Português",
     "pt-br": "Português (BR)",
@@ -9480,6 +9534,35 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     if (!code) return t("Desconhecido");
     var name = LANG_NAMES[String(code).toLowerCase()];
     return name ? t(name) : code;
+  }
+  var SYNC_KEY = "subSync";
+  function savedSync(videoId) {
+    return (get(SYNC_KEY, {}) || {})[videoId] || null;
+  }
+  function saveSync(videoId, subId, off) {
+    var all = get(SYNC_KEY, {}) || {};
+    if (!off || !subId) delete all[videoId];else all[videoId] = {
+      sub: subId,
+      off: off,
+      at: Date.now()
+    };
+    var ids = Object.keys(all);
+    if (ids.length > 150) {
+      ids.sort(function (a, b) {
+        return all[a].at - all[b].at;
+      });
+      ids.slice(0, ids.length - 150).forEach(function (k) {
+        return delete all[k];
+      });
+    }
+    set(SYNC_KEY, all);
+  }
+  function fmtOff(v) {
+    var r = Math.round(v * 10) / 10;
+    return (r > 0 ? "+" : r < 0 ? "−" : "") + Math.abs(r).toFixed(1).replace(".", ",") + " s";
+  }
+  function isPt(lang2) {
+    return /^(pob|por|pt|pt-br|pt-pt|ptbr)$/i.test(lang2 || "");
   }
   var calendarSeen = {};
   function openPlayer(opts) {
@@ -9596,7 +9679,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var introStatus = h("div.pi-main");
     var introCaption = h("div.pi-caption");
     var intro = h("div.p-intro", null, [introBg, h("div.pi-shade"), h("div.pi-info", null, [introLogo, introTitle, introSub, h("div.pi-status-row", null, [h("div.pi-ring"), h("div.pi-texts", null, [introStatus, introCaption])])])]);
-    var el = h("div.view.player.intro-on", null, [videoEl, subsEl, overlay, skipBox, spinner, msgEl, intro]);
+    var el2 = h("div.view.player.intro-on", null, [videoEl, subsEl, overlay, skipBox, spinner, msgEl, intro]);
     var renderer = Renderer(subsEl);
     apply(subsEl, settings2);
     var alive = true;
@@ -9624,6 +9707,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var triedTranscode = false;
     var slowTimer = null;
     var slowModal = null;
+    var syncUi = false;
     var tried = opts.stream ? [opts.stream] : [];
     var seriesInfo = function seriesInfo() {
       return opts.isSeries ? {
@@ -9664,7 +9748,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       });
       return i >= 0 && i + 1 < vids.length ? vids[i + 1] : null;
     }
-    function start4() {
+    function start5() {
       setTitle();
       if (!stream) return waitForPick();
       armSlow();
@@ -9752,7 +9836,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }), [eventTime(e, true), e.location].filter(Boolean).join(" · ")]), h("div.cal-notice-hint", {
         text: t("OK fecha · some sozinho em 15 s")
       }), h("div.cal-notice-bar", null, fill)]);
-      el.appendChild(box);
+      el2.appendChild(box);
       var layer = pushLayer(box, {
         onBack: function onBack() {
           return closeNotice();
@@ -9806,7 +9890,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         var info = parse3(s);
         introStatus.textContent = t("Preparando o vídeo");
         introCaption.innerHTML = "<b>✦</b>" + t("Smart Choice") + " · " + escapeHtml(summary(info) || info.addon);
-        start4();
+        start5();
       });
     }
     var tracksPromise = null;
@@ -9877,15 +9961,20 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         autoDone.audio = true;
         var already = embedded.audio[0] && prefAudio.indexOf(String(embedded.audio[0].lang).toLowerCase()) >= 0;
         if (!already) {
-          var idx = embedded.audio.findIndex(function (tr) {
+          var idx2 = embedded.audio.findIndex(function (tr) {
             return prefAudio.indexOf(String(tr.lang).toLowerCase()) >= 0;
           });
-          if (idx > 0) selectEmbeddedAudio(idx);
+          if (idx2 > 0) selectEmbeddedAudio(idx2);
         }
       }
       if (autoDone.sub || !settings2.subtitlesAuto || !prefSubs.length || !subsSettled) return;
       autoDone.sub = true;
-      var ranked = rank(addonSubs, prefSubs, fileInfo || {}, seriesInfo()).slice(0, 6);
+      var ranked = rank(addonSubs, prefSubs, fileInfo || {}, seriesInfo()).slice(0, 8);
+      var saved = savedSync(video.id);
+      var savedAt = saved ? ranked.findIndex(function (x) {
+        return (x.id || x.url) === saved.sub;
+      }) : -1;
+      if (savedAt > 0) ranked.unshift(ranked.splice(savedAt, 1)[0]);
       if (ranked.length) whenDuration(function () {
         return tryAutoSub(ranked, 0, mediaUrl);
       });
@@ -9902,30 +9991,84 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       videoEl.addEventListener("loadedmetadata", _go);
       setTimeout(_go, 15e3);
     }
-    function tryAutoSub(ranked, i, forUrl) {
+    function tryAutoSub(ranked, i, forUrl, ptBackup) {
       if (!alive || forUrl !== mediaUrl || currentSub.kind !== "off") return;
       if (i >= ranked.length) {
+        if (ptBackup) {
+          useAddonCues(ptBackup.sub, ptBackup.cues);
+          toast(t("Só achei legenda em português de Portugal."), 4e3);
+          return;
+        }
         log.warn("Nenhuma legenda passou na conferência; usando a padrão");
         selectAddonSub(ranked[0], true);
         toast(t("Legenda pode não bater com este arquivo. Troque no menu de legendas."), 5e3);
         return;
       }
       var s = ranked[i];
-      load3(s.url, _subtitlesProxy(s.url)).then(function (cues) {
+      loadAddonCues(s).then(function (cues) {
         if (!alive || forUrl !== mediaUrl || currentSub.kind !== "off") return;
         var check3 = plausible(cues, videoEl.duration);
         if (!check3.ok) {
           log.info("Legenda recusada", s.addon, s.lang, check3.why);
-          return tryAutoSub(ranked, i + 1, forUrl);
+          return tryAutoSub(ranked, i + 1, forUrl, ptBackup);
         }
-        currentSub = {
-          kind: "addon",
-          id: s.id || s.url
-        };
-        renderer.set(cues);
+        if (wantsBr() && subVariant[s.id || s.url] === "pt") {
+          log.info("Legenda de Portugal; procurando uma do Brasil", s.addon, s.lang);
+          return tryAutoSub(ranked, i + 1, forUrl, ptBackup || {
+            sub: s,
+            cues: cues
+          });
+        }
+        useAddonCues(s, cues);
       }).catch(function () {
-        return tryAutoSub(ranked, i + 1, forUrl);
+        return tryAutoSub(ranked, i + 1, forUrl, ptBackup);
       });
+    }
+    var subVariant = {};
+    function loadAddonCues(s) {
+      return load3(s.url, _subtitlesProxy(s.url)).then(function (cues) {
+        var fix = fixFps(cues, videoEl.duration);
+        if (fix) {
+          log.info("Legenda em outra velocidade; reescalada", fix.factor.toFixed(4));
+          cues = fix.cues;
+        }
+        if (isPt(s.lang)) subVariant[s.id || s.url] = ptVariant(cues);
+        return cues;
+      });
+    }
+    function useAddonCues(s, cues) {
+      currentSub = {
+        kind: "addon",
+        id: s.id || s.url
+      };
+      renderer.set(cues);
+      applySavedOffset();
+    }
+    function wantsBr() {
+      var p = (settings2.subtitleLangs || []).map(function (x) {
+        return x.toLowerCase();
+      });
+      var idx2 = function idx2(l) {
+        return p.indexOf(l) < 0 ? 99 : p.indexOf(l);
+      };
+      var br = Math.min(idx2("pob"), idx2("pt-br"));
+      return br < 99 && br < idx2("por");
+    }
+    function subLabel(s) {
+      var v = subVariant[s.id || s.url];
+      if (v === "pt") return t("Português (Portugal)");
+      if (v === "br") return t("Português (BR)");
+      return langName(s.lang);
+    }
+    function subKey() {
+      if (currentSub.kind === "addon") return currentSub.id;
+      if (currentSub.kind === "embedded") return "emb" + currentSub.index;
+      return "";
+    }
+    function applySavedOffset() {
+      var saved = savedSync(video.id);
+      renderer.setOffset(saved && saved.sub === subKey() ? saved.off : 0);
+      renderer.update(videoEl.currentTime);
     }
     function scheduleAudioPick() {
       if (!(settings2.audioLangs || []).length || !_isAvailable()) return;
@@ -9962,7 +10105,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
     videoEl.addEventListener("pause", function () {
       updatePlayBtn();
-      showControls();
+      if (!syncUi) showControls();
       saveProgress2();
     });
     videoEl.addEventListener("waiting", function () {
@@ -10053,23 +10196,23 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         target = px ? decodeURIComponent(px[1]) : mediaUrl;
         host = (target.match(/^https?:\/\/([^/]+)/) || [])[1] || "";
       } catch (e) {}
-      var parts = [why || t("erro {c}", {
+      var parts2 = [why || t("erro {c}", {
         c: (code || "?") + (MEDIA_ERR[code] ? " (" + MEDIA_ERR[code] + ")" : "")
       })];
-      if (!why && isHls(sourceUrl) && !hlsCtl && unavailable) parts[0] += " · " + unavailable;
-      parts.push((stream && stream.name ? String(stream.name).split("\n").join(" ") + " · " : "") + (host || "?") + (target !== mediaUrl ? " " + t("via TV") : ""));
-      if (target === mediaUrl) return Promise.resolve(parts.join(" · "));
+      if (!why && isHls(sourceUrl) && !hlsCtl && unavailable) parts2[0] += " · " + unavailable;
+      parts2.push((stream && stream.name ? String(stream.name).split("\n").join(" ") + " · " : "") + (host || "?") + (target !== mediaUrl ? " " + t("via TV") : ""));
+      if (target === mediaUrl) return Promise.resolve(parts2.join(" · "));
       return getJSON(mediaUrl.replace(/\/px\/.*$/, "/api/pxlog"), {
         timeout: 3e3,
         quiet: true
       }).then(function (list3) {
         var last = (Array.isArray(list3) ? list3 : []).slice(-3);
-        if (last.length) parts.push(t("site respondeu") + " " + last.map(function (x) {
+        if (last.length) parts2.push(t("site respondeu") + " " + last.map(function (x) {
           return x.status + (x.error ? " " + x.error : "") + " (" + x.file + ")";
         }).join(", "));
-        return parts.join(" · ");
+        return parts2.join(" · ");
       }).catch(function () {
-        return parts.concat(t("serviço da TV não respondeu")).join(" · ");
+        return parts2.concat(t("serviço da TV não respondeu")).join(" · ");
       });
     }
     var segments = [];
@@ -10344,22 +10487,23 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     function showControls(focusEl) {
       if (!controlsOn) {
         controlsOn = true;
-        el.classList.add("controls-on");
+        el2.classList.add("controls-on");
         updateTimes();
         updatePlayBtn();
-        if (!current2() || !overlay.contains(current2())) focus(focusEl || bar);
+        var mine = topLayer() && topLayer().root === el2;
+        if (mine && (!current2() || !overlay.contains(current2()))) focus(focusEl || bar);
       } else if (focusEl) focus(focusEl);
       scheduleHide();
     }
     function hideControls() {
       controlsOn = false;
-      el.classList.remove("controls-on");
+      el2.classList.remove("controls-on");
       clearTimeout(hideTimer);
     }
     function scheduleHide() {
       clearTimeout(hideTimer);
       hideTimer = setTimeout(function () {
-        if (!videoEl.paused && seekTarget === null && topLayer() && topLayer().root === el) hideControls();
+        if (!videoEl.paused && seekTarget === null && topLayer() && topLayer().root === el2) hideControls();
       }, HIDE_MS);
     }
     var introOn = true;
@@ -10392,7 +10536,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       introOn = false;
       intro.classList.remove("in");
       setTimeout(function () {
-        return el.classList.remove("intro-on");
+        return el2.classList.remove("intro-on");
       }, 600);
       setTimeout(function () {
         introBg.style.backgroundImage = "";
@@ -10536,6 +10680,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         busy: false
       };
       currentSub = cs;
+      applySavedOffset();
       ensureSegments();
     }
     function ensureSegments() {
@@ -10578,11 +10723,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         kind: "addon",
         id: s.id || s.url
       };
-      load3(s.url, _subtitlesProxy(s.url)).then(function (cues) {
+      loadAddonCues(s).then(function (cues) {
         if (!alive || currentSub.id !== (s.id || s.url)) return;
-        renderer.set(cues);
+        useAddonCues(s, cues);
         if (!silent) toast(t("Legenda: {lang}", {
-          lang: langName(s.lang)
+          lang: subLabel(s)
         }));
       }).catch(function () {
         return toast(t("Não foi possível baixar a legenda."));
@@ -10632,13 +10777,26 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       withTracks(openSubsMenu);
     }
     function openSubsMenu() {
-      var opts2 = [{
+      var opts2 = [];
+      if (renderer.active()) {
+        var off = renderer.offset();
+        opts2.push({
+          label: t("Sincronizar legenda"),
+          sub: off ? t("Ajuste atual: {n}", {
+            n: fmtOff(off)
+          }) : t("Automático ou manual"),
+          value: {
+            kind: "sync"
+          }
+        });
+      }
+      opts2.push({
         label: t("Desligada"),
         value: {
           kind: "off"
         },
         checked: currentSub.kind === "off"
-      }];
+      });
       if (embedded && embedded.subs.length) {
         embedded.subs.forEach(function (tr, i) {
           return /PGS|VOBSUB|DVD/i.test(tr.codec || "") ? null : opts2.push({
@@ -10661,7 +10819,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }));
       sorted.slice(0, 60).forEach(function (s) {
         return opts2.push({
-          label: langName(s.lang),
+          label: subLabel(s),
           sub: s.addon || "Addon",
           value: {
             kind: "addon",
@@ -10669,15 +10827,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           },
           checked: currentSub.kind === "addon" && currentSub.id === (s.id || s.url)
         });
-      });
-      opts2.push({
-        label: t("Atraso da legenda: {n}s", {
-          n: renderer.offset().toFixed(1)
-        }),
-        sub: t("Ajustar sincronia"),
-        value: {
-          kind: "delay"
-        }
       });
       opts2.push({
         label: t("Tamanho: {n}%", {
@@ -10696,24 +10845,206 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             currentSub = {
               kind: "off"
             };
-          } else if (v.kind === "embedded") selectEmbeddedSub(v.index);else if (v.kind === "addon") selectAddonSub(v.sub);else if (v.kind === "delay") delayMenu();else if (v.kind === "size") sizeMenu();
+          } else if (v.kind === "embedded") selectEmbeddedSub(v.index);else if (v.kind === "addon") selectAddonSub(v.sub);else if (v.kind === "sync") syncMenu();else if (v.kind === "size") sizeMenu();
         }
       });
     }
-    function delayMenu() {
-      var vals = [-5, -3, -2, -1, -0.5, -0.25, 0, 0.25, 0.5, 1, 2, 3, 5];
-      menu(t("Atraso da legenda"), vals.map(function (v) {
-        return {
-          label: (v > 0 ? "+" : "") + v + "s",
-          sub: v < 0 ? t("Legenda aparece antes") : v > 0 ? t("Legenda aparece depois") : t("Sem ajuste"),
-          value: v,
-          checked: renderer.offset() === v
-        };
-      }), {
+    function syncMenu() {
+      var off = renderer.offset();
+      var list3 = [{
+        label: t("Automático"),
+        sub: t("Pause quando alguém começa a falar e escolha a fala"),
+        value: "auto"
+      }, {
+        label: t("Manual"),
+        sub: t("Ajuste fino com as setas do controle"),
+        value: "manual"
+      }];
+      if (off) list3.push({
+        label: t("Zerar ajuste"),
+        sub: t("Agora: {n}", {
+          n: fmtOff(off)
+        }),
+        value: "zero"
+      });
+      menu(t("Sincronizar legenda"), list3, {
         onPick: function onPick(v) {
-          return renderer.setOffset(v);
+          if (v === "auto") autoSync();else if (v === "manual") manualSync();else {
+            setSync(0);
+            toast(t("Legenda de volta ao tempo original."));
+          }
         }
       });
+    }
+    function setSync(v) {
+      v = Math.round(v * 10) / 10;
+      renderer.setOffset(v);
+      renderer.update(videoEl.currentTime);
+      if (meta.id !== "dev") saveSync(video.id, subKey(), v);
+    }
+    function syncHint(v) {
+      var r = Math.round(v * 10) / 10;
+      var n = Math.abs(r).toFixed(1).replace(".", ",");
+      if (!r) return t("No tempo original do arquivo");
+      return r > 0 ? t("A legenda aparece {n} s depois", {
+        n: n
+      }) : t("A legenda aparece {n} s antes", {
+        n: n
+      });
+    }
+    function manualSync() {
+      hideControls();
+      var before = renderer.offset();
+      var cur = before;
+      var val = h("div.ss-val");
+      var hint = h("div.ss-hint");
+      var knob = h("div.ss-knob");
+      var arrow = function arrow(d) {
+        return '<svg viewBox="0 0 24 24"><path d="' + d + '"/></svg>';
+      };
+      var LR = arrow("M15 5l-7 7 7 7") + arrow("M9 5l7 7-7 7");
+      var UD = arrow("M5 15l7-7 7 7") + arrow("M5 9l7 7 7-7");
+      var keyHint = function keyHint(k, label) {
+        return h("span.ss-key", null, [h("b", {
+          html: k
+        }), label]);
+      };
+      var box = h("div.sub-sync", null, [h("div.ss-title", {
+        text: t("Sincronizar legenda")
+      }), val, hint, h("div.ss-track", null, [h("div.ss-mid"), knob, h("span.ss-end.l", {
+        text: t("antes")
+      }), h("span.ss-end.r", {
+        text: t("depois")
+      })]), h("div.ss-keys", null, [keyHint(LR, "0,5 s"), keyHint(UD, "0,1 s"), keyHint("OK", t("salvar")), keyHint(t("Voltar"), t("desfazer"))])]);
+      function draw() {
+        val.textContent = fmtOff(cur);
+        val.className = "ss-val" + (cur > 0.05 ? " later" : cur < -0.05 ? " sooner" : "");
+        hint.textContent = syncHint(cur);
+        knob.style.left = 50 + Math.max(-10, Math.min(10, cur)) * 5 + "%";
+        renderer.setOffset(cur);
+        renderer.update(videoEl.currentTime);
+      }
+      function close2(save) {
+        syncUi = false;
+        popLayer(layer);
+        if (box.parentNode) box.parentNode.removeChild(box);
+        if (save) {
+          setSync(cur);
+          toast(t("Legenda ajustada: {n}", {
+            n: fmtOff(cur)
+          }));
+        } else {
+          renderer.setOffset(before);
+          renderer.update(videoEl.currentTime);
+        }
+      }
+      el2.appendChild(box);
+      syncUi = true;
+      var layer = pushLayer(box, {
+        onBack: function onBack() {
+          return close2(false);
+        },
+        onKey: function onKey(ev) {
+          var k = ev.keyCode;
+          if (k === KEY.BACK || k === KEY.ESC || k === KEY.BACKSPACE) return false;
+          if (k === KEY.LEFT) cur -= 0.5;else if (k === KEY.RIGHT) cur += 0.5;else if (k === KEY.UP) cur += 0.1;else if (k === KEY.DOWN) cur -= 0.1;else if (k === KEY.ENTER) {
+            close2(true);
+            return true;
+          } else if (k === KEY.PLAYPAUSE || k === KEY.PLAY || k === KEY.PAUSE) {
+            if (k === KEY.PAUSE) videoEl.pause();else if (k === KEY.PLAY) videoEl.play();else togglePlay();
+            hideControls();
+            return true;
+          } else return true;
+          cur = Math.max(-60, Math.min(60, Math.round(cur * 10) / 10));
+          draw();
+          return true;
+        }
+      });
+      draw();
+    }
+    function autoSync() {
+      var all = renderer.cues();
+      if (!all.length) return toast(t("Escolha uma legenda primeiro."));
+      syncUi = true;
+      videoEl.pause();
+      hideControls();
+      var now = videoEl.currentTime;
+      var at = now - renderer.offset();
+      var dist = function dist(c) {
+        return Math.abs(c.start - at);
+      };
+      var near = all.filter(function (c) {
+        return c.start >= at - 90 && c.start <= at + 90;
+      });
+      if (near.length < 6) near = all.slice().sort(function (a, b) {
+        return dist(a) - dist(b);
+      }).slice(0, 12);
+      if (near.length > 40) near = near.slice().sort(function (a, b) {
+        return dist(a) - dist(b);
+      }).slice(0, 40);
+      near.sort(function (a, b) {
+        return a.start - b.start;
+      });
+      var closest = 0;
+      near.forEach(function (c, i) {
+        if (dist(c) < dist(near[closest])) closest = i;
+      });
+      var rel = function rel(d) {
+        if (Math.abs(d) < 0.3) return t("na legenda: agora");
+        var n = Math.abs(d) < 10 ? Math.abs(d).toFixed(1).replace(".", ",") : String(Math.round(Math.abs(d)));
+        return d > 0 ? t("na legenda: daqui a {n} s", {
+          n: n
+        }) : t("na legenda: há {n} s", {
+          n: n
+        });
+      };
+      var list3 = h("div.modal-list.sync-list", {
+        "data-scroll-y": "",
+        "data-pad-y": "120"
+      });
+      var items2 = near.map(function (c) {
+        return h("div.opt.sync-opt", {
+          focusable: true,
+          onSelect: function onSelect() {
+            return pick2(c);
+          }
+        }, [h("span.so-text", {
+          html: c.text.replace(/\n/g, "<br>")
+        }), h("small", {
+          text: rel(c.start - at)
+        })]);
+      });
+      items2.forEach(function (it) {
+        return list3.appendChild(it);
+      });
+      var box = h("div.modal-box.sync-box", null, [h("h3", {
+        text: t("Qual fala começa agora?")
+      }), h("p.modal-text", {
+        text: t("Pausado em {time}. Escolha a fala que começa exatamente neste momento.", {
+          time: fmtTime(now)
+        })
+      }), list3]);
+      var modal = h("div.modal.sync-modal", null, box);
+      document.getElementById("app").appendChild(modal);
+      var layer = pushLayer(modal, {
+        onBack: function onBack() {
+          return close2();
+        }
+      });
+      focus(items2[closest]);
+      function close2() {
+        syncUi = false;
+        popLayer(layer);
+        if (modal.parentNode) modal.parentNode.removeChild(modal);
+      }
+      function pick2(c) {
+        close2();
+        setSync(now - c.start);
+        toast(t("Legenda sincronizada ({n})", {
+          n: fmtOff(renderer.offset())
+        }), 4e3);
+        videoEl.play();
+      }
     }
     function sizeMenu() {
       var vals = [70, 85, 100, 115, 130, 150];
@@ -10762,7 +11093,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         sub: false,
         audio: false
       };
-      start4();
+      start5();
     }
     function armSlow() {
       clearTimeout(slowTimer);
@@ -10829,7 +11160,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         "data-group": ""
       }, [goBtn, waitBtn])]);
       var modal = h("div.modal", null, box);
-      el.appendChild(modal);
+      el2.appendChild(modal);
       var layer = pushLayer(modal, {
         onBack: function onBack() {
           return armSlow();
@@ -10937,7 +11268,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             sub: false,
             audio: false
           };
-          start4();
+          start5();
         } else {
           pop();
           openDetails(meta.type, meta.id, {
@@ -11016,12 +11347,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       pop();
     }
     return {
-      el: el,
+      el: el2,
       onKey: onKey,
       onShow: function onShow() {
         if (!ticker) {
           setupIntro();
-          start4();
+          start5();
           ticker = setInterval(function () {
             if (controlsOn) updateTimes();
             renderer.update(videoEl.currentTime);
@@ -11139,9 +11470,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return [].concat.apply([], all);
     });
   }
-  function dedupe(items) {
+  function dedupe(items2) {
     var seen = {};
-    return items.filter(function (it) {
+    return items2.filter(function (it) {
       var k = it.mediaType + ":" + it.tmdbId;
       if (seen[k] || !it.poster) return false;
       seen[k] = true;
@@ -11565,8 +11896,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var title = h("div.reco-title");
     var meta = h("div.reco-meta");
     var desc = h("div.reco-desc");
-    var el = h("div.reco-bill", null, [h("div.aurora", null, [h("i.a1"), h("i.a2"), h("i.a3")]), bgA, bgB, frameBox, h("div.reco-shade-left"), h("div.reco-shade-bottom"), loading3, h("div.reco-info", null, [title, meta, desc])]);
-    var front = bgA;
+    var el2 = h("div.reco-bill", null, [h("div.aurora", null, [h("i.a1"), h("i.a2"), h("i.a3")]), bgA, bgB, frameBox, h("div.reco-shade-left"), h("div.reco-shade-bottom"), loading3, h("div.reco-info", null, [title, meta, desc])]);
+    var front2 = bgA;
     var current3 = null;
     var previewTimer = null;
     var trailerTimer = null;
@@ -11587,13 +11918,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       clearTimeout(attemptTimer);
       clearTimeout(revealTimer);
       clearInterval(fadeTimer);
-      el.classList.remove("playing", "buffering");
+      el2.classList.remove("playing", "buffering");
       queue = [];
       frameWin = null;
       revealed = false;
       clear(frameBox);
     }
-    function show2(it) {
+    function show3(it) {
       current3 = it;
       token++;
       clearTimeout(previewTimer);
@@ -11614,20 +11945,20 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
     function setArt(url2, tk) {
       if (!url2) {
-        front.classList.remove("show");
+        front2.classList.remove("show");
         return;
       }
       var pre = new Image();
       pre.onload = function () {
         if (tk !== token) return;
-        var back2 = front === bgA ? bgB : bgA;
-        back2.style.backgroundImage = 'url("' + url2 + '")';
-        back2.classList.remove("show");
+        var back3 = front2 === bgA ? bgB : bgA;
+        back3.style.backgroundImage = 'url("' + url2 + '")';
+        back3.classList.remove("show");
         requestAnimationFrame(function () {
           return requestAnimationFrame(function () {
-            back2.classList.add("show");
-            front.classList.remove("show");
-            front = back2;
+            back3.classList.add("show");
+            front2.classList.remove("show");
+            front2 = back3;
           });
         });
       };
@@ -11653,7 +11984,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
     window.addEventListener("message", onYouTubeMessage);
     function onPlaying() {
-      el.classList.remove("buffering");
+      el2.classList.remove("buffering");
       if (revealed || revealTimer) return;
       command("setPlaybackQuality", ["hd1080"]);
       var tk = token;
@@ -11664,7 +11995,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }, REVEAL_MS);
     }
     function onBuffering() {
-      if (revealed) el.classList.add("buffering");else {
+      if (revealed) el2.classList.add("buffering");else {
         clearTimeout(revealTimer);
         revealTimer = null;
       }
@@ -11672,7 +12003,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     function reveal() {
       revealed = true;
       clearTimeout(attemptTimer);
-      el.classList.add("playing");
+      el2.classList.add("playing");
       report("tocou (" + attempt.host + ")");
       command("setVolume", [0]);
       command("unMute");
@@ -11727,7 +12058,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       clearTimeout(attemptTimer);
       clearTimeout(revealTimer);
       revealTimer = null;
-      el.classList.remove("playing", "buffering");
+      el2.classList.remove("playing", "buffering");
       revealed = false;
       frameWin = null;
       unmuteAt = 0;
@@ -11765,20 +12096,20 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       };
       frameBox.appendChild(frame);
     }
-    function stop() {
+    function stop2() {
       token++;
       clearTimeout(previewTimer);
       stopTrailer();
     }
     return {
-      el: el,
-      show: show2,
-      stop: stop,
+      el: el2,
+      show: show3,
+      stop: stop2,
       resume: function resume() {
-        return current3 && show2(current3);
+        return current3 && show3(current3);
       },
       destroy: function destroy() {
-        stop();
+        stop2();
         window.removeEventListener("message", onYouTubeMessage);
       }
     };
@@ -11786,32 +12117,32 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   function Rail(defs) {
     var list3 = h("div.rail-items");
     var caption = h("div.rail-caption");
-    var el = h("div.reco-rail", null, [list3, caption]);
-    var items = [];
+    var el2 = h("div.reco-rail", null, [list3, caption]);
+    var items2 = [];
     var active = -1;
     function setDefs(d) {
       defs = d;
       clear(list3);
-      items = defs.map(function (x) {
+      items2 = defs.map(function (x) {
         return h("div.rail-item", null, h("span", {
           text: t(x.short)
         }));
       });
-      items.forEach(function (x) {
+      items2.forEach(function (x) {
         return list3.appendChild(x);
       });
       active = -1;
     }
     function set2(i) {
       if (i === active || !defs[i]) return;
-      if (items[active]) items[active].classList.remove("on");
+      if (items2[active]) items2[active].classList.remove("on");
       active = i;
-      items[i].classList.add("on");
+      items2[i].classList.add("on");
       caption.textContent = t(defs[i].caption);
     }
     setDefs(defs);
     return {
-      el: el,
+      el: el2,
       set: set2,
       setDefs: setDefs
     };
@@ -11856,11 +12187,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var load4 = function load4() {
       return retrying(function () {
         return def.load(1);
-      }).then(function (items) {
+      }).then(function (items2) {
         clear(track);
         track.classList.remove("pending");
-        if (!items.length) return failed();
-        items.slice(0, ROW_LIMIT).forEach(function (it) {
+        if (!items2.length) return failed();
+        items2.slice(0, ROW_LIMIT).forEach(function (it) {
           return track.appendChild(_card(it, {
             onSelect: function onSelect() {
               return openItem(it);
@@ -11894,7 +12225,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     };
   }
   function CuratedView(cfg) {
-    var el = h("div.view.reco");
+    var el2 = h("div.view.reco");
     var bar = topbar(cfg.tabId, goTab);
     var billboard = Billboard();
     var rail = Rail(cfg.defs);
@@ -11902,10 +12233,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       "data-scroll-y": "",
       "data-pad-y": "40"
     });
-    el.appendChild(billboard.el);
-    el.appendChild(h("div.reco-top", null, bar));
-    el.appendChild(rail.el);
-    el.appendChild(rows);
+    el2.appendChild(billboard.el);
+    el2.appendChild(h("div.reco-top", null, bar));
+    el2.appendChild(rail.el);
+    el2.appendChild(rows);
     var ctx = {
       billboard: billboard,
       rail: rail,
@@ -11941,7 +12272,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     };
     document.addEventListener("visibilitychange", onVisibility);
     return {
-      el: el,
+      el: el2,
       onShow: function onShow() {
         load4();
         var cur = current2();
@@ -11980,7 +12311,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return im;
   }
   function StreamingsView() {
-    var el = h("div.view.reco.streamings");
+    var el2 = h("div.view.reco.streamings");
     var bar = topbar("streamings", goTab);
     var billboard = Billboard();
     var rail = Rail([]);
@@ -12006,10 +12337,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       "data-group": "",
       "data-trap": ""
     }, logos);
-    el.appendChild(billboard.el);
-    el.appendChild(h("div.reco-top", null, [bar, providerRail]));
-    el.appendChild(rail.el);
-    el.appendChild(rows);
+    el2.appendChild(billboard.el);
+    el2.appendChild(h("div.reco-top", null, [bar, providerRail]));
+    el2.appendChild(rail.el);
+    el2.appendChild(rows);
     var current3 = null;
     var switchTimer = null;
     var firstItemOf = null;
@@ -12086,7 +12417,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return false;
     }
     return {
-      el: el,
+      el: el2,
       onKey: onKey,
       onShow: function onShow() {
         if (!available()) {
@@ -12133,14 +12464,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var load4 = function load4() {
       return retrying(function () {
         return def.load(1);
-      }).then(function (items) {
+      }).then(function (items2) {
         clear(track);
         track.classList.remove("pending");
-        if (!items.length) {
+        if (!items2.length) {
           if (def.optional && row.parentNode) return row.parentNode.removeChild(row);
           return failed();
         }
-        items.slice(0, def.ranked ? 10 : ROW_LIMIT).forEach(function (it, i) {
+        items2.slice(0, def.ranked ? 10 : ROW_LIMIT).forEach(function (it, i) {
           return track.appendChild(_card(it, {
             onSelect: function onSelect() {
               return openItem(it);
@@ -12206,7 +12537,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     push(CategoryView(crumb, def));
   }
   function CategoryView(crumb, def) {
-    var el = h("div.view");
+    var el2 = h("div.view");
     var scroller = h("div.scroll-y", {
       "data-scroll-y": ""
     });
@@ -12232,9 +12563,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
     scroller.appendChild(header);
     scroller.appendChild(pg.el);
-    el.appendChild(scroller);
+    el2.appendChild(scroller);
     return {
-      el: el,
+      el: el2,
       onShow: function onShow() {
         return pg.start();
       }
@@ -12302,7 +12633,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return String(character || "").replace(/\(uncredited\)/i, "(não creditado)").replace(/\(voice\)/i, "(voz)").replace(/\bHimself\b|\bHerself\b/, "Si mesmo").trim();
   }
   function FilmographyView(person) {
-    var el = h("div.view.filmo");
+    var el2 = h("div.view.filmo");
     var ambient = h("div.fp-ambient");
     var photo = h("div.fp-photo");
     var nameEl = h("h1.fp-name", {
@@ -12330,10 +12661,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       "data-pad-y": "60"
     }, grid);
     var panel = h("div.fp-panel", null, [h("div.fp-title", null, [t("Filmografia"), countEl]), chips, scroller]);
-    el.appendChild(ambient);
-    el.appendChild(side);
-    el.appendChild(panel);
-    var items = null;
+    el2.appendChild(ambient);
+    el2.appendChild(side);
+    el2.appendChild(panel);
+    var items2 = null;
     var info = null;
     var filter = "all";
     var newestFirst = true;
@@ -12494,15 +12825,15 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }));
     }
     function refresh2() {
-      var idx = Array.prototype.indexOf.call(chips.children, current2());
+      var idx2 = Array.prototype.indexOf.call(chips.children, current2());
       renderChips();
       renderGrid();
-      if (idx >= 0) focus(chips.children[idx]);
+      if (idx2 >= 0) focus(chips.children[idx2]);
     }
     function renderGrid() {
       clear(grid);
       scroller.scrollTop = 0;
-      var shown = items.filter(function (it) {
+      var shown = items2.filter(function (it) {
         return filter === "all" || it.mediaType === filter;
       });
       if (newestFirst) shown.reverse();
@@ -12550,7 +12881,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
     grid.appendChild(spinnerLine(t("Carregando filmografia...")));
     personCredits(person.id).then(function (list3) {
-      items = list3;
+      items2 = list3;
       renderChips();
       renderGrid();
       var first = grid.querySelector(".fp-item");
@@ -12576,7 +12907,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
     var entered = false;
     var view = {
-      el: el,
+      el: el2,
       onShow: function onShow() {
         loadVisibleImages(panel, 600);
         var first = grid.querySelector(".fp-item");
@@ -12630,16 +12961,16 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
   }
   function DetailsView(type, id, opts) {
-    var el = h("div.view");
+    var el2 = h("div.view");
     var bg = h("img.details-bg", {
       alt: ""
     });
     var info = h("div.details-info", null, spinnerLine(t("Carregando...")));
     var panel = h("div.details-panel");
-    el.appendChild(bg);
-    el.appendChild(h("div.details-shade"));
-    el.appendChild(info);
-    el.appendChild(panel);
+    el2.appendChild(bg);
+    el2.appendChild(h("div.details-shade"));
+    el2.appendChild(info);
+    el2.appendChild(panel);
     var meta = null;
     var mode = "none";
     var season = null;
@@ -12681,19 +13012,19 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         title.style.display = "";
       };
       logo2.src = meta.logo || logo(meta.id);
-      var parts = [];
-      if (meta.releaseInfo || meta.year) parts.push(meta.releaseInfo || meta.year);
-      if (meta.runtime) parts.push(meta.runtime);
+      var parts2 = [];
+      if (meta.releaseInfo || meta.year) parts2.push(meta.releaseInfo || meta.year);
+      if (meta.runtime) parts2.push(meta.runtime);
       if (isSeries()) {
         var seasons = uniqueSeasons().filter(function (s) {
           return s !== 0;
         });
-        if (seasons.length) parts.push(t(seasons.length > 1 ? "{n} temporadas" : "{n} temporada", {
+        if (seasons.length) parts2.push(t(seasons.length > 1 ? "{n} temporadas" : "{n} temporada", {
           n: seasons.length
         }));
       }
       var metaLine2 = h("div.details-meta", {
-        text: parts.join("  ·  ")
+        text: parts2.join("  ·  ")
       });
       var ratingsEl = h("div.ratings");
       renderRatings(ratingsEl, {
@@ -12745,9 +13076,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         ratingsEl: ratingsEl
       });
     }
-    function renderRatings(el2, r, loading3) {
-      clear(el2);
-      if (r.imdb) el2.appendChild(h("span.rating.imdb", {
+    function renderRatings(el3, r, loading3) {
+      clear(el3);
+      if (r.imdb) el3.appendChild(h("span.rating.imdb", {
         html: IMDB_SVG
       }, h("span.rv", {
         text: r.imdb
@@ -12756,7 +13087,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var pct = function pct(v) {
         return v === null || v === void 0 ? loading3 ? "··" : "--" : v + "%";
       };
-      el2.appendChild(h("span.rating.rt", {
+      el3.appendChild(h("span.rating.rt", {
         title: t("Rotten Tomatoes: crítica e público")
       }, [h("span.rv", {
         cls: r.critic === null ? "none" : "",
@@ -12867,7 +13198,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           text: value
         })]);
       };
-      var items = [];
+      var items2 = [];
       if (st.approval) {
         var a = box(t("Aprovação"), st.approval + "%", st.approval >= 85 ? "hot" : "");
         a.appendChild(h("div.astat-bar", null, h("i", {
@@ -12875,14 +13206,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             width: Math.min(100, st.approval) + "%"
           }
         })));
-        items.push(a);
+        items2.push(a);
       }
-      if (st.likes) items.push(box(t("Curtidas"), st.likes));
-      if (st.views) items.push(box(t("Visualizações"), st.views));
-      if (st.duration) items.push(box(t("Duração"), st.duration));
+      if (st.likes) items2.push(box(t("Curtidas"), st.likes));
+      if (st.views) items2.push(box(t("Visualizações"), st.views));
+      if (st.duration) items2.push(box(t("Duração"), st.duration));
       return h("div.adult-stats", null, [st.channel ? h("div.astat-channel", {
         text: st.channel
-      }) : null, h("div.astat-row", null, items)]);
+      }) : null, h("div.astat-row", null, items2)]);
     }
     function isAdult2() {
       return isAdultId(meta.id);
@@ -13145,11 +13476,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         return;
       }
       var groups = srcs.map(function (a) {
-        var el2 = h("div.stream-group");
-        list3.appendChild(el2);
+        var el3 = h("div.stream-group");
+        list3.appendChild(el3);
         return {
           addon: a,
-          el: el2,
+          el: el3,
           count: 0,
           done: false,
           streams: []
@@ -13177,8 +13508,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         filterBtn.textContent = (g ? g.addon.manifest.name : filter === "dub" ? t("Dublados") : t("Todos")) + " ▾";
       }
       function firstVisibleItem() {
-        var items = list3.querySelectorAll(".stream");
-        for (var i = 0; i < items.length; i++) if (items[i].offsetParent !== null && !items[i].classList.contains("disabled")) return items[i];
+        var items2 = list3.querySelectorAll(".stream");
+        for (var i = 0; i < items2.length; i++) if (items2[i].offsetParent !== null && !items2[i].classList.contains("disabled")) return items2[i];
         return null;
       }
       function applyFilter() {
@@ -13325,7 +13656,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     function play2(video, stream, all, pick2) {
       var li = libraryItem(meta.id);
       var resumeMs = li && li.state && li.state.video_id === video.id ? li.state.timeOffset : 0;
-      var start4 = function start4(ms) {
+      var start5 = function start5(ms) {
         return openPlayer({
           meta: meta,
           video: video,
@@ -13337,7 +13668,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         });
       };
       if (resumeMs > 3e4 && pick2) {
-        start4(resumeMs);
+        start5(resumeMs);
       } else if (resumeMs > 3e4) {
         choiceDialog(t("Continuar de onde parou?"), isSeries() ? "T" + video.season + "E" + video.episode + " · " + (video.namePt || video.name || "") : meta.name, [{
           label: '<span class="ico">▶</span>' + t("Continuar de {time}", {
@@ -13345,15 +13676,15 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           }),
           primary: true,
           onSelect: function onSelect() {
-            return start4(resumeMs);
+            return start5(resumeMs);
           }
         }, {
           label: '<span class="ico">↺</span>' + t("Do início"),
           onSelect: function onSelect() {
-            return start4(0);
+            return start5(0);
           }
         }]);
-      } else start4(0);
+      } else start5(0);
     }
     function isUpcoming(v) {
       var d = v && v.released ? new Date(v.released).getTime() : NaN;
@@ -13381,7 +13712,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         return bg.style.display = "none";
       };
       bg.setAttribute("data-lazy", meta.background || background(meta.id));
-      loadVisibleImages(el);
+      loadVisibleImages(el2);
       renderInfo();
       if (isSeries()) {
         if (opts.videoId) {
@@ -13438,10 +13769,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           return pop();
         }
       })]));
-      focusFirst(el);
+      focusFirst(el2);
     });
     var view = {
-      el: el,
+      el: el2,
       onShow: function onShow() {
         if (meta && watchBtn) updateButtons();
         loadVisibleImages(panel, 300);
@@ -13470,7 +13801,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   // src/js/views/home.js
   var ROTATE_MS = 8e3;
   function HomeView() {
-    var el = h("div.view.home-view");
+    var el2 = h("div.view.home-view");
     var scroller = h("div.scroll-y", {
       "data-scroll-y": ""
     });
@@ -13488,14 +13819,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     scroller.appendChild(calRow);
     scroller.appendChild(cwRow);
     scroller.appendChild(rows);
-    el.appendChild(scroller);
+    el2.appendChild(scroller);
     var loadedBoard = false;
     function renderContinue() {
       clear(cwRow);
-      var items = continueWatching().filter(function (it) {
+      var items2 = continueWatching().filter(function (it) {
         return !isAdultId(it._id);
       }).slice(0, 20);
-      if (!items.length) {
+      if (!items2.length) {
         cwRow.style.display = "none";
         return;
       }
@@ -13508,7 +13839,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         "data-group": "",
         "data-trap": ""
       });
-      items.forEach(function (it) {
+      items2.forEach(function (it) {
         var s = it.state;
         var ep = episodeLabel(s.video_id, it._id);
         var bg = /^tt\d+/.test(it._id) ? background(it._id) : it.poster;
@@ -13593,7 +13924,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var pending = [];
     var active = 0;
     function loadNearby() {
-      if (el.offsetParent === null) return;
+      if (el2.offsetParent === null) return;
       var limit = window.innerHeight * 2.2;
       var _loop4 = function _loop4() {
           var p = pending[i];
@@ -13662,13 +13993,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
     heroUi.load();
     var view = {
-      el: el,
+      el: el2,
       onShow: function onShow() {
         renderAgenda();
         renderContinue();
         if (!loadedBoard) renderBoard();else loadNearby();
         heroUi.resume();
-        loadVisibleImages(el);
+        loadVisibleImages(el2);
       },
       onHide: function onHide() {
         return heroUi.pause();
@@ -13792,41 +14123,41 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       "data-group": ""
     }, [watchBtn, infoBtn]);
     buttons.__last = watchBtn;
-    var el = h("div.hero", {
+    var el2 = h("div.hero", {
       "data-anchor": "0"
     }, [h("div.aurora", null, [h("i.a1"), h("i.a2"), h("i.a3")]),
     // fundo vivo enquanto a arte não chega
     bgA, bgB, h("div.hero-shade-left"), h("div.hero-shade-bottom"), h("div.hero-info", null, [logo2, title, meta, desc, buttons, dots])]);
-    var items = [];
+    var items2 = [];
     var index = 0;
     var timer3 = null;
-    var front = bgA;
+    var front2 = bgA;
     var paused = true;
     var bgToken = 0;
     function open(play2) {
-      var it = items[index];
+      var it = items2[index];
       if (it) openDetails(it.type, it.id, {
         autoStreams: play2
       });
     }
     function render() {
-      var it = items[index];
+      var it = items2[index];
       if (!it) {
-        el.style.display = "none";
+        el2.style.display = "none";
         return;
       }
-      el.style.display = "";
-      var back2 = front === bgA ? bgB : bgA;
+      el2.style.display = "";
+      var back3 = front2 === bgA ? bgB : bgA;
       var pre = new Image();
       var token = ++bgToken;
       pre.onload = function () {
         if (token !== bgToken) return;
-        back2.style.backgroundImage = 'url("' + it.background + '")';
+        back3.style.backgroundImage = 'url("' + it.background + '")';
         requestAnimationFrame(function () {
           return requestAnimationFrame(function () {
-            back2.classList.add("show");
-            front.classList.remove("show");
-            front = back2;
+            back3.classList.add("show");
+            front2.classList.remove("show");
+            front2 = back3;
           });
         });
       };
@@ -13839,46 +14170,46 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         title.style.display = "";
       };
       logo2.src = it.logo;
-      var parts = [];
-      if (it.year) parts.push(it.year);
-      if (it.runtime) parts.push(it.runtime);
-      if (it.genres && it.genres.length) parts.push(it.genres.slice(0, 3).map(genreName).join(", "));
-      meta.innerHTML = (it.rating ? '<span class="imdb-mini">IMDb</span> ' + escapeHtml2(it.rating) + " · " : "") + escapeHtml2(parts.join(" · "));
+      var parts2 = [];
+      if (it.year) parts2.push(it.year);
+      if (it.runtime) parts2.push(it.runtime);
+      if (it.genres && it.genres.length) parts2.push(it.genres.slice(0, 3).map(genreName).join(", "));
+      meta.innerHTML = (it.rating ? '<span class="imdb-mini">IMDb</span> ' + escapeHtml2(it.rating) + " · " : "") + escapeHtml2(parts2.join(" · "));
       desc.textContent = it.description || "";
       clear(dots);
-      items.forEach(function (_, i) {
+      items2.forEach(function (_, i) {
         return dots.appendChild(h("span", {
           cls: i === index ? "on" : ""
         }));
       });
-      var nx = items[(index + 1) % items.length];
+      var nx = items2[(index + 1) % items2.length];
       if (nx) new Image().src = nx.background;
     }
     function schedule() {
       clearTimeout(timer3);
-      if (paused || items.length < 2) return;
+      if (paused || items2.length < 2) return;
       timer3 = setTimeout(function () {
-        index = (index + 1) % items.length;
+        index = (index + 1) % items2.length;
         render();
         schedule();
       }, ROTATE_MS);
     }
     function go(delta) {
-      if (!items.length) return;
-      index = (index + delta + items.length) % items.length;
+      if (!items2.length) return;
+      index = (index + delta + items2.length) % items2.length;
       render();
       schedule();
     }
     return {
-      el: el,
+      el: el2,
       load: function load() {
         return load2().then(function (list3) {
-          items = list3.slice(0, 12);
+          items2 = list3.slice(0, 12);
           index = 0;
           render();
           schedule();
         }).catch(function () {
-          items = [];
+          items2 = [];
           render();
         });
       },
@@ -13894,7 +14225,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       },
       resume: function resume() {
         paused = false;
-        if (items.length) render();
+        if (items2.length) render();
         schedule();
       },
       // Esquerda no primeiro botão / direita no último: troca o destaque.
@@ -13940,9 +14271,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
   };
   function initialsOf(name) {
-    var words = String(name || "?").replace(/[^A-Za-z0-9À-ú+ ]/g, " ").trim().split(/\s+/);
-    if (/^[A-Z0-9]{2,4}$/.test(words[0])) return words[0];
-    return (words.length > 1 ? words[0][0] + words[1][0] : words[0].slice(0, 3)).toUpperCase();
+    var words2 = String(name || "?").replace(/[^A-Za-z0-9À-ú+ ]/g, " ").trim().split(/\s+/);
+    if (/^[A-Z0-9]{2,4}$/.test(words2[0])) return words2[0];
+    return (words2.length > 1 ? words2[0][0] + words2[1][0] : words2[0].slice(0, 3)).toUpperCase();
   }
   function siteName(a) {
     return String(a.manifest.name || a.manifest.id).replace(/\s*[([]\s*\d+\s*\/\s*\d+\s*[)\]]\s*$/, "").replace(/\s+(?:part|parte|pt\.?)\s*\d+\s*$/i, "").trim();
@@ -14025,7 +14356,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return /gay/i.test(n) ? 1 : 0;
   }
   function NsfwView() {
-    var el = h("div.view.nsfw-view");
+    var el2 = h("div.view.nsfw-view");
     var scroller = h("div.scroll-y", {
       "data-scroll-y": ""
     });
@@ -14038,7 +14369,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     scroller.appendChild(bar);
     scroller.appendChild(filters);
     scroller.appendChild(body);
-    el.appendChild(scroller);
+    el2.appendChild(scroller);
     var scope = get("nsfwScope", null);
     var switchTimer = null;
     var pending = [];
@@ -14164,12 +14495,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }
       scope = id;
       set("nsfwScope", id);
-      var idx = scopes().map(function (f) {
+      var idx2 = scopes().map(function (f) {
         return f.id;
       }).indexOf(id);
       renderFilters();
       renderBody();
-      if (filters.children[idx]) focus(filters.children[idx], {
+      if (filters.children[idx2]) focus(filters.children[idx2], {
         noScroll: true
       });
     }
@@ -14183,7 +14514,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       });
     }
     function loadNearby() {
-      if (el.offsetParent === null) return;
+      if (el2.offsetParent === null) return;
       var limit = window.innerHeight * 2.2;
       for (var i = 0; i < pending.length && active < 2; i++) {
         var p = pending[i];
@@ -14294,7 +14625,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           return pick2("search", true);
         }
       }));
-      loadVisibleImages(el);
+      loadVisibleImages(el2);
       loadNearby();
     }
     function renderPersonal(site, all, chips) {
@@ -14530,7 +14861,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var key = providersKey();
       if (key === lastKey) return;
       var cur = current2();
-      var hadFocus = cur && el.contains(cur);
+      var hadFocus = cur && el2.contains(cur);
       render();
       if (hadFocus) onRail();
     });
@@ -14556,7 +14887,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return false;
     }
     return {
-      el: el,
+      el: el2,
       onKey: onKey,
       onShow: function onShow() {
         if (ready2) {
@@ -14643,7 +14974,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return out;
   }
   function GridView(entry, extra2) {
-    var el = h("div.view.nsfw-view");
+    var el2 = h("div.view.nsfw-view");
     var scroller = h("div.scroll-y", {
       "data-scroll-y": ""
     });
@@ -14676,9 +15007,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
     scroller.appendChild(h("div.reco-crumb", null, crumb));
     scroller.appendChild(pg.el);
-    el.appendChild(scroller);
+    el2.appendChild(scroller);
     return {
-      el: el,
+      el: el2,
       onShow: function onShow() {
         return pg.start();
       }
@@ -14687,7 +15018,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // src/js/views/search.js
   function SearchView() {
-    var el = h("div.view");
+    var el2 = h("div.view");
     var scroller = h("div.scroll-y", {
       "data-scroll-y": ""
     });
@@ -14711,7 +15042,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       "data-group": ""
     }, [input, go]));
     scroller.appendChild(results);
-    el.appendChild(scroller);
+    el2.appendChild(scroller);
     var token = 0;
     input.__submit = function (q) {
       return run(q);
@@ -14780,9 +15111,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
     run("");
     return {
-      el: el,
+      el: el2,
       onShow: function onShow() {
-        return loadVisibleImages(el);
+        return loadVisibleImages(el2);
       },
       destroy: function destroy() {
         return bar.__destroy && bar.__destroy();
@@ -14805,7 +15136,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     label: "Séries"
   }];
   function LibraryView() {
-    var el = h("div.view");
+    var el2 = h("div.view");
     var scroller = h("div.scroll-y", {
       "data-scroll-y": ""
     });
@@ -14819,7 +15150,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       text: t("Biblioteca")
     }), filters]));
     scroller.appendChild(grid);
-    el.appendChild(scroller);
+    el2.appendChild(scroller);
     var filter = "all";
     function renderFilters() {
       clear(filters);
@@ -14839,18 +15170,18 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
     function renderGrid() {
       clear(grid);
-      var items = cachedLibrary().filter(function (it) {
+      var items2 = cachedLibrary().filter(function (it) {
         return !it.removed && (filter === "all" || it.type === filter) && !isAdultId(it._id);
       }).sort(function (a, b) {
         return String(b._mtime || "").localeCompare(String(a._mtime || ""));
       });
-      if (!items.length) {
+      if (!items2.length) {
         grid.appendChild(h("div.hint", {
           text: isLoggedIn() ? t("Sua biblioteca está vazia.") : t("Entre na sua conta em Ajustes para ver a biblioteca.")
         }));
         return;
       }
-      items.forEach(function (it) {
+      items2.forEach(function (it) {
         return grid.appendChild(_card({
           name: it.name,
           poster: it.poster
@@ -14860,12 +15191,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           }
         }));
       });
-      loadVisibleImages(el, 400);
+      loadVisibleImages(el2, 400);
     }
     renderFilters();
     grid.appendChild(spinnerLine(t("Carregando biblioteca...")));
     return {
-      el: el,
+      el: el2,
       onShow: function onShow() {
         renderGrid();
         getLibrary().then(function () {
@@ -14984,12 +15315,273 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
   }
 
+  // src/js/lib/screensaver.js
+  var SLIDE_MS = 1e4;
+  var HINT_MS = 6e3;
+  var ITEMS_TTL = 36e5;
+  var MONTHS2 = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+  var DAYS = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
+  var MOVES = [[1.14, -50, -20], [1.12, 50, -24], [1.15, -30, 24], [1.12, 40, 20]];
+  var idleTimer = null;
+  var el = null;
+  var items = [];
+  var itemsAt = 0;
+  var idx = 0;
+  var slideTimer = null;
+  var clockTimer = null;
+  var front = null;
+  var back2 = null;
+  var parts = null;
+  var OPTIONS = [0, 2, 5, 10, 20];
+  function minutes() {
+    var v = settings().screensaver;
+    return typeof v === "number" ? v : 5;
+  }
+  function install3() {
+    window.addEventListener("keydown", function (e) {
+      if (el) {
+        e.preventDefault();
+        e.stopPropagation();
+        stop();
+        return;
+      }
+      arm();
+    }, true);
+    var lastMove = 0;
+    document.addEventListener("mousemove", function () {
+      var now = Date.now();
+      if (now - lastMove < 1e3) return;
+      lastMove = now;
+      if (el) stop();else arm();
+    });
+    arm();
+  }
+  function arm() {
+    clearTimeout(idleTimer);
+    var m = minutes();
+    if (m > 0) idleTimer = setTimeout(maybeStart, m * 6e4);
+  }
+  function busy() {
+    if (document.hidden) return true;
+    var vids = document.getElementsByTagName("video");
+    for (var i = 0; i < vids.length; i++) {
+      var v = vids[i];
+      if (!v.paused && !v.ended && v.readyState > 2 && v.offsetWidth > 400) return true;
+    }
+    return false;
+  }
+  function maybeStart() {
+    if (busy()) return arm();
+    start2();
+  }
+  function loadItems() {
+    if (items.length && Date.now() - itemsAt < ITEMS_TTL) return Promise.resolve(items);
+    return saverItems().then(function (list3) {
+      var counts = {};
+      items = list3.filter(function (x) {
+        return x && x.background;
+      }).map(function (x) {
+        counts[x.type] = (counts[x.type] || 0) + 1;
+        return Object.assign({
+          rank: counts[x.type]
+        }, x);
+      });
+      itemsAt = Date.now();
+      return items;
+    }).catch(function () {
+      return items;
+    });
+  }
+  function start2() {
+    if (el) return;
+    loadItems().then(function (list3) {
+      if (el || !list3.length) return arm();
+      if (busy()) return arm();
+      build();
+      idx = Math.floor(Math.random() * list3.length);
+      tick();
+      show2(true);
+    });
+  }
+  function stop() {
+    if (!el) return;
+    clearTimeout(slideTimer);
+    clearInterval(clockTimer);
+    var old = el;
+    el = null;
+    old.classList.remove("on");
+    setTimeout(function () {
+      return old.parentNode && old.parentNode.removeChild(old);
+    }, 450);
+    arm();
+  }
+  function build() {
+    front = h("div.sv-img");
+    back2 = h("div.sv-img");
+    parts = {
+      time: h("div.sv-time"),
+      date: h("div.sv-date"),
+      num: h("div.sv-num"),
+      rankTxt: h("div.sv-rank-txt"),
+      logoBox: h("div.sv-logo-box"),
+      meta: h("div.sv-meta"),
+      desc: h("div.sv-desc"),
+      info: h("div.sv-info"),
+      bars: h("div.sv-bars"),
+      nextImg: h("div.sv-next-img"),
+      nextName: h("div.sv-next-name")
+    };
+    var p = parts;
+    clear(p.info);
+    p.info.appendChild(h("div.sv-rank", null, [p.num, p.rankTxt]));
+    p.info.appendChild(p.logoBox);
+    p.info.appendChild(p.meta);
+    p.info.appendChild(p.desc);
+    items.slice(0, 16).forEach(function () {
+      return p.bars.appendChild(h("div.sv-bar", null, h("i")));
+    });
+    el = h("div.saver", null, [h("div.sv-bg", null, [back2, front]), h("div.sv-shade"), h("div.sv-brand", {
+      text: "SERAFLIX"
+    }), h("div.sv-clock", null, [p.time, p.date]), p.info, h("div.sv-next", null, [p.nextImg, h("div", null, [h("small", {
+      text: t("A seguir")
+    }), p.nextName])]), p.bars, h("div.sv-hint", {
+      text: t("Aperte qualquer botão para voltar")
+    })]);
+    document.getElementById("app").appendChild(el);
+    clock();
+    clockTimer = setInterval(clock, 15e3);
+    setTimeout(function () {
+      return el && el.classList.add("hint-off");
+    }, HINT_MS);
+  }
+  function show2(first) {
+    void el.offsetWidth;
+    if (first) el.classList.add("on");
+  }
+  function clock() {
+    var d = /* @__PURE__ */new Date();
+    parts.time.textContent = d.getHours() + ":" + ("0" + d.getMinutes()).slice(-2);
+    parts.date.textContent = DAYS[d.getDay()] + ", " + d.getDate() + " de " + MONTHS2[d.getMonth()];
+  }
+  function setTransform(node, v) {
+    node.style.webkitTransform = v;
+    node.style.transform = v;
+  }
+  function tick() {
+    if (!el) return;
+    var it = items[idx % items.length];
+    var img = new Image();
+    var done = false;
+    var go = function go() {
+      if (done || !el) return;
+      done = true;
+      slide(it, img.naturalWidth ? it.background : "");
+    };
+    img.onload = go;
+    img.onerror = go;
+    img.src = it.background;
+    setTimeout(go, 4e3);
+  }
+  function slide(it, bg) {
+    var p = parts;
+    var layer = back2;
+    back2 = front;
+    front = layer;
+    var mv = MOVES[idx % MOVES.length];
+    layer.style.webkitTransition = "none";
+    layer.style.transition = "none";
+    setTransform(layer, "scale(1.02) translate(0px, 0px)");
+    layer.style.backgroundImage = bg ? 'url("' + bg + '")' : "none";
+    void layer.offsetWidth;
+    layer.style.webkitTransition = "opacity 1.6s ease, -webkit-transform " + (SLIDE_MS + 2500) + "ms linear";
+    layer.style.transition = "opacity 1.6s ease, transform " + (SLIDE_MS + 2500) + "ms linear";
+    layer.classList.add("front");
+    back2.classList.remove("front");
+    setTransform(layer, "scale(" + mv[0] + ") translate(" + mv[1] + "px, " + mv[2] + "px)");
+    p.info.classList.remove("in");
+    setTimeout(function () {
+      if (!el) return;
+      p.num.textContent = String(it.rank);
+      p.rankTxt.innerHTML = "";
+      p.rankTxt.appendChild(h("b", {
+        text: t("Top 10 de hoje")
+      }));
+      p.rankTxt.appendChild(h("span", {
+        text: t(it.type === "series" ? "#{n} em séries hoje" : "#{n} em filmes hoje", {
+          n: it.rank
+        })
+      }));
+      clear(p.logoBox);
+      var name = h("div.sv-title", {
+        text: it.name || ""
+      });
+      p.logoBox.appendChild(name);
+      if (it.logo) {
+        var lg = h("img.sv-logo", {
+          alt: ""
+        });
+        lg.onload = function () {
+          name.style.display = "none";
+          lg.classList.add("ready");
+        };
+        lg.onerror = function () {
+          return lg.parentNode && lg.parentNode.removeChild(lg);
+        };
+        lg.src = it.logo;
+        p.logoBox.insertBefore(lg, name);
+      }
+      clear(p.meta);
+      var bits = [];
+      if (it.rating) bits.push(h("span.sv-imdb", null, [h("b", {
+        text: "IMDb"
+      }), String(it.rating)]));
+      var year = String(it.year || "").slice(0, 4);
+      if (year) bits.push(h("span", {
+        text: year
+      }));
+      var genres = (it.genres || []).slice(0, 3).join(" · ");
+      if (genres) bits.push(h("span", {
+        text: genres
+      }));
+      if (year && parseInt(year, 10) >= (/* @__PURE__ */new Date()).getFullYear() - 1) bits.unshift(h("span.sv-new", {
+        text: t("Lançamento")
+      }));
+      bits.forEach(function (b) {
+        return p.meta.appendChild(b);
+      });
+      p.desc.textContent = it.description || "";
+      void p.info.offsetWidth;
+      p.info.classList.add("in");
+      var nx = items[(idx + 1) % items.length];
+      p.nextImg.style.backgroundImage = nx.background ? 'url("' + nx.background + '")' : "none";
+      p.nextName.textContent = nx.name || "";
+    }, 600);
+    var bars = p.bars.children;
+    var cur = idx % items.length;
+    for (var i = 0; i < bars.length; i++) {
+      var fill = bars[i].firstChild;
+      fill.style.webkitTransition = "none";
+      fill.style.transition = "none";
+      fill.style.width = i < cur ? "100%" : "0%";
+    }
+    if (bars[cur]) {
+      var _fill = bars[cur].firstChild;
+      void _fill.offsetWidth;
+      _fill.style.webkitTransition = "width " + SLIDE_MS + "ms linear";
+      _fill.style.transition = "width " + SLIDE_MS + "ms linear";
+      _fill.style.width = "100%";
+    }
+    idx = (idx + 1) % items.length;
+    clearTimeout(slideTimer);
+    slideTimer = setTimeout(tick, SLIDE_MS);
+  }
+
   // src/js/views/login.js
   function openLogin(onDone) {
     push(LoginView(onDone));
   }
   function LoginView(onDone) {
-    var el = h("div.view");
+    var el2 = h("div.view");
     var codeEl = h("div.code", {
       text: "····"
     });
@@ -15023,7 +15615,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     email.__submit = function () {
       return focus(pass);
     };
-    el.appendChild(h("div.login", null, h("div.login-card", null, [h("div.login-col", null, [h("h1", {
+    el2.appendChild(h("div.login", null, h("div.login-card", null, [h("div.login-col", null, [h("h1", {
       text: t("Entrar com o celular")
     }), h("p", {
       html: t("No celular ou PC, abra <b>link.stremio.com</b> e digite o código:")
@@ -15092,7 +15684,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
     newCode();
     return {
-      el: el,
+      el: el2,
       destroy: function destroy() {
         alive = false;
         clearTimeout(pollTimer);
@@ -15149,7 +15741,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     desc: "Legendas em português para quase tudo"
   }];
   function SettingsView() {
-    var el = h("div.view");
+    var el2 = h("div.view");
     var scroller = h("div.scroll-y", {
       "data-scroll-y": ""
     });
@@ -15157,7 +15749,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var body = h("div.settings");
     scroller.appendChild(bar);
     scroller.appendChild(body);
-    el.appendChild(scroller);
+    el2.appendChild(scroller);
     var device = "";
     deviceInfo().then(function (d) {
       device = [d.modelName, d.firmwareVersion].filter(Boolean).join(" · ");
@@ -15740,6 +16332,35 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         setSmooth(on);
         render();
       }, toggle2(s.smoothScroll)));
+      var ssMin = minutes();
+      body.appendChild(row(t("Protetor de tela"), t("Os lançamentos passando na tela quando o controle fica parado"), ssMin ? t("{n} min", {
+        n: ssMin
+      }) : t("Desligado"), function () {
+        return menu(t("Protetor de tela"), OPTIONS.map(function (m) {
+          return {
+            label: m ? t("Depois de {n} min parado", {
+              n: m
+            }) : t("Desligado"),
+            value: m,
+            checked: m === ssMin
+          };
+        }).concat([{
+          label: t("Ver agora"),
+          sub: t("Mostra o protetor de tela já"),
+          value: "now"
+        }]), {
+          onPick: function onPick(v) {
+            if (v === "now") return setTimeout(function () {
+              return start2();
+            }, 300);
+            saveSettings({
+              screensaver: v
+            });
+            arm();
+            render();
+          }
+        });
+      }));
       body.appendChild(row(t("Som de abertura"), t("O clique com acorde quando o Seraflix abre"), "", function () {
         var on = settings().introSound === false;
         saveSettings({
@@ -16020,7 +16641,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
     render();
     return {
-      el: el,
+      el: el2,
       onShow: function onShow() {
         _check().then(function () {
           return render();
@@ -16045,9 +16666,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     push(WizardView());
   }
   function WizardView() {
-    var el = h("div.view");
+    var el2 = h("div.view");
     var card2 = h("div.wizard-card");
-    el.appendChild(h("div.wizard", null, card2));
+    el2.appendChild(h("div.wizard", null, card2));
     var step = 0;
     function finish2() {
       saveSettings({
@@ -16213,7 +16834,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
     render();
     return {
-      el: el,
+      el: el2,
       onBack: function onBack() {
         if (step > 0) {
           step--;
@@ -16229,9 +16850,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var FAST = 2500;
   var SLOW = 15e3;
   var timer2 = null;
-  function start2(onOpen) {
+  function start3(onOpen) {
     if (timer2) return;
-    var _tick = function tick() {
+    var _tick = function tick2() {
       if (document.hidden) {
         timer2 = setTimeout(_tick, FAST);
         return;
@@ -16283,15 +16904,15 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         if (bootEl) bootEl.style.display = "none";
         showPicker(function () {
           showStatic();
-          start3();
+          start4();
         });
       });
-    } else start3();
+    } else start4();
     document.addEventListener("visibilitychange", function () {
       if (!document.hidden) _check();
     });
   }
-  function start3() {
+  function start4() {
     reloadProfile();
     var s = settings();
     applyTheme(s);
@@ -16305,8 +16926,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }), introDone]).then(function () {
       goTab("home");
       finish();
-      if (!IS_WEB) start2(openFromPhone);
+      if (!IS_WEB) start3(openFromPhone);
       start();
+      install3();
       if (isNewProfilePendingLogin() && !isLoggedIn()) {
         clearNewProfileFlag();
         openLogin(function () {
