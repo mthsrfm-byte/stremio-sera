@@ -4,10 +4,13 @@ import { getJSON, postJSON } from '../lib/http.js';
 import * as store from '../lib/store.js';
 import { getTvIp } from '../lib/tv.js';
 import { t } from '../lib/i18n.js';
+import { IS_WEB } from '../lib/platform.js';
 
 let status = { ok: false, checkedAt: 0, url: '' };
 
 export function baseUrl() {
+  // No navegador o stremio-service só pode estar no mesmo computador: não há o que perguntar.
+  if (IS_WEB) return 'http://127.0.0.1:11470/';
   let u = (store.settings().serverUrl || '').trim();
   if (!u) return '';
   if (!/^https?:\/\//.test(u)) u = 'http://' + u;
