@@ -16,6 +16,8 @@ var PAGE_BASE = 'https://cdn.jsdelivr.net/gh/mthsrfm-byte/stremio-sera/remote/';
 var APP_NAME = 'Seraflix Controle';
 var TOKEN_FILE = '/home/owner/share/seraflixRemote.json';
 var PAGE_TTL = 5 * 60 * 1000;
+var TIZENBREW_CONFIG = '/home/owner/share/tizenbrewConfig.json';
+var MODULE_NAME = 'mthsrfm-byte/stremio-sera'; // como o TizenBrew chama o módulo na lista de serviços
 
 function buf(x, enc) { return Buffer.from && Buffer.from !== Uint8Array.from ? Buffer.from(x, enc) : new Buffer(x, enc); }
 function bufAlloc(n) { return Buffer.alloc ? Buffer.alloc(n) : new Buffer(n).fill(0); }
@@ -204,6 +206,20 @@ var server = http.createServer(function (req, res) {
   res.end('404');
 });
 
+// Coloca o Seraflix na lista de serviços que o TizenBrew liga sozinho ao abrir. Assim o controle
+// funciona só de abrir o TizenBrew (ou quando a TV pré-carrega o TizenBrew ao ligar), sem entrar
+// no Seraflix. Só mexe no arquivo se ele existir e for JSON válido.
+function enableAutoLaunch() {
+  try {
+    var config = JSON.parse(fs.readFileSync(TIZENBREW_CONFIG, 'utf8'));
+    var list = Array.isArray(config.autoLaunchServiceList) ? config.autoLaunchServiceList : [];
+    if (list.indexOf(MODULE_NAME) >= 0) return;
+    config.autoLaunchServiceList = list.concat([MODULE_NAME]);
+    fs.writeFileSync(TIZENBREW_CONFIG, JSON.stringify(config, null, 4));
+  } catch (e) {}
+}
+
 server.on('error', function () {}); // porta ocupada (serviço já rodando): ignora
 server.listen(PORT, '0.0.0.0');
 tvConnect();
+enableAutoLaunch();

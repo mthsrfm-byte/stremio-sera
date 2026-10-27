@@ -140,7 +140,9 @@ The Seraflix module ships a TizenBrew service (`remote/tv-service.js`, `serviceF
 `http://TV-IP:8090` (same Wi-Fi). The service forwards keys and text to the TV's own remote-control
 WebSocket on `127.0.0.1:8002`, so the phone needs no certificate and it works on iPhone. The first
 time, the TV asks to allow "Seraflix Controle"; the token is saved in
-`/home/owner/share/seraflixRemote.json`.
+`/home/owner/share/seraflixRemote.json`. On its first run the service also adds Seraflix to
+TizenBrew's `autoLaunchServiceList`, so from then on just opening TizenBrew (or the TV prelaunching
+it) starts the remote, without opening Seraflix.
 
 On the TV, **Ajustes → Controle no celular → Abrir o controle no celular** shows a QR code with that
 address (the service reports the TV's IP at `/api/ip`). `https://mthsrfm-byte.github.io/stremio-sera/`
