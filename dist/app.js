@@ -7713,8 +7713,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return m ? m[0] : null;
   }
   var BUILTIN_KEYS = {
-    tmdbKey: true ? "" : "",
-    mdblistKey: true ? "" : ""
+    tmdbKey: true ? "9c57ed7ea044b2f01eea2fcc2e954c2e" : "",
+    mdblistKey: true ? "t9e4f1z29b3c36i1j25rul1wx" : ""
   };
   function keyOf(name) {
     return (settings()[name] || "").trim() || BUILTIN_KEYS[name];
@@ -13469,9 +13469,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "82a7cbf7dda81e5c1c3ed5468bb52d7cf59ae827",
-    date: "2026-10-27T07:22:24+00:00",
-    message: "NSFW tab always available (hidden only when disabled in Settings); empty state explains when providers appear"
+    commit: "2dabcc9d6d677734a5969a09e08a6990ab1534fb",
+    date: "2026-10-27T04:23:25-03:00",
+    message: "Aba NSFW sempre disponível e busca do serviço da TV até responder"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
