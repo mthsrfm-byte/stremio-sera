@@ -1,6 +1,6 @@
 {
   "version": "1.2.0",
-  "commit": "b387815f1e837c7e9f74538b7b4820635287cf91",
-  "date": "2026-10-27T21:49:17Z",
-  "message": "Web: celular e tablet, sem controles de TV, mouse e teclado"
+  "commit": "bbea5e14764543a761fee837620d2eda76d8b38e",
+  "date": "2026-10-27T22:20:53Z",
+  "message": "Web: servidor do PC é o próprio computador, sem perguntar"
 }

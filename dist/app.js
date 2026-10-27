@@ -6070,6 +6070,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     url: ""
   };
   function _baseUrl() {
+    if (IS_WEB) return "http://127.0.0.1:11470/";
     var u = (settings().serverUrl || "").trim();
     if (!u) return "";
     if (!/^https?:\/\//.test(u)) u = "http://" + u;
@@ -6333,9 +6334,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "b387815f1e837c7e9f74538b7b4820635287cf91",
-    date: "2026-10-27T21:49:17Z",
-    message: "Web: celular e tablet, sem controles de TV, mouse e teclado"
+    commit: "bbea5e14764543a761fee837620d2eda76d8b38e",
+    date: "2026-10-27T22:20:53Z",
+    message: "Web: servidor do PC é o próprio computador, sem perguntar"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -16495,7 +16496,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           render();
         });
       };
-      body.appendChild(h("div.set-row", {
+      if (!IS_WEB) body.appendChild(h("div.set-row", {
         focusable: true,
         onSelect: function onSelect() {
           return select(urlInput);
@@ -16505,7 +16506,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           s: stText
         })
       })]), urlInput]));
-      body.appendChild(row(t("Procurar na rede"), t("Varre a rede local atrás do servidor"), "", function () {
+      if (!IS_WEB) body.appendChild(row(t("Procurar na rede"), t("Varre a rede local atrás do servidor"), "", function () {
         toast(t("Procurando servidor na rede..."), 2e4);
         _scan().then(function (ip) {
           if (!ip) return toast(t("Nenhum servidor encontrado. Ele está aberto no PC?"));
@@ -16927,7 +16928,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         onSelect: fn
       });
     }
-    var steps = (activeProfile().unnamed ? [stepName] : []).concat([stepAccount, stepServer, stepSubs]);
+    var steps = (activeProfile().unnamed ? [stepName] : []).concat([stepAccount], IS_WEB ? [] : [stepServer], [stepSubs]);
     function render() {
       clear(card2);
       card2.appendChild(h("div.wizard-step", {
