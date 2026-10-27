@@ -7774,7 +7774,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var controlsOn = false;
     var hideTimer = null;
     var ticker = null;
-    var saveTimer = null;
+    var saveTimer2 = null;
     var watchTimer = null;
     var statusTimer = null;
     var mediaUrl = "";
@@ -8658,7 +8658,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             checkSkip();
             if (currentSub.extracted) ensureSegments();
           }, 250);
-          saveTimer = setInterval(function () {
+          saveTimer2 = setInterval(function () {
             if (!videoEl.paused) saveProgress2();
           }, SAVE_MS);
           watchTimer = setInterval(watchdog, 2e3);
@@ -8675,7 +8675,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       destroy: function destroy() {
         alive = false;
         clearInterval(ticker);
-        clearInterval(saveTimer);
+        clearInterval(saveTimer2);
         clearInterval(watchTimer);
         clearInterval(statusTimer);
         clearTimeout(hideTimer);
@@ -9493,12 +9493,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       });
     });
   }
-  function genreMovies(genre) {
+  function genreMovies(genre2) {
     return function (page) {
       return pages(function (p) {
         return tmdb("discover/movie", Object.assign({
           page: p,
-          with_genres: genre,
+          with_genres: genre2,
           sort_by: "popularity.desc",
           "vote_average.gte": 6.5,
           "vote_count.gte": 400
@@ -9723,10 +9723,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     };
   }
   function mood(id, title, caption, movieGenre, tvGenre, colors) {
-    var q = function q(type, genre, page) {
+    var q = function q(type, genre2, page) {
       return discover(type, Object.assign({
         page: page,
-        with_genres: genre,
+        with_genres: genre2,
         sort_by: "popularity.desc",
         "vote_average.gte": 6.5,
         "vote_count.gte": type === "tv" ? 150 : 400
@@ -10948,6 +10948,178 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
   }
 
+  // src/js/lib/translate.js
+  var GENRES = {
+    amateur: "Amador",
+    anal: "Anal",
+    asian: "Asiáticas",
+    babe: "Gatas",
+    babes: "Gatas",
+    bbw: "Gordinhas",
+    bdsm: "BDSM",
+    big_ass: "Bundudas",
+    "big ass": "Bundudas",
+    "big tits": "Peitudas",
+    big_tits: "Peitudas",
+    blonde: "Loiras",
+    blondes: "Loiras",
+    blowjob: "Oral",
+    brunette: "Morenas",
+    brunettes: "Morenas",
+    casting: "Teste de elenco",
+    college: "Universitárias",
+    compilation: "Compilação",
+    couple: "Casal",
+    couples: "Casais",
+    creampie: "Creampie",
+    cuckold: "Corno",
+    cumshot: "Gozada",
+    ebony: "Negras",
+    european: "Europeias",
+    fetish: "Fetiche",
+    fisting: "Fisting",
+    gangbang: "Gangbang",
+    gay: "Gay",
+    german: "Alemãs",
+    group: "Grupo",
+    "group sex": "Sexo em grupo",
+    hardcore: "Hardcore",
+    hentai: "Hentai",
+    homemade: "Caseiro",
+    interracial: "Inter-racial",
+    japanese: "Japonesas",
+    latina: "Latinas",
+    latinas: "Latinas",
+    lesbian: "Lésbicas",
+    lesbians: "Lésbicas",
+    massage: "Massagem",
+    masturbation: "Masturbação",
+    mature: "Maduras",
+    milf: "MILF",
+    "most viewed": "Mais vistos",
+    "most popular": "Mais populares",
+    popular: "Populares",
+    new: "Novidades",
+    newest: "Mais recentes",
+    latest: "Mais recentes",
+    "top rated": "Mais bem avaliados",
+    trending: "Em alta",
+    featured: "Destaques",
+    "hot": "Em alta",
+    outdoor: "Ao ar livre",
+    pov: "POV",
+    public: "Em público",
+    redhead: "Ruivas",
+    redheads: "Ruivas",
+    russian: "Russas",
+    solo: "Solo",
+    squirt: "Squirt",
+    stepmom: "Madrasta",
+    "step mom": "Madrasta",
+    stepsister: "Meia-irmã",
+    "step sister": "Meia-irmã",
+    teen: "Novinhas (18+)",
+    teens: "Novinhas (18+)",
+    threesome: "Ménage",
+    toys: "Brinquedos",
+    vintage: "Clássicos",
+    webcam: "Webcam",
+    wife: "Esposa",
+    "big dick": "Dotados",
+    black: "Negros",
+    brazilian: "Brasileiras",
+    petite: "Mignon",
+    orgy: "Orgia",
+    "female friendly": "Para elas",
+    romantic: "Romântico",
+    cosplay: "Cosplay",
+    "reality": "Reality",
+    movies: "Filmes",
+    videos: "Vídeos",
+    channels: "Canais",
+    pornstars: "Atrizes",
+    categories: "Categorias",
+    all: "Todos",
+    trans: "Trans",
+    transgender: "Trans",
+    shemale: "Trans",
+    bisexual: "Bissexual",
+    "full movie": "Filme completo"
+  };
+  var HIDDEN = /\b(indian|india|indians|desi|indian[oa]s?|hindi|bollywood|tamil|telugu)\b/i;
+  function isHiddenCategory(name) {
+    return HIDDEN.test(String(name || ""));
+  }
+  function genre(name) {
+    var key = String(name || "").trim().toLowerCase();
+    return GENRES[key] || GENRES[key.replace(/[-_]+/g, " ")] || name;
+  }
+  var CACHE_KEY = "nsfwTitles";
+  var CACHE_MAX = 3e3;
+  var cache2 = null;
+  function mem() {
+    if (!cache2) cache2 = get(CACHE_KEY, {}) || {};
+    return cache2;
+  }
+  var saveTimer = null;
+  function save() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(function () {
+      var c = mem();
+      var keys = Object.keys(c);
+      if (keys.length > CACHE_MAX) keys.slice(0, keys.length - CACHE_MAX).forEach(function (k) {
+        return delete c[k];
+      });
+      set(CACHE_KEY, c);
+    }, 1500);
+  }
+  function enabled() {
+    return settings().nsfwTranslate !== false;
+  }
+  function looksPt(s) {
+    return /[ãõçáéíóúâêô]/i.test(s) || /\b(com|uma|para|gostosa|novinha|esposa|não)\b/i.test(s);
+  }
+  function translateBatch(lines) {
+    var u = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=pt&dt=t&q=" + encodeURIComponent(lines.join("\n"));
+    return getJSON(u, {
+      timeout: 8e3
+    }).then(function (r) {
+      var text = (r && r[0] || []).map(function (p) {
+        return p[0] || "";
+      }).join("");
+      var out = text.split("\n");
+      return out.length === lines.length ? out : null;
+    });
+  }
+  function titles(items) {
+    if (!enabled() || !items.length) return Promise.resolve(items);
+    var c = mem();
+    var todo = [];
+    items.forEach(function (it) {
+      var n = it && it.name;
+      if (!n || looksPt(n) || c[n] !== void 0 || todo.indexOf(n) >= 0) return;
+      todo.push(n.replace(/\n/g, " "));
+    });
+    var batches = [];
+    for (var i = 0; i < todo.length; i += 25) batches.push(todo.slice(i, i + 25));
+    return Promise.all(batches.map(function (b) {
+      return translateBatch(b).then(function (out) {
+        if (!out) return;
+        b.forEach(function (n, i) {
+          return c[n] = out[i].trim() || n;
+        });
+        save();
+      }).catch(function () {});
+    })).then(function () {
+      return items.map(function (it) {
+        return it && c[it.name] && c[it.name] !== it.name ? Object.assign({}, it, {
+          name: c[it.name],
+          originalName: it.name
+        }) : it;
+      });
+    });
+  }
+
   // src/js/views/nsfw.js
   var ROW_LIMIT3 = 20;
   function NsfwView() {
@@ -11054,7 +11226,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         }));
         var entries = adultCatalogs(addon);
         entries.filter(function (e) {
-          return isBoardable(e.catalog);
+          return isBoardable(e.catalog) && !isHiddenCategory(e.catalog.name || e.catalog.id);
         }).forEach(function (e) {
           return pending.push(Object.assign(catalogRow(e, body), {
             state: "idle"
@@ -11121,11 +11293,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var chips = [];
       entries.forEach(function (e) {
         return genreOptions(e.catalog).forEach(function (g) {
-          if (seen[g]) return;
+          if (seen[g] || isHiddenCategory(g)) return;
           seen[g] = true;
           chips.push(h("div.chip", {
             focusable: true,
-            text: g,
+            text: genre(g),
             onSelect: function onSelect() {
               return push(GridView(e, {
                 genre: g
@@ -11190,11 +11362,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           });
           var row = h("div.row", {
             "data-anchor": "30"
-          }, [h("div.row-title", null, [entry.catalog.name || entry.catalog.id, h("small", {
+          }, [h("div.row-title", null, [catName(entry), h("small", {
             text: entry.addon.manifest.name || ""
           })]), track]);
           fetchCatalog(entry, {
             search: query
+          }).then(function (metas) {
+            return titles(metas.slice(0, 30));
           }).then(function (metas) {
             if (my !== token || !metas.length) return;
             found++;
@@ -11246,6 +11420,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }
     };
   }
+  function catName(entry) {
+    return genre(entry.catalog.name || entry.catalog.id);
+  }
   function catalogRow(entry, parent) {
     var row = h("div.row", {
       "data-anchor": "30"
@@ -11256,7 +11433,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       "data-group": "",
       "data-trap": ""
     }, skeletonCards());
-    row.appendChild(h("div.row-title", null, [entry.catalog.name || entry.catalog.id, h("small", {
+    row.appendChild(h("div.row-title", null, [catName(entry), h("small", {
       text: typeName + " · " + (entry.addon.manifest.name || "")
     })]));
     row.appendChild(track);
@@ -11264,6 +11441,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var _load = function load4() {
       return retrying(function () {
         return fetchCatalog(entry);
+      }).then(function (metas) {
+        return titles(metas.slice(0, ROW_LIMIT3)).then(function (list2) {
+          return list2.concat(metas.slice(ROW_LIMIT3));
+        });
       }).then(function (metas) {
         clear(track);
         track.classList.remove("pending");
@@ -11286,7 +11467,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         }, [h("div.poster-wrap", null, h("div.see-all-label", null, [h("b", {
           text: t("Ver tudo")
         }), h("span", {
-          text: entry.catalog.name || ""
+          text: catName(entry)
         })]))]));
         loadVisibleImages(row);
       }).catch(function () {
@@ -11308,7 +11489,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var crumb = [h("span", {
       text: "NSFW › " + (entry.addon.manifest.name || "")
     }), " › ", h("b", {
-      text: extra.genre || entry.catalog.name || entry.catalog.id
+      text: extra.genre ? genre(extra.genre) : catName(entry)
     })];
     var grid = h("div.grid");
     var more = h("div.btn.reco-more", {
@@ -11334,6 +11515,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         skip: skip || void 0
       }, extra)).then(function (metas) {
         skip += metas.length;
+        return titles(metas);
+      }).then(function (metas) {
         var fresh = metas.filter(function (m) {
           return !seen[m.id];
         });
@@ -11564,9 +11747,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "cc77b948ec39b843e1aa1c76e6c28cb1fb713d98",
-    date: "2026-10-27T04:55:12+00:00",
-    message: "Build da dist/ para a TV"
+    commit: "e38344cdcde83fd6ac08a414d090c2a46dab9a4e",
+    date: "2026-10-27T05:13:47+00:00",
+    message: "NSFW tab: adult add-ons detected and kept out of Home, Search and Library"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -12150,6 +12333,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         dropTab("nsfw");
         render();
       }, toggle(s.nsfwTab !== false)));
+      body.appendChild(row(t("Traduzir títulos NSFW"), t("Nomes dos vídeos em português (precisa de internet; sem tradução fica o original)"), "", function () {
+        saveSettings({
+          nsfwTranslate: settings().nsfwTranslate === false
+        });
+        dropTab("nsfw");
+        render();
+      }, toggle(s.nsfwTranslate !== false)));
       body.appendChild(row(t("Addons adultos"), t("Detectados sozinhos; marque ou desmarque à mão"), adult.map(function (a) {
         return a.manifest.name || a.manifest.id;
       }).join(", ") || t("nenhum"), function () {
@@ -12743,7 +12933,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         focusable: true,
         "data-autofocus": ""
       });
-      var save = function save() {
+      var save2 = function save2() {
         var name = String(input.value || "").trim();
         if (!name) {
           err.textContent = t("Digite um nome para o perfil.");
@@ -12756,12 +12946,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         refreshProfileChips();
         next();
       };
-      input.__submit = save;
+      input.__submit = save2;
       card2.appendChild(input);
       card2.appendChild(err);
       card2.appendChild(h("div.actions", {
         "data-group": ""
-      }, [btn(t("Continuar"), true, save)]));
+      }, [btn(t("Continuar"), true, save2)]));
     }
     function stepAccount() {
       card2.appendChild(h("h1", {

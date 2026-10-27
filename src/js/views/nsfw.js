@@ -11,6 +11,7 @@ import * as router from '../router.js';
 import { openDetails } from './details.js';
 import { showRetry } from './recommended.js';
 import { t } from '../lib/i18n.js';
+import * as tr from '../lib/translate.js';
 
 const ROW_LIMIT = 20;
 
@@ -93,7 +94,7 @@ export function NsfwView() {
       if (scope === 'all' && addons.adultAddons().length > 1) body.appendChild(h('div.nsfw-section', { text: addon.manifest.name || addon.manifest.id }));
       const entries = addons.adultCatalogs(addon);
       entries
-        .filter((e) => addons.isBoardable(e.catalog))
+        .filter((e) => addons.isBoardable(e.catalog) && !tr.isHiddenCategory(e.catalog.name || e.catalog.id))
         .forEach((e) => pending.push(Object.assign(catalogRow(e, body), { state: 'idle' })));
       genreStrip(entries);
     });
@@ -141,9 +142,9 @@ export function NsfwView() {
     const chips = [];
     entries.forEach((e) =>
       addons.genreOptions(e.catalog).forEach((g) => {
-        if (seen[g]) return;
+        if (seen[g] || tr.isHiddenCategory(g)) return;
         seen[g] = true;
-        chips.push(h('div.chip', { focusable: true, text: g, onSelect: () => router.push(GridView(e, { genre: g })) }));
+        chips.push(h('div.chip', { focusable: true, text: tr.genre(g), onSelect: () => router.push(GridView(e, { genre: g })) }));
       })
     );
     if (!chips.length) return;
@@ -175,9 +176,10 @@ export function NsfwView() {
       let found = 0;
       cats.forEach((entry) => {
         const track = h('div.row-track', { 'data-scroll-x': '', 'data-group': '', 'data-trap': '' });
-        const row = h('div.row', { 'data-anchor': '30' }, [h('div.row-title', null, [entry.catalog.name || entry.catalog.id, h('small', { text: entry.addon.manifest.name || '' })]), track]);
+        const row = h('div.row', { 'data-anchor': '30' }, [h('div.row-title', null, [catName(entry), h('small', { text: entry.addon.manifest.name || '' })]), track]);
         addons
           .fetchCatalog(entry, { search: query })
+          .then((metas) => tr.titles(metas.slice(0, 30)))
           .then((metas) => {
             if (my !== token || !metas.length) return;
             found++;
@@ -218,15 +220,21 @@ export function NsfwView() {
   };
 }
 
+// Nome do catálogo em português ("Top Rated" → "Mais bem avaliados").
+function catName(entry) {
+  return tr.genre(entry.catalog.name || entry.catalog.id);
+}
+
 function catalogRow(entry, parent) {
   const row = h('div.row', { 'data-anchor': '30' });
   const typeName = addons.catalogTitle(entry).split(' · ').pop();
   const track = h('div.row-track.pending', { 'data-scroll-x': '', 'data-group': '', 'data-trap': '' }, skeletonCards());
-  row.appendChild(h('div.row-title', null, [entry.catalog.name || entry.catalog.id, h('small', { text: typeName + ' · ' + (entry.addon.manifest.name || '') })]));
+  row.appendChild(h('div.row-title', null, [catName(entry), h('small', { text: typeName + ' · ' + (entry.addon.manifest.name || '') })]));
   row.appendChild(track);
   parent.appendChild(row);
   const load = () =>
     retrying(() => addons.fetchCatalog(entry))
+      .then((metas) => tr.titles(metas.slice(0, ROW_LIMIT)).then((list) => list.concat(metas.slice(ROW_LIMIT))))
       .then((metas) => {
         clear(track);
         track.classList.remove('pending');
@@ -238,7 +246,7 @@ function catalogRow(entry, parent) {
         if (metas.length > ROW_LIMIT)
           track.appendChild(
             h('div.card.see-all', { focusable: true, onSelect: () => router.push(GridView(entry, {})) }, [
-              h('div.poster-wrap', null, h('div.see-all-label', null, [h('b', { text: t('Ver tudo') }), h('span', { text: entry.catalog.name || '' })])),
+              h('div.poster-wrap', null, h('div.see-all-label', null, [h('b', { text: t('Ver tudo') }), h('span', { text: catName(entry) })])),
             ])
           );
         loadVisibleImages(row);
@@ -251,7 +259,7 @@ function catalogRow(entry, parent) {
 function GridView(entry, extra) {
   const el = h('div.view');
   const scroller = h('div.scroll-y', { 'data-scroll-y': '' });
-  const crumb = [h('span', { text: 'NSFW › ' + (entry.addon.manifest.name || '') }), ' › ', h('b', { text: extra.genre || entry.catalog.name || entry.catalog.id })];
+  const crumb = [h('span', { text: 'NSFW › ' + (entry.addon.manifest.name || '') }), ' › ', h('b', { text: extra.genre ? tr.genre(extra.genre) : catName(entry) })];
   const grid = h('div.grid');
   const more = h('div.btn.reco-more', { focusable: true, text: t('Carregar mais'), onSelect: () => loadPage() });
   scroller.appendChild(h('div.reco-crumb', null, crumb));
@@ -271,6 +279,9 @@ function GridView(entry, extra) {
       .fetchCatalog(entry, Object.assign({ skip: skip || undefined }, extra))
       .then((metas) => {
         skip += metas.length;
+        return tr.titles(metas);
+      })
+      .then((metas) => {
         const fresh = metas.filter((m) => !seen[m.id]);
         fresh.forEach((m) => {
           seen[m.id] = true;

@@ -221,6 +221,13 @@ export function SettingsView() {
       }, toggle(s.nsfwTab !== false))
     );
     body.appendChild(
+      row(t('Traduzir títulos NSFW'), t('Nomes dos vídeos em português (precisa de internet; sem tradução fica o original)'), '', () => {
+        store.saveSettings({ nsfwTranslate: store.settings().nsfwTranslate === false });
+        router.dropTab('nsfw');
+        render();
+      }, toggle(s.nsfwTranslate !== false))
+    );
+    body.appendChild(
       row(t('Addons adultos'), t('Detectados sozinhos; marque ou desmarque à mão'), adult.map((a) => a.manifest.name || a.manifest.id).join(', ') || t('nenhum'), () =>
         menu(
           t('Addons adultos'),

@@ -1,6 +1,6 @@
 {
   "version": "1.2.0",
-  "commit": "cc77b948ec39b843e1aa1c76e6c28cb1fb713d98",
-  "date": "2026-10-27T04:55:12+00:00",
-  "message": "Build da dist/ para a TV"
+  "commit": "e38344cdcde83fd6ac08a414d090c2a46dab9a4e",
+  "date": "2026-10-27T05:13:47+00:00",
+  "message": "NSFW tab: adult add-ons detected and kept out of Home, Search and Library"
 }
