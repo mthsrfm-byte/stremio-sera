@@ -1,9 +1,10 @@
 // Aba NSFW: tudo que vem dos addons adultos, separado do resto do app.
-// Organização: filtro por addon no topo (Tudo / cada addon / Buscar) e, dentro dele,
+// Organização: trilho de provedores no topo (Tudo / cada addon / Buscar, como em Streamings) e, dentro dele,
 // 1) Continuar assistindo e Minha lista, 2) uma seção por addon com as fileiras dos catálogos
 // (cada uma com "Ver tudo") e 3) as categorias do addon como chips que abrem a grade filtrada.
 import { h, clear, loadVisibleImages } from '../lib/dom.js';
 import * as nav from '../lib/nav.js';
+import { KEY } from '../lib/nav.js';
 import * as addons from '../api/addons.js';
 import * as stremio from '../api/stremio.js';
 import { topbar, card, skeletonCards, retrying, pagedGrid } from '../ui.js';
@@ -12,8 +13,20 @@ import { openDetails as openDetailsRaw } from './details.js';
 import { showRetry } from './recommended.js';
 import { t } from '../lib/i18n.js';
 import * as tr from '../lib/translate.js';
+import * as store from '../lib/store.js';
 
 const ROW_LIMIT = 20;
+const ICON_ALL = '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>';
+const ICON_SEARCH = '<svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg>';
+
+// "TPB 4K Porn" → "TP"; usado quando o addon não tem logo.
+function initialsOf(name) {
+  const words = String(name || '?')
+    .replace(/[^A-Za-z0-9À-ú+ ]/g, ' ')
+    .trim()
+    .split(/\s+/);
+  return (words.length > 1 ? words[0][0] + words[1][0] : words[0].slice(0, 2)).toUpperCase();
+}
 
 // Tudo que abre daqui fica marcado como adulto (some do resto do app).
 function openDetails(type, id, opts) {
@@ -31,43 +44,99 @@ export function NsfwView() {
   const el = h('div.view.nsfw-view');
   const scroller = h('div.scroll-y', { 'data-scroll-y': '' });
   const bar = topbar('nsfw', router.goTab);
-  const filters = h('div.filters', { 'data-group': '' });
+  // Trilho de provedores (como em Streamings): cada addon adulto com o logo; o escolhido abre o nome.
+  const filters = h('div.provider-rail.nsfw-rail', { 'data-group': '', 'data-trap': '' });
+  const nowEl = h('div.nsfw-now');
   const body = h('div.rows');
   scroller.appendChild(bar);
-  scroller.appendChild(h('div.page-head', null, [h('h1.page-title', null, [t('NSFW'), h('span.nsfw-badge', { text: '18+' })]), filters]));
+  scroller.appendChild(h('div.page-head.nsfw-head', null, [h('h1.page-title', null, [t('NSFW'), h('span.nsfw-badge', { text: '18+' })]), nowEl]));
+  scroller.appendChild(filters);
   scroller.appendChild(body);
   el.appendChild(scroller);
 
-  let scope = 'all'; // 'all' | id do addon | 'search'
+  // 'all' | id do addon | 'search'. Lembra o último provedor (para comparar addons com calma).
+  let scope = store.get('nsfwScope', null);
+  let switchTimer = null;
   let pending = [];
   let active = 0;
 
   function scopes() {
     const list = addons.adultAddons();
-    const out = [{ id: 'all', label: t('Tudo') }];
-    if (list.length > 1) list.forEach((a) => out.push({ id: a.manifest.id, label: a.manifest.name || a.manifest.id }));
-    if (list.some((a) => addons.adultCatalogs(a).some((e) => addons.supportsSearch(e.catalog)))) out.push({ id: 'search', label: t('Buscar') });
+    const out = [];
+    if (list.length > 1) out.push({ id: 'all', label: t('Tudo'), sub: t('{n} provedores', { n: list.length }), icon: ICON_ALL });
+    list.forEach((a) => out.push({ id: a.manifest.id, label: a.manifest.name || a.manifest.id, sub: catalogCount(a), addon: a }));
+    if (list.some((a) => addons.adultCatalogs(a).some((e) => addons.supportsSearch(e.catalog))))
+      out.push({ id: 'search', label: t('Buscar'), sub: t('em todos os provedores'), icon: ICON_SEARCH });
     return out;
+  }
+
+  function catalogCount(a) {
+    const n = addons.adultCatalogs(a).filter((e) => addons.isBoardable(e.catalog)).length;
+    return t(n === 1 ? '{n} catálogo' : '{n} catálogos', { n: n });
+  }
+
+  // Logo do addon (manifest.logo); sem logo, as iniciais num quadrado colorido.
+  function pillLogo(f) {
+    const box = h('div.provider-logo');
+    if (f.icon) {
+      box.classList.add('img-loaded', 'icon');
+      box.innerHTML = f.icon;
+      return box;
+    }
+    box.appendChild(h('span.mono', { text: initialsOf(f.label) }));
+    const logo = f.addon.manifest.logo;
+    if (logo) {
+      const im = h('img', { alt: '' });
+      im.onload = () => {
+        im.classList.add('ready');
+        box.classList.add('img-loaded', 'has-img');
+      };
+      im.onerror = () => box.classList.add('img-loaded');
+      im.src = logo;
+      box.appendChild(im);
+    } else box.classList.add('img-loaded');
+    return box;
   }
 
   function renderFilters() {
     clear(filters);
     const list = scopes();
-    list.forEach((f, i) =>
+    if (!list.some((f) => f.id === scope)) scope = list.length ? list[0].id : 'all';
+    list.forEach((f) =>
       filters.appendChild(
-        h('div.chip', {
-          focusable: true,
-          cls: f.id === scope ? 'active' : '',
-          text: f.label,
-          onSelect: () => {
-            scope = f.id;
-            renderFilters();
-            renderBody();
-            nav.focus(filters.children[i]);
-          },
-        })
+        h('div.provider', { focusable: true, cls: f.id === scope ? 'on' : '', title: f.label, onFocus: () => scheduleSwitch(f.id), onSelect: () => pick(f.id, true) }, [
+          pillLogo(f),
+          h('div.provider-name', { text: f.label }),
+        ])
       )
     );
+    const cur = list.filter((f) => f.id === scope)[0];
+    nowEl.textContent = cur ? (cur.addon ? t('Provedor: {name}', { name: cur.label }) : cur.label) + '  ·  ' + cur.sub : '';
+  }
+
+  // Parar o foco num provedor troca o conteúdo (como em Streamings); OK entra nas fileiras.
+  function scheduleSwitch(id) {
+    clearTimeout(switchTimer);
+    switchTimer = setTimeout(() => pick(id), 450);
+  }
+
+  function pick(id, enter) {
+    clearTimeout(switchTimer);
+    if (id === scope) {
+      const first = enter && body.querySelector('[data-focus]');
+      if (first) nav.focus(first);
+      return;
+    }
+    scope = id;
+    store.set('nsfwScope', id);
+    const idx = scopes()
+      .map((f) => f.id)
+      .indexOf(id);
+    renderFilters();
+    body.classList.add('sw');
+    renderBody();
+    requestAnimationFrame(() => requestAnimationFrame(() => body.classList.remove('sw')));
+    if (filters.children[idx]) nav.focus(filters.children[idx], { noScroll: true });
   }
 
   // Mesma ideia da tela inicial: só busca o catálogo quando a fileira chega perto, 2 por vez.
@@ -219,17 +288,44 @@ export function NsfwView() {
   body.appendChild(h('div.hint', { text: t('Carregando addons...') }));
   let ready = false;
 
+  const onRail = () => nav.focus(filters.querySelector('.provider.on') || filters.firstChild);
+
+  // Como em Streamings: ↓ da barra de cima vai para o trilho de provedores, e ↑ do primeiro item
+  // do conteúdo volta para ele.
+  function onKey(e) {
+    const cur = nav.current();
+    if (!cur || !filters.firstChild) return false;
+    if (e.keyCode === KEY.DOWN && cur.closest('.topbar')) {
+      onRail();
+      return true;
+    }
+    if (e.keyCode === KEY.UP && body.contains(cur)) {
+      const firstRow = body.querySelector('[data-focus]');
+      const top = firstRow ? firstRow.getBoundingClientRect().top : 0;
+      if (Math.abs(cur.getBoundingClientRect().top - top) < 10) {
+        onRail();
+        return true;
+      }
+    }
+    return false;
+  }
+
   return {
     el: el,
+    onKey: onKey,
     onShow: () => {
       if (ready) return loadNearby();
       addons.load().then(() => {
         ready = true;
         render();
+        onRail(); // a aba abre com o provedor atual em foco
       });
     },
     onScroll: () => loadNearby(),
-    destroy: () => bar.__destroy && bar.__destroy(),
+    destroy: () => {
+      clearTimeout(switchTimer);
+      if (bar.__destroy) bar.__destroy();
+    },
   };
 }
 
