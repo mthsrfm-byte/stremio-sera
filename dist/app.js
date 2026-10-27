@@ -6303,9 +6303,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "33f128e7161747ee9fba2663254dcc697a3e7239",
-    date: "2026-10-27T07:47:52-03:00",
-    message: 'NSFW: subtítulo das fileiras de creampie só "mais vistos"'
+    commit: "57cef195809c0241483094ec7e43f2decb0e5cab",
+    date: "2026-10-27T07:49:30-03:00",
+    message: "Player: Dolby Vision por último e troca automática de fonte em filmes e séries"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -9169,13 +9169,25 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return canPlay(s, serverOk);
     });
     if (!playable.length) return null;
-    for (var i = 0; i < playable.length; i++) {
-      var info = parse3(playable[i]);
-      if (info.dub && info.original && good(info)) return {
-        stream: playable[i],
-        ideal: true
-      };
-    }
+    var ideal = function ideal(s) {
+      var info = parse3(s);
+      return info.dub && info.original && good(info);
+    };
+    var noDv = playable.filter(function (s) {
+      return !parse3(s).dv;
+    });
+    for (var i = 0; i < noDv.length; i++) if (ideal(noDv[i])) return {
+      stream: noDv[i],
+      ideal: true
+    };
+    if (noDv.length) return {
+      stream: noDv[0],
+      ideal: false
+    };
+    for (var _i = 0; _i < playable.length; _i++) if (ideal(playable[_i])) return {
+      stream: playable[_i],
+      ideal: true
+    };
     return {
       stream: playable[0],
       ideal: false
@@ -9899,12 +9911,15 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var failed = stream;
       errorDetails(code, why).then(function (details) {
         if (!alive || failed !== stream) return;
-        var next = tubeFallback();
+        var next = autoFallback();
         if (next) {
           failedNotes.push(details);
-          toast(t("Tentando: {what}", {
-            what: String(next.name || "").split("\n").join(" ")
-          }), 3500);
+          var what = isTubeStream(next) ? String(next.name || "").split("\n").join(" ") : summary(parse3(next)) || parse3(next).addon;
+          toast(parse3(failed).dv ? t("Dolby Vision não abre na TV. Tentando: {what}", {
+            what: what
+          }) : t("Tentando: {what}", {
+            what: what
+          }), 4e3);
           switchTo(next);
           return;
         }
@@ -9915,11 +9930,26 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       });
     }
     var failedNotes = [];
-    function tubeFallback() {
-      if (!isTubeStream(stream)) return null;
-      return (opts.streams || []).find(function (x) {
-        return x.addon === stream.addon && tried.indexOf(x) < 0;
+    var autoTries = 0;
+    function autoFallback() {
+      var rest = (opts.streams || []).filter(function (x) {
+        return tried.indexOf(x) < 0;
+      });
+      if (isTubeStream(stream)) return rest.find(function (x) {
+        return x.addon === stream.addon;
       }) || null;
+      if (autoTries >= 2) return null;
+      var res = parse3(stream).res;
+      var ok = _isAvailable();
+      var cands = rest.filter(function (x) {
+        return !parse3(x).dv && canPlay(x, ok);
+      });
+      var pick2 = smartPick(cands.filter(function (x) {
+        return parse3(x).res === res;
+      }), ok) || smartPick(cands, ok);
+      if (!pick2) return null;
+      autoTries++;
+      return pick2.stream;
     }
     var MEDIA_ERR = {
       1: "cancelado",
@@ -13151,7 +13181,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         text: info2.res
       }));
       if (info2.dv) tags.push(h("span.s-tag.dv", {
-        text: "Dolby Vision"
+        text: t("Dolby Vision · pode não abrir")
       }));else if (info2.hdr) tags.push(h("span.s-tag.hdr", {
         text: "HDR"
       }));
