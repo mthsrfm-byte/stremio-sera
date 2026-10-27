@@ -265,6 +265,31 @@ export function SettingsView() {
     );
   }
 
+  // Teste do serviço da TV (remote/tv-service.js): cada item com ✓/✗ e um veredito no fim.
+  function torrentTest() {
+    toast(t('Testando a TV... leva até 40 segundos'), 6000);
+    getJSON('http://127.0.0.1:8090/api/torrent-test', { timeout: 45000, quiet: true })
+      .then((r) => {
+        const yes = (ok) => (ok ? '✓ ' : '✗ ');
+        const nodeMajor = parseInt(String(r.node || 'v0').slice(1), 10) || 0;
+        const disk = r.disk || {};
+        const writable = Object.keys(disk).filter((d) => disk[d] === true);
+        const lines = [
+          { label: yes(nodeMajor >= 8) + 'Node ' + r.node, sub: nodeMajor >= 8 ? t('Dá para rodar um motor de torrent') : t('Muito antigo para os motores de torrent atuais') },
+          { label: yes(r.memFreeMB >= 150) + t('Memória livre: {n} MB', { n: r.memFreeMB }), sub: t('de {n} MB · {c} núcleos', { n: r.memTotalMB, c: r.cpus }) },
+          { label: yes(r.udp && r.udp.ok) + t('UDP (trackers e DHT)'), sub: r.udp && r.udp.ok ? r.udp.ms + ' ms' : (r.udp && r.udp.why) || '-' },
+          { label: yes(r.tcp && r.tcp.ok) + t('TCP de saída (peers)'), sub: r.tcp && r.tcp.ok ? r.tcp.ms + ' ms' : (r.tcp && r.tcp.why) || '-' },
+          { label: yes(r.speed && r.speed.ok) + t('Download: {n} Mbps', { n: (r.speed && r.speed.mbps) || 0 }), sub: r.speed && r.speed.ok ? t('{mb} MB em {s} s', { mb: r.speed.MB, s: r.speed.s }) : (r.speed && r.speed.why) || '-' },
+          { label: yes(writable.length > 0) + t('Gravar no disco'), sub: writable.length ? writable.join(', ') : t('nenhuma pasta gravável') },
+        ];
+        const viable = nodeMajor >= 8 && r.memFreeMB >= 150 && r.tcp && r.tcp.ok && r.speed && r.speed.ok;
+        lines.push({ label: viable ? t('Veredito: dá para tentar torrent na TV') : t('Veredito: a TV não aguenta torrent sozinha'), sub: viable ? t('Me mande uma foto desta tela') : t('Continue com o PC ou use debrid') });
+        log.info('Teste de torrent na TV', JSON.stringify(r));
+        menu(t('Torrent na TV'), lines, {});
+      })
+      .catch(() => toast(t('O serviço da TV não respondeu. Abra o Seraflix pelo TizenBrew e tente de novo.'), 6000));
+  }
+
   function toggle(on) {
     return h('div.toggle', { cls: on ? 'on' : '' }, h('i'));
   }
@@ -418,6 +443,7 @@ export function SettingsView() {
         })
       )
     );
+    body.appendChild(row(t('Testar torrent na TV (sem o PC)'), t('Mede se a própria TV aguenta baixar torrent: Node, memória, rede e disco'), '', () => torrentTest()));
 
     body.appendChild(h('div.set-section', { text: t('Aparência (Kai)') }));
     const heroName = t((hero.SOURCES.find((x) => x.id === s.heroSource) || hero.SOURCES[0]).name);
