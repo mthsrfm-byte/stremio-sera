@@ -1,10 +1,12 @@
 import AppKit
 import WebKit
 
+@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigationDelegate, WKScriptMessageHandler {
     private var window: NSWindow!
     private var web: WKWebView!
     private let ui = UIBundle()
+    private let server = ServerSupervisor()
     private var activeUI: URL!
     private var interacted = false
     private var inputMonitor: Any?
@@ -42,6 +44,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
             self?.interacted = true
             return event
         }
+        server.onState = { [weak self] state in self?.emit("server", state) }
+        commandHandler = { [weak self] command, _ in
+            guard let self = self else { return }
+            guard command == "serverStatus" || command == "appReady" else { throw UIError.invalid("Comando desconhecido") }
+            self.emit("server", self.server.state)
+        }
+        shutdownHandler = { [weak self] in self?.server.stop() }
+        server.start()
         load(ui.initial())
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
