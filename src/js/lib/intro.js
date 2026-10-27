@@ -5,7 +5,7 @@
 import { IS_WEB } from './platform.js';
 
 // Na web a abertura é mais curta (o CSS de src/web/web.css acompanha estes tempos).
-const MIN_MS = IS_WEB ? 1700 : 2200;
+const MIN_MS = __KAI_MAC__ ? 0 : IS_WEB ? 1700 : 2200;
 const SOUND_AT_MS = IS_WEB ? 850 : 950; // quando a linha termina de revelar o logo
 
 let started = 0;

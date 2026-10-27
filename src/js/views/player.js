@@ -21,6 +21,7 @@ import * as router from '../router.js';
 import { sortedVideos, openDetails } from './details.js';
 import { t } from '../lib/i18n.js';
 import { IS_WEB } from '../lib/platform.js';
+import { createMacVideo, nativeCommand } from '../lib/mac-player.js';
 
 const HIDE_MS = 5000;
 const SLOW_MS = 40000; // sem começar a tocar depois disso: oferece outro provedor
@@ -80,7 +81,7 @@ function PlayerView(opts) {
   let stream = opts.stream;
   const settings = store.settings();
 
-  const videoEl = h('video', { preload: 'auto' });
+  const videoEl = __KAI_MAC__ ? createMacVideo(meta.name) : h('video', { preload: 'auto' });
   // No navegador, clicar no vídeo pausa e toca (como nos players da web).
   if (IS_WEB) videoEl.addEventListener('click', () => togglePlay());
   const subsEl = h('div.subs');
@@ -243,7 +244,7 @@ function PlayerView(opts) {
     const token = ++sourceToken;
     sourceUrl = url;
     videoEl.autoplay = true;
-    if (!hlsplay.isHls(url)) {
+    if (__KAI_MAC__ || !hlsplay.isHls(url)) {
       videoEl.src = url;
       return;
     }
@@ -341,6 +342,7 @@ function PlayerView(opts) {
 
   let tracksPromise = null;
   function loadEmbeddedTracks() {
+    if (__KAI_MAC__) return Promise.resolve(embedded);
     if (!server.isAvailable()) return Promise.resolve(null);
     if (!tracksPromise) {
       const forUrl = mediaUrl;
@@ -492,6 +494,7 @@ function PlayerView(opts) {
   }
 
   function useAddonCues(s, cues) {
+    if (__KAI_MAC__) nativeCommand('subtitle', { id: 'no' });
     currentSub = { kind: 'addon', id: s.id || s.url };
     renderer.set(cues);
     applySavedOffset();
@@ -587,7 +590,8 @@ function PlayerView(opts) {
     const err = videoEl.error;
     // Sem src (fonte sendo trocada ou o hls.js soltando o <video>) não é erro do vídeo.
     if (!sourceUrl || !videoEl.getAttribute('src')) return;
-    playbackError(err && err.code);
+    if (__KAI_MAC__) playbackError(err && err.code, err && err.message);
+    else playbackError(err && err.code);
   });
 
   // Erro do <video> (código 1–4) ou do hls.js (why: o que ele disse). Um aviso por fonte.
@@ -1126,6 +1130,15 @@ function PlayerView(opts) {
   }
 
   // ---------- Faixas ----------
+  if (__KAI_MAC__) videoEl.addEventListener('nativetracks', () => {
+    embedded = {
+      audio: videoEl.audioTracks.map((tr) => ({ lang: tr.language, label: tr.label })),
+      subs: videoEl.nativeSubtitles,
+    };
+    const selected = embedded.subs.findIndex((tr) => tr.selected);
+    if (currentSub.kind !== 'addon') currentSub = selected >= 0 ? { kind: 'embedded', index: selected } : { kind: 'off' };
+    autoPick();
+  });
   function selectEmbeddedAudio(index) {
     const native = videoEl.audioTracks;
     if (native && native.length > index) {
@@ -1141,6 +1154,12 @@ function PlayerView(opts) {
   // Com o torrent ainda baixando, não extrai: o ffmpeg leria o arquivo e roubaria a prioridade do download.
   function selectEmbeddedSub(index) {
     renderer.clear();
+    if (__KAI_MAC__) {
+      currentSub = { kind: 'embedded', index };
+      const track = videoEl.nativeSubtitles[index];
+      if (track) nativeCommand('subtitle', { id: track.id });
+      return;
+    }
     server.streamProgress(mediaUrl).then((p) => {
       if (!alive) return;
       if (p !== null && p >= 0.999) extractedSub(index);
@@ -1187,6 +1206,7 @@ function PlayerView(opts) {
   }
 
   function selectAddonSub(s, silent) {
+    if (__KAI_MAC__) nativeCommand('subtitle', { id: 'no' });
     currentSub = { kind: 'addon', id: s.id || s.url };
     loadAddonCues(s)
       .then((cues) => {
@@ -1199,6 +1219,7 @@ function PlayerView(opts) {
 
   // Menus de faixas: lê as faixas embutidas só agora, quando o usuário pede.
   function withTracks(open) {
+    if (__KAI_MAC__) return open();
     if (embedded || !server.isAvailable()) return open();
     toast(t('Lendo as faixas do arquivo...'), 2500);
     loadEmbeddedTracks().then(() => alive && open());
@@ -1242,7 +1263,7 @@ function PlayerView(opts) {
     opts2.push({ label: t('Desligada'), value: { kind: 'off' }, checked: currentSub.kind === 'off' });
     if (embedded && embedded.subs.length) {
       embedded.subs.forEach((tr, i) =>
-        /PGS|VOBSUB|DVD/i.test(tr.codec || '') ? null : opts2.push({
+        !__KAI_MAC__ && /PGS|VOBSUB|DVD/i.test(tr.codec || '') ? null : opts2.push({
           label: langName(tr.lang) + (tr.label ? ' · ' + tr.label : ''),
           sub: t('Embutida no arquivo') + (tr.codec ? ' · ' + tr.codec : ''),
           value: { kind: 'embedded', index: i },
@@ -1268,6 +1289,7 @@ function PlayerView(opts) {
       onPick: (v) => {
         if (v.kind === 'off' || v.kind === 'embedded' || v.kind === 'addon') autoDone.sub = true;
         if (v.kind === 'off') {
+          if (__KAI_MAC__) nativeCommand('subtitle', { id: 'no' });
           renderer.clear();
           currentSub = { kind: 'off' };
         } else if (v.kind === 'embedded') selectEmbeddedSub(v.index);
@@ -1745,6 +1767,7 @@ function PlayerView(opts) {
     },
     destroy: () => {
       alive = false;
+      if (__KAI_MAC__) videoEl.destroyNative();
       clearInterval(ticker);
       clearInterval(saveTimer);
       clearInterval(watchTimer);

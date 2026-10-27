@@ -1,0 +1,66 @@
+# O shell baixa arquivos deste bundle por commit imutável e valida manifest.json.
+name: Publicar UI do Mac
+
+on:
+  push:
+    branches: [main]
+    paths: ['src/**', 'tools/**', 'package.json', 'package-lock.json', '.github/workflows/mac-ui.yml']
+  pull_request:
+    paths: ['src/**', 'tools/**', 'tests/**', 'package.json', '.github/workflows/mac-ui.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mac-ui-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: node --test tests/mac-player.test.mjs
+      - name: Gerar UI e manifesto de integridade
+        env:
+          KAI_COMMIT: ${{ github.sha }}
+        run: npm run build:mac
+      - uses: actions/upload-artifact@v4
+        with:
+          name: seraflix-mac-ui
+          path: site/mac
+      - name: Publicar bundle na main
+        if: github.event_name != 'pull_request'
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -f site/mac
+          if ! git diff --cached --quiet; then
+            git commit -m 'Build da UI do Mac'
+            # O workflow da TV também publica na main; rebase resolve a corrida entre os builds.
+            for attempt in 1 2 3; do
+              git pull --rebase origin main
+              if git push origin HEAD:main; then exit 0; fi
+            done
+            exit 1
+          fi
+      - name: Atualizar somente o fallback do app Mac
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.MAC_DISPATCH_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo 'Defina MAC_DISPATCH_TOKEN com acesso ao repositório stremio-sera-mac para atualizar o fallback embutido.'
+            exit 0
+          fi
+          UI_COMMIT=$(git rev-parse HEAD)
+          jq -n --arg commit "$UI_COMMIT" '{event_type:"ui-updated",client_payload:{ui_commit:$commit}}' > "$RUNNER_TEMP/mac-dispatch.json"
+          gh api --method POST repos/mthsrfm-byte/stremio-sera-mac/dispatches --input "$RUNNER_TEMP/mac-dispatch.json"

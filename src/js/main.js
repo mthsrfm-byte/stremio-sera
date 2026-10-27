@@ -28,6 +28,8 @@ import { registerTizenKeys, IS_WEB } from './lib/platform.js';
 import * as intro from './lib/intro.js';
 import * as screensaver from './lib/screensaver.js';
 import * as webkeys from './lib/webkeys.js';
+import { startMacInBackground, installMacHooks } from './lib/mac-player.js';
+import { openPlayer } from './views/player.js';
 
 // Abertura (logo + som): o app só aparece depois dela, mesmo que carregue antes.
 let introDone = Promise.resolve();
@@ -42,6 +44,7 @@ function boot() {
 
   registerTizenKeys();
   nav.install();
+  if (__KAI_MAC__) installMacHooks(server, toast, openPlayer);
   if (IS_WEB) webkeys.install(); // F e duplo clique no vídeo: tela cheia (só no navegador)
   // Imagens e fileiras sob demanda depois que a rolagem para (segurar a seta não recalcula a cada passo).
   nav.setSmooth(s.smoothScroll);
@@ -95,7 +98,8 @@ function start() {
     stremio.getLibrary().catch(() => {});
   }
 
-  Promise.all([server.check(), addons.load().catch(() => null), introDone]).then(() => {
+  if (__KAI_MAC__) startMacInBackground(server, addons, router);
+  Promise.all(__KAI_MAC__ ? [introDone] : [server.check(), addons.load().catch(() => null), introDone]).then(() => {
     router.goTab('home');
     intro.finish(); // a abertura some em fade por cima da tela inicial já pronta
     // Pedidos do controle no celular ("Mandar para a TV").
@@ -154,6 +158,7 @@ function ready() {
     document.body.classList.remove('fonts-pending');
     boot();
   };
+  if (__KAI_MAC__) return go();
   setTimeout(go, 3000);
   try {
     if (!document.fonts || typeof document.fonts.load !== 'function') return go();
