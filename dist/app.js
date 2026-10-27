@@ -6303,9 +6303,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "442f9295632eee06756542a00d19a51c7266c2bd",
-    date: "2026-10-27T08:09:37+00:00",
-    message: "Build da dist/ para a TV"
+    commit: "c94871f67ad0336266138426baf1aa12e6d62ad9",
+    date: "2026-10-27T05:15:50-03:00",
+    message: "NSFW: vídeos tocam pelo serviço da TV"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -7861,8 +7861,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return m ? m[0] : null;
   }
   var BUILTIN_KEYS = {
-    tmdbKey: true ? "" : "",
-    mdblistKey: true ? "" : ""
+    tmdbKey: true ? "9c57ed7ea044b2f01eea2fcc2e954c2e" : "",
+    mdblistKey: true ? "t9e4f1z29b3c36i1j25rul1wx" : ""
   };
   function keyOf(name) {
     return (settings()[name] || "").trim() || BUILTIN_KEYS[name];
