@@ -6303,9 +6303,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "1e42068b9ba745e1667be0726ac04bf956602120",
-    date: "2026-10-27T07:12:12-03:00",
-    message: "Google Agenda na TV: fileira na home, ícone com o dia e aviso no vídeo"
+    commit: "f3245f49ac18cb0da062fe0ddf5e98cb2f10fc0b",
+    date: "2026-10-27T07:13:36-03:00",
+    message: "Agenda: link iCal pelo segredo CALENDAR_ICAL_URL"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -7142,8 +7142,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var timer = null;
   var loading = null;
   var listeners2 = [];
+  var BUILTIN = true ? "" : "";
   function urls() {
-    return String(settings().calendarUrl || "").split(/[\s,]+/).filter(function (u) {
+    return String(settings().calendarUrl || BUILTIN || "").split(/[\s,]+/).filter(function (u) {
       return /^(https?|webcal):\/\//i.test(u);
     }).map(function (u) {
       return u.replace(/^webcal:/i, "https:");
@@ -15423,7 +15424,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         var calInput = h("input.input", {
           type: "text",
           value: s.calendarUrl || "",
-          placeholder: "https://calendar.google.com/calendar/ical/…/basic.ics"
+          placeholder: BUILTIN ? t("Embutido no app") : "https://calendar.google.com/calendar/ical/…/basic.ics"
         });
         calInput.__submit = function (v) {
           saveSettings({
@@ -15439,7 +15440,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             return select(calInput);
           }
         }, [h("div.label", null, [t("Link da agenda (iCal)"), h("small", {
-          text: t('Google Agenda › Configurações › sua agenda › "Endereço secreto no formato iCal". Fica só nesta TV. Dá para colar pelo controle no celular. Vários links: separe com espaço.')
+          text: t('Google Agenda › Configurações › sua agenda › "Endereço secreto no formato iCal". Dá para colar pelo controle no celular. Vários links: separe com espaço.') + (BUILTIN ? " · " + t("já vem embutido, só preencha para usar outro") : "")
         })]), calInput]));
       }
       body.appendChild(h("div.set-section", {
