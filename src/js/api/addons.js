@@ -51,22 +51,49 @@ function defaultAddons() {
   ).then((list) => list.filter(Boolean));
 }
 
+// Addons que o serviço do Seraflix na TV serve (XVideos e Pornhub pedidos pela própria TV).
+// Entram sozinhos quando o serviço responde; fora da TV (PC, testes) simplesmente não aparecem.
+const TUBE_URLS = ['http://127.0.0.1:8090/xv/manifest.json', 'http://127.0.0.1:8090/ph/manifest.json'];
+let tubes = null;
+
+function withTubes(list) {
+  if (!tubes || !tubes.length) return list;
+  return list.concat(tubes.filter((t) => !list.some((a) => a.transportUrl === t.transportUrl)));
+}
+
+function attachTubes() {
+  if (tubes) return;
+  tubes = [];
+  Promise.all(
+    TUBE_URLS.map((u) =>
+      getJSON(u, { timeout: 3000, quiet: true }).then(
+        (m) => (m && m.id ? { transportUrl: u, manifest: m } : null),
+        () => null
+      )
+    )
+  ).then((list) => {
+    tubes = normalize(list.filter(Boolean));
+    if (tubes.length && addons) changed(withTubes(addons));
+  });
+}
+
 export function load(force) {
+  attachTubes();
   if (addons && !force) return Promise.resolve(addons);
   if (stremio.isLoggedIn()) {
     const cached = stremio.cachedAddons();
-    const fresh = stremio.getAddonCollection().then((list) => changed(normalize(list)));
+    const fresh = stremio.getAddonCollection().then((list) => changed(withTubes(normalize(list))));
     if (cached && cached.length && !force) {
-      addons = normalize(cached);
+      addons = withTubes(normalize(cached));
       fresh.catch((e) => log.warn('Addons: usando cache', e.message));
       return Promise.resolve(addons);
     }
     return fresh.catch(() => {
-      addons = normalize(cached || []);
+      addons = withTubes(normalize(cached || []));
       return addons;
     });
   }
-  return defaultAddons().then((list) => changed(normalize(list)));
+  return defaultAddons().then((list) => changed(withTubes(normalize(list))));
 }
 
 export function list() {

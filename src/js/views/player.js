@@ -14,7 +14,7 @@ import * as addons from '../api/addons.js';
 import * as stremio from '../api/stremio.js';
 import * as skip from '../api/skip.js';
 import * as hero from '../api/hero.js';
-import { menu, toast, fmtTime, timeHM } from '../ui.js';
+import { menu, toast, fmtTime, timeHM, choiceDialog } from '../ui.js';
 import * as router from '../router.js';
 import { sortedVideos, openDetails } from './details.js';
 import { t } from '../lib/i18n.js';
@@ -594,25 +594,22 @@ function PlayerView(opts) {
     }, 300);
   }
 
+  // Erro: um painel só, com o motivo legível (sem endereço técnico no meio) e as saídas em botões.
   function fail(text, offerTranscode) {
     hideIntro();
     clearTimeout(slowTimer);
     closeSlow();
     showSpinner(false);
-    const box = h('div', null, [text, h('small', { text: t('Tente outra fonte (de preferência MP4/MKV com H.264 ou HEVC e áudio AAC/AC3).') })]);
     clear(msgEl);
-    msgEl.appendChild(box);
-    const opts2 = [{ label: t('Escolher outra fonte'), value: 'src' }];
-    if (offerTranscode) opts2.unshift({ label: t('Converter no PC (experimental)'), sub: t('O servidor converte para HLS que a TV aceita'), value: 'hls' });
-    opts2.push({ label: t('Voltar'), value: 'back' });
-    menu(t('Problema na reprodução'), opts2, {
-      center: true,
-      onPick: (v) => {
-        if (v === 'hls') transcode();
-        else if (v === 'src') sourcesMenu();
-        else router.pop();
-      },
-    });
+    const reason = String(text || '').replace(/[.!\s]+$/, '').replace(/https?:\/\/\S+/g, (u) => (/:11470\b/.test(u) ? t('o servidor do PC') : t('o servidor')));
+    const torrent = stream && server.needsServer(stream);
+    const tip = torrent
+      ? t('Esse torrent pode estar sem seeders ou o PC está lento para começar. Tente outra fonte.')
+      : t('Tente outra fonte (de preferência MP4/MKV com H.264 ou HEVC e áudio AAC/AC3).');
+    const buttons = [{ label: '<span class="ico">⇄</span>' + t('Escolher outra fonte'), primary: true, onSelect: () => sourcesMenu() }];
+    if (offerTranscode) buttons.push({ label: t('Converter no PC'), onSelect: () => transcode() });
+    buttons.push({ label: t('Voltar'), onSelect: () => router.pop() });
+    choiceDialog(t('Problema na reprodução'), reason.charAt(0).toUpperCase() + reason.slice(1) + '. ' + tip, buttons);
   }
 
   function transcode() {

@@ -1,6 +1,6 @@
 // Aba NSFW: tudo que vem dos addons adultos, separado do resto do app.
 // Organização: trilho de provedores no topo (Tudo / cada addon / Buscar, como em Streamings) e, dentro dele,
-// 1) Continuar assistindo e Minha lista, 2) uma seção por addon com as fileiras dos catálogos
+// 1) Salvos (só neste aparelho), Continuar assistindo e Minha lista, 2) uma seção por addon com as fileiras dos catálogos
 // (cada uma com "Ver tudo") e 3) as categorias do addon como chips que abrem a grade filtrada.
 import { h, clear, loadVisibleImages } from '../lib/dom.js';
 import * as nav from '../lib/nav.js';
@@ -14,6 +14,7 @@ import { showRetry } from './recommended.js';
 import { t } from '../lib/i18n.js';
 import * as tr from '../lib/translate.js';
 import * as store from '../lib/store.js';
+import * as nsfwSaved from '../lib/nsfwSaved.js';
 
 const ROW_LIMIT = 20;
 const ICON_ALL = '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>';
@@ -183,8 +184,28 @@ export function NsfwView() {
     loadNearby();
   }
 
-  // Continuar assistindo + Minha lista, só com o que veio dos addons adultos.
+  // Salvos + Continuar assistindo + Minha lista, só com o que veio dos addons adultos.
+  // Salvos: primeira fileira da aba (atualiza ao voltar dos detalhes, onde se salva).
+  const savedSlot = h('div.nsfw-saved');
+  function renderSaved() {
+    clear(savedSlot);
+    const items = nsfwSaved.list();
+    if (!items.length) return;
+    const cards = items.slice(0, 40).map((it) =>
+      card(it, { wide: it.posterShape === 'landscape', image: it.posterShape === 'landscape' ? it.poster : undefined, onSelect: () => openDetails(it.type, it.id, null, it) })
+    );
+    savedSlot.appendChild(
+      h('div.row', { 'data-anchor': '30' }, [
+        h('div.row-title', null, ['♥ ' + t('Salvos'), h('small', { text: t('{n} vídeo(s)', { n: items.length }) })]),
+        h('div.row-track', { 'data-scroll-x': '', 'data-group': '', 'data-trap': '' }, cards),
+      ])
+    );
+    loadVisibleImages(savedSlot);
+  }
+
   function personalRows() {
+    body.appendChild(savedSlot);
+    renderSaved();
     const lib = stremio.cachedLibrary().filter((it) => addons.isAdultId(it._id) && it.name);
     const watching = lib
       .filter((it) => (!it.removed || it.temp) && it.state && it.state.timeOffset > 0)
@@ -312,7 +333,10 @@ export function NsfwView() {
     el: el,
     onKey: onKey,
     onShow: () => {
-      if (ready) return loadNearby();
+      if (ready) {
+        renderSaved();
+        return loadNearby();
+      }
       addons.load().then(() => {
         ready = true;
         render();
