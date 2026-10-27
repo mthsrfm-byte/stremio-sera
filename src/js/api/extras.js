@@ -126,7 +126,8 @@ export function seasonPt(tmdbId, season) {
   return tmdb('tv/' + tmdbId + '/season/' + season, { language: apiLang() }).then((r) => {
     const map = {};
     (r.episodes || []).forEach((e) => {
-      map[e.episode_number] = { name: e.name, overview: e.overview, still: e.still_path ? TMDB_IMG + 'w300' + e.still_path : null };
+      // Sem tradução o TMDB devolve "Episódio 3": aí fica o nome original do addon.
+      map[e.episode_number] = { name: /^epis[óo]dio\s*\d+$/i.test(e.name || '') ? '' : e.name, overview: e.overview, still: e.still_path ? TMDB_IMG + 'w300' + e.still_path : null };
     });
     return map;
   });

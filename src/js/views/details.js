@@ -173,8 +173,10 @@ function DetailsView(type, id, opts) {
       .then((r) => alive && renderRatings(ui.ratingsEl, r))
       .catch(() => alive && renderRatings(ui.ratingsEl, { imdb: meta.imdbRating ? String(meta.imdbRating) : null, critic: null, audience: null }));
     if (!extras.hasTmdb()) return;
-    extras
+    tmdbReady = extras
       .localized(meta)
+      .then((loc) => loc, () => null);
+    tmdbReady
       .then((loc) => {
         if (!alive || !loc) return;
         tmdbInfo = loc;
@@ -204,6 +206,20 @@ function DetailsView(type, id, opts) {
       .catch(() => {});
   }
 
+  // Episódio em PT-BR pelo TMDB; guarda em video.namePt (o player usa no título).
+  let tmdbReady = null;
+  function ptEpisode(v) {
+    if (!extras.hasTmdb() || !v || v.season === undefined) return Promise.resolve(null);
+    return (tmdbReady || Promise.resolve(tmdbInfo))
+      .then((info) => (info && info.tmdbType === 'tv' ? extras.seasonPt(info.tmdbId, v.season) : null))
+      .then((map) => {
+        const ep = map && map[v.episode];
+        if (ep && ep.name) v.namePt = ep.name;
+        return ep || null;
+      })
+      .catch(() => null);
+  }
+
   // Troca títulos/sinopses dos episódios visíveis pelos do TMDB em PT-BR.
   function localizeEpisodes() {
     if (!tmdbInfo || tmdbInfo.tmdbType !== 'tv' || season === null) return;
@@ -215,7 +231,10 @@ function DetailsView(type, id, opts) {
         Array.prototype.forEach.call(panel.querySelectorAll('.episode'), (row) => {
           const ep = map[row.__episode];
           if (!ep) return;
-          if (ep.name) row.querySelector('.ep-title').lastChild.textContent = row.__episode + '. ' + ep.name;
+          if (ep.name) {
+            row.querySelector('.ep-title').lastChild.textContent = row.__episode + '. ' + ep.name;
+            if (row.__video) row.__video.namePt = ep.name;
+          }
           if (ep.overview) row.querySelector('.ep-desc').textContent = ep.overview;
         });
       })
@@ -318,6 +337,7 @@ function DetailsView(type, id, opts) {
           ]),
         ]);
         row.__episode = v.episode;
+        row.__video = v;
         if (v.id === focusVideoId || (!focusVideoId && inProgress)) focusEl = row;
         list.appendChild(row);
       });
@@ -356,13 +376,20 @@ function DetailsView(type, id, opts) {
     mode = 'streams';
     streamsVideo = video;
     clear(panel);
-    const head = isSeries() ? 'T' + video.season + 'E' + video.episode + ' · ' + (video.name || video.title || '') : t('Fontes');
+    const headText = (name) => 'T' + video.season + 'E' + video.episode + ' · ' + (name || '');
+    const head = isSeries() ? headText(video.namePt || video.name || video.title) : t('Fontes');
     const filterBtn = h('div.btn.small', { focusable: true, text: t('Todos ▾'), onSelect: () => filterMenu() });
-    panel.appendChild(h('div.panel-head', { 'data-group': '' }, [h('h2', { text: head }), filterBtn]));
+    const headEl = h('h2', { text: head });
+    panel.appendChild(h('div.panel-head', { 'data-group': '' }, [headEl, filterBtn]));
+    if (isSeries() && !video.namePt)
+      ptEpisode(video).then((ep) => {
+        if (ep && ep.name && streamsVideo === video) headEl.textContent = headText(ep.name);
+      });
     const sub = h('div.panel-sub');
     const barFill = h('i');
     panel.appendChild(sub);
-    panel.appendChild(h('div.load-bar', null, barFill));
+    const loadBar = h('div.load-bar', null, barFill);
+    panel.appendChild(loadBar);
     const list = h('div.list', { 'data-scroll-y': '', 'data-pad-y': '120', 'data-group': '', 'data-vertical': '' });
     list.style.top = '178px';
     panel.appendChild(list);
@@ -416,6 +443,7 @@ function DetailsView(type, id, opts) {
       const srv = serverOk ? t('Servidor do PC conectado') : t('Servidor do PC não conectado: só links diretos');
       sub.textContent = srv + (pendingCount > 0 ? '  ·  ' + t('{n} addon(s) ainda carregando', { n: pendingCount }) : '  ·  ' + t('{n} fontes', { n: all.length }));
       barFill.style.width = Math.round(((srcs.length - pendingCount) / srcs.length) * 100) + '%';
+      loadBar.classList.toggle('done', pendingCount <= 0);
       const g = groups.find((x) => x.addon.transportUrl === filter);
       filterBtn.textContent = (g ? g.addon.manifest.name : filter === 'dub' ? t('Dublados') : t('Todos')) + ' ▾';
     }

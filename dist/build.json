@@ -1,6 +1,6 @@
 {
   "version": "1.2.0",
-  "commit": "decd4770113928023dbb8d674d32195bd5c709bd",
-  "date": "2026-10-27T05:17:08+00:00",
-  "message": "NSFW tab: bank-style PIN keypad (shuffled digit pairs), remote number keys, relock on background"
+  "commit": "b20c60242678102428b4eb5834be9e19a2d196a1",
+  "date": "2026-10-27T05:39:41+00:00",
+  "message": "Cleaner source list, Smart Choice, player quality toggle and slow-load fallback, PT genres, upcoming episodes, cast filmography, NSFW polish"
 }

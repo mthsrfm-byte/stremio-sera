@@ -7371,7 +7371,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var map = {};
       (r.episodes || []).forEach(function (e) {
         map[e.episode_number] = {
-          name: e.name,
+          name: /^epis[óo]dio\s*\d+$/i.test(e.name || "") ? "" : e.name,
           overview: e.overview,
           still: e.still_path ? TMDB_IMG + "w300" + e.still_path : null
         };
@@ -8126,7 +8126,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       clear(titleEl);
       titleEl.appendChild(document.createTextNode(meta.name || ""));
       if (opts.isSeries) titleEl.appendChild(h("small", {
-        text: "T" + video.season + " E" + video.episode + " · " + (video.name || video.title || "")
+        text: "T" + video.season + " E" + video.episode + " · " + (video.namePt || video.name || video.title || "")
       }));
       nextBtn.style.display = opts.isSeries && nextVideo() ? "" : "none";
     }
@@ -10724,7 +10724,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         });
       });
       if (!hasTmdb()) return;
-      localized(meta).then(function (loc) {
+      tmdbReady = localized(meta).then(function (loc) {
+        return loc;
+      }, function () {
+        return null;
+      });
+      tmdbReady.then(function (loc) {
         if (!alive || !loc) return;
         tmdbInfo = loc;
         if (loc.overview) ui.desc.textContent = loc.overview;
@@ -10754,6 +10759,19 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         if (mode === "episodes") localizeEpisodes();
       }).catch(function () {});
     }
+    var tmdbReady = null;
+    function ptEpisode(v) {
+      if (!hasTmdb() || !v || v.season === void 0) return Promise.resolve(null);
+      return (tmdbReady || Promise.resolve(tmdbInfo)).then(function (info2) {
+        return info2 && info2.tmdbType === "tv" ? seasonPt(info2.tmdbId, v.season) : null;
+      }).then(function (map) {
+        var ep = map && map[v.episode];
+        if (ep && ep.name) v.namePt = ep.name;
+        return ep || null;
+      }).catch(function () {
+        return null;
+      });
+    }
     function localizeEpisodes() {
       if (!tmdbInfo || tmdbInfo.tmdbType !== "tv" || season === null) return;
       var forSeason = season;
@@ -10762,7 +10780,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         Array.prototype.forEach.call(panel.querySelectorAll(".episode"), function (row) {
           var ep = map[row.__episode];
           if (!ep) return;
-          if (ep.name) row.querySelector(".ep-title").lastChild.textContent = row.__episode + ". " + ep.name;
+          if (ep.name) {
+            row.querySelector(".ep-title").lastChild.textContent = row.__episode + ". " + ep.name;
+            if (row.__video) row.__video.namePt = ep.name;
+          }
           if (ep.overview) row.querySelector(".ep-desc").textContent = ep.overview;
         });
       }).catch(function () {});
@@ -10885,6 +10906,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           text: v.overview || v.description || ""
         })])]);
         row.__episode = v.episode;
+        row.__video = v;
         if (v.id === focusVideoId || !focusVideoId && inProgress) focusEl = row;
         list2.appendChild(row);
       });
@@ -10918,7 +10940,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       mode = "streams";
       streamsVideo = video;
       clear(panel);
-      var head = isSeries() ? "T" + video.season + "E" + video.episode + " · " + (video.name || video.title || "") : t("Fontes");
+      var headText = function headText(name) {
+        return "T" + video.season + "E" + video.episode + " · " + (name || "");
+      };
+      var head = isSeries() ? headText(video.namePt || video.name || video.title) : t("Fontes");
       var filterBtn = h("div.btn.small", {
         focusable: true,
         text: t("Todos ▾"),
@@ -10926,15 +10951,20 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           return filterMenu();
         }
       });
+      var headEl = h("h2", {
+        text: head
+      });
       panel.appendChild(h("div.panel-head", {
         "data-group": ""
-      }, [h("h2", {
-        text: head
-      }), filterBtn]));
+      }, [headEl, filterBtn]));
+      if (isSeries() && !video.namePt) ptEpisode(video).then(function (ep) {
+        if (ep && ep.name && streamsVideo === video) headEl.textContent = headText(ep.name);
+      });
       var sub = h("div.panel-sub");
       var barFill = h("i");
       panel.appendChild(sub);
-      panel.appendChild(h("div.load-bar", null, barFill));
+      var loadBar = h("div.load-bar", null, barFill);
+      panel.appendChild(loadBar);
       var list2 = h("div.list", {
         "data-scroll-y": "",
         "data-pad-y": "120",
@@ -11009,6 +11039,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           n: all.length
         }));
         barFill.style.width = Math.round((srcs.length - pendingCount) / srcs.length * 100) + "%";
+        loadBar.classList.toggle("done", pendingCount <= 0);
         var g = groups.find(function (x) {
           return x.addon.transportUrl === filter;
         });
@@ -12474,9 +12505,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "decd4770113928023dbb8d674d32195bd5c709bd",
-    date: "2026-10-27T05:17:08+00:00",
-    message: "NSFW tab: bank-style PIN keypad (shuffled digit pairs), remote number keys, relock on background"
+    commit: "b20c60242678102428b4eb5834be9e19a2d196a1",
+    date: "2026-10-27T05:39:41+00:00",
+    message: "Cleaner source list, Smart Choice, player quality toggle and slow-load fallback, PT genres, upcoming episodes, cast filmography, NSFW polish"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {

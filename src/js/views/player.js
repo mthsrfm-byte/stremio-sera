@@ -105,7 +105,7 @@ function PlayerView(opts) {
   function setTitle() {
     clear(titleEl);
     titleEl.appendChild(document.createTextNode(meta.name || ''));
-    if (opts.isSeries) titleEl.appendChild(h('small', { text: 'T' + video.season + ' E' + video.episode + ' · ' + (video.name || video.title || '') }));
+    if (opts.isSeries) titleEl.appendChild(h('small', { text: 'T' + video.season + ' E' + video.episode + ' · ' + (video.namePt || video.name || video.title || '') }));
     nextBtn.style.display = opts.isSeries && nextVideo() ? '' : 'none';
   }
 

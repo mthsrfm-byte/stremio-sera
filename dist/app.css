@@ -743,3 +743,5 @@ body.light .filmo-count { color: rgba(17,17,16,0.55); }
 .nsfw-genres .chip.focused { background: #e5508c; border-color: #ffc2d9; color: #fff; }
 .nsfw-view .page-head { padding-bottom: 18px; }
 body.light .nsfw-genres .chip { background: rgba(229,80,140,0.12); }
+.load-bar { -webkit-transition: opacity 0.4s; transition: opacity 0.4s; }
+.load-bar.done { opacity: 0; }
