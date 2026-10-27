@@ -7301,8 +7301,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return m ? m[0] : null;
   }
   var BUILTIN_KEYS = {
-    tmdbKey: true ? "" : "",
-    mdblistKey: true ? "" : ""
+    tmdbKey: true ? "9c57ed7ea044b2f01eea2fcc2e954c2e" : "",
+    mdblistKey: true ? "t9e4f1z29b3c36i1j25rul1wx" : ""
   };
   function keyOf(name) {
     return (settings()[name] || "").trim() || BUILTIN_KEYS[name];
@@ -12740,9 +12740,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "48f9182351a358f723c88cd974ba7d071771655e",
-    date: "2026-10-27T05:40:47+00:00",
-    message: "Hide finished source loading bar; Portuguese episode names in sources header and player"
+    commit: "9bba80533d70eb49f68a44013185655c0d2d7929",
+    date: "2026-10-27T02:43:24-03:00",
+    message: "Aba NSFW com PIN, fontes enxutas, Smart Choice, qualidade no player e filmografia"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
