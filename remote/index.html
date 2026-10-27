@@ -151,23 +151,18 @@
   <div class="msg" id="pinMsg"></div>
 </section>
 
-<!-- Configuração (primeira vez, trocar de TV ou quando a conexão falha) -->
+<!-- Atalho (no GitHub Pages): leva para o controle servido pela própria TV -->
 <section class="setup" id="setup">
   <h1>Bora conectar na TV</h1>
-  <p>Celular na mesma Wi-Fi da TV, e a TV ligada.</p>
+  <p>Celular na mesma Wi-Fi da TV, e o <b style="color:var(--ink)">Seraflix aberto na TV</b> pelo menos uma vez depois de ligar.</p>
   <label for="ip">IP da TV</label>
-  <input type="text" id="ip" inputmode="decimal" placeholder="ex.: 192.168.0.35" autocomplete="off">
+  <input type="text" id="ip" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="ex.: 192.168.0.3" autocomplete="off">
   <p class="hint">Na TV: Configurações → Geral → Rede → Status da rede → Configurações de IP.</p>
-  <ol>
-    <li><b>Liberar</b> (só na primeira vez): abre um aviso de segurança. Toque em <b>Avançado → Continuar para o site</b> e volte para esta aba.</li>
-    <li><b>Conectar</b>: a TV pergunta se pode permitir o "Seraflix Controle". Aceite com o controle normal.</li>
-  </ol>
-  <div class="row">
-    <a class="btn" id="certBtn" target="_blank" rel="noopener">1. Liberar</a>
-    <button class="btn blue" id="connectBtn">2. Conectar</button>
+  <div class="row" style="margin-top:20px">
+    <button class="btn blue" id="connectBtn">Abrir o controle</button>
   </div>
   <p class="hint err hidden" id="setupErr"></p>
-  <p class="hint"><button id="backToRemote" class="hidden" style="text-decoration:underline;color:var(--muted)">voltar para o controle</button></p>
+  <p class="hint" style="margin-top:18px">Dica: depois que o controle abrir, use <b style="color:var(--ink)">Adicionar à Tela de Início</b> nele.</p>
 </section>
 
 <!-- Controle -->
@@ -268,7 +263,7 @@
   var FOREVER = 60 * 60 * 24 * 400;
 
   function remember() {
-    document.cookie = COOKIE + '=' + AUTH_VERSION + '; max-age=' + FOREVER + '; path=/; SameSite=Strict; Secure';
+    document.cookie = COOKIE + '=' + AUTH_VERSION + '; max-age=' + FOREVER + '; path=/; SameSite=Strict' + (location.protocol === 'https:' ? '; Secure' : '');
     try { localStorage.setItem(COOKIE, AUTH_VERSION); } catch (e) {}
   }
   function isRemembered() {
@@ -283,10 +278,35 @@
     window.dispatchEvent(new Event('sfx-unlocked'));
   }
 
+  // SHA-256 em JS puro: o crypto.subtle não existe em http simples (o endereço da TV).
   function sha256(text) {
-    return crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)).then(function (buf) {
-      return Array.prototype.map.call(new Uint8Array(buf), function (b) { return ('0' + b.toString(16)).slice(-2); }).join('');
-    });
+    var K = [], H = [], i, j;
+    function frac(x) { return ((x - Math.floor(x)) * 4294967296) | 0; }
+    for (var n = 2, c = 0; c < 64; n++) {
+      for (j = 2; j * j <= n && n % j; j++);
+      if (j * j > n) { if (c < 8) H[c] = frac(Math.sqrt(n)); K[c++] = frac(Math.cbrt(n)); }
+    }
+    var bytes = unescape(encodeURIComponent(text)), words = [], len = bytes.length * 8;
+    for (i = 0; i < bytes.length; i++) words[i >> 2] |= bytes.charCodeAt(i) << (24 - (i % 4) * 8);
+    words[len >> 5] |= 0x80 << (24 - len % 32);
+    words[((len + 64 >> 9) << 4) + 15] = len;
+    function rotr(x, r) { return (x >>> r) | (x << (32 - r)); }
+    for (i = 0; i < words.length; i += 16) {
+      var w = [], a = H.slice(0);
+      for (j = 0; j < 64; j++) {
+        if (j < 16) w[j] = words[i + j] | 0;
+        else {
+          var s0 = rotr(w[j - 15], 7) ^ rotr(w[j - 15], 18) ^ (w[j - 15] >>> 3);
+          var s1 = rotr(w[j - 2], 17) ^ rotr(w[j - 2], 19) ^ (w[j - 2] >>> 10);
+          w[j] = (w[j - 16] + s0 + w[j - 7] + s1) | 0;
+        }
+        var t1 = (a[7] + (rotr(a[4], 6) ^ rotr(a[4], 11) ^ rotr(a[4], 25)) + ((a[4] & a[5]) ^ (~a[4] & a[6])) + K[j] + w[j]) | 0;
+        var t2 = ((rotr(a[0], 2) ^ rotr(a[0], 13) ^ rotr(a[0], 22)) + ((a[0] & a[1]) ^ (a[0] & a[2]) ^ (a[1] & a[2]))) | 0;
+        a = [(t1 + t2) | 0].concat(a.slice(0, 3), [(a[3] + t1) | 0], a.slice(4, 7));
+      }
+      for (j = 0; j < 8; j++) H[j] = (H[j] + a[j]) | 0;
+    }
+    return Promise.resolve(H.map(function (x) { return ('00000000' + (x >>> 0).toString(16)).slice(-8); }).join(''));
   }
 
   if (isRemembered()) return unlock();
@@ -330,108 +350,74 @@
 </script>
 <script>
 (function () {
-  // Controle remoto da Samsung pela rede: WebSocket seguro na porta 8002 da TV
-  // (TVs de 2018 em diante). Na primeira conexão a TV pede permissão e devolve um token,
-  // que fica guardado neste celular para as próximas vezes.
-  var APP_NAME = 'Seraflix Controle';
+  // Dois jeitos de abrir esta página:
+  // - servida pela TV (http://IP-DA-TV:8090, serviço remote/tv-service.js do Seraflix): é o controle.
+  //   As teclas vão por HTTP para o serviço, que repassa para o controle remoto de rede da TV.
+  // - no GitHub Pages: só um atalho que pergunta o IP e leva para http://IP-DA-TV:8090.
+  var ON_TV = location.protocol === 'http:' && location.port === '8090';
   var store = {
     get: function (k) { try { return localStorage.getItem('sfx.' + k) || ''; } catch (e) { return ''; } },
     set: function (k, v) { try { v ? localStorage.setItem('sfx.' + k, v) : localStorage.removeItem('sfx.' + k); } catch (e) {} }
   };
   var $ = function (id) { return document.getElementById(id); };
-  var ws = null, connected = false, retry = null, manualClose = false;
-
-  function b64(str) { return btoa(unescape(encodeURIComponent(str))); }
+  var poll = null;
 
   function setStatus(kind, text) {
     $('status').className = 'status ' + kind;
     $('statusText').textContent = text;
   }
 
-  // Tela de configuração no lugar do controle.
+  // ---------- Atalho (GitHub Pages) ----------
+  function cleanIp(v) { return String(v || '').trim().replace(/,/g, '.').replace(/^https?:\/\//, '').replace(/[:/].*$/, ''); }
+  function openTv(ip) { location.href = 'http://' + ip + ':8090/'; }
   function showSetup(err) {
-    closeSheets();
     document.body.classList.add('setting');
     $('ip').value = store.get('ip');
-    updateCertLink();
     $('setupErr').textContent = err || '';
     $('setupErr').classList.toggle('hidden', !err);
-    $('backToRemote').classList.toggle('hidden', !store.get('ip'));
   }
-  function hideSetup() { document.body.classList.remove('setting'); }
-  function inSetup() { return document.body.classList.contains('setting'); }
-
-  function cleanIp(v) { return String(v || '').trim().replace(/^https?:\/\//, '').replace(/[:/].*$/, ''); }
-  function updateCertLink() {
+  $('ip').addEventListener('input', function () {
+    // Teclado do iPhone em português mostra vírgula: troca por ponto enquanto digita.
+    var v = $('ip').value;
+    if (v.indexOf(',') >= 0) $('ip').value = v.replace(/,/g, '.');
+  });
+  $('connectBtn').addEventListener('click', function () {
     var ip = cleanIp($('ip').value);
-    $('certBtn').href = ip ? 'https://' + ip + ':8002/api/v2/' : '#';
-  }
+    if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(ip)) {
+      $('setupErr').textContent = 'Esse IP não parece certo. É algo como 192.168.0.3.';
+      return $('setupErr').classList.remove('hidden');
+    }
+    store.set('ip', ip);
+    openTv(ip);
+  });
 
-  function connect() {
-    var ip = store.get('ip');
-    if (!ip) return showSetup();
-    clearTimeout(retry);
-    manualClose = false;
-    var url = 'wss://' + ip + ':8002/api/v2/channels/samsung.remote.control?name=' + encodeURIComponent(b64(APP_NAME));
-    var token = store.get('token');
-    if (token) url += '&token=' + encodeURIComponent(token);
-    setStatus('wait', token ? 'conectando...' : 'aceite na TV');
-    $('tvLabel').textContent = 'TV ' + ip + ' · ';
-    try {
-      if (ws) { ws.onclose = null; ws.close(); }
-      ws = new WebSocket(url);
-    } catch (e) {
-      return showSetup('Não deu para abrir a conexão: ' + e.message);
-    }
-    var opened = false;
-    var timeout = setTimeout(function () {
-      if (!connected) { ws.close(); fail(); }
-    }, token ? 8000 : 30000);
-    ws.onopen = function () { opened = true; };
-    ws.onmessage = function (ev) {
-      var msg = {};
-      try { msg = JSON.parse(ev.data); } catch (e) { return; }
-      if (msg.event === 'ms.channel.connect') {
-        clearTimeout(timeout);
-        if (msg.data && msg.data.token) store.set('token', msg.data.token);
-        connected = true;
-        setStatus('on', 'conectado');
-        hideSetup();
-      } else if (msg.event === 'ms.channel.unauthorized') {
-        clearTimeout(timeout);
-        store.set('token', '');
-        connected = false;
-        setStatus('off', 'recusado');
-        showSetup('A TV recusou. Conecte de novo e escolha "Permitir" na TV.');
-      }
-    };
-    ws.onclose = function () {
-      clearTimeout(timeout);
-      var was = connected;
-      connected = false;
-      if (manualClose) return;
-      if (!opened && !was) return fail();
-      setStatus('off', 'reconectando...');
-      retry = setTimeout(connect, 2000);
-    };
-    function fail() {
-      setStatus('off', 'desconectado');
-      showSetup('Não consegui falar com a TV em ' + ip + '. Confira o IP, se a TV está ligada e faça o passo 1 (Liberar) de novo.');
-    }
+  // ---------- Controle (servido pela TV) ----------
+  var STATES = {
+    on: ['on', 'conectado'],
+    connecting: ['wait', 'conectando...'],
+    waiting: ['wait', 'aceite na TV'],
+    refused: ['off', 'a TV recusou'],
+    off: ['off', 'sem a TV']
+  };
+  function showState(st) {
+    var s = STATES[st] || STATES.off;
+    setStatus(s[0], s[1]);
   }
-
-  function send(payload) {
-    if (!ws || !connected) {
-      if (!inSetup()) connect();
-      return false;
-    }
-    ws.send(JSON.stringify({ method: 'ms.remote.control', params: payload }));
-    return true;
+  function api(path, body) {
+    return fetch(path, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : { cache: 'no-store' })
+      .then(function (r) { return r.json(); })
+      .then(function (j) { if (j.tv) showState(j.tv); return j; })
+      .catch(function () { setStatus('off', 'TV fora do ar'); });
+  }
+  function startPolling() {
+    clearInterval(poll);
+    api('/api/status');
+    poll = setInterval(function () { if (document.visibilityState === 'visible') api('/api/status'); }, 4000);
   }
 
   function sendKey(key) {
     if (navigator.vibrate) navigator.vibrate(10);
-    send({ Cmd: 'Click', DataOfCmd: key, Option: 'false', TypeOfRemote: 'SendRemoteKey' });
+    api('/api/key', { key: key });
   }
 
   // Botões: toque envia uma vez; segurar repete (volume, canal, avançar...).
@@ -445,7 +431,7 @@
       var alt = el.getAttribute('data-toggle');
       if (alt) { el.setAttribute('data-toggle', el.getAttribute('data-key')); el.setAttribute('data-key', alt); }
       if (el.hasAttribute('data-repeat')) {
-        timer = setTimeout(function () { rep = setInterval(function () { sendKey(el.getAttribute('data-key')); }, 150); }, 400);
+        timer = setTimeout(function () { rep = setInterval(function () { sendKey(el.getAttribute('data-key')); }, 180); }, 400);
       }
     }
     function stop() {
@@ -478,48 +464,32 @@
     e.preventDefault();
     var text = $('typeText').value;
     if (!text) return;
-    if (send({ Cmd: b64(text), DataOfCmd: 'base64', TypeOfRemote: 'SendInputString' }) !== false) {
-      send({ TypeOfRemote: 'SendInputEnd' });
-      $('typeText').value = '';
-      closeSheets();
-    }
+    api('/api/text', { text: text });
+    $('typeText').value = '';
+    closeSheets();
   });
 
   // Teclado físico (útil no computador): setas, Enter, Backspace = voltar.
   document.addEventListener('keydown', function (e) {
-    if (e.target.tagName === 'INPUT' || document.body.classList.contains('locked') || inSetup()) return;
+    if (!ON_TV || e.target.tagName === 'INPUT' || document.body.classList.contains('locked')) return;
     if (e.key === 'Escape') return closeSheets();
     var map = { ArrowUp: 'KEY_UP', ArrowDown: 'KEY_DOWN', ArrowLeft: 'KEY_LEFT', ArrowRight: 'KEY_RIGHT', Enter: 'KEY_ENTER', Backspace: 'KEY_RETURN' };
     if (map[e.key]) { e.preventDefault(); sendKey(map[e.key]); }
   });
 
-  $('ip').addEventListener('input', updateCertLink);
-  $('connectBtn').addEventListener('click', function () {
-    var ip = cleanIp($('ip').value);
-    if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(ip)) {
-      $('setupErr').textContent = 'Esse IP não parece certo. É algo como 192.168.0.35.';
-      return $('setupErr').classList.remove('hidden');
-    }
-    if (ip !== store.get('ip')) store.set('token', '');
-    store.set('ip', ip);
-    $('setupErr').classList.add('hidden');
-    connect();
-  });
   $('changeTv').addEventListener('click', function () {
-    manualClose = true;
-    if (ws) ws.close();
-    connected = false;
-    setStatus('off', 'desconectado');
+    location.href = 'https://mthsrfm-byte.github.io/stremio-sera/?setup=1';
+  });
+
+  function start() {
+    if (ON_TV) {
+      $('tvLabel').textContent = 'TV ' + location.hostname + ' · ';
+      return startPolling();
+    }
+    var ip = store.get('ip');
+    if (ip && !/[?&]setup=1/.test(location.search)) return openTv(ip);
     showSetup();
-  });
-  $('backToRemote').addEventListener('click', function () { hideSetup(); connect(); });
-
-  // Volta a conectar quando a aba volta para a frente (o celular corta a conexão em segundo plano).
-  document.addEventListener('visibilitychange', function () {
-    if (document.visibilityState === 'visible' && !connected && store.get('ip') && !inSetup()) connect();
-  });
-
-  function start() { if (store.get('ip')) connect(); else showSetup(); }
+  }
   if (document.body.classList.contains('locked')) window.addEventListener('sfx-unlocked', start, { once: true });
   else start();
 })();

@@ -135,10 +135,15 @@ TizenBrew picks up updates to Stremio Kai automatically.
 
 ## Phone remote
 
-`remote/index.html` is a remote control page for the phone, published to GitHub Pages by the
-**Publicar controle remoto** workflow. It talks to the TV over Samsung's remote-control WebSocket
-(`wss://TV-IP:8002`, 2018+ models). The phone must be on the same Wi-Fi as the TV. The first time:
-open the "Liberar" link and accept the certificate warning, then "Conectar" and allow it on the TV.
+The Seraflix module ships a TizenBrew service (`remote/tv-service.js`, `serviceFile` in
+`package.json`). It starts when Seraflix opens and serves a phone remote at
+`http://TV-IP:8090` (same Wi-Fi). The service forwards keys and text to the TV's own remote-control
+WebSocket on `127.0.0.1:8002`, so the phone needs no certificate and it works on iPhone. The first
+time, the TV asks to allow "Seraflix Controle"; the token is saved in
+`/home/owner/share/seraflixRemote.json`.
+
+`https://mthsrfm-byte.github.io/stremio-sera/` (the `remote/` folder on GitHub Pages) only asks
+for the TV's IP and opens `http://TV-IP:8090`.
 
 The page is locked with a 6-digit PIN (only its SHA-256 is in the code). After the right PIN the
 device stays unlocked (cookie renewed on every visit + localStorage). To lock every device again,
