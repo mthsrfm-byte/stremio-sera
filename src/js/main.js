@@ -10,11 +10,10 @@ import * as server from './api/server.js';
 import * as addons from './api/addons.js';
 import * as router from './router.js';
 import { HomeView } from './views/home.js';
-import { RecommendedView } from './views/recommended.js';
+import { RecommendedView, StreamingsView } from './views/recommended.js';
 import { SearchView } from './views/search.js';
 import { LibraryView } from './views/library.js';
 import { SettingsView } from './views/settings.js';
-import { CalendarView } from './views/calendar.js';
 import { maybeShowWizard } from './views/wizard.js';
 import { toast } from './ui.js';
 import * as update from './api/update.js';
@@ -51,7 +50,7 @@ function boot() {
   router.registerTab('search', SearchView);
   router.registerTab('library', LibraryView);
   router.registerTab('settings', SettingsView);
-  router.registerTab('calendar', CalendarView);
+  router.registerTab('streamings', StreamingsView);
 
   // "Quem está assistindo?" (com mais de um perfil) antes de carregar a conta.
   if (profiles.needsPicker()) {

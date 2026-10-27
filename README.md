@@ -165,7 +165,8 @@ Rows built from TMDB (needs the TMDB key): **Em alta agora** (this week's trendi
 last 6 months, already out), **True crime** (documentary films and series with the "true crime"
 keyword, best rated first), **Suspense** and **Terror** (popular, well-rated movies). Resting on a
 title shows its art and synopsis at the top; after 3 seconds the YouTube trailer plays there
-(shown only once YouTube reports it is playing; on an error, or if it does not start within 8 s, it
+(shown only after it has played smoothly for 2 s, which hides YouTube's low-resolution start and
+start-up controls, then faded in with the audio ramping up; a spinner shows if it stalls later; on an error, or if it does not start within 8 s, it
 tries the next one, up to 4, then gives up and keeps the art). Trailers start muted (browsers let
 muted video autoplay) and unmute once playing; if unmuting pauses it, they keep playing muted. On
 error 152/153 the same trailer is retried on youtube.com. **Ajustes → Sobre e depuração → Último
@@ -174,6 +175,21 @@ preferred, which rarely carry ads; TizenTube's ad blocking can't be reused becau
 into youtube.com, and the trailer is a cross-origin YouTube iframe.
 **Ver tudo** at the end of each row opens the whole category (Recomendado › Suspense) with
 "Carregar mais".
+
+## Streamings tab
+
+Same layout as Recomendado, one row per service available in Brazil (Netflix, Prime Video, Disney+,
+HBO Max, Apple TV+, Paramount+, Globoplay): films from the last 6 months and series from the last
+4 months on the service's subscription, most popular first. A rail under the billboard lists the
+categories and highlights the one in focus.
+
+## Ratings and subtitles
+
+- Ratings show only IMDb (with its logo) and Rotten Tomatoes in one badge: critics on the left of
+  the tomato, audience on the right, `--` when one is missing (from MDBList).
+- Subtitles default to Bricolage Grotesque with their own typesetting: 90% size, weight 600,
+  slightly open letter and word spacing, 1.18 line height, ~40-character lines and a soft halo
+  instead of a hard outline.
 
 ## Tizen integration
 

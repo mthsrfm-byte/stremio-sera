@@ -67,17 +67,19 @@ img { display: block; }
 /* ---------- Hero Banner (Kai) ---------- */
 .hero { position: relative; height: 640px; margin-top: -120px; overflow: hidden; }
 /* Fundo como background-image num div de tamanho fixo: a imagem já entra no tamanho final (sem "expandir"). */
-.hero-bg { position: absolute; right: 0; top: 0; width: 1500px; height: 640px; background-size: cover; background-position: center 20%; background-repeat: no-repeat; opacity: 0; -webkit-transition: opacity 0.45s ease; transition: opacity 0.45s ease; }
-.hero-bg.show { opacity: 1; }
+.hero-bg { position: absolute; right: 0; top: 0; width: 1500px; height: 640px; background-size: cover; background-position: center 20%; background-repeat: no-repeat; opacity: 0; -webkit-transform: scale(1.08); transform: scale(1.08); -webkit-transition: opacity 0.7s ease, -webkit-transform 1.6s cubic-bezier(0.2, 0.7, 0.2, 1); transition: opacity 0.7s ease, transform 1.6s cubic-bezier(0.2, 0.7, 0.2, 1); }
+.hero-bg.show { opacity: 1; -webkit-transform: scale(1); transform: scale(1); }
+.hero .aurora { position: absolute; right: 0; top: 0; }
 .hero-shade-left { position: absolute; left: 0; top: 0; width: 1300px; height: 640px; background: linear-gradient(to right, #0d0b14 30%, rgba(13,11,20,0.85) 50%, rgba(13,11,20,0) 100%); }
 .hero-shade-bottom { position: absolute; left: 0; bottom: 0; width: 1920px; height: 260px; background: linear-gradient(to top, #0d0b14 0%, rgba(13,11,20,0) 100%); }
 body.oled .hero-shade-left { background: linear-gradient(to right, #000 30%, rgba(0,0,0,0.85) 50%, rgba(0,0,0,0) 100%); }
 body.oled .hero-shade-bottom { background: linear-gradient(to top, #000 0%, rgba(0,0,0,0) 100%); }
-.hero-info { position: absolute; left: 96px; top: 140px; width: 760px; }
+.hero-info { position: absolute; left: 96px; top: 140px; width: 760px; z-index: 6; } /* acima da faixa escura da barra */
 .hero-logo { max-width: 560px; max-height: 150px; margin-bottom: 22px; }
 .hero-title { font-size: 60px; font-weight: 800; line-height: 1.05; margin-bottom: 22px; text-shadow: 2px 4px 8px #000; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; max-height: 130px; }
 .hero-meta { font-size: 22px; font-weight: 600; color: rgba(255,255,255,0.8); margin-bottom: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hero-meta .imdb { color: #f5c518; }
+.imdb-mini { display: inline-block; padding: 0 6px; margin-right: 4px; border-radius: 4px; background: #F5C518; color: #000; font-family: Arial, Helvetica, sans-serif; font-size: 16px; font-weight: 900; line-height: 22px; vertical-align: 2px; }
 .hero-desc { font-size: 22px; color: rgba(255,255,255,0.78); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; max-height: 90px; margin-bottom: 28px; text-shadow: 1px 2px 4px #000; }
 .hero-buttons { display: -webkit-flex; display: flex; }
 /* Bolinhas no fluxo, logo abaixo dos botões: nunca ficam por baixo deles. */
@@ -120,6 +122,11 @@ body.oled .hero-shade-bottom { background: linear-gradient(to top, #000 0%, rgba
 .grid { padding: 10px 96px 200px; }
 .grid .card { margin-bottom: 40px; }
 .filters { padding: 0 96px 16px; display: -webkit-flex; display: flex; }
+.page-head { display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; -webkit-justify-content: space-between; justify-content: space-between; padding: 36px 96px 30px; }
+.page-title { font-family: 'Bricolage Grotesque', 'Geist', sans-serif; font-size: 48px; font-weight: 800; letter-spacing: -1px; }
+.page-head .filters { padding: 0; }
+.page-head .chip:last-child { margin-right: 0; }
+.grid .hint { padding: 0; }
 .chip { padding: 8px 24px; margin-right: 14px; border-radius: 30px; background: rgba(255,255,255,0.08); font-weight: 600; font-size: 22px; border: 3px solid transparent; }
 .chip.active { background: rgba(157,133,255,0.25); color: #fff; }
 .chip.focused { background: #7b5bf5; border-color: #c9bbff; }
@@ -274,16 +281,13 @@ body.oled .details-shade { background: linear-gradient(to right, #000 25%, rgba(
 
 /* ---------- Notas (ratings) ---------- */
 .ratings { margin: 0 0 18px; white-space: nowrap; overflow: hidden; }
-.rating { display: inline-block; margin: 0 12px 0 0; padding: 5px 14px; border-radius: 10px; background: rgba(0,0,0,0.45); font-size: 20px; font-weight: 700; }
-.rating b { font-weight: 800; margin-right: 8px; }
-.rating.imdb b { color: #f5c518; }
-.rating.rt b { color: #fa320a; }
-.rating.mc b { color: #66cc33; }
-.rating.tmdb b { color: #01b4e4; }
-.rating.trakt b { color: #ed1c24; }
-.rating.lb b { color: #40bcf4; }
-.rating.al b { color: #3db4f2; }
-.rating.mal b { color: #6f8fd8; }
+.rating { display: inline-block; vertical-align: middle; margin: 0 14px 0 0; padding: 6px 14px; border-radius: 12px; background: rgba(0,0,0,0.45); font-size: 21px; font-weight: 700; line-height: 30px; height: 42px; }
+.rating svg { display: inline-block; vertical-align: middle; height: 28px; }
+.rating .imdb-logo { width: 56px; margin-right: 10px; }
+.rating .rv { vertical-align: middle; }
+.rating .rv.none { color: rgba(245,244,239,0.45); }
+.rating.rt .rt-logo { display: inline-block; vertical-align: middle; margin: 0 10px; }
+.rating.rt .rt-logo svg { width: 28px; }
 
 /* ---------- Elenco com fotos ---------- */
 .cast-row { white-space: nowrap; overflow: hidden; margin-bottom: 26px; }
@@ -331,23 +335,59 @@ body.oled .details-shade { background: linear-gradient(to right, #000 25%, rgba(
 .wizard .input { width: 100%; margin-bottom: 14px; }
 
 
-/* ---------- Aba Recomendado (destaque estilo Netflix + fileiras) ---------- */
-.reco .reco-top { position: absolute; left: 0; top: 0; right: 0; z-index: 5; }
-.reco-bill { position: absolute; left: 0; top: 0; width: 1920px; height: 640px; overflow: hidden; }
-.reco-bg { position: absolute; right: 0; top: 0; width: 1500px; height: 640px; background-size: cover; background-position: center 20%; background-repeat: no-repeat; -webkit-transition: opacity 0.4s; transition: opacity 0.4s; }
-.reco-trailer { position: absolute; right: 0; top: 0; width: 1500px; height: 640px; opacity: 0; -webkit-transition: opacity 0.6s; transition: opacity 0.6s; overflow: hidden; }
-/* O iframe é maior que a área e centralizado: corta as barras pretas e o título do YouTube. */
-.reco-trailer iframe { position: absolute; left: -10px; top: -120px; width: 1520px; height: 880px; border: 0; pointer-events: none; }
-.reco-bill.playing .reco-trailer { opacity: 1; }
+/* ---------- Abas curadas (Recomendado / Streamings) ---------- */
+.reco .reco-top { position: absolute; left: 0; top: 0; right: 0; z-index: 6; }
+.reco-bill { position: absolute; left: 0; top: 0; width: 1920px; height: 640px; overflow: hidden; background: #111110; }
+
+/* Aurora: fundo vivo enquanto a arte não chega (e sob as transições). Só transform/opacity: leve na TV. */
+.aurora { position: absolute; right: 0; top: 0; width: 1500px; height: 640px; overflow: hidden; }
+.aurora i { position: absolute; width: 900px; height: 900px; border-radius: 50%; opacity: 0.55; }
+.aurora .a1 { left: 420px; top: -380px; background: radial-gradient(circle, rgba(51,71,255,0.55) 0%, rgba(51,71,255,0) 65%); -webkit-animation: aur1 14s ease-in-out infinite alternate; animation: aur1 14s ease-in-out infinite alternate; }
+.aurora .a2 { left: 760px; top: -120px; background: radial-gradient(circle, rgba(10,130,136,0.45) 0%, rgba(10,130,136,0) 65%); -webkit-animation: aur2 18s ease-in-out infinite alternate; animation: aur2 18s ease-in-out infinite alternate; }
+.aurora .a3 { left: 200px; top: -60px; background: radial-gradient(circle, rgba(169,180,245,0.35) 0%, rgba(169,180,245,0) 65%); -webkit-animation: aur3 22s ease-in-out infinite alternate; animation: aur3 22s ease-in-out infinite alternate; }
+@-webkit-keyframes aur1 { to { -webkit-transform: translate(-260px, 120px) scale(1.15); } }
+@keyframes aur1 { to { transform: translate(-260px, 120px) scale(1.15); } }
+@-webkit-keyframes aur2 { to { -webkit-transform: translate(-320px, -60px) scale(0.9); } }
+@keyframes aur2 { to { transform: translate(-320px, -60px) scale(0.9); } }
+@-webkit-keyframes aur3 { to { -webkit-transform: translate(380px, -40px) scale(1.2); } }
+@keyframes aur3 { to { transform: translate(380px, -40px) scale(1.2); } }
+
+/* Arte: entra pronta com fade e um zoom suave de 1.08 → 1; a anterior sai em fade. */
+.reco-bg { position: absolute; right: 0; top: 0; width: 1500px; height: 640px; background-size: cover; background-position: center 20%; background-repeat: no-repeat; opacity: 0; -webkit-transform: scale(1.08); transform: scale(1.08);
+  -webkit-transition: opacity 0.7s ease, -webkit-transform 1.6s cubic-bezier(0.2, 0.7, 0.2, 1); transition: opacity 0.7s ease, transform 1.6s cubic-bezier(0.2, 0.7, 0.2, 1); }
+.reco-bg.show { opacity: 1; -webkit-transform: scale(1); transform: scale(1); }
+
+/* Trailer: escondido até tocar liso; entra em fade lento com um leve zoom. O iframe é maior que a
+   área e centralizado: corta a barra de título e a marca do YouTube. */
+.reco-trailer { position: absolute; right: 0; top: 0; width: 1500px; height: 640px; overflow: hidden; opacity: 0; -webkit-transform: scale(1.04); transform: scale(1.04);
+  -webkit-transition: opacity 1.4s ease, -webkit-transform 2.4s cubic-bezier(0.2, 0.7, 0.2, 1); transition: opacity 1.4s ease, transform 2.4s cubic-bezier(0.2, 0.7, 0.2, 1); }
+.reco-trailer iframe { position: absolute; left: -60px; top: -170px; width: 1620px; height: 980px; border: 0; pointer-events: none; }
+.reco-bill.playing .reco-trailer { opacity: 1; -webkit-transform: scale(1); transform: scale(1); }
 .reco-bill.playing .reco-bg { opacity: 0; }
+.reco-loading { position: absolute; right: 96px; top: 470px; opacity: 0; -webkit-transition: opacity 0.3s; transition: opacity 0.3s; }
+.reco-bill.buffering .reco-loading { opacity: 1; }
+
 .reco-shade-left { position: absolute; left: 0; top: 0; width: 1200px; height: 640px; background: linear-gradient(to right, #111110 32%, rgba(17,17,16,0.85) 55%, rgba(17,17,16,0) 100%); }
-.reco-shade-bottom { position: absolute; left: 0; bottom: 0; width: 1920px; height: 220px; background: linear-gradient(to top, #111110 0%, rgba(17,17,16,0) 100%); }
-.reco-info { position: absolute; left: 96px; top: 170px; width: 780px; }
+.reco-shade-bottom { position: absolute; left: 0; bottom: 0; width: 1920px; height: 260px; background: linear-gradient(to top, #111110 0%, rgba(17,17,16,0) 100%); }
+.reco-info { position: absolute; left: 96px; top: 150px; width: 780px; z-index: 7; } /* acima da faixa escura da barra */
 .reco-title { font-family: 'Bricolage Grotesque', 'Geist', sans-serif; font-size: 58px; font-weight: 800; line-height: 1.05; letter-spacing: -1.5px; margin-bottom: 16px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; max-height: 126px; }
 .reco-meta { font-size: 22px; font-weight: 600; color: #A9B4F5; margin-bottom: 14px; }
-.reco-desc { font-size: 22px; line-height: 1.4; color: rgba(245,244,239,0.82); display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; max-height: 124px; }
-.reco-rows { top: 560px; }
-.reco-rows .rows-pad { height: 1px; }
+.reco-desc { font-size: 22px; line-height: 1.4; color: rgba(245,244,239,0.82); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; max-height: 93px; }
+
+/* Trilho de categorias: todas à vista, a atual em destaque com um traço azul; a frase dela embaixo. */
+.reco-rail { position: absolute; left: 96px; right: 96px; top: 506px; z-index: 4; }
+.rail-items { display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; white-space: nowrap; }
+.rail-item { position: relative; display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; margin-right: 34px; padding-bottom: 8px; font-family: 'Bricolage Grotesque', 'Geist', sans-serif; font-size: 24px; font-weight: 700; letter-spacing: -0.2px; color: rgba(245,244,239,0.42); -webkit-transition: color 0.25s; transition: color 0.25s; }
+.rail-item:after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; border-radius: 2px; background: #3347FF; -webkit-transform: scaleX(0); transform: scaleX(0); -webkit-transition: -webkit-transform 0.25s; transition: transform 0.25s; }
+.rail-item.on { color: #F5F4EF; }
+.rail-item.on:after { -webkit-transform: scaleX(1); transform: scaleX(1); }
+.rail-logo { width: 30px; height: 30px; border-radius: 8px; margin-right: 10px; opacity: 0.55; -webkit-transition: opacity 0.25s; transition: opacity 0.25s; }
+.rail-item.on .rail-logo { opacity: 1; }
+.rail-caption { margin-top: 10px; font-size: 19px; color: #A3A19A; }
+.reco-rows { top: 596px; }
+.reco-row { margin-bottom: 20px; }
+.reco-row .row-track { padding-top: 14px; }
+
 .see-all .poster-wrap { display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; -webkit-justify-content: center; justify-content: center; background: rgba(245,244,239,0.06); }
 .see-all-label { text-align: center; padding: 0 16px; }
 .see-all-label b { display: block; font-size: 26px; font-weight: 800; margin-bottom: 8px; }
@@ -357,13 +397,28 @@ body.oled .details-shade { background: linear-gradient(to right, #000 25%, rgba(
 .reco-crumb { padding: 56px 96px 26px; font-family: 'Bricolage Grotesque', 'Geist', sans-serif; font-size: 40px; letter-spacing: -0.5px; color: #A3A19A; }
 .reco-crumb b { color: #F5F4EF; font-weight: 800; }
 .reco-more-wrap { padding: 0 96px 160px; }
+body.light .reco-bill { background: #F5F4EF; }
 body.light .reco-shade-left { background: linear-gradient(to right, #F5F4EF 32%, rgba(245,244,239,0.85) 55%, rgba(245,244,239,0) 100%); }
 body.light .reco-shade-bottom { background: linear-gradient(to top, #F5F4EF 0%, rgba(245,244,239,0) 100%); }
 body.light .reco-meta { color: #2236E0; }
 body.light .reco-desc { color: rgba(17,17,16,0.8); }
+body.light .rail-item { color: rgba(17,17,16,0.4); }
+body.light .rail-item.on { color: #111110; }
+body.light .rail-caption { color: rgba(17,17,16,0.55); }
 body.light .see-all .poster-wrap { background: #EDEBE4; }
 body.light .see-all-label span { color: rgba(17,17,16,0.55); }
 body.light .reco-crumb b { color: #111110; }
+
+/* Barra de cima sempre legível: faixa escura em degradê por trás (some antes do meio da arte). */
+.reco .topbar:before, .home-view .topbar:before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 230px; z-index: -1; pointer-events: none; background: linear-gradient(to bottom, rgba(17,17,16,0.92) 0%, rgba(17,17,16,0.7) 45%, rgba(17,17,16,0) 100%); }
+body.light .reco .topbar:before, body.light .home-view .topbar:before { background: linear-gradient(to bottom, rgba(245,244,239,0.95) 0%, rgba(245,244,239,0.72) 45%, rgba(245,244,239,0) 100%); }
+body.sera .tab { color: rgba(245,244,239,0.72); text-shadow: 0 1px 6px rgba(0,0,0,0.45); }
+body.sera .tab.focused { text-shadow: none; }
+body.light .tab { color: rgba(17,17,16,0.65); text-shadow: none; }
+
+/* Pôsteres só aparecem prontos: fade quando a imagem termina de carregar. */
+.card .poster-wrap img { opacity: 0; -webkit-transition: opacity 0.35s ease; transition: opacity 0.35s ease; }
+.card .poster-wrap img.ready { opacity: 1; }
 
 /* ---------- Tema Sera (padrão do Seraflix) ----------
    Cores de matheusserafim.com, no escuro: fundo tinta #111110, texto creme #F5F4EF,
@@ -380,7 +435,7 @@ body.sera .boot-logo b, body.sera .brand b, body.sera .wizard-step, body.sera .s
 body.sera .set-row .value, body.sera .login .code, body.sera .stream .s-addon, body.sera .cal-slot { color: #A9B4F5; }
 body.sera .spinner { border-color: rgba(245,244,239,0.12); border-top-color: #3347FF; }
 
-body.sera .tab { color: #A3A19A; }
+body.sera .tab { color: rgba(245,244,239,0.72); }
 body.sera .tab.active { color: #F5F4EF; background: rgba(245,244,239,0.08); }
 body.sera .tab.focused, body.sera .chip.focused, body.sera .profile-chip.focused { color: #fff; background: #3347FF; border-color: #A9B4F5; }
 body.sera .chip.active { background: rgba(51,71,255,0.22); color: #F5F4EF; }
@@ -454,7 +509,7 @@ body.light .details-genres span { background: rgba(17,17,16,0.08); }
 body.light .details-cast { color: rgba(17,17,16,0.6); }
 body.light .details-cast b { color: #111110; }
 body.light .rating { background: #fff; box-shadow: 0 1px 3px rgba(17,17,16,0.15); }
-body.light .rating.imdb b { color: #b38600; }
+body.light .rating .rv.none { color: rgba(17,17,16,0.4); }
 body.light .cast .ph { background: #EDEBE4; }
 body.light .cast .ch { color: rgba(17,17,16,0.55); }
 

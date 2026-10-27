@@ -4859,8 +4859,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     "Aparência (Kai)": "Aparência",
     "Rolagem animada": "Rolagem chiquetosa",
     "Mais bonita, porém mais pesada na TV": "Mais bonita, mas a TV velhinha pode sofrer",
-    "Nata Sans (padrão Kai)": "Nata Sans (padrão)",
-    "Contorno fino + sombra (Kai)": "Contorno fino + sombra",
     "O Kai usa negrito": "Negrito deixa tudo mais confiante",
     "Instalar {name} na sua conta Stremio?": "Instalar {name} na sua conta?",
     "Instala na sua conta Stremio": "Instala na sua conta",
@@ -4898,7 +4896,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   // src/js/lib/http.js
   function request(method, url2, body, opts) {
     var o = opts || {};
-    return new Promise(function (resolve2, reject) {
+    return new Promise(function (resolve, reject) {
       var xhr = new XMLHttpRequest();
       xhr.open(method, url2, true);
       xhr.timeout = o.timeout || 2e4;
@@ -4906,9 +4904,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       if (o.headers) for (var k in o.headers) xhr.setRequestHeader(k, o.headers[k]);
       xhr.onload = function () {
         if (xhr.status >= 200 && xhr.status < 300) {
-          if (o.raw) return resolve2(xhr.responseText);
+          if (o.raw) return resolve(xhr.responseText);
           try {
-            resolve2(xhr.responseText ? JSON.parse(xhr.responseText) : null);
+            resolve(xhr.responseText ? JSON.parse(xhr.responseText) : null);
           } catch (e) {
             reject(new Error(t("JSON inválido de {url}", {
               url: url2
@@ -5034,10 +5032,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   function kitsuSmall(info) {
     var key = info.id + ":" + info.kind;
     if (!kitsuCache[key]) {
-      kitsuCache[key] = new Promise(function (resolve2) {
+      kitsuCache[key] = new Promise(function (resolve) {
         (batch[info.id] = batch[info.id] || []).push({
           kind: info.kind,
-          resolve: resolve2
+          resolve: resolve
         });
         if (!batchTimer) batchTimer = setTimeout(flush2, 60);
       });
@@ -5080,9 +5078,16 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return Array.prototype.slice.call((root || document).querySelectorAll(sel));
   }
   var BLANK = "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==";
+  function onLoaded() {
+    if (this.__on) this.classList.add("ready");
+  }
   function setOn(el, on) {
     if (on && !el.__on) {
       el.__on = true;
+      if (!el.__readyHook) {
+        el.__readyHook = true;
+        el.addEventListener("load", onLoaded);
+      }
       var url2 = el.getAttribute("data-lazy");
       var kitsu = kitsuInfo(url2);
       if (!kitsu) {
@@ -5098,6 +5103,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       });
     } else if (!on && el.__on) {
       el.__on = false;
+      el.classList.remove("ready");
       el.src = BLANK;
     }
   }
@@ -5131,6 +5137,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     $$("img[data-lazy]", root).forEach(function (el) {
       if (el.__on) {
         el.__on = false;
+        el.classList.remove("ready");
         el.src = BLANK;
       }
     });
@@ -5589,7 +5596,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     audioLangs: [],
     // vazio = mantém o áudio padrão do arquivo (geralmente o original)
     subtitleSize: 100,
-    subtitleFont: "nata",
+    subtitleFont: "bricolage",
     subtitleStyle: "kai",
     subtitleColor: "#ffffff",
     subtitleBold: true,
@@ -5921,7 +5928,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     } catch (e) {}
     var RTC = window.RTCPeerConnection || window.webkitRTCPeerConnection;
     if (!RTC) return Promise.reject(new Error("Sem IP"));
-    return new Promise(function (resolve2, reject) {
+    return new Promise(function (resolve, reject) {
       var pc = new RTC({
         iceServers: []
       });
@@ -5938,7 +5945,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         var m = e && e.candidate && /(\d+\.\d+\.\d+\.\d+)/.exec(e.candidate.candidate);
         if (m && !/^(0\.|127\.)/.test(m[1])) {
           clearTimeout(timer2);
-          done(resolve2, m[1]);
+          done(resolve, m[1]);
         }
       };
       pc.createDataChannel("ip");
@@ -6666,8 +6673,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     id: "library",
     label: "Biblioteca"
   }, {
-    id: "calendar",
-    label: "Animes"
+    id: "streamings",
+    label: "Streamings"
   }, {
     id: "settings",
     label: "Ajustes"
@@ -6812,7 +6819,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       },
       onKey: view.onKey
     });
+    var activeTab = view.tabId && !view.el.querySelector("[data-autofocus]") && view.el.querySelector(".topbar .tab.active");
     if (view.restoreFocus && document.body.contains(view.restoreFocus)) focus(view.restoreFocus, {
+      noScroll: true
+    });else if (activeTab) focus(activeTab, {
       noScroll: true
     });else focusFirst(view.el);
     if (view.onShow) view.onShow();
@@ -6901,14 +6911,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   // src/js/api/extras.js
   var TMDB = "https://api.themoviedb.org/3/";
   var TMDB_IMG = "https://image.tmdb.org/t/p/";
-  var ARM = "https://arm.haglund.dev/api/v2/";
   function imdbOf(id) {
     var m = String(id || "").match(/^tt\d+/);
     return m ? m[0] : null;
   }
   var BUILTIN_KEYS = {
-    tmdbKey: true ? "9c57ed7ea044b2f01eea2fcc2e954c2e" : "",
-    mdblistKey: true ? "t9e4f1z29b3c36i1j25rul1wx" : ""
+    tmdbKey: true ? "" : "",
+    mdblistKey: true ? "" : ""
   };
   function keyOf(name) {
     return (settings()[name] || "").trim() || BUILTIN_KEYS[name];
@@ -7009,88 +7018,30 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   function mdblist(meta) {
     var key = keyOf("mdblistKey");
     var imdb = imdbOf(meta.id);
-    if (!key || !imdb) return Promise.resolve([]);
+    if (!key || !imdb) return Promise.resolve({});
     var type = meta.type === "series" ? "show" : "movie";
     return getJSONViaProxy("https://api.mdblist.com/imdb/" + type + "/" + imdb + "?apikey=" + encodeURIComponent(key), {
       timeout: 12e3
     }).then(function (d) {
-      var out = [];
+      var out = {};
       (d.ratings || []).forEach(function (r) {
         var v = r.value;
         if (v === null || v === void 0 || v === 0) return;
         var src = String(r.source || "").toLowerCase();
-        if (src === "tomatoes") out.push({
-          cls: "rt",
-          label: "RT",
-          value: v + "%"
-        });else if (src === "popcorn" || src === "tomatoesaudience") out.push({
-          cls: "rt",
-          label: t("Público"),
-          value: v + "%"
-        });else if (src === "metacritic") out.push({
-          cls: "mc",
-          label: "MC",
-          value: String(v)
-        });else if (src === "trakt") out.push({
-          cls: "trakt",
-          label: "Trakt",
-          value: v + "%"
-        });else if (src === "letterboxd") out.push({
-          cls: "lb",
-          label: "LB",
-          value: Number(v).toFixed(1)
-        });else if (src === "tmdb") out.push({
-          cls: "tmdb",
-          label: "TMDB",
-          value: v + "%"
-        });
+        if (src === "tomatoes") out.critic = Math.round(v);else if (src === "popcorn" || src === "tomatoesaudience") out.audience = Math.round(v);else if (src === "imdb") out.imdb = Number(v).toFixed(1);
       });
       return out;
     }).catch(function () {
-      return [];
+      return {};
     });
   }
-  function anilistScore(meta) {
-    var m = String(meta.id).match(/^(kitsu|mal|anilist):(\d+)/);
-    var idPromise;
-    if (m && m[1] === "anilist") idPromise = Promise.resolve({
-      anilist: parseInt(m[2], 10)
-    });else if (m) idPromise = getJSON(ARM + "ids?source=" + (m[1] === "mal" ? "myanimelist" : m[1]) + "&id=" + m[2], {
-      quiet: true
-    });else if (imdbOf(meta.id)) idPromise = getJSON(ARM + "imdb?id=" + imdbOf(meta.id), {
-      quiet: true
-    }).then(function (l) {
-      return Array.isArray(l) && l[0] || null;
-    });else return Promise.resolve([]);
-    return idPromise.then(function (ids) {
-      if (!ids || !ids.anilist) return [];
-      return postJSON("https://graphql.anilist.co", {
-        query: "query($id:Int){Media(id:$id,type:ANIME){averageScore}}",
-        variables: {
-          id: ids.anilist
-        }
-      }, {
-        quiet: true
-      }).then(function (r) {
-        var sc = r && r.data && r.data.Media && r.data.Media.averageScore;
-        return sc ? [{
-          cls: "al",
-          label: "AniList",
-          value: sc + "%"
-        }] : [];
-      });
-    }).catch(function () {
-      return [];
-    });
-  }
-  function ratings(meta, anime) {
-    var base = meta.imdbRating ? [{
-      cls: "imdb",
-      label: "IMDb",
-      value: String(meta.imdbRating)
-    }] : [];
-    return Promise.all([mdblist(meta), anime ? anilistScore(meta) : Promise.resolve([])]).then(function (r) {
-      return base.concat(r[0], r[1]);
+  function ratings(meta) {
+    return mdblist(meta).then(function (m) {
+      return {
+        imdb: meta.imdbRating ? String(meta.imdbRating) : m.imdb || null,
+        critic: m.critic === void 0 ? null : m.critic,
+        audience: m.audience === void 0 ? null : m.audience
+      };
     });
   }
 
@@ -7293,8 +7244,22 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // src/js/lib/substyle.js
   var FONTS = [{
+    id: "bricolage",
+    label: "Bricolage Grotesque (padrão Seraflix)",
+    css: "'Bricolage Grotesque', 'Geist', sans-serif",
+    scale: 0.9,
+    weights: {
+      normal: 600,
+      bold: 700
+    },
+    letterSpacing: "0.012em",
+    wordSpacing: "0.06em",
+    lineHeight: 1.18,
+    measure: 1320,
+    halo: "0 0 2px rgba(0,0,0,0.95), 0 1px 3px rgba(0,0,0,0.9), 0 3px 14px rgba(0,0,0,0.6)"
+  }, {
     id: "nata",
-    label: "Nata Sans (padrão Kai)",
+    label: "Nata Sans (Kai)",
     css: "'Nata Sans', 'Montserrat', sans-serif"
   }, {
     id: "montserrat",
@@ -7307,7 +7272,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }];
   var STYLES = [{
     id: "kai",
-    label: "Contorno fino + sombra (Kai)"
+    label: "Padrão (contorno suave)"
   }, {
     id: "outline",
     label: "Contorno grosso"
@@ -7360,11 +7325,21 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   function apply(el, s) {
     var font = find(FONTS, s.subtitleFont);
     var pos = find(POSITIONS, s.subtitlePosition);
+    var w = font.weights || {
+      normal: 500,
+      bold: 700
+    };
     el.style.fontFamily = font.css;
-    el.style.fontSize = Math.round(BASE_PX * ((s.subtitleSize || 100) / 100)) + "px";
-    el.style.fontWeight = s.subtitleBold === false ? "500" : "700";
+    el.style.fontSize = Math.round(BASE_PX * (font.scale || 1) * ((s.subtitleSize || 100) / 100)) + "px";
+    el.style.fontWeight = String(s.subtitleBold === false ? w.normal : w.bold);
+    el.style.letterSpacing = font.letterSpacing || "";
+    el.style.wordSpacing = font.wordSpacing || "";
+    el.style.lineHeight = font.lineHeight ? String(font.lineHeight) : "";
+    el.style.maxWidth = font.measure ? font.measure + "px" : "";
+    el.style.marginLeft = el.style.marginRight = font.measure ? "auto" : "";
     el.style.color = s.subtitleColor || "#ffffff";
-    el.style.textShadow = SHADOWS[s.subtitleStyle] || SHADOWS.kai;
+    var style = s.subtitleStyle || "kai";
+    el.style.textShadow = style === "kai" && font.halo ? font.halo : SHADOWS[style] || SHADOWS.kai;
     el.style.bottom = pos.bottom + "px";
     el.classList.toggle("box", s.subtitleStyle === "box");
   }
@@ -7380,7 +7355,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   // src/js/api/skip.js
   var INTRODB = "https://api.introdb.app/segments";
   var ANISKIP = "https://api.aniskip.com/v2/skip-times/";
-  var ARM2 = "https://arm.haglund.dev/api/v2/";
+  var ARM = "https://arm.haglund.dev/api/v2/";
   function getJSONWithProxy(url2) {
     return getJSONViaProxy(url2, {
       timeout: 1e4
@@ -7435,7 +7410,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   function malFromAnime(a) {
     if (a.source === "myanimelist") return Promise.resolve(parseInt(a.id, 10));
     var key = a.source + ":" + a.id;
-    if (!malCache[key]) malCache[key] = getJSON(ARM2 + "ids?source=" + a.source + "&id=" + a.id, {
+    if (!malCache[key]) malCache[key] = getJSON(ARM + "ids?source=" + a.source + "&id=" + a.id, {
       quiet: true
     }).then(function (r) {
       return r && r.myanimelist || null;
@@ -7444,7 +7419,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
   function malFromImdb(imdb, season) {
     var key = imdb + ":" + season;
-    if (!malCache[key]) malCache[key] = getJSON(ARM2 + "imdb?id=" + imdb, {
+    if (!malCache[key]) malCache[key] = getJSON(ARM + "imdb?id=" + imdb, {
       quiet: true
     }).then(function (list2) {
       var arr = Array.isArray(list2) ? list2 : [];
@@ -8532,6 +8507,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
 
   // src/js/views/details.js
+  var IMDB_SVG = '<svg class="imdb-logo" viewBox="0 0 64 32" aria-label="IMDb"><rect width="64" height="32" rx="5" fill="#F5C518"/><text x="32" y="23" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-weight="900" font-size="18" fill="#000">IMDb</text></svg>';
+  var RT_SVG = '<svg viewBox="0 0 32 32" aria-label="Rotten Tomatoes"><circle cx="16" cy="18" r="12" fill="#FA320A"/><path d="M16 6c-2-3-6-3-8-1 3 0 5 1 6 3-3-1-6 0-7 2 3-1 6 0 8 1 2-1 5-2 8-1-1-2-4-3-7-2 1-2 3-3 6-3-2-2-6-2-6 1z" fill="#00912D"/><ellipse cx="11" cy="15" rx="3" ry="2" fill="#fff" opacity="0.35"/></svg>';
   function openDetails(type, id, opts) {
     push(DetailsView(type, id, opts || {}));
   }
@@ -8611,11 +8588,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         text: parts.join("  ·  ")
       });
       var ratingsEl = h("div.ratings");
-      renderRatings(ratingsEl, meta.imdbRating ? [{
-        cls: "imdb",
-        label: "IMDb",
-        value: String(meta.imdbRating)
-      }] : []);
+      renderRatings(ratingsEl, {
+        imdb: meta.imdbRating ? String(meta.imdbRating) : null,
+        critic: null,
+        audience: null
+      }, true);
       var genres = h("div.details-genres", null, (meta.genres || meta.genre || []).slice(0, 5).map(function (g) {
         return h("span", {
           text: g
@@ -8659,21 +8636,38 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         ratingsEl: ratingsEl
       });
     }
-    function renderRatings(el2, list2) {
+    function renderRatings(el2, r, loading) {
       clear(el2);
-      list2.forEach(function (r) {
-        return el2.appendChild(h("span.rating", {
-          cls: r.cls
-        }, [h("b", {
-          text: r.label
-        }), r.value]));
-      });
-      el2.style.display = list2.length ? "" : "none";
+      if (r.imdb) el2.appendChild(h("span.rating.imdb", {
+        html: IMDB_SVG
+      }, h("span.rv", {
+        text: r.imdb
+      })));
+      var pct = function pct(v) {
+        return v === null || v === void 0 ? loading ? "··" : "--" : v + "%";
+      };
+      el2.appendChild(h("span.rating.rt", {
+        title: t("Rotten Tomatoes: crítica e público")
+      }, [h("span.rv", {
+        cls: r.critic === null ? "none" : "",
+        text: pct(r.critic)
+      }), h("span.rt-logo", {
+        html: RT_SVG
+      }), h("span.rv", {
+        cls: r.audience === null ? "none" : "",
+        text: pct(r.audience)
+      })]));
     }
     function loadExtras(ui) {
-      ratings(meta, isAnime(meta)).then(function (list2) {
-        return alive && renderRatings(ui.ratingsEl, list2);
-      }).catch(function () {});
+      ratings(meta).then(function (r) {
+        return alive && renderRatings(ui.ratingsEl, r);
+      }).catch(function () {
+        return alive && renderRatings(ui.ratingsEl, {
+          imdb: meta.imdbRating ? String(meta.imdbRating) : null,
+          critic: null,
+          audience: null
+        });
+      });
       if (!hasTmdb()) return;
       localized(meta).then(function (loc) {
         if (!alive || !loc) return;
@@ -9174,7 +9168,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   // src/js/views/home.js
   var ROTATE_MS = 8e3;
   function HomeView() {
-    var el = h("div.view");
+    var el = h("div.view.home-view");
     var scroller = h("div.scroll-y", {
       "data-scroll-y": ""
     });
@@ -9403,7 +9397,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     buttons.__last = watchBtn;
     var el = h("div.hero", {
       "data-anchor": "0"
-    }, [bgA, bgB, h("div.hero-shade-left"), h("div.hero-shade-bottom"), h("div.hero-info", null, [logo2, title, meta, desc, buttons, dots])]);
+    }, [h("div.aurora", null, [h("i.a1"), h("i.a2"), h("i.a3")]),
+    // fundo vivo enquanto a arte não chega
+    bgA, bgB, h("div.hero-shade-left"), h("div.hero-shade-bottom"), h("div.hero-info", null, [logo2, title, meta, desc, buttons, dots])]);
     var items = [];
     var index = 0;
     var timer2 = null;
@@ -9450,7 +9446,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       if (it.year) parts.push(it.year);
       if (it.runtime) parts.push(it.runtime);
       if (it.genres && it.genres.length) parts.push(it.genres.slice(0, 3).join(", "));
-      meta.innerHTML = (it.rating ? '<span class="imdb">★ ' + escapeHtml(it.rating) + "</span> · " : "") + escapeHtml(parts.join(" · "));
+      meta.innerHTML = (it.rating ? '<span class="imdb-mini">IMDb</span> ' + escapeHtml(it.rating) + " · " : "") + escapeHtml(parts.join(" · "));
       desc.textContent = it.description || "";
       clear(dots);
       items.forEach(function (_, i) {
@@ -9644,25 +9640,80 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
   var ROWS = [{
     id: "trending",
-    title: "Em alta agora",
-    sub: "Lançamentos de que todo mundo está falando",
+    short: "Em alta",
+    title: "Em alta",
+    caption: "Lançamentos de que todo mundo está falando",
     load: trending
   }, {
     id: "truecrime",
+    short: "True crime",
     title: "True crime",
-    sub: "Documentários e séries, dos mais bem avaliados",
+    caption: "Documentários e séries, dos mais bem avaliados",
     load: trueCrime
   }, {
     id: "thriller",
+    short: "Suspense",
     title: "Suspense",
-    sub: "Filmes populares e bem avaliados",
+    caption: "Filmes de suspense populares e bem avaliados",
     load: genreMovies(THRILLER)
   }, {
     id: "horror",
+    short: "Terror",
     title: "Terror",
-    sub: "Filmes populares e bem avaliados",
+    caption: "Filmes de terror populares e bem avaliados",
     load: genreMovies(HORROR)
   }];
+  function providerNews(providerId) {
+    return function (page) {
+      var today = isoDaysAgo(0);
+      var common = {
+        page: page,
+        watch_region: "BR",
+        with_watch_providers: providerId,
+        with_watch_monetization_types: "flatrate",
+        sort_by: "popularity.desc"
+      };
+      var movies = tmdb("discover/movie", Object.assign({
+        "primary_release_date.gte": isoDaysAgo(180),
+        "primary_release_date.lte": today
+      }, common, lang)).then(function (r) {
+        return (r.results || []).map(function (x) {
+          return toItem(x, "movie");
+        });
+      }).catch(function () {
+        return [];
+      });
+      var shows = tmdb("discover/tv", Object.assign({
+        "first_air_date.gte": isoDaysAgo(120),
+        "first_air_date.lte": today
+      }, common, lang)).then(function (r) {
+        return (r.results || []).map(function (x) {
+          return toItem(x, "tv");
+        });
+      }).catch(function () {
+        return [];
+      });
+      return Promise.all([movies, shows]).then(function (both) {
+        var out = [];
+        for (var i = 0; i < Math.max(both[0].length, both[1].length); i++) {
+          if (both[1][i]) out.push(both[1][i]);
+          if (both[0][i]) out.push(both[0][i]);
+        }
+        return dedupe(out);
+      });
+    };
+  }
+  function provider(id, name, de, logo2) {
+    return {
+      id: "p" + id,
+      short: name,
+      title: name,
+      caption: "Principais novidades " + de + " " + name,
+      logo: IMG + "w92" + logo2,
+      load: providerNews(id)
+    };
+  }
+  var STREAMINGS = [provider(8, "Netflix", "da", "/rK1KljqmbvO9HQa1PBFLILWah72.png"), provider(119, "Prime Video", "do", "/gMZdpavHmxFNnLpMHwVxfqeux2g.png"), provider(337, "Disney+", "do", "/5eZ872CghnHFLB1j8grszbrx0dx.png"), provider(1899, "HBO Max", "da", "/skypuy7SXuugIQeYg0IglmzoKaS.png"), provider(350, "Apple TV+", "do", "/9icYBfYFcwgCbky5VdGUIKJ4C5i.png"), provider(531, "Paramount+", "do", "/pkx3klJlwW5JdtaulvDx6hDNtch.png"), provider(307, "Globoplay", "do", "/9A6Oxd3F7iXm7mds7CxYOBicojs.png")];
   function available() {
     return hasTmdb();
   }
@@ -9710,8 +9761,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var ROW_LIMIT2 = 20;
   var PREVIEW_MS = 350;
   var TRAILER_MS = 3e3;
-  var ATTEMPT_MS = 8e3;
+  var REVEAL_MS = 2e3;
+  var ATTEMPT_MS = 9e3;
   var MAX_TRAILERS = 4;
+  var AUDIO_FADE_MS = 1600;
   var NOCOOKIE = "www.youtube-nocookie.com";
   var YOUTUBE = "www.youtube.com";
   function openItem(it) {
@@ -9726,33 +9779,42 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
   }
   function metaLine(it) {
-    return [it.year, it.mediaType === "tv" ? t("Série") : t("Filme"), it.rating ? "★ " + it.rating.toFixed(1) : ""].filter(Boolean).join(" · ");
+    return [it.year, it.mediaType === "tv" ? t("Série") : t("Filme")].filter(Boolean).join(" · ");
   }
   function Billboard() {
-    var bg = h("div.reco-bg");
+    var bgA = h("div.reco-bg");
+    var bgB = h("div.reco-bg");
     var frameBox = h("div.reco-trailer");
+    var loading = h("div.reco-loading", null, h("div.spinner.small"));
     var title = h("div.reco-title");
     var meta = h("div.reco-meta");
     var desc = h("div.reco-desc");
-    var el = h("div.reco-bill", null, [bg, frameBox, h("div.reco-shade-left"), h("div.reco-shade-bottom"), h("div.reco-info", null, [title, meta, desc])]);
+    var el = h("div.reco-bill", null, [h("div.aurora", null, [h("i.a1"), h("i.a2"), h("i.a3")]), bgA, bgB, frameBox, h("div.reco-shade-left"), h("div.reco-shade-bottom"), loading, h("div.reco-info", null, [title, meta, desc])]);
+    var front = bgA;
     var current3 = null;
     var previewTimer = null;
     var trailerTimer = null;
+    var attemptTimer = null;
+    var revealTimer = null;
+    var fadeTimer = null;
     var token = 0;
     var queue = [];
-    var attemptTimer = null;
     var attempt = {
       key: "",
       host: ""
     };
-    var unmutedAt = 0;
     var frameWin = null;
+    var revealed = false;
+    var unmuteAt = 0;
     function stopTrailer() {
       clearTimeout(trailerTimer);
       clearTimeout(attemptTimer);
-      el.classList.remove("playing");
+      clearTimeout(revealTimer);
+      clearInterval(fadeTimer);
+      el.classList.remove("playing", "buffering");
       queue = [];
       frameWin = null;
+      revealed = false;
       clear(frameBox);
     }
     function show2(it) {
@@ -9766,13 +9828,34 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
     function render(it, tk) {
       if (tk !== token) return;
-      bg.style.backgroundImage = it.backdrop ? 'url("' + it.backdrop + '")' : "none";
       title.textContent = it.name;
       meta.textContent = metaLine(it);
       desc.textContent = it.overview || "";
+      setArt(it.backdrop, tk);
       trailerTimer = setTimeout(function () {
         return playTrailer(it, tk);
       }, TRAILER_MS);
+    }
+    function setArt(url2, tk) {
+      if (!url2) {
+        front.classList.remove("show");
+        return;
+      }
+      var pre = new Image();
+      pre.onload = function () {
+        if (tk !== token) return;
+        var back2 = front === bgA ? bgB : bgA;
+        back2.style.backgroundImage = 'url("' + url2 + '")';
+        back2.classList.remove("show");
+        requestAnimationFrame(function () {
+          return requestAnimationFrame(function () {
+            back2.classList.add("show");
+            front.classList.remove("show");
+            front = back2;
+          });
+        });
+      };
+      pre.src = url2;
     }
     function onYouTubeMessage(e) {
       if (!frameWin || e.source !== frameWin) return;
@@ -9784,29 +9867,56 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }
       if (!msg) return;
       var state = msg.event === "onStateChange" ? msg.info : msg.info && msg.info.playerState;
-      if (state === 1) {
-        clearTimeout(attemptTimer);
-        if (!el.classList.contains("playing")) {
-          el.classList.add("playing");
-          report("tocou (" + attempt.host + ")");
-          command("unMute");
-          command("setVolume", [100]);
-          unmutedAt = Date.now();
-        }
-      } else if (state === 2 && unmutedAt && Date.now() - unmutedAt < 1500) {
-        unmutedAt = 0;
+      if (state === 1) onPlaying();else if (state === 3) onBuffering();else if (state === 2 && unmuteAt && Date.now() - unmuteAt < 2e3) {
+        unmuteAt = 0;
+        clearInterval(fadeTimer);
         command("mute");
         command("playVideo");
       } else if (state === 0) stopTrailer();
-      if (msg.event === "onError") {
-        var code = msg.info;
-        if ((code === 152 || code === 153) && attempt.host === NOCOOKIE) {
-          report("erro " + code + ", tentando youtube.com");
-          return load4(attempt.key, YOUTUBE, token);
-        }
-        report("erro " + code);
-        nextTrailer(token);
+      if (msg.event === "onError") onError(msg.info);
+    }
+    window.addEventListener("message", onYouTubeMessage);
+    function onPlaying() {
+      el.classList.remove("buffering");
+      if (revealed || revealTimer) return;
+      command("setPlaybackQuality", ["hd1080"]);
+      var tk = token;
+      revealTimer = setTimeout(function () {
+        revealTimer = null;
+        if (tk !== token) return;
+        reveal();
+      }, REVEAL_MS);
+    }
+    function onBuffering() {
+      if (revealed) el.classList.add("buffering");else {
+        clearTimeout(revealTimer);
+        revealTimer = null;
       }
+    }
+    function reveal() {
+      revealed = true;
+      clearTimeout(attemptTimer);
+      el.classList.add("playing");
+      report("tocou (" + attempt.host + ")");
+      command("setVolume", [0]);
+      command("unMute");
+      unmuteAt = Date.now();
+      var steps = 16;
+      var i = 0;
+      clearInterval(fadeTimer);
+      fadeTimer = setInterval(function () {
+        i++;
+        command("setVolume", [Math.round(100 * i / steps)]);
+        if (i >= steps) clearInterval(fadeTimer);
+      }, AUDIO_FADE_MS / steps);
+    }
+    function onError(code) {
+      if ((code === 152 || code === 153) && attempt.host === NOCOOKIE) {
+        report("erro " + code + ", tentando youtube.com");
+        return load4(attempt.key, YOUTUBE, token);
+      }
+      report("erro " + code);
+      nextTrailer(token);
     }
     function command(func, args) {
       if (frameWin) frameWin.postMessage(JSON.stringify({
@@ -9820,7 +9930,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     function report(what) {
       setTrailerReport((current3 ? current3.name + ": " : "") + what);
     }
-    window.addEventListener("message", onYouTubeMessage);
     function playTrailer(it, tk) {
       trailerKeys(it).then(function (keys) {
         if (tk !== token || document.hidden) return;
@@ -9832,7 +9941,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var key = queue.shift();
       if (!key) {
         clearTimeout(attemptTimer);
-        el.classList.remove("playing");
         frameWin = null;
         clear(frameBox);
         return;
@@ -9841,9 +9949,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
     function load4(key, host, tk) {
       clearTimeout(attemptTimer);
-      el.classList.remove("playing");
+      clearTimeout(revealTimer);
+      revealTimer = null;
+      el.classList.remove("playing", "buffering");
+      revealed = false;
       frameWin = null;
-      unmutedAt = 0;
+      unmuteAt = 0;
       clear(frameBox);
       if (tk !== token) return;
       attempt = {
@@ -9851,12 +9962,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         host: host
       };
       attemptTimer = setTimeout(function () {
-        if (tk !== token || el.classList.contains("playing")) return;
+        if (tk !== token || revealed) return;
         report("não começou em " + ATTEMPT_MS / 1e3 + "s");
         nextTrailer(tk);
       }, ATTEMPT_MS);
       var origin = window.location.protocol + "//" + window.location.host;
-      var src = "https://" + host + "/embed/" + key + "?autoplay=1&mute=1&controls=0&rel=0&modestbranding=1&playsinline=1&iv_load_policy=3&disablekb=1&fs=0&enablejsapi=1&origin=" + encodeURIComponent(origin) + "&widget_referrer=" + encodeURIComponent(origin);
+      var src = "https://" + host + "/embed/" + key + "?autoplay=1&mute=1&controls=0&rel=0&modestbranding=1&playsinline=1&iv_load_policy=3&disablekb=1&fs=0&cc_load_policy=0&vq=hd1080&enablejsapi=1&origin=" + encodeURIComponent(origin) + "&widget_referrer=" + encodeURIComponent(origin);
       var frame = h("iframe", {
         src: src,
         allow: "autoplay; encrypted-media",
@@ -9874,6 +9985,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         }), "*");
         command("addEventListener", ["onStateChange"]);
         command("addEventListener", ["onError"]);
+        command("setPlaybackQuality", ["hd1080"]);
       };
       frameBox.appendChild(frame);
     }
@@ -9895,26 +10007,51 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }
     };
   }
-  function buildRow2(def, billboard) {
-    var row = h("div.row", {
-      "data-anchor": "20"
+  function Rail(defs) {
+    var items = defs.map(function (d) {
+      return h("div.rail-item", null, [d.logo ? h("img.rail-logo", {
+        src: d.logo,
+        alt: ""
+      }) : null, h("span", {
+        text: t(d.short)
+      })]);
     });
-    var title = h("div.row-title", null, [t(def.title), h("small", {
-      text: t(def.sub)
-    })]);
+    var caption = h("div.rail-caption");
+    var el = h("div.reco-rail", null, [h("div.rail-items", null, items), caption]);
+    var active = -1;
+    function set2(i) {
+      if (i === active || !defs[i]) return;
+      if (items[active]) items[active].classList.remove("on");
+      active = i;
+      items[i].classList.add("on");
+      caption.textContent = t(defs[i].caption);
+    }
+    return {
+      el: el,
+      set: set2
+    };
+  }
+  function buildRow2(def, index, ctx) {
+    var row = h("div.row.reco-row", {
+      "data-anchor": "0"
+    });
     var track = h("div.row-track.pending", {
       "data-scroll-x": "",
       "data-group": "",
       "data-trap": ""
     }, spinnerLine(t("Carregando...")));
-    row.appendChild(title);
     row.appendChild(track);
+    var focusRow = function focusRow() {
+      return ctx.rail.set(index);
+    };
     var load4 = function load4() {
       return def.load(1).then(function (items) {
         clear(track);
         track.classList.remove("pending");
         if (!items.length) {
-          if (row.parentNode) row.parentNode.removeChild(row);
+          track.appendChild(h("div.row-empty", {
+            text: t("Nada por aqui.")
+          }));
           return;
         }
         items.slice(0, ROW_LIMIT2).forEach(function (it) {
@@ -9923,17 +10060,19 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
               return openItem(it);
             },
             onFocus: function onFocus() {
-              return billboard.show(it);
+              focusRow();
+              ctx.billboard.show(it);
             }
           }));
         });
         track.appendChild(h("div.card.see-all", {
           focusable: true,
           onSelect: function onSelect() {
-            return openCategory(def);
+            return openCategory(ctx.crumb, def);
           },
           onFocus: function onFocus() {
-            return billboard.stop();
+            focusRow();
+            ctx.billboard.stop();
           }
         }, [h("div.poster-wrap", null, h("div.see-all-label", null, [h("b", {
           text: t("Ver tudo")
@@ -9942,7 +10081,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         })]))]));
         loadVisibleImages(row);
       }).catch(function () {
-        if (row.parentNode) row.parentNode.removeChild(row);
+        clear(track);
+        track.appendChild(h("div.row-empty", {
+          text: t("Não foi possível carregar")
+        }));
       });
     };
     return {
@@ -9950,29 +10092,37 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       load: load4
     };
   }
-  function RecommendedView() {
+  function CuratedView(cfg) {
     var el = h("div.view.reco");
-    var bar = topbar("recommended", goTab);
+    var bar = topbar(cfg.tabId, goTab);
     var billboard = Billboard();
+    var rail = Rail(cfg.defs);
     var rows = h("div.reco-rows.scroll-y", {
       "data-scroll-y": "",
       "data-pad-y": "40"
     });
     el.appendChild(billboard.el);
     el.appendChild(h("div.reco-top", null, bar));
+    el.appendChild(rail.el);
     el.appendChild(rows);
+    var ctx = {
+      billboard: billboard,
+      rail: rail,
+      crumb: cfg.crumb
+    };
     var loaded = false;
     function load4() {
       if (loaded) return;
       loaded = true;
       if (!available()) {
         rows.appendChild(h("div.hint", {
-          text: t("A aba Recomendado precisa da chave do TMDB (Ajustes → Metadados extras).")
+          text: t("Essa aba precisa da chave do TMDB (Ajustes → Metadados extras).")
         }));
         return;
       }
-      var built = ROWS.map(function (def) {
-        return buildRow2(def, billboard);
+      rail.set(0);
+      var built = cfg.defs.map(function (def, i) {
+        return buildRow2(def, i, ctx);
       });
       built.forEach(function (b) {
         return rows.appendChild(b.row);
@@ -10006,16 +10156,30 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }
     };
   }
-  function openCategory(def) {
-    push(CategoryView(def));
+  function RecommendedView() {
+    return CuratedView({
+      tabId: "recommended",
+      crumb: "Recomendado",
+      defs: ROWS
+    });
   }
-  function CategoryView(def) {
+  function StreamingsView() {
+    return CuratedView({
+      tabId: "streamings",
+      crumb: "Streamings",
+      defs: STREAMINGS
+    });
+  }
+  function openCategory(crumb, def) {
+    push(CategoryView(crumb, def));
+  }
+  function CategoryView(crumb, def) {
     var el = h("div.view");
     var scroller = h("div.scroll-y", {
       "data-scroll-y": ""
     });
     var header = h("div.reco-crumb", null, [h("span", {
-      text: t("Recomendado")
+      text: t(crumb)
     }), " › ", h("b", {
       text: t(def.title)
     })]);
@@ -10188,7 +10352,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
     var grid = h("div.grid");
     scroller.appendChild(bar);
-    scroller.appendChild(filters);
+    scroller.appendChild(h("div.page-head", null, [h("h1.page-title", {
+      text: t("Biblioteca")
+    }), filters]));
     scroller.appendChild(grid);
     el.appendChild(scroller);
     var filter = "all";
@@ -10254,9 +10420,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "a3925d34e96518b7ff72fc3db2a9a67b1b8c53d8",
-    date: "2026-10-27T00:26:30-03:00",
-    message: "Trailer com mais chance de tocar e diagnóstico em Ajustes"
+    commit: "531459b78af2f2137cd707989464800f83be646a",
+    date: "2026-10-27T03:26:42+00:00",
+    message: "Build da dist/ para a TV"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -11105,185 +11271,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     };
   }
 
-  // src/js/views/calendar.js
-  var WEEKDAYS = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
-  var QUERY = "query($from:Int,$to:Int,$page:Int){Page(page:$page,perPage:50){pageInfo{hasNextPage}airingSchedules(airingAt_greater:$from,airingAt_lesser:$to,sort:TIME){episode airingAt media{id idMal isAdult format countryOfOrigin title{romaji english} coverImage{large} averageScore}}}}";
-  function dayStart(offset) {
-    var d = /* @__PURE__ */new Date();
-    d.setHours(0, 0, 0, 0);
-    d.setDate(d.getDate() + offset);
-    return d;
-  }
-  function fetchDay(offset) {
-    var from = Math.floor(dayStart(offset).getTime() / 1e3) - 1;
-    var to = from + 86400 + 1;
-    var all = [];
-    var _page = function page(p) {
-      return postJSON("https://graphql.anilist.co", {
-        query: QUERY,
-        variables: {
-          from: from,
-          to: to,
-          page: p
-        }
-      }, {
-        timeout: 15e3
-      }).then(function (r) {
-        var pg = r && r.data && r.data.Page;
-        if (!pg) return all;
-        pg.airingSchedules.forEach(function (s) {
-          if (s.media && !s.media.isAdult && s.media.countryOfOrigin === "JP") all.push(s);
-        });
-        return pg.pageInfo.hasNextPage && p < 4 ? _page(p + 1) : all;
-      });
-    };
-    return _page(1);
-  }
-  function resolve(media) {
-    return getJSON("https://arm.haglund.dev/api/v2/ids?source=anilist&id=" + media.id, {
-      quiet: true
-    }).catch(function () {
-      return null;
-    }).then(function (ids) {
-      var movieFirst = media.format === "MOVIE" || ids && ids.media === "MOVIE";
-      var types = movieFirst ? ["movie", "series"] : ["series", "movie"];
-      var cands = [];
-      var add = function add(id) {
-        return types.forEach(function (type) {
-          return cands.push({
-            type: type,
-            id: id
-          });
-        });
-      };
-      if (ids && ids.kitsu) add("kitsu:" + ids.kitsu);
-      if (ids && ids.imdb) add(ids.imdb);
-      add("anilist:" + media.id);
-      var usable = cands.filter(function (c) {
-        return withResource("meta", c.type, c.id).length > 0;
-      });
-      var i = 0;
-      var _next2 = function next() {
-        if (i >= usable.length) return null;
-        var c = usable[i++];
-        return fetchMeta(c.type, c.id).then(function () {
-          return c;
-        }, _next2);
-      };
-      return _next2();
-    });
-  }
-  function CalendarView() {
-    var el = h("div.view");
-    var scroller = h("div.scroll-y", {
-      "data-scroll-y": ""
-    });
-    var bar = topbar("calendar", goTab);
-    var days = h("div.cal-days", {
-      "data-group": "",
-      "data-scroll-x": ""
-    });
-    var grid = h("div.grid");
-    scroller.appendChild(bar);
-    scroller.appendChild(days);
-    scroller.appendChild(grid);
-    el.appendChild(scroller);
-    var current3 = 0;
-    var token = 0;
-    function label(offset) {
-      if (offset === 0) return t("Hoje");
-      if (offset === 1) return t("Amanhã");
-      if (offset === -1) return t("Ontem");
-      return t(WEEKDAYS[dayStart(offset).getDay()]);
-    }
-    function renderDays() {
-      clear(days);
-      var _loop6 = function _loop6() {
-        var off = o;
-        var d = dayStart(off);
-        days.appendChild(h("div.chip", {
-          focusable: true,
-          cls: off === current3 ? "active" : "",
-          text: label(off) + " " + ("0" + d.getDate()).slice(-2) + "/" + ("0" + (d.getMonth() + 1)).slice(-2),
-          onSelect: function onSelect() {
-            current3 = off;
-            renderDays();
-            focus(days.children[off + 1]);
-            load4();
-          }
-        }));
-      };
-      for (var o = -1; o <= 6; o++) {
-        _loop6();
-      }
-      days.__last = days.children[current3 + 1];
-    }
-    function load4() {
-      var my = ++token;
-      clear(grid);
-      grid.appendChild(spinnerLine(t("Buscando lançamentos...")));
-      fetchDay(current3).then(function (list2) {
-        if (my !== token) return;
-        clear(grid);
-        if (!list2.length) {
-          grid.appendChild(h("div.hint", {
-            text: t("Nenhum episódio neste dia.")
-          }));
-          return;
-        }
-        var now = Date.now() / 1e3;
-        list2.forEach(function (s) {
-          var m = s.media;
-          var name = m.title && (m.title.english || m.title.romaji) || "";
-          var c = card({
-            name: name,
-            poster: m.coverImage && m.coverImage.large
-          }, {
-            title: name,
-            onSelect: function onSelect() {
-              toast(t("Abrindo {name}...", {
-                name: name
-              }), 2e3);
-              resolve(m).then(function (r) {
-                if (!r) return toast(t("Esse anime não foi encontrado nos seus addons (instale o Anime Kitsu)."), 5e3);
-                openDetails(r.type, r.id);
-              });
-            }
-          });
-          var time = timeHM(new Date(s.airingAt * 1e3));
-          c.querySelector(".poster-wrap").appendChild(h("div.cal-slot", {
-            cls: s.airingAt < now ? "aired" : "",
-            text: time + " · Ep " + s.episode
-          }));
-          if (m.averageScore) c.querySelector(".poster-wrap").appendChild(h("div.badge", {
-            text: m.averageScore + "%"
-          }));
-          grid.appendChild(c);
-        });
-        loadVisibleImages(el, 400);
-      }).catch(function (e) {
-        if (my !== token) return;
-        clear(grid);
-        grid.appendChild(h("div.hint", {
-          text: t("Não foi possível carregar o calendário: {msg}", {
-            msg: e.message
-          })
-        }));
-      });
-    }
-    renderDays();
-    load4();
-    return {
-      el: el,
-      onShow: function onShow() {
-        return loadVisibleImages(el, 400);
-      },
-      destroy: function destroy() {
-        return bar.__destroy && bar.__destroy();
-      }
-    };
-  }
-
   // src/js/views/wizard.js
   function maybeShowWizard() {
     var s = settings();
@@ -11525,7 +11512,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     registerTab("search", SearchView);
     registerTab("library", LibraryView);
     registerTab("settings", SettingsView);
-    registerTab("calendar", CalendarView);
+    registerTab("streamings", StreamingsView);
     if (needsPicker()) {
       var bootEl = document.getElementById("boot");
       if (bootEl) bootEl.style.display = "none";

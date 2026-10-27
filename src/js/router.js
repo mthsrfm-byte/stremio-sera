@@ -18,7 +18,11 @@ function show(view) {
     onBack: () => back(),
     onKey: view.onKey,
   });
+  // Aba recém-aberta pela barra: foco na própria aba (antes ia para "Início", que parecia a ativa),
+  // a não ser que a tela peça outro ponto de partida (data-autofocus, ex.: campo da Busca).
+  const activeTab = view.tabId && !view.el.querySelector('[data-autofocus]') && view.el.querySelector('.topbar .tab.active');
   if (view.restoreFocus && document.body.contains(view.restoreFocus)) nav.focus(view.restoreFocus, { noScroll: true });
+  else if (activeTab) nav.focus(activeTab, { noScroll: true }); // aba recém-aberta: foco na própria aba
   else nav.focusFirst(view.el);
   if (view.onShow) view.onShow();
   loadVisibleImages(view.el);

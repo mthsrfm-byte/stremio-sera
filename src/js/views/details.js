@@ -10,8 +10,16 @@ import * as router from '../router.js';
 import { openPlayer } from './player.js';
 import * as extras from '../api/extras.js';
 import { smallThumb } from '../lib/img.js';
-import { isAnime } from '../api/skip.js';
 import { t } from '../lib/i18n.js';
+
+// Logos das notas (SVG pequeno, sem depender de imagem externa).
+const IMDB_SVG =
+  '<svg class="imdb-logo" viewBox="0 0 64 32" aria-label="IMDb"><rect width="64" height="32" rx="5" fill="#F5C518"/>' +
+  '<text x="32" y="23" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-weight="900" font-size="18" fill="#000">IMDb</text></svg>';
+const RT_SVG =
+  '<svg viewBox="0 0 32 32" aria-label="Rotten Tomatoes"><circle cx="16" cy="18" r="12" fill="#FA320A"/>' +
+  '<path d="M16 6c-2-3-6-3-8-1 3 0 5 1 6 3-3-1-6 0-7 2 3-1 6 0 8 1 2-1 5-2 8-1-1-2-4-3-7-2 1-2 3-3 6-3-2-2-6-2-6 1z" fill="#00912D"/>' +
+  '<ellipse cx="11" cy="15" rx="3" ry="2" fill="#fff" opacity="0.35"/></svg>';
 
 export function openDetails(type, id, opts) {
   router.push(DetailsView(type, id, opts || {}));
@@ -82,7 +90,7 @@ function DetailsView(type, id, opts) {
     }
     const metaLine = h('div.details-meta', { text: parts.join('  ·  ') });
     const ratingsEl = h('div.ratings');
-    renderRatings(ratingsEl, meta.imdbRating ? [{ cls: 'imdb', label: 'IMDb', value: String(meta.imdbRating) }] : []);
+    renderRatings(ratingsEl, { imdb: meta.imdbRating ? String(meta.imdbRating) : null, critic: null, audience: null }, true);
     const genres = h(
       'div.details-genres',
       null,
@@ -113,18 +121,27 @@ function DetailsView(type, id, opts) {
     loadExtras({ logo: logo, title: title, desc: desc, castLine: castLine, ratingsEl: ratingsEl });
   }
 
-  function renderRatings(el, list) {
+  // IMDb com o logo; Rotten Tomatoes num só selo: crítica à esquerda do tomate, público à direita.
+  // Sem nota: "--". loading: as do Rotten Tomatoes ainda estão chegando (mostra "··").
+  function renderRatings(el, r, loading) {
     clear(el);
-    list.forEach((r) => el.appendChild(h('span.rating', { cls: r.cls }, [h('b', { text: r.label }), r.value])));
-    el.style.display = list.length ? '' : 'none';
+    if (r.imdb) el.appendChild(h('span.rating.imdb', { html: IMDB_SVG }, h('span.rv', { text: r.imdb })));
+    const pct = (v) => (v === null || v === undefined ? (loading ? '··' : '--') : v + '%');
+    el.appendChild(
+      h('span.rating.rt', { title: t('Rotten Tomatoes: crítica e público') }, [
+        h('span.rv', { cls: r.critic === null ? 'none' : '', text: pct(r.critic) }),
+        h('span.rt-logo', { html: RT_SVG }),
+        h('span.rv', { cls: r.audience === null ? 'none' : '', text: pct(r.audience) }),
+      ])
+    );
   }
 
   // Notas extras e dados em PT-BR (TMDB/MDBList opcionais, AniList sem chave).
   function loadExtras(ui) {
     extras
-      .ratings(meta, isAnime(meta))
-      .then((list) => alive && renderRatings(ui.ratingsEl, list))
-      .catch(() => {});
+      .ratings(meta)
+      .then((r) => alive && renderRatings(ui.ratingsEl, r))
+      .catch(() => alive && renderRatings(ui.ratingsEl, { imdb: meta.imdbRating ? String(meta.imdbRating) : null, critic: null, audience: null }));
     if (!extras.hasTmdb()) return;
     extras
       .localized(meta)

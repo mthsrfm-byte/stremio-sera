@@ -93,11 +93,51 @@ function genreMovies(genre) {
     ).then(dedupe);
 }
 
+// short: nome no trilho de categorias; caption: frase embaixo do trilho; title: título no "Ver tudo".
 export const ROWS = [
-  { id: 'trending', title: 'Em alta agora', sub: 'Lançamentos de que todo mundo está falando', load: trending },
-  { id: 'truecrime', title: 'True crime', sub: 'Documentários e séries, dos mais bem avaliados', load: trueCrime },
-  { id: 'thriller', title: 'Suspense', sub: 'Filmes populares e bem avaliados', load: genreMovies(THRILLER) },
-  { id: 'horror', title: 'Terror', sub: 'Filmes populares e bem avaliados', load: genreMovies(HORROR) },
+  { id: 'trending', short: 'Em alta', title: 'Em alta', caption: 'Lançamentos de que todo mundo está falando', load: trending },
+  { id: 'truecrime', short: 'True crime', title: 'True crime', caption: 'Documentários e séries, dos mais bem avaliados', load: trueCrime },
+  { id: 'thriller', short: 'Suspense', title: 'Suspense', caption: 'Filmes de suspense populares e bem avaliados', load: genreMovies(THRILLER) },
+  { id: 'horror', short: 'Terror', title: 'Terror', caption: 'Filmes de terror populares e bem avaliados', load: genreMovies(HORROR) },
+];
+
+// ---------- Streamings: principais novidades de cada serviço no Brasil ----------
+// Filmes que estrearam nos últimos 6 meses e séries dos últimos 4 meses, disponíveis na
+// assinatura (flatrate) do serviço, do mais popular ao menos.
+function providerNews(providerId) {
+  return (page) => {
+    const today = isoDaysAgo(0);
+    const common = { page: page, watch_region: 'BR', with_watch_providers: providerId, with_watch_monetization_types: 'flatrate', sort_by: 'popularity.desc' };
+    const movies = tmdb('discover/movie', Object.assign({ 'primary_release_date.gte': isoDaysAgo(180), 'primary_release_date.lte': today }, common, lang))
+      .then((r) => (r.results || []).map((x) => toItem(x, 'movie')))
+      .catch(() => []);
+    const shows = tmdb('discover/tv', Object.assign({ 'first_air_date.gte': isoDaysAgo(120), 'first_air_date.lte': today }, common, lang))
+      .then((r) => (r.results || []).map((x) => toItem(x, 'tv')))
+      .catch(() => []);
+    return Promise.all([movies, shows]).then((both) => {
+      // Intercala filmes e séries mantendo a ordem de popularidade de cada lista.
+      const out = [];
+      for (let i = 0; i < Math.max(both[0].length, both[1].length); i++) {
+        if (both[1][i]) out.push(both[1][i]);
+        if (both[0][i]) out.push(both[0][i]);
+      }
+      return dedupe(out);
+    });
+  };
+}
+
+function provider(id, name, de, logo) {
+  return { id: 'p' + id, short: name, title: name, caption: 'Principais novidades ' + de + ' ' + name, logo: IMG + 'w92' + logo, load: providerNews(id) };
+}
+
+export const STREAMINGS = [
+  provider(8, 'Netflix', 'da', '/rK1KljqmbvO9HQa1PBFLILWah72.png'),
+  provider(119, 'Prime Video', 'do', '/gMZdpavHmxFNnLpMHwVxfqeux2g.png'),
+  provider(337, 'Disney+', 'do', '/5eZ872CghnHFLB1j8grszbrx0dx.png'),
+  provider(1899, 'HBO Max', 'da', '/skypuy7SXuugIQeYg0IglmzoKaS.png'),
+  provider(350, 'Apple TV+', 'do', '/9icYBfYFcwgCbky5VdGUIKJ4C5i.png'),
+  provider(531, 'Paramount+', 'do', '/pkx3klJlwW5JdtaulvDx6hDNtch.png'),
+  provider(307, 'Globoplay', 'do', '/9A6Oxd3F7iXm7mds7CxYOBicojs.png'),
 ];
 
 export function available() {

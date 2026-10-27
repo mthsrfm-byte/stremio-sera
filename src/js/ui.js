@@ -82,7 +82,7 @@ export const TABS = [
   { id: 'recommended', label: 'Recomendado' },
   { id: 'search', label: 'Buscar' },
   { id: 'library', label: 'Biblioteca' },
-  { id: 'calendar', label: 'Animes' },
+  { id: 'streamings', label: 'Streamings' },
   { id: 'settings', label: 'Ajustes' },
 ];
 

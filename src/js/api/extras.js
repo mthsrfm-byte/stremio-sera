@@ -1,14 +1,13 @@
 // Metadados extras no estilo do Kai (Metadata/ e details-enhancer):
 // - notas de várias fontes (IMDb do Cinemeta; MDBList com chave; AniList para animes, sem chave);
 // - sinopse/título em PT-BR, logo e elenco com fotos via TMDB (com chave).
-import { getJSON, postJSON, cachedJSON } from '../lib/http.js';
+import { cachedJSON } from '../lib/http.js';
 import * as store from '../lib/store.js';
 import { getJSONViaProxy } from './server.js';
-import { t, apiLang } from '../lib/i18n.js';
+import { apiLang } from '../lib/i18n.js';
 
 const TMDB = 'https://api.themoviedb.org/3/';
 const TMDB_IMG = 'https://image.tmdb.org/t/p/';
-const ARM = 'https://arm.haglund.dev/api/v2/';
 
 function imdbOf(id) {
   const m = String(id || '').match(/^tt\d+/);
@@ -96,49 +95,33 @@ export function seasonPt(tmdbId, season) {
 }
 
 // ---------- Notas ----------
+// Só IMDb e Rotten Tomatoes (crítica e público). MDBList traz as do Rotten Tomatoes; null = sem nota.
 function mdblist(meta) {
   const key = keyOf('mdblistKey');
   const imdb = imdbOf(meta.id);
-  if (!key || !imdb) return Promise.resolve([]);
+  if (!key || !imdb) return Promise.resolve({});
   const type = meta.type === 'series' ? 'show' : 'movie';
   return getJSONViaProxy('https://api.mdblist.com/imdb/' + type + '/' + imdb + '?apikey=' + encodeURIComponent(key), { timeout: 12000 })
     .then((d) => {
-      const out = [];
+      const out = {};
       (d.ratings || []).forEach((r) => {
         const v = r.value;
         if (v === null || v === undefined || v === 0) return;
         const src = String(r.source || '').toLowerCase();
-        if (src === 'tomatoes') out.push({ cls: 'rt', label: 'RT', value: v + '%' });
-        else if (src === 'popcorn' || src === 'tomatoesaudience') out.push({ cls: 'rt', label: t('Público'), value: v + '%' });
-        else if (src === 'metacritic') out.push({ cls: 'mc', label: 'MC', value: String(v) });
-        else if (src === 'trakt') out.push({ cls: 'trakt', label: 'Trakt', value: v + '%' });
-        else if (src === 'letterboxd') out.push({ cls: 'lb', label: 'LB', value: Number(v).toFixed(1) });
-        else if (src === 'tmdb') out.push({ cls: 'tmdb', label: 'TMDB', value: v + '%' });
+        if (src === 'tomatoes') out.critic = Math.round(v);
+        else if (src === 'popcorn' || src === 'tomatoesaudience') out.audience = Math.round(v);
+        else if (src === 'imdb') out.imdb = Number(v).toFixed(1);
       });
       return out;
     })
-    .catch(() => []);
+    .catch(() => ({}));
 }
 
-function anilistScore(meta) {
-  const m = String(meta.id).match(/^(kitsu|mal|anilist):(\d+)/);
-  let idPromise;
-  if (m && m[1] === 'anilist') idPromise = Promise.resolve({ anilist: parseInt(m[2], 10) });
-  else if (m) idPromise = getJSON(ARM + 'ids?source=' + (m[1] === 'mal' ? 'myanimelist' : m[1]) + '&id=' + m[2], { quiet: true });
-  else if (imdbOf(meta.id)) idPromise = getJSON(ARM + 'imdb?id=' + imdbOf(meta.id), { quiet: true }).then((l) => (Array.isArray(l) && l[0]) || null);
-  else return Promise.resolve([]);
-  return idPromise
-    .then((ids) => {
-      if (!ids || !ids.anilist) return [];
-      return postJSON('https://graphql.anilist.co', { query: 'query($id:Int){Media(id:$id,type:ANIME){averageScore}}', variables: { id: ids.anilist } }, { quiet: true }).then((r) => {
-        const sc = r && r.data && r.data.Media && r.data.Media.averageScore;
-        return sc ? [{ cls: 'al', label: 'AniList', value: sc + '%' }] : [];
-      });
-    })
-    .catch(() => []);
-}
 
-export function ratings(meta, anime) {
-  const base = meta.imdbRating ? [{ cls: 'imdb', label: 'IMDb', value: String(meta.imdbRating) }] : [];
-  return Promise.all([mdblist(meta), anime ? anilistScore(meta) : Promise.resolve([])]).then((r) => base.concat(r[0], r[1]));
+export function ratings(meta) {
+  return mdblist(meta).then((m) => ({
+    imdb: meta.imdbRating ? String(meta.imdbRating) : m.imdb || null,
+    critic: m.critic === undefined ? null : m.critic,
+    audience: m.audience === undefined ? null : m.audience,
+  }));
 }

@@ -13,7 +13,7 @@ import { t } from '../lib/i18n.js';
 const ROTATE_MS = 8000;
 
 export function HomeView() {
-  const el = h('div.view');
+  const el = h('div.view.home-view');
   const scroller = h('div.scroll-y', { 'data-scroll-y': '' });
   const bar = topbar('home', router.goTab);
   const heroUi = buildHero();
@@ -194,6 +194,7 @@ function buildHero() {
   const buttons = h('div.hero-buttons', { 'data-group': '' }, [watchBtn, infoBtn]);
   buttons.__last = watchBtn; // entrar no banner sempre pelo "Assistir"
   const el = h('div.hero', { 'data-anchor': '0' }, [
+    h('div.aurora', null, [h('i.a1'), h('i.a2'), h('i.a3')]), // fundo vivo enquanto a arte não chega
     bgA,
     bgB,
     h('div.hero-shade-left'),
@@ -248,7 +249,7 @@ function buildHero() {
     if (it.year) parts.push(it.year);
     if (it.runtime) parts.push(it.runtime);
     if (it.genres && it.genres.length) parts.push(it.genres.slice(0, 3).join(', '));
-    meta.innerHTML = (it.rating ? '<span class="imdb">★ ' + escapeHtml(it.rating) + '</span> · ' : '') + escapeHtml(parts.join(' · '));
+    meta.innerHTML = (it.rating ? '<span class="imdb-mini">IMDb</span> ' + escapeHtml(it.rating) + ' · ' : '') + escapeHtml(parts.join(' · '));
     desc.textContent = it.description || '';
     clear(dots);
     items.forEach((_, i) => dots.appendChild(h('span', { cls: i === index ? 'on' : '' })));

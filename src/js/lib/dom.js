@@ -58,9 +58,18 @@ export function lazyImg(url, cls) {
   return el;
 }
 
+// A imagem só aparece pronta (classe "ready" com fade no CSS), nunca se formando aos pedaços.
+function onLoaded() {
+  if (this.__on) this.classList.add('ready');
+}
+
 function setOn(el, on) {
   if (on && !el.__on) {
     el.__on = true;
+    if (!el.__readyHook) {
+      el.__readyHook = true;
+      el.addEventListener('load', onLoaded);
+    }
     const url = el.getAttribute('data-lazy');
     const kitsu = kitsuInfo(url);
     if (!kitsu) {
@@ -77,6 +86,7 @@ function setOn(el, on) {
     });
   } else if (!on && el.__on) {
     el.__on = false;
+    el.classList.remove('ready');
     el.src = BLANK;
   }
 }
@@ -112,6 +122,7 @@ export function unloadImages(root) {
   $$('img[data-lazy]', root).forEach((el) => {
     if (el.__on) {
       el.__on = false;
+      el.classList.remove('ready');
       el.src = BLANK;
     }
   });
