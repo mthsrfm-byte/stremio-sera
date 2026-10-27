@@ -713,8 +713,18 @@ body.light .stream .s-tag.res.uhd { background: rgba(51,71,255,0.12); color: #22
 body.light .soon-tag { background: rgba(51,71,255,0.12); color: #2236E0; }
 
 /* Elenco navegável */
-.cast { border-radius: 14px; padding: 6px 0; border: 3px solid transparent; }
-.cast.focused { background: rgba(51,71,255,0.22); border-color: #3347FF; }
+/* Elenco: sem caixa; a foto em foco cresce e ganha um anel, o nome acende */
+.details-buttons { margin-bottom: 40px; }
+.details-cast { margin-top: 0; }
+.cast-row { padding: 14px 0 0 6px; overflow: visible; }
+.cast .ph { -webkit-transition: -webkit-transform 0.22s ease, box-shadow 0.22s ease; transition: transform 0.22s ease, box-shadow 0.22s ease; box-shadow: 0 0 0 0 rgba(51,71,255,0); }
+.cast .nm, .cast .ch { -webkit-transition: color 0.2s, opacity 0.2s; transition: color 0.2s, opacity 0.2s; }
+.cast.focused .ph { -webkit-transform: scale(1.12); transform: scale(1.12); box-shadow: 0 0 0 4px #0e0e0d, 0 0 0 8px #3347FF, 0 12px 30px rgba(0,0,0,0.5); }
+.cast.focused .nm { color: #fff; }
+.cast.focused .ch { color: #A9B4F5; }
+body.light .cast.focused .ph { box-shadow: 0 0 0 4px #F5F4EF, 0 0 0 8px #3347FF, 0 12px 30px rgba(0,0,0,0.2); }
+body.light .cast.focused .nm { color: #111110; }
+body.light .cast.focused .ch { color: #2236E0; }
 
 /* Aba NSFW: brilho discreto no topo, seções com marcador e categorias em destaque */
 .nsfw-view .scroll-y { background: radial-gradient(1200px 420px at 15% 0, rgba(229,80,140,0.16), rgba(229,80,140,0) 70%), radial-gradient(900px 380px at 85% 0, rgba(123,91,245,0.14), rgba(123,91,245,0) 70%); }
@@ -812,3 +822,5 @@ body.light .fp-life, body.light .fp-bio-text, body.light .fp-bio-full { color: r
 body.light .fp-place, body.light .fp-count, body.light .fp-item-role, body.light .fp-insta small { color: rgba(17,17,16,0.55); }
 body.light .fp-panel { background: rgba(255,255,255,0.5); }
 .slow-box .modal-actions .btn { margin-right: 16px; }
+.cast .ph { -webkit-transform-origin: 50% 90%; transform-origin: 50% 90%; }
+.cast.focused .nm { margin-top: 4px; }

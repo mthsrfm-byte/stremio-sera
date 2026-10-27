@@ -148,8 +148,9 @@ function DetailsView(type, id, opts) {
     info.appendChild(ratingsEl);
     info.appendChild(genres);
     info.appendChild(desc);
-    info.appendChild(castLine);
+    // Botões antes do elenco: o foco começa no Assistir e o elenco fica logo abaixo, para explorar.
     info.appendChild(h('div.details-buttons', { 'data-group': '' }, [watchBtn, libBtn, srcBtn]));
+    info.appendChild(castLine);
     loadExtras({ logo: logo, title: title, desc: desc, castLine: castLine, ratingsEl: ratingsEl });
   }
 

@@ -11519,10 +11519,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       info.appendChild(ratingsEl);
       info.appendChild(genres);
       info.appendChild(desc);
-      info.appendChild(castLine);
       info.appendChild(h("div.details-buttons", {
         "data-group": ""
       }, [watchBtn, libBtn, srcBtn]));
+      info.appendChild(castLine);
       loadExtras({
         logo: logo2,
         title: title,
@@ -13217,9 +13217,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "8c571ececc30adcbb61f9746fdae58736232c07f",
-    date: "2026-10-27T05:59:20+00:00",
-    message: "Player intro: centered loading hierarchy (spinner, main status, Smart Choice caption)"
+    commit: "1cc5df2300364f4d3ae405d2da59b5c758124a0f",
+    date: "2026-10-27T06:04:20+00:00",
+    message: "Actor profile: age, birthplace, Portuguese bio (auto-translated when missing), Instagram with QR code, poster grid filmography with newest/oldest order"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
