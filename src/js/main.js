@@ -23,7 +23,7 @@ import { openDetails } from './views/details.js';
 import * as profiles from './views/profiles.js';
 import { applyTheme } from './lib/theme.js';
 import { openLogin } from './views/login.js';
-import { registerTizenKeys } from './lib/platform.js';
+import { registerTizenKeys, IS_WEB } from './lib/platform.js';
 import * as intro from './lib/intro.js';
 
 // Abertura (logo + som): o app só aparece depois dela, mesmo que carregue antes.
@@ -95,7 +95,7 @@ function start() {
     router.goTab('home');
     intro.finish(); // a abertura some em fade por cima da tela inicial já pronta
     // Pedidos do controle no celular ("Mandar para a TV").
-    sendToTv.start(openFromPhone);
+    if (!IS_WEB) sendToTv.start(openFromPhone);
     if (profiles.isNewProfilePendingLogin() && !stremio.isLoggedIn()) {
       // Perfil novo: entra na conta Stremio deste perfil (para ter o histórico próprio).
       profiles.clearNewProfileFlag();
@@ -107,12 +107,14 @@ function start() {
       });
     } else maybeShowWizard();
     // Avisa se saiu versão nova no GitHub (instala em Ajustes → Procurar atualização).
-    setTimeout(() => {
-      update
-        .check()
-        .then((info) => info.isNew && toast(t('Tem Seraflix novo saindo do forno! Ajustes → Procurar atualização'), 7000))
-        .catch(() => {});
-    }, 8000);
+    if (!IS_WEB) {
+      setTimeout(() => {
+        update
+          .check()
+          .then((info) => info.isNew && toast(t('Tem Seraflix novo saindo do forno! Ajustes → Procurar atualização'), 7000))
+          .catch(() => {});
+      }, 8000);
+    }
   });
 }
 

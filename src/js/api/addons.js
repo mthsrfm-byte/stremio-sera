@@ -4,6 +4,7 @@ import * as stremio from './stremio.js';
 import * as store from '../lib/store.js';
 import { log } from '../lib/log.js';
 import { t } from '../lib/i18n.js';
+import { IS_WEB } from '../lib/platform.js';
 
 export const CINEMETA = 'https://v3-cinemeta.strem.io/manifest.json';
 export const OPENSUBTITLES = 'https://opensubtitles-v3.strem.io/manifest.json';
@@ -89,6 +90,7 @@ function fetchTube(name, i) {
 // e mais devagar depois, para a aba NSFW aparecer sem precisar recarregar o app.
 let tubeTimer = null;
 function attachTubes() {
+  if (IS_WEB) return; // os addons NSFW vêm do serviço da TV (127.0.0.1); no navegador não existe
   if ((tubes && tubes.length) || tubeTimer) return;
   tubeTimer = true; // uma procura por vez
   Promise.all(TUBES.map((n) => fetchTube(n, 0))).then((list) => {

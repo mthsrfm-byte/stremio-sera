@@ -6,11 +6,19 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const src = path.join(root, 'src');
-const dist = path.join(root, 'dist');
 const watch = process.argv.includes('--watch');
+// --web: versão para navegador (site/app/, com tranca de senha) em vez do pacote da TV (dist/).
+const web = process.argv.includes('--web');
+// Pasta de saída: dist/ é o que a TV roda; site/app/ é publicado no GitHub Pages.
+const dist = web ? path.join(root, 'site', 'app') : path.join(root, 'dist');
+// A senha da versão web só vira um hash no build. Sem ela o site ficaria aberto, então não builda.
+if (web && !process.env.KAI_WEB_PASSWORD) {
+  throw new Error('Build web sem senha: defina KAI_WEB_PASSWORD (no GitHub é o segredo WEB_PASSWORD).');
+}
 
 // Qual commit este build representa (para o botão de atualizar comparar com o GitHub).
 // Na GitHub Action vem de KAI_COMMIT/KAI_BUILD_DATE/KAI_COMMIT_MSG; localmente, do git.
@@ -66,6 +74,7 @@ const esbuildOptions = {
     __KAI_BUILD_DATE__: JSON.stringify(buildInfo.date),
     __KAI_COMMIT_MSG__: JSON.stringify(buildInfo.message),
     __KAI_VERSION__: JSON.stringify(JSON.parse(fs.readFileSync(path.join(root, 'appinfo.json'), 'utf8')).version),
+    __KAI_WEB__: JSON.stringify(web),
   },
   logLevel: 'warning',
 };
@@ -74,6 +83,13 @@ async function emit(result) {
   fs.rmSync(dist, { recursive: true, force: true });
   fs.mkdirSync(dist, { recursive: true });
   copyDir(path.join(src, 'static'), dist);
+  if (web) {
+    // Página de entrada da web (com a tranca), no lugar da de TV. A senha vai como hash salgado.
+    copyDir(path.join(src, 'web'), dist);
+    const salt = 'seraflix-web:';
+    const hash = createHash('sha256').update(salt + process.env.KAI_WEB_PASSWORD).digest('hex');
+    fs.writeFileSync(path.join(dist, 'gate-config.js'), 'window.SERA_GATE = ' + JSON.stringify({ salt, hash }) + ';\n');
+  }
   fs.copyFileSync(path.join(root, 'appinfo.json'), path.join(dist, 'appinfo.json'));
   const version = JSON.parse(fs.readFileSync(path.join(root, 'appinfo.json'), 'utf8')).version;
   fs.writeFileSync(path.join(dist, 'build.json'), JSON.stringify({ version, ...buildInfo }, null, 2) + '\n');

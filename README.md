@@ -240,13 +240,37 @@ repository secrets (**Settings → Secrets and variables → Actions → New rep
 The **Build e publicar na TV** workflow embeds them in `dist/app.js`. The repository is public, so
 the keys are readable by anyone. A key typed in Ajustes on the TV takes priority.
 
+## Versão web (privada, GitHub Pages)
+
+O mesmo app roda num navegador, em `https://mthsrfm-byte.github.io/stremio-sera/app/`, atrás de
+uma senha. O workflow **Publicar site no GitHub Pages** (`.github/workflows/pages.yml`) publica a
+cada push na main:
+
+- `/app/`: o Seraflix para navegador (`npm run build:web`, saída em `site/app/`).
+- `/`: o controle pelo celular (pasta `remote/`), como antes.
+
+Para ativar, crie o segredo **`WEB_PASSWORD`** (Settings → Secrets and variables → Actions). Sem ele o
+build web para de propósito, para o app não ficar aberto. Só o hash salgado da senha vai para o site.
+Para deslogar todos os aparelhos, troque `AUTH_VERSION` em `src/web/gate.js`.
+
+Limites da versão web:
+
+- **Não é privada de verdade.** O GitHub Pages só restringe o acesso a sites com GitHub Enterprise
+  Cloud. Aqui a senha só barra quem chega na página; o código do app continua público no repositório.
+- Trechos que só existem na TV ficam escondidos: atualização pelo TizenBrew, controle pelo celular e
+  o "Sair" do Voltar.
+- Torrents e fluxos HLS do stremio-service precisam de um player com suporte a HLS (o Chrome não toca
+  HLS nativo). Fontes diretas (debrid, MP4/MKV) funcionam.
+- O layout é o da TV (1920×1080). Funciona com mouse e teclado no computador; no celular fica pequeno.
+
 ## Building
 
 Needs Node.js.
 
 ```
 npm install
-npm run build
+npm run build          # pacote da TV: dist/
+npm run build:web      # site web: site/app/ (exige KAI_WEB_PASSWORD)
 ```
 
 The built app is written to `dist/`, which TizenBrew loads (`appPath` in `package.json`).

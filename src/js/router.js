@@ -1,6 +1,7 @@
 // Pilha de telas. Cada tela: { el, layer, onShow, onHide, onBack, destroy }.
 import * as nav from './lib/nav.js';
 import { platformBack } from './lib/tv.js';
+import { IS_WEB } from './lib/platform.js';
 import { confirmDialog } from './ui.js';
 import { loadVisibleImages, unloadImages } from './lib/dom.js';
 import { t } from './lib/i18n.js';
@@ -69,6 +70,7 @@ export function back() {
     goTab('home');
     return;
   }
+  if (IS_WEB) return; // no navegador não há "sair do app": fechar a aba é com o usuário
   confirmDialog(t('Sair do Stremio Kai?'), t('Sair'), () => platformBack());
 }
 

@@ -1,5 +1,7 @@
 node_modules/
 *.log
+# Build do site web (GitHub Pages): gerado pelo workflow, não é versionado
+site/
 # Ferramentas locais do assistente / editor
 .claude/
 .agents/

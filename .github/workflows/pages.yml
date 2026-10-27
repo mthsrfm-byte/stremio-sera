@@ -1,0 +1,62 @@
+# Publica no GitHub Pages a cada push na main:
+#  - a raiz: o controle pelo celular (pasta remote/), como antes;
+#  - /app/: o Seraflix para navegador, atrás de senha (segredo WEB_PASSWORD).
+# Sem o segredo WEB_PASSWORD o build web para de propósito: o app não sobe aberto na internet.
+name: Publicar site no GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths: ['remote/**', 'src/**', 'tools/**', 'package.json', 'package-lock.json', '.github/workflows/pages.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build do app web
+        env:
+          # Senha de entrada (Settings → Secrets and variables → Actions → WEB_PASSWORD). Vira só um hash no build.
+          KAI_WEB_PASSWORD: ${{ secrets.WEB_PASSWORD }}
+          KAI_TMDB: ${{ secrets.TMDB_API_KEY }}
+          KAI_MDBLIST: ${{ secrets.MDBLIST_API_KEY }}
+        run: npm run build:web
+
+      - name: Montar o site (controle na raiz, app em /app/)
+        run: |
+          mkdir -p _site
+          cp -r remote/. _site/
+          cp -r site/app _site/app
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

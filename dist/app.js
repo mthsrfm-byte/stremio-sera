@@ -5172,6 +5172,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
 
   // src/js/lib/platform.js
+  var IS_WEB = false;
   function isTizen() {
     return _typeof(window.tizen) === "object" || /Tizen/i.test(navigator.userAgent || "");
   }
@@ -6380,6 +6381,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
   var tubeTimer = null;
   function attachTubes() {
+    if (IS_WEB) return;
     if (tubes && tubes.length || tubeTimer) return;
     tubeTimer = true;
     Promise.all(TUBES.map(function (n) {
@@ -7501,6 +7503,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       goTab("home");
       return;
     }
+    if (IS_WEB) return;
     confirmDialog(t("Sair do Stremio Kai?"), t("Sair"), function () {
       return platformBack();
     });
@@ -7740,8 +7743,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return m ? m[0] : null;
   }
   var BUILTIN_KEYS = {
-    tmdbKey: true ? "9c57ed7ea044b2f01eea2fcc2e954c2e" : "",
-    mdblistKey: true ? "t9e4f1z29b3c36i1j25rul1wx" : ""
+    tmdbKey: true ? "" : "",
+    mdblistKey: true ? "" : ""
   };
   function keyOf(name) {
     return (settings()[name] || "").trim() || BUILTIN_KEYS[name];
@@ -13520,9 +13523,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "bbaaef8507dc919280e199f085d3150398b904d9",
-    date: "2026-10-27T04:44:40-03:00",
-    message: "Corrige tela cinza ao abrir o app"
+    commit: "fa7b776d6dd232af3b7d6ad5191b5e868a6fe875",
+    date: "2026-10-27T07:45:01+00:00",
+    message: "Build da dist/ para a TV"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -14207,18 +14210,20 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var keep = current2();
       var keepIndex = keep ? Array.prototype.indexOf.call(body.querySelectorAll(".set-row"), keep) : -1;
       clear(body);
-      body.appendChild(h("div.set-section", {
-        text: t("Atualizações")
-      }));
-      body.appendChild(row(t("Procurar atualização"), updateStatus || t("Busca a versão mais nova no GitHub ({repo})", {
-        repo: REPO
-      }), "", function () {
-        return checkForUpdate();
-      }));
-      var b = BUILD;
-      body.appendChild(row(t("Versão instalada"), b.date ? t("Publicada em {date}", {
-        date: formatDate(b.date)
-      }) + (b.message ? " · " + b.message : "") : t("Build local"), "v" + VERSION + (b.commit ? " · " + shortCommit(b.commit) : ""), null));
+      if (!IS_WEB) {
+        body.appendChild(h("div.set-section", {
+          text: t("Atualizações")
+        }));
+        body.appendChild(row(t("Procurar atualização"), updateStatus || t("Busca a versão mais nova no GitHub ({repo})", {
+          repo: REPO
+        }), "", function () {
+          return checkForUpdate();
+        }));
+        var b = BUILD;
+        body.appendChild(row(t("Versão instalada"), b.date ? t("Publicada em {date}", {
+          date: formatDate(b.date)
+        }) + (b.message ? " · " + b.message : "") : t("Build local"), "v" + VERSION + (b.commit ? " · " + shortCommit(b.commit) : ""), null));
+      }
       if (device) body.appendChild(row(t("TV"), "", device, null));
       var prof = activeProfile();
       var allProfiles = profiles();
@@ -14652,12 +14657,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }, [h("div.label", null, [t("Adicionar addon por URL"), h("small", {
         text: isLoggedIn() ? t("Instala na sua conta Stremio") : t("Fica só nesta TV")
       })]), addInput]));
-      body.appendChild(h("div.set-section", {
-        text: t("Controle no celular")
-      }));
-      body.appendChild(row(t("Abrir o controle no celular"), t("Mostra um QR code: é só apontar a câmera"), "", function () {
-        return showPhoneRemote();
-      }));
+      if (!IS_WEB) {
+        body.appendChild(h("div.set-section", {
+          text: t("Controle no celular")
+        }));
+        body.appendChild(row(t("Abrir o controle no celular"), t("Mostra um QR code: é só apontar a câmera"), "", function () {
+          return showPhoneRemote();
+        }));
+      }
       body.appendChild(h("div.set-section", {
         text: t("Sobre e depuração")
       }));
@@ -14976,7 +14983,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }), introDone]).then(function () {
       goTab("home");
       finish();
-      start(openFromPhone);
+      if (!IS_WEB) start(openFromPhone);
       if (isNewProfilePendingLogin() && !isLoggedIn()) {
         clearNewProfileFlag();
         openLogin(function () {
@@ -14986,11 +14993,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           });
         });
       } else maybeShowWizard();
-      setTimeout(function () {
-        check2().then(function (info) {
-          return info.isNew && toast(t("Tem Seraflix novo saindo do forno! Ajustes → Procurar atualização"), 7e3);
-        }).catch(function () {});
-      }, 8e3);
+      if (!IS_WEB) {
+        setTimeout(function () {
+          check2().then(function (info) {
+            return info.isNew && toast(t("Tem Seraflix novo saindo do forno! Ajustes → Procurar atualização"), 7e3);
+          }).catch(function () {});
+        }, 8e3);
+      }
     });
   }
   function openFromPhone(req) {

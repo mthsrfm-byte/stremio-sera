@@ -4,6 +4,7 @@ import * as nav from '../lib/nav.js';
 import * as store from '../lib/store.js';
 import { log } from '../lib/log.js';
 import { deviceInfo } from '../lib/tv.js';
+import { IS_WEB } from '../lib/platform.js';
 import * as substyle from '../lib/substyle.js';
 import * as update from '../api/update.js';
 import * as phoneRemote from '../api/phoneRemote.js';
@@ -300,18 +301,20 @@ export function SettingsView() {
     const keepIndex = keep ? Array.prototype.indexOf.call(body.querySelectorAll('.set-row'), keep) : -1;
     clear(body);
 
-    // ---- Atualizações (direto do GitHub, sem fechar o app) ----
-    body.appendChild(h('div.set-section', { text: t('Atualizações') }));
-    body.appendChild(row(t('Procurar atualização'), updateStatus || t('Busca a versão mais nova no GitHub ({repo})', { repo: update.REPO }), '', () => checkForUpdate()));
-    const b = update.BUILD;
-    body.appendChild(
-      row(
-        t('Versão instalada'),
-        b.date ? t('Publicada em {date}', { date: update.formatDate(b.date) }) + (b.message ? ' · ' + b.message : '') : t('Build local'),
-        'v' + update.VERSION + (b.commit ? ' · ' + update.shortCommit(b.commit) : ''),
-        null
-      )
-    );
+    // ---- Atualizações (direto do GitHub, sem fechar o app; na web o site já é atualizado sozinho) ----
+    if (!IS_WEB) {
+      body.appendChild(h('div.set-section', { text: t('Atualizações') }));
+      body.appendChild(row(t('Procurar atualização'), updateStatus || t('Busca a versão mais nova no GitHub ({repo})', { repo: update.REPO }), '', () => checkForUpdate()));
+      const b = update.BUILD;
+      body.appendChild(
+        row(
+          t('Versão instalada'),
+          b.date ? t('Publicada em {date}', { date: update.formatDate(b.date) }) + (b.message ? ' · ' + b.message : '') : t('Build local'),
+          'v' + update.VERSION + (b.commit ? ' · ' + update.shortCommit(b.commit) : ''),
+          null
+        )
+      );
+    }
     if (device) body.appendChild(row(t('TV'), '', device, null));
 
     // ---- Perfil (cada perfil tem sua conta Stremio, histórico e preferências) ----
@@ -649,9 +652,11 @@ export function SettingsView() {
       ])
     );
 
-    // ---- Controle pelo celular ----
-    body.appendChild(h('div.set-section', { text: t('Controle no celular') }));
-    body.appendChild(row(t('Abrir o controle no celular'), t('Mostra um QR code: é só apontar a câmera'), '', () => showPhoneRemote()));
+    // ---- Controle pelo celular (só na TV: o serviço do Seraflix roda nela) ----
+    if (!IS_WEB) {
+      body.appendChild(h('div.set-section', { text: t('Controle no celular') }));
+      body.appendChild(row(t('Abrir o controle no celular'), t('Mostra um QR code: é só apontar a câmera'), '', () => showPhoneRemote()));
+    }
 
 
     body.appendChild(h('div.set-section', { text: t('Sobre e depuração') }));
