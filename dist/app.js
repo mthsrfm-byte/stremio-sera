@@ -6303,9 +6303,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "5c3ca88aa7bb3ac82ffed6c514a5b6b4de36c247",
-    date: "2026-10-27T08:31:48Z",
-    message: "Web: palco 1920×1080 escalado para caber em qualquer tela"
+    commit: "7a06608a1a1a7df740f8ca841054fea0b6e9257a",
+    date: "2026-10-27T05:42:33-03:00",
+    message: "NSFW: links diretos primeiro, troca automática e serviço da TV protegido"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -6456,12 +6456,17 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
   var TUBES = ["xv", "ph"];
   var TUBE_PORT = 8092;
-  var SERVICE_MIN = 5;
+  var SERVICE_MIN = 6;
   var tubes = null;
   var tubeTries = 0;
   var tubeState = "searching";
   function tubeStatus() {
     return tubeState;
+  }
+  function isTubeStream(s) {
+    return !!(s && tubes && tubes.some(function (a) {
+      return a.manifest && a.manifest.name === s.addon;
+    }));
   }
   function withTubes(list3) {
     if (!tubes || !tubes.length) return list3;
@@ -9159,13 +9164,31 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var err = videoEl.error;
       log.warn("Erro de vídeo", err && err.code, mediaUrl);
       if (!alive) return;
+      var failed = stream;
       errorDetails(err && err.code).then(function (details) {
-        if (!alive) return;
+        if (!alive || failed !== stream) return;
+        var next = tubeFallback();
+        if (next) {
+          failedNotes.push(details);
+          toast(t("Tentando: {what}", {
+            what: String(next.name || "").split("\n").join(" ")
+          }), 3500);
+          switchTo(next);
+          return;
+        }
+        if (failedNotes.length) details = failedNotes.concat(details).join("\n");
         if (!triedTranscode && _isAvailable()) {
           fail(t("A TV não conseguiu tocar este arquivo diretamente."), true, details);
         } else fail(t("A TV não conseguiu tocar este arquivo (formato ou codec não suportado)."), false, details);
       });
     });
+    var failedNotes = [];
+    function tubeFallback() {
+      if (!isTubeStream(stream)) return null;
+      return (opts.streams || []).find(function (x) {
+        return x.addon === stream.addon && tried.indexOf(x) < 0;
+      }) || null;
+    }
     var MEDIA_ERR = {
       1: "cancelado",
       2: "rede",
