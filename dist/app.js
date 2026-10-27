@@ -6303,9 +6303,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "9fb55ab123961117e243f48fb3c8bd9c9f28ce38",
-    date: "2026-10-27T05:59:22-03:00",
-    message: "Player: vídeos HLS (.m3u8) tocam pelo hls.js"
+    commit: "b653693d3ed8457bdb4737988389a91583bcd78c",
+    date: "2026-10-27T06:32:04-03:00",
+    message: "NSFW: Pornhub com sessão, hls.js de endereço fixo, ordem das abas, sem RT e sem vídeo sem prévia"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -6456,7 +6456,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
   var TUBES = ["xv", "ph"];
   var TUBE_PORT = 8092;
-  var SERVICE_MIN = 6;
+  var SERVICE_MIN = 7;
   var tubes = null;
   var tubeTries = 0;
   var tubeState = "searching";
@@ -6622,8 +6622,22 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     if ((s.sfwAddons || []).indexOf(id) >= 0) return false;
     return (s.nsfwAddons || []).indexOf(id) >= 0 || adultByManifest(addon);
   }
+  var ADULT_FIRST = ["seraflix.pornhub", "seraflix.xvideos"];
   function adultAddons() {
-    return list().filter(isAdult);
+    var rank2 = function rank2(a) {
+      var i = ADULT_FIRST.indexOf(a.manifest && a.manifest.id);
+      return i < 0 ? ADULT_FIRST.length : i;
+    };
+    return list().filter(isAdult).map(function (a, i) {
+      return {
+        a: a,
+        i: i
+      };
+    }).sort(function (x, y) {
+      return rank2(x.a) - rank2(y.a) || x.i - y.i;
+    }).map(function (x) {
+      return x.a;
+    });
   }
   function nsfwEnabled() {
     return settings().nsfwTab !== false;
@@ -7400,6 +7414,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       });
       im.setAttribute("data-lazy", src);
       im.onerror = function () {
+        if (o.dropWithoutImage) return dropCard();
         im.style.display = "none";
         wrap.classList.add("img-loaded");
         wrap.appendChild(h("div.ph", {
@@ -7407,7 +7422,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         }));
       };
       wrap.appendChild(im);
-    } else {
+    } else if (!o.dropWithoutImage) {
       wrap.classList.add("img-loaded");
       wrap.appendChild(h("div.ph", {
         text: item.name || ""
@@ -7421,7 +7436,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     if (o.badge) wrap.appendChild(h("div.badge", {
       text: o.badge
     }));
-    return h("div.card", {
+    var el = h("div.card", {
       focusable: true,
       cls: o.wide ? "wide" : o.rank ? "ranked" : "",
       onSelect: o.onSelect,
@@ -7431,6 +7446,18 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }) : null, wrap, h("div.name", {
       text: o.title || item.name || ""
     })]);
+    function dropCard() {
+      var parent = el.parentNode;
+      if (!parent) return;
+      if (current2() === el) {
+        var next = el.nextElementSibling || el.previousElementSibling;
+        if (next) focus(next);
+      }
+      parent.removeChild(el);
+      loadVisibleImages(parent);
+    }
+    if (o.dropWithoutImage && !src) setTimeout(dropCard, 0);
+    return el;
   }
   function skeletonCards(n) {
     var list3 = [];
@@ -8628,20 +8655,27 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
 
   // src/js/lib/hlsplay.js
+  var SOURCES3 = ["https://cdn.jsdelivr.net/npm/hls.js@1.5.20/dist/hls.min.js", "hls.js"];
   var loading = null;
+  var unavailable = "";
+  function loadScript(src) {
+    return new Promise(function (ok, fail) {
+      var s = document.createElement("script");
+      s.src = src;
+      s.onload = function () {
+        return window.Hls ? ok(window.Hls) : fail(new Error("hls.js não carregou"));
+      };
+      s.onerror = function () {
+        return fail(new Error("hls.js não baixou"));
+      };
+      document.head.appendChild(s);
+    });
+  }
   function loadHls() {
     if (window.Hls) return Promise.resolve(window.Hls);
     if (!loading) {
-      loading = new Promise(function (ok, fail) {
-        var s = document.createElement("script");
-        s.src = "hls.js";
-        s.onload = function () {
-          return window.Hls ? ok(window.Hls) : fail(new Error("hls.js não carregou"));
-        };
-        s.onerror = function () {
-          return fail(new Error("hls.js não baixou"));
-        };
-        document.head.appendChild(s);
+      loading = loadScript(SOURCES3[0]).catch(function () {
+        return loadScript(SOURCES3[1]);
       }).catch(function (e) {
         loading = null;
         throw e;
@@ -8654,7 +8688,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
   function attach(videoEl, url2, onFatal) {
     return loadHls().then(function (Hls) {
-      if (!Hls.isSupported()) return null;
+      if (!Hls.isSupported()) {
+        unavailable = t("sem suporte a hls.js nesta TV");
+        return null;
+      }
+      unavailable = "";
       var hls = new Hls({
         // Worker de blob esbarra no Content-Security-Policy do app; na thread principal dá conta.
         enableWorker: false,
@@ -8686,7 +8724,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           } catch (e) {}
         }
       };
-    }, function () {
+    }, function (e) {
+      unavailable = e.message;
       return null;
     });
   }
@@ -9299,6 +9338,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var parts = [why || t("erro {c}", {
         c: (code || "?") + (MEDIA_ERR[code] ? " (" + MEDIA_ERR[code] + ")" : "")
       })];
+      if (!why && isHls(sourceUrl) && !hlsCtl && unavailable) parts[0] += " · " + unavailable;
       parts.push((stream && stream.name ? String(stream.name).split("\n").join(" ") + " · " : "") + (host || "?") + (target !== mediaUrl ? " " + t("via TV") : ""));
       if (target === mediaUrl) return Promise.resolve(parts.join(" · "));
       return getJSON(mediaUrl.replace(/\/px\/.*$/, "/api/pxlog"), {
@@ -11940,6 +11980,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }, h("span.rv", {
         text: r.imdb
       })));
+      if (isAdult2()) return;
       var pct = function pct(v) {
         return v === null || v === void 0 ? loading2 ? "··" : "--" : v + "%";
       };
@@ -13032,6 +13073,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return _card(m, {
       wide: wide,
       image: wide ? m.poster || m.background : void 0,
+      dropWithoutImage: true,
       onSelect: function onSelect() {
         return openDetails2(m.type || entry.catalog.type, m.id, null, m);
       }
