@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#111110">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Seraflix Controle</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Geist:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    /* Cores de matheusserafim.com, no escuro (as mesmas do Seraflix). */
+    :root {
+      --bg: #111110; --surface: #1C1C1A; --surface-2: #262623; --line: rgba(245,244,239,0.08);
+      --ink: #F5F4EF; --muted: #A3A19A; --accent: #3347FF; --lav: #A9B4F5; --ok: #17935A; --bad: #ff8a8a;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html, body { background: var(--bg); color: var(--ink); font-family: 'Geist', system-ui, sans-serif; }
+    body { min-height: 100vh; padding: max(16px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom)); -webkit-user-select: none; user-select: none; }
+    .wrap { max-width: 420px; margin: 0 auto; }
+    h1, h2, .brand { font-family: 'Bricolage Grotesque', 'Geist', sans-serif; letter-spacing: -0.5px; }
+
+    header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+    .brand { display: flex; align-items: center; gap: 8px; font-size: 22px; font-weight: 800; }
+    .brand svg { height: 20px; width: auto; fill: currentColor; }
+    .brand b { color: var(--lav); }
+    .status { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); background: var(--surface); border: 1px solid var(--line); padding: 6px 12px; border-radius: 99px; }
+    .status i { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+    .status.on i { background: #3ddc84; }
+    .status.wait i { background: #f5c518; }
+    .status.off i { background: var(--bad); }
+    .status button { color: var(--lav); background: none; border: 0; font: inherit; cursor: pointer; padding: 0; }
+
+    .card { background: var(--surface); border: 1px solid var(--line); border-radius: 24px; padding: 20px; margin-bottom: 16px; }
+    .card h2 { font-size: 22px; margin-bottom: 6px; }
+    .card p { color: var(--muted); font-size: 15px; line-height: 1.45; margin-bottom: 14px; }
+    .card ol { color: var(--muted); font-size: 15px; line-height: 1.5; padding-left: 20px; margin-bottom: 14px; }
+    .card ol b { color: var(--ink); font-weight: 600; }
+    label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+    input[type=text] { width: 100%; height: 50px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); font: 500 17px 'Geist', sans-serif; padding: 0 16px; outline: none; -webkit-user-select: text; user-select: text; }
+    input[type=text]:focus { border-color: var(--accent); }
+    .row { display: flex; gap: 10px; }
+    .row > * { flex: 1; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; height: 50px; border-radius: 99px; border: 0; font: 600 16px 'Geist', sans-serif; cursor: pointer; background: var(--surface-2); color: var(--ink); padding: 0 20px; text-decoration: none; }
+    .btn.primary { background: var(--ink); color: var(--bg); }
+    .btn.blue { background: var(--accent); color: #fff; }
+    .btn:active { transform: scale(0.97); }
+    .mt { margin-top: 12px; }
+    .hint { font-size: 13px; color: var(--muted); margin-top: 10px; line-height: 1.4; }
+    .err { color: var(--bad); }
+
+    /* Controle */
+    .top-keys { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 22px; }
+    .key { height: 56px; border-radius: 18px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: 600 14px 'Geist', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; cursor: pointer; touch-action: manipulation; }
+    .key svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .key small { font-size: 11px; color: var(--muted); font-weight: 500; }
+    .key:active, .key.hit { background: var(--accent); border-color: var(--lav); color: #fff; }
+    .key:active small, .key.hit small { color: #fff; }
+    .key.power { color: var(--bad); }
+
+    .dpad { position: relative; width: 272px; height: 272px; margin: 0 auto 24px; border-radius: 50%; background: var(--surface); border: 1px solid var(--line); }
+    .dpad .arrow { position: absolute; width: 88px; height: 88px; border: 0; background: none; color: var(--ink); display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 50%; touch-action: manipulation; }
+    .dpad .arrow svg { width: 30px; height: 30px; stroke: currentColor; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+    .dpad .arrow:active, .dpad .arrow.hit { background: rgba(51,71,255,0.25); color: var(--lav); }
+    .dpad .up { top: 4px; left: 92px; }
+    .dpad .down { bottom: 4px; left: 92px; }
+    .dpad .left { left: 4px; top: 92px; }
+    .dpad .right { right: 4px; top: 92px; }
+    .dpad .ok { position: absolute; left: 76px; top: 76px; width: 120px; height: 120px; border-radius: 50%; border: 0; background: var(--ink); color: var(--bg); font: 800 24px 'Bricolage Grotesque', sans-serif; cursor: pointer; touch-action: manipulation; }
+    .dpad .ok:active, .dpad .ok.hit { background: var(--accent); color: #fff; }
+
+    .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 10px; }
+    .rocker { display: grid; grid-template-rows: 56px 56px; gap: 0; border-radius: 18px; overflow: hidden; border: 1px solid var(--line); }
+    .rocker .key { border: 0; border-radius: 0; }
+    .rocker .key + .key { border-top: 1px solid var(--line); }
+    .colors { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 10px 0 22px; }
+    .colors .key { height: 40px; }
+    .colors .key i { width: 22px; height: 6px; border-radius: 3px; display: block; }
+
+    .type { display: flex; gap: 10px; }
+    .type input { flex: 1; }
+    .type .btn { flex: 0 0 auto; }
+
+    .tabs { display: flex; gap: 8px; justify-content: center; margin: 4px 0 18px; }
+    .tabs button { background: none; border: 0; color: var(--muted); font: 500 14px 'Geist', sans-serif; padding: 6px 10px; border-radius: 99px; cursor: pointer; }
+    .tabs button.on { background: var(--surface); color: var(--ink); }
+    .numpad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 22px; }
+    .numpad .key { height: 60px; font-size: 22px; font-family: 'Bricolage Grotesque', sans-serif; }
+    .hidden { display: none !important; }
+    footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 18px; }
+    footer button { background: none; border: 0; color: var(--muted); font: inherit; text-decoration: underline; cursor: pointer; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <svg viewBox="9.45 13.36 305.55 98.86" aria-label="Sera"><path d="M189.18 13.37 L9.45 13.37 L9.45 22.36 L9.45 112.22 L18.43 112.22 L18.43 22.36 L189.18 22.36Z"/><path d="M189.18 94.24 L189.18 40.32 L189.18 31.34 L162.22 31.34 L153.24 31.34 L153.24 94.24 L162.22 94.24 L162.22 40.32 L180.2 40.32 L180.2 94.24Z"/><path d="M198.17 13.36 L198.17 22.35 L198.17 94.24 L207.16 94.24 L207.16 49.31 L234.12 49.31 L234.12 40.32 L207.16 40.32 L207.16 22.35 L252.09 22.35 L252.09 94.24 L261.08 94.24 L261.08 22.35 L306.01 22.35 L306.01 103.23 L18.43 103.23 L18.43 112.22 L306.01 112.22 L315 112.22 L315 22.35 L315 13.36Z"/><path d="M136.26 67.28 L144.25 67.28 L144.25 40.32 L144.25 31.34 L135.26 31.34 L27.42 31.34 L27.42 40.32 L27.42 67.28 L36.41 67.28 L54.38 67.28 L54.38 85.26 L27.42 85.26 L27.42 94.24 L54.38 94.24 L63.37 94.24 L63.37 67.28 L63.37 58.3 L36.41 58.3 L36.41 40.32 L135.26 40.32 L135.26 58.3 L109.3 58.3 L109.3 67.28 L109.44 67.28 L136.4 94.24 L144.25 94.24 L144.25 89.39 L122.15 67.28 L135.26 67.28Z"/><path d="M72.36 58.3h26.96v8.99h-26.96Z"/><path d="M72.36 85.26h26.96v8.99h-26.96Z"/><path d="M225.13 67.28h8.99v26.96h-8.99Z"/><path d="M279.05 40.32h8.99v53.92h-8.99Z"/></svg>
+      <b>controle</b>
+    </div>
+    <div class="status off" id="status"><i></i><span id="statusText">desconectado</span></div>
+  </header>
+
+  <!-- Configuração (primeira vez ou quando a conexão falha) -->
+  <section id="setup" class="card hidden">
+    <h2>Bora conectar na TV</h2>
+    <p>O celular precisa estar na mesma Wi-Fi da TV, e a TV ligada.</p>
+    <label for="ip">IP da TV</label>
+    <input type="text" id="ip" inputmode="decimal" placeholder="ex.: 192.168.0.35" autocomplete="off">
+    <p class="hint">Na TV: Configurações → Geral → Rede → Status da rede → Configurações de IP.</p>
+
+    <ol class="mt" id="certSteps">
+      <li><b>Libere a conexão segura</b> (só na primeira vez): toque no botão abaixo. Vai abrir um aviso de "conexão não particular". Toque em <b>Avançado</b> e depois em <b>Continuar para o site</b>. Pode aparecer uma página em branco ou um texto estranho; é normal. Volte para esta aba.</li>
+      <li><b>Conecte:</b> a TV vai perguntar se pode permitir o "Seraflix Controle". Aceite com o controle normal.</li>
+    </ol>
+    <div class="row">
+      <a class="btn" id="certBtn" target="_blank" rel="noopener">1. Liberar</a>
+      <button class="btn blue" id="connectBtn">2. Conectar</button>
+    </div>
+    <p class="hint err hidden" id="setupErr"></p>
+  </section>
+
+  <!-- Controle -->
+  <main id="remote">
+    <div class="top-keys">
+      <button class="key power" data-key="KEY_POWER"><svg viewBox="0 0 24 24"><path d="M12 3v9"/><path d="M6.3 6.3a8 8 0 1 0 11.4 0"/></svg><small>Desligar</small></button>
+      <button class="key" data-key="KEY_SOURCE"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8"/></svg><small>Fonte</small></button>
+      <button class="key" data-key="KEY_MENU"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><small>Menu</small></button>
+      <button class="key" data-key="KEY_INFO"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 8h.01"/></svg><small>Info</small></button>
+    </div>
+
+    <div class="tabs">
+      <button class="on" data-tab="nav">Setinhas</button>
+      <button data-tab="num">Números</button>
+    </div>
+
+    <div id="tab-nav">
+      <div class="dpad">
+        <button class="arrow up" data-key="KEY_UP" aria-label="Cima"><svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg></button>
+        <button class="arrow left" data-key="KEY_LEFT" aria-label="Esquerda"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+        <button class="ok" data-key="KEY_ENTER">OK</button>
+        <button class="arrow right" data-key="KEY_RIGHT" aria-label="Direita"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
+        <button class="arrow down" data-key="KEY_DOWN" aria-label="Baixo"><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
+      </div>
+    </div>
+
+    <div id="tab-num" class="numpad hidden">
+      <button class="key" data-key="KEY_1">1</button><button class="key" data-key="KEY_2">2</button><button class="key" data-key="KEY_3">3</button>
+      <button class="key" data-key="KEY_4">4</button><button class="key" data-key="KEY_5">5</button><button class="key" data-key="KEY_6">6</button>
+      <button class="key" data-key="KEY_7">7</button><button class="key" data-key="KEY_8">8</button><button class="key" data-key="KEY_9">9</button>
+      <button class="key" data-key="KEY_PRECH"><small>Anterior</small></button><button class="key" data-key="KEY_0">0</button><button class="key" data-key="KEY_ENTER"><small>OK</small></button>
+    </div>
+
+    <div class="grid3">
+      <button class="key" data-key="KEY_RETURN"><svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg><small>Voltar</small></button>
+      <button class="key" data-key="KEY_HOME"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg><small>Home</small></button>
+      <button class="key" data-key="KEY_EXIT"><svg viewBox="0 0 24 24"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg><small>Sair</small></button>
+    </div>
+
+    <div class="grid3">
+      <div class="rocker">
+        <button class="key" data-key="KEY_VOLUP" data-repeat><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></button>
+        <button class="key" data-key="KEY_VOLDOWN" data-repeat><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
+      </div>
+      <div style="display:grid;grid-template-rows:56px 56px;gap:0">
+        <button class="key" data-key="KEY_PAUSE" data-toggle="KEY_PLAY" style="border-radius:18px 18px 0 0"><svg viewBox="0 0 24 24"><path d="M7 5l11 7-11 7z"/></svg><small>Play/Pausa</small></button>
+        <button class="key" data-key="KEY_MUTE" style="border-radius:0 0 18px 18px;border-top:0"><svg viewBox="0 0 24 24"><path d="M11 5L6 9H3v6h3l5 4z"/><path d="M22 9l-6 6"/><path d="M16 9l6 6"/></svg><small>Mudo</small></button>
+      </div>
+      <div class="rocker">
+        <button class="key" data-key="KEY_CHUP" data-repeat><small>CH</small><svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg></button>
+        <button class="key" data-key="KEY_CHDOWN" data-repeat><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg><small>CH</small></button>
+      </div>
+    </div>
+
+    <div class="grid3">
+      <button class="key" data-key="KEY_REWIND" data-repeat><svg viewBox="0 0 24 24"><path d="M11 19l-9-7 9-7z"/><path d="M22 19l-9-7 9-7z"/></svg><small>Retroceder</small></button>
+      <button class="key" data-key="KEY_STOP"><svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1"/></svg><small>Parar</small></button>
+      <button class="key" data-key="KEY_FF" data-repeat><svg viewBox="0 0 24 24"><path d="M13 19l9-7-9-7z"/><path d="M2 19l9-7-9-7z"/></svg><small>Avançar</small></button>
+    </div>
+
+    <div class="colors">
+      <button class="key" data-key="KEY_RED" aria-label="Vermelho"><i style="background:#e5484d"></i></button>
+      <button class="key" data-key="KEY_GREEN" aria-label="Verde"><i style="background:#30a46c"></i></button>
+      <button class="key" data-key="KEY_YELLOW" aria-label="Amarelo"><i style="background:#f5c518"></i></button>
+      <button class="key" data-key="KEY_CYAN" aria-label="Azul"><i style="background:#3e63dd"></i></button>
+    </div>
+
+    <div class="card">
+      <h2>Digitar na TV</h2>
+      <p>Abra um campo de texto na TV (busca do Seraflix, do YouTube...) e escreva aqui.</p>
+      <form class="type" id="typeForm">
+        <input type="text" id="typeText" placeholder="O que vamos maratonar?" autocomplete="off" enterkeyhint="send">
+        <button class="btn primary" type="submit">Enviar</button>
+      </form>
+    </div>
+  </main>
+
+  <footer>
+    <span id="tvLabel"></span><button id="changeTv">trocar TV</button>
+  </footer>
+</div>
+
+<script>
+(function () {
+  // Controle remoto da Samsung pela rede: WebSocket seguro na porta 8002 da TV
+  // (TVs de 2018 em diante). Na primeira conexão a TV pede permissão e devolve um token,
+  // que fica guardado neste celular para as próximas vezes.
+  var APP_NAME = 'Seraflix Controle';
+  var store = {
+    get: function (k) { try { return localStorage.getItem('sfx.' + k) || ''; } catch (e) { return ''; } },
+    set: function (k, v) { try { v ? localStorage.setItem('sfx.' + k, v) : localStorage.removeItem('sfx.' + k); } catch (e) {} }
+  };
+  var $ = function (id) { return document.getElementById(id); };
+  var ws = null, connected = false, retry = null, manualClose = false;
+
+  function b64(str) { return btoa(unescape(encodeURIComponent(str))); }
+
+  function setStatus(kind, text) {
+    $('status').className = 'status ' + kind;
+    $('statusText').textContent = text;
+  }
+
+  function showSetup(err) {
+    $('setup').classList.remove('hidden');
+    $('ip').value = store.get('ip');
+    updateCertLink();
+    $('setupErr').textContent = err || '';
+    $('setupErr').classList.toggle('hidden', !err);
+  }
+  function hideSetup() { $('setup').classList.add('hidden'); }
+
+  function cleanIp(v) { return String(v || '').trim().replace(/^https?:\/\//, '').replace(/[:/].*$/, ''); }
+  function updateCertLink() {
+    var ip = cleanIp($('ip').value);
+    $('certBtn').href = ip ? 'https://' + ip + ':8002/api/v2/' : '#';
+  }
+
+  function connect() {
+    var ip = store.get('ip');
+    if (!ip) return showSetup();
+    clearTimeout(retry);
+    manualClose = false;
+    var url = 'wss://' + ip + ':8002/api/v2/channels/samsung.remote.control?name=' + encodeURIComponent(b64(APP_NAME));
+    var token = store.get('token');
+    if (token) url += '&token=' + encodeURIComponent(token);
+    setStatus('wait', token ? 'conectando...' : 'aceite na TV');
+    $('tvLabel').textContent = 'TV ' + ip + ' · ';
+    try {
+      if (ws) { ws.onclose = null; ws.close(); }
+      ws = new WebSocket(url);
+    } catch (e) {
+      return showSetup('Não deu para abrir a conexão: ' + e.message);
+    }
+    var opened = false;
+    var timeout = setTimeout(function () {
+      if (!connected) { ws.close(); fail(); }
+    }, token ? 8000 : 30000);
+    ws.onopen = function () { opened = true; };
+    ws.onmessage = function (ev) {
+      var msg = {};
+      try { msg = JSON.parse(ev.data); } catch (e) { return; }
+      if (msg.event === 'ms.channel.connect') {
+        clearTimeout(timeout);
+        if (msg.data && msg.data.token) store.set('token', msg.data.token);
+        connected = true;
+        setStatus('on', 'conectado');
+        hideSetup();
+      } else if (msg.event === 'ms.channel.unauthorized') {
+        clearTimeout(timeout);
+        store.set('token', '');
+        connected = false;
+        setStatus('off', 'recusado');
+        showSetup('A TV recusou. Conecte de novo e escolha "Permitir" na TV.');
+      }
+    };
+    ws.onclose = function () {
+      clearTimeout(timeout);
+      var was = connected;
+      connected = false;
+      if (manualClose) return;
+      if (!opened && !was) return fail();
+      setStatus('off', 'reconectando...');
+      retry = setTimeout(connect, 2000);
+    };
+    function fail() {
+      setStatus('off', 'desconectado');
+      showSetup('Não consegui falar com a TV em ' + ip + '. Confira o IP, se a TV está ligada e faça o passo 1 (Liberar) de novo.');
+    }
+  }
+
+  function send(payload) {
+    if (!ws || !connected) {
+      if ($('setup').classList.contains('hidden')) connect();
+      return false;
+    }
+    ws.send(JSON.stringify({ method: 'ms.remote.control', params: payload }));
+    return true;
+  }
+
+  function sendKey(key) {
+    if (navigator.vibrate) navigator.vibrate(10);
+    send({ Cmd: 'Click', DataOfCmd: key, Option: 'false', TypeOfRemote: 'SendRemoteKey' });
+  }
+
+  // Botões: toque envia uma vez; segurar repete (volume, canal, avançar...).
+  Array.prototype.forEach.call(document.querySelectorAll('[data-key]'), function (el) {
+    var timer = null, rep = null;
+    function start(e) {
+      e.preventDefault();
+      el.classList.add('hit');
+      sendKey(el.getAttribute('data-key'));
+      // Play/Pausa: alterna entre as duas teclas a cada toque.
+      var alt = el.getAttribute('data-toggle');
+      if (alt) { el.setAttribute('data-toggle', el.getAttribute('data-key')); el.setAttribute('data-key', alt); }
+      if (el.hasAttribute('data-repeat')) {
+        timer = setTimeout(function () { rep = setInterval(function () { sendKey(el.getAttribute('data-key')); }, 150); }, 400);
+      }
+    }
+    function stop() {
+      el.classList.remove('hit');
+      clearTimeout(timer); clearInterval(rep);
+    }
+    el.addEventListener('pointerdown', start);
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach(function (n) { el.addEventListener(n, stop); });
+    el.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+  });
+
+  // Abas setinhas / números
+  Array.prototype.forEach.call(document.querySelectorAll('.tabs button'), function (b) {
+    b.addEventListener('click', function () {
+      Array.prototype.forEach.call(document.querySelectorAll('.tabs button'), function (x) { x.classList.toggle('on', x === b); });
+      $('tab-nav').classList.toggle('hidden', b.getAttribute('data-tab') !== 'nav');
+      $('tab-num').classList.toggle('hidden', b.getAttribute('data-tab') !== 'num');
+    });
+  });
+
+  // Digitar: manda o texto inteiro para o campo aberto na TV.
+  $('typeForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var text = $('typeText').value;
+    if (!text) return;
+    if (send({ Cmd: b64(text), DataOfCmd: 'base64', TypeOfRemote: 'SendInputString' }) !== false) {
+      send({ TypeOfRemote: 'SendInputEnd' });
+      $('typeText').value = '';
+    }
+  });
+
+  // Teclado físico (útil no computador): setas, Enter, Backspace = voltar.
+  document.addEventListener('keydown', function (e) {
+    if (e.target.tagName === 'INPUT') return;
+    var map = { ArrowUp: 'KEY_UP', ArrowDown: 'KEY_DOWN', ArrowLeft: 'KEY_LEFT', ArrowRight: 'KEY_RIGHT', Enter: 'KEY_ENTER', Backspace: 'KEY_RETURN', Escape: 'KEY_RETURN', ' ': 'KEY_PAUSE' };
+    if (map[e.key]) { e.preventDefault(); sendKey(map[e.key]); }
+  });
+
+  $('ip').addEventListener('input', updateCertLink);
+  $('connectBtn').addEventListener('click', function () {
+    var ip = cleanIp($('ip').value);
+    if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(ip)) {
+      $('setupErr').textContent = 'Esse IP não parece certo. É algo como 192.168.0.35.';
+      return $('setupErr').classList.remove('hidden');
+    }
+    if (ip !== store.get('ip')) store.set('token', '');
+    store.set('ip', ip);
+    $('setupErr').classList.add('hidden');
+    connect();
+  });
+  $('changeTv').addEventListener('click', function () {
+    manualClose = true;
+    if (ws) ws.close();
+    connected = false;
+    setStatus('off', 'desconectado');
+    showSetup();
+  });
+
+  // Volta a conectar quando a aba volta para a frente (o celular corta a conexão em segundo plano).
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible' && !connected && store.get('ip') && $('setup').classList.contains('hidden')) connect();
+  });
+
+  if (store.get('ip')) connect(); else showSetup();
+})();
+</script>
+</body>
+</html>
