@@ -40,7 +40,8 @@ window.addEventListener('seraflix-native', ({ detail: { event, data } }) => {
 |---|---|
 | `response` | `{id,ok,error?}` |
 | `loaded` | `{session}`; mídia pronta para busca/retomada |
-| `time` | `{session,position,duration,paused,buffering,bufferEnd}`; até cerca de 4 Hz, também em mudanças de estado |
+| `time` | `{session,position,duration,paused,buffering,bufferEnd,active}`; até cerca de 4 Hz, também em mudanças de estado |
+| `rendered` | `{session}`; primeiro frame enviado à render API, usado pelo smoke test |
 | `tracks` | `{session,audio:[{id,lang,title,selected}],subtitles:[...]}` |
 | `state` | `{session,volume? (0–100),mute? (boolean)}` |
 | `ended` | `{session,reason}`; fim natural distinto de troca/parada |

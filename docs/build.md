@@ -36,7 +36,7 @@ Esse modo compila as bibliotecas via receita IINA fixada e guarda fontes/receita
 
 `build.yml` compila em `macos-latest` (arm64) e `macos-15-intel`, gera app/DMG, valida minOS/assinatura e executa smoke test com WKWebView e vídeo servido por HTTP local. Os artefatos ficam no run por 30 dias. Login Stremio, debrid, torrents reais e saída HDR não são cobertos pelo smoke test.
 
-`refresh-ui.yml` recebe `repository_dispatch` tipo `ui-updated` com `client_payload.commit` e atualiza apenas `Resources/fallback`. O push pelo GITHUB_TOKEN não inicia outro build. No `stremio-sera`, configure `MAC_DISPATCH_TOKEN` com acesso de escrita a este repositório para enviar o evento. Não há token de GitHub dentro do app. O bundle remoto de UI continua atualizado independentemente de releases nativas.
+`refresh-ui.yml` recebe `repository_dispatch` tipo `ui-updated` com `client_payload.ui_commit` e atualiza apenas `Resources/fallback`. O push pelo GITHUB_TOKEN não inicia outro build. No `stremio-sera`, configure `MAC_DISPATCH_TOKEN` com acesso de escrita a este repositório para enviar o evento. Não há token de GitHub dentro do app. O bundle remoto de UI continua atualizado independentemente de releases nativas.
 
 ## Sparkle
 

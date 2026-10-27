@@ -22,10 +22,10 @@ final class UIBundle {
     let fallback: URL
     private let session: URLSession
 
-    init() {
+    init(cache: URL? = nil, fallback: URL? = nil) {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        cache = support.appendingPathComponent("Seraflix/ui", isDirectory: true)
-        fallback = Bundle.main.resourceURL!.appendingPathComponent("fallback", isDirectory: true)
+        self.cache = cache ?? support.appendingPathComponent("Seraflix/ui", isDirectory: true)
+        self.fallback = fallback ?? Bundle.main.resourceURL!.appendingPathComponent("fallback", isDirectory: true)
         let config = URLSessionConfiguration.ephemeral
         config.timeoutIntervalForRequest = 15
         config.timeoutIntervalForResource = 90

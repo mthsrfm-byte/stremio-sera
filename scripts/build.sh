@@ -41,6 +41,7 @@ cp -R "$ROOT/Resources/fallback" "$APP/Contents/Resources/"
 cp "$ROOT/Resources/ui-source-commit.txt" "$APP/Contents/Resources/"
 cp "$ROOT/Resources/server-bootstrap.cjs" "$APP/Contents/Resources/"
 cp "$ROOT/LICENSE" "$APP/Contents/Resources/licenses/Seraflix-GPL-3.0.txt"
+cp -R "$ROOT/Resources/licenses/." "$APP/Contents/Resources/licenses/"
 cp "$ROOT/docs/dependencies.md" "$APP/Contents/Resources/licenses/DEPENDENCIAS.md"
 cp "$ROOT/scripts/dependency-lock.json" "$APP/Contents/Resources/licenses/"
 cp -R "$DEPS/notices/." "$APP/Contents/Resources/licenses/"
@@ -72,5 +73,8 @@ rm -f "$DMG" "$ZIP"
 hdiutil create -volname Seraflix -srcfolder "$STAGING" -ov -format UDZO "$DMG"
 ditto -c -k --sequesterRsrc --keepParent "$APP" "$ZIP"
 (cd "$ARTIFACTS" && shasum -a 256 "$(basename "$DMG")" "$(basename "$ZIP")" > "SHA256SUMS-$ARCH.txt")
+if [ "${DEPS_MODE:-binary}" = source ]; then
+    cp "$(cat "$DEPS/ffmpeg-source-path.txt")" "$ARTIFACTS/ffmpeg-9.0.2-source.tar.xz"
+fi
 echo "App: $APP"
 echo "DMG: $DMG"

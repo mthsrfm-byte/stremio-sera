@@ -17,6 +17,14 @@ final class MPVPlayer {
     private var loaded = false
     private var session = 0
     private var requestID: UInt64 = 1
+    private var commandSessions: [UInt64: (session: Int, load: Bool)] = [:]
+    private var entrySessions: [Int64: Int] = [:]
+    private var activeEntryID: Int64?
+    private var activeSession: Int?
+    private var redirectSession: Int?
+    private var acceptingMedia = false
+    private var pendingFileLoaded = false
+    private var frameCount = 0
     private var position: Double = 0
     private var duration: Double = 0
     private var paused = true
@@ -84,6 +92,9 @@ final class MPVPlayer {
             let url = try mediaURL(args["url"])
             let start = try number(args["startTime"] ?? 0, minimum: 0)
             session += 1
+            acceptingMedia = true
+            pendingFileLoaded = false
+            frameCount = 0
             loaded = false
             paused = false
             position = start
@@ -103,6 +114,7 @@ final class MPVPlayer {
             let value = try number(args["position"], minimum: 0)
             try send(["seek", String(value), "absolute+exact"])
         case "stop":
+            acceptingMedia = false
             loaded = false
             isPlaying = false
             paused = true
@@ -171,7 +183,10 @@ final class MPVPlayer {
         }
         pointers.append(nil)
         requestID &+= 1
-        try check(pointers.withUnsafeMutableBufferPointer { mpv_command_async(mpv, requestID, $0.baseAddress) })
+        commandSessions[requestID] = (session, command.first == "loadfile")
+        let status = pointers.withUnsafeMutableBufferPointer { mpv_command_async(mpv, requestID, $0.baseAddress) }
+        if status < 0 { commandSessions.removeValue(forKey: requestID) }
+        try check(status)
     }
 
     fileprivate func prepareRenderer() throws {
@@ -203,9 +218,15 @@ final class MPVPlayer {
         context.makeCurrentContext()
         let rect = surface.convertToBacking(surface.bounds)
         guard rect.width >= 1, rect.height >= 1, let renderer = renderContext else { return }
-        _ = sera_mpv_render(renderer, Int32(rect.width), Int32(rect.height))
+        let status = sera_mpv_render(renderer, Int32(rect.width), Int32(rect.height))
         context.flushBuffer()
         mpv_render_context_report_swap(renderer)
+        if status >= 0, acceptingMedia, loaded, activeSession == session {
+            frameCount += 1
+            if frameCount == 1 { emit("rendered", ["frameCount": frameCount]) }
+        } else if status < 0 {
+            emit("error", ["message": String(cString: mpv_error_string(status))])
+        }
     }
 
     private func drainEvents() {
@@ -214,13 +235,18 @@ final class MPVPlayer {
             let event = pointer.pointee
             switch event.event_id {
             case MPV_EVENT_NONE: return
+            case MPV_EVENT_START_FILE:
+                guard let start = event.data?.assumingMemoryBound(to: mpv_event_start_file.self).pointee else { continue }
+                activeEntryID = start.playlist_entry_id
+                activeSession = entrySessions[start.playlist_entry_id] ?? redirectSession
+                redirectSession = nil
+                pendingFileLoaded = false
             case MPV_EVENT_FILE_LOADED:
-                loaded = true
-                buffering = false
-                isPlaying = !paused
-                emit("loaded", [:])
-                emitTime(force: true)
+                // COMMAND_REPLY e START_FILE podem chegar em qualquer ordem.
+                pendingFileLoaded = true
+                finishLoadingIfCurrent()
             case MPV_EVENT_PROPERTY_CHANGE:
+                guard acceptingMedia, activeSession == session else { continue }
                 guard let data = event.data?.assumingMemoryBound(to: mpv_event_property.self).pointee,
                       data.format == MPV_FORMAT_NODE, let value = data.data,
                       let propertyName = data.name else { continue }
@@ -241,8 +267,15 @@ final class MPVPlayer {
                 emitTime(force: name == "pause" || name == "paused-for-cache")
             case MPV_EVENT_END_FILE:
                 guard let end = event.data?.assumingMemoryBound(to: mpv_event_end_file.self).pointee else { continue }
-                // redirect/stop de loadfile anterior não devem encerrar a mídia nova.
-                if end.reason == MPV_END_FILE_REASON_REDIRECT || end.reason == MPV_END_FILE_REASON_STOP { continue }
+                let endedSession = entrySessions[end.playlist_entry_id] ?? (activeEntryID == end.playlist_entry_id ? activeSession : nil)
+                if end.reason == MPV_END_FILE_REASON_REDIRECT {
+                    redirectSession = endedSession
+                    continue
+                }
+                // loadfile replace também encerra a entrada anterior. Seu EOF/erro
+                // tardio nunca deve receber o identificador da mídia seguinte.
+                guard acceptingMedia, endedSession == session,
+                      end.reason != MPV_END_FILE_REASON_STOP else { continue }
                 loaded = false
                 paused = true
                 buffering = false
@@ -254,12 +287,48 @@ final class MPVPlayer {
                 }
                 emitTime(force: true)
             case MPV_EVENT_COMMAND_REPLY:
-                if event.error < 0 { emit("error", ["message": String(cString: mpv_error_string(event.error))]) }
+                guard let command = commandSessions.removeValue(forKey: event.reply_userdata) else { continue }
+                if command.load, event.error >= 0,
+                   let response = event.data?.assumingMemoryBound(to: mpv_event_command.self).pointee,
+                   let result = Self.json(response.result) as? [String: Any],
+                   let entry = result["playlist_entry_id"] as? NSNumber {
+                    entrySessions[entry.int64Value] = command.session
+                    if activeEntryID == entry.int64Value {
+                        activeSession = command.session
+                        finishLoadingIfCurrent()
+                    }
+                    // Só as entradas recentes são necessárias para rejeitar eventos.
+                    if entrySessions.count > 64 {
+                        entrySessions = entrySessions.filter { $0.value >= session - 16 }
+                    }
+                }
+                if event.error < 0, command.session == session, acceptingMedia {
+                    emit("error", ["message": String(cString: mpv_error_string(event.error))])
+                }
             case MPV_EVENT_QUEUE_OVERFLOW:
                 emit("error", ["message": "A fila de eventos do player excedeu o limite."])
             default: break
             }
         }
+    }
+
+    private func finishLoadingIfCurrent() {
+        guard acceptingMedia, activeSession == session, pendingFileLoaded else { return }
+        pendingFileLoaded = false
+        loaded = true
+        buffering = false
+        isPlaying = !paused
+        emit("loaded", [:])
+        // Não perder track-list caso sua primeira notificação tenha chegado antes
+        // do COMMAND_REPLY que identifica esta entrada da playlist.
+        if let mpv = handle {
+            var tracks = mpv_node()
+            if mpv_get_property(mpv, "track-list", MPV_FORMAT_NODE, &tracks) >= 0 {
+                emitTracks(Self.json(tracks))
+                mpv_free_node_contents(&tracks)
+            }
+        }
+        emitTime(force: true)
     }
 
     private func emitTracks(_ object: Any) {
@@ -290,7 +359,8 @@ final class MPVPlayer {
         }
         lastTimeEvent = Date()
         emit("time", ["position": position, "duration": duration, "paused": paused,
-                      "buffering": buffering, "bufferEnd": max(position, bufferEnd)])
+                      "buffering": buffering, "bufferEnd": max(position, bufferEnd),
+                      "active": session > 0 && acceptingMedia && (loaded || buffering)])
     }
 
     private func emit(_ event: String, _ value: [String: Any]) {

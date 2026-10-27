@@ -55,6 +55,10 @@ jobs:
             .build/downloads
             .build/native-deps
           key: native-${{ runner.os }}-${{ matrix.arch }}-${{ env.DEPS_MODE }}-${{ hashFiles('scripts/dependency-lock.json', 'scripts/build-ffmpeg.sh', 'scripts/build-dependencies-source.sh') }}
+      - name: Testar validador real de cache e bootstrap
+        run: |
+          scripts/test-ui-cache.sh
+          node --test tests/server-bootstrap.test.mjs
       - name: Compilar .app e DMG assinado ad hoc
         run: scripts/build.sh
       - name: Smoke test nativo (WKWebView, libmpv e mídia HTTP local)

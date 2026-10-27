@@ -17,6 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
     private var smokeHome = false
     private var smokeLoaded = false
     private var smokeAdvanced = false
+    private var smokeRendered = false
     private var smokeHomeSeconds: Double = 0
     private var smokeResult: String? {
         let args = CommandLine.arguments
@@ -89,6 +90,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
                 self?.media.receive(event, data)
                 if self?.smokeResult != nil {
                     if event == "loaded" { self?.smokeLoaded = true }
+                    if event == "rendered" { self?.smokeRendered = true }
                     if event == "time", (data["position"] as? Double ?? 0) > 0.3 { self?.smokeAdvanced = true }
                     if event == "error" { self?.finishSmoke(error: data["message"] as? String ?? "Erro libmpv") }
                     self?.checkSmokeComplete()
@@ -164,7 +166,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
     }
 
     private func pollSmokeHome() {
-        web.evaluateJavaScript("!!document.querySelector('.home-view:not(.hidden) .topbar')") { [weak self] result, error in
+        web.evaluateJavaScript("""
+        (() => { const home = document.querySelector('.home-view:not(.hidden) .topbar');
+          const boot = document.querySelector('#boot');
+          return !!home && home.getBoundingClientRect().width > 0 &&
+            (!boot || getComputedStyle(boot).display === 'none' || Number(getComputedStyle(boot).opacity) === 0);
+        })()
+        """) { [weak self] result, error in
             guard let self = self, self.smokeResult != nil else { return }
             if let error = error { self.finishSmoke(error: error.localizedDescription); return }
             if result as? Bool == true {
@@ -185,7 +193,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
     private func checkSmokeComplete() {
         guard smokeResult != nil, smokeHome, player != nil else { return }
         guard !CommandLine.arguments.contains("--smoke-server") || smokeServerRestarted else { return }
-        if smokeVideo == nil || (smokeLoaded && smokeAdvanced) { finishSmoke(error: nil) }
+        if smokeVideo == nil || (smokeLoaded && smokeAdvanced && smokeRendered) { finishSmoke(error: nil) }
     }
 
     private var smokeFinished = false
@@ -193,7 +201,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         guard let path = smokeResult, !smokeFinished else { return }
         smokeFinished = true
         let result: [String: Any] = ["ok": error == nil, "home": smokeHome, "player": player != nil,
-                                     "loaded": smokeLoaded, "advanced": smokeAdvanced,
+                                     "loaded": smokeLoaded, "advanced": smokeAdvanced, "rendered": smokeRendered,
                                      "homeSeconds": smokeHomeSeconds, "serverRestarts": max(0, smokeServerReadyCount - 1),
                                      "serverRestarted": smokeServerRestarted, "error": error ?? ""]
         if let bytes = try? JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys]) {

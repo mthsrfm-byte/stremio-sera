@@ -40,15 +40,16 @@ final class MediaIntegration {
         let info = MPNowPlayingInfoCenter.default()
         if event == "time" {
             let paused = data["paused"] as? Bool ?? true
+            let active = data["active"] as? Bool ?? false
             let duration = data["duration"] as? Double ?? 0
             let position = data["position"] as? Double ?? 0
             info.nowPlayingInfo = [MPMediaItemPropertyTitle: title,
                                   MPMediaItemPropertyPlaybackDuration: duration,
                                   MPNowPlayingInfoPropertyElapsedPlaybackTime: position,
-                                  MPNowPlayingInfoPropertyPlaybackRate: paused ? 0.0 : 1.0,
+                                  MPNowPlayingInfoPropertyPlaybackRate: !active || paused ? 0.0 : 1.0,
                                   MPNowPlayingInfoPropertyIsLiveStream: duration <= 0]
-            info.playbackState = paused ? .paused : .playing
-            preventSleep(!paused)
+            info.playbackState = !active ? .stopped : (paused ? .paused : .playing)
+            preventSleep(active && !paused)
         } else if event == "ended" || event == "error" {
             info.playbackState = .stopped
             preventSleep(false)
