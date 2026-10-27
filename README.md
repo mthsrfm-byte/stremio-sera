@@ -152,7 +152,7 @@ The remote also has **Mandar para a TV** (search icon): it searches the public S
 engine could run on the TV itself.
 
 On the TV, **Ajustes → Controle no celular → Abrir o controle no celular** shows a QR code with that
-address (the service reports the TV's IP at `/api/ip`). `https://mthsrfm-byte.github.io/stremio-sera/`
+address (the service reports the TV's IP at `/api/ip`). `https://mthsrfm-byte.github.io/stremio-sera/controle/`
 (the `remote/` folder on GitHub Pages) asks for the TV's IP and opens `http://TV-IP:8090`.
 
 The page is locked with a 6-digit PIN (only its SHA-256 is in the code). After the right PIN the
@@ -242,12 +242,12 @@ the keys are readable by anyone. A key typed in Ajustes on the TV takes priority
 
 ## Versão web (privada, GitHub Pages)
 
-O mesmo app roda num navegador, em `https://mthsrfm-byte.github.io/stremio-sera/app/`, atrás de
-uma senha. O workflow **Publicar site no GitHub Pages** (`.github/workflows/pages.yml`) publica a
-cada push na main:
+O mesmo app roda num navegador, em `https://mthsrfm-byte.github.io/stremio-sera/`, atrás de uma
+senha. O workflow **Publicar site no GitHub Pages** (`.github/workflows/pages.yml`) publica a cada
+push na main:
 
-- `/app/`: o Seraflix para navegador (`npm run build:web`, saída em `site/app/`).
-- `/`: o controle pelo celular (pasta `remote/`), como antes.
+- `/`: o Seraflix para navegador (`npm run build:web`, saída em `site/app/`).
+- `/controle/`: o controle pelo celular (pasta `remote/`).
 
 Para ativar, crie o segredo **`WEB_PASSWORD`** (Settings → Secrets and variables → Actions). Sem ele o
 build web para de propósito, para o app não ficar aberto. Só o hash salgado da senha vai para o site.

@@ -1,6 +1,6 @@
 {
   "version": "1.2.0",
-  "commit": "5661a19ea47c04e1412eeeb8c6a302d2e1f0bd27",
-  "date": "2026-10-27T05:06:56-03:00",
-  "message": "Serviço da TV: catálogos no Node 4 e versão exata quando o CDN está velho"
+  "commit": "20ab309b4de408a0ce7edcac0998512ade720e86",
+  "date": "2026-10-27T08:07:17+00:00",
+  "message": "Build da dist/ para a TV"
 }
