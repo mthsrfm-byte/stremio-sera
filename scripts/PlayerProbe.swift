@@ -49,6 +49,7 @@ struct PlayerProbe {
             var audioTracks = 0
             var subtitleTracks = 0
             var finished = false
+            var logs: [String] = []
             func finish(_ error: String?) {
                 guard !finished else { return }
                 finished = true
@@ -57,11 +58,15 @@ struct PlayerProbe {
                 report(["ok": error == nil, "stage": stage, "seconds": Date().timeIntervalSince(started),
                         "loaded": loaded, "advanced": advanced, "pixelNonBlack": rendered,
                         "renderer": renderer, "audioTracks": audioTracks, "subtitleTracks": subtitleTracks,
-                        "error": error ?? "", "os": ProcessInfo.processInfo.operatingSystemVersionString])
+                        "error": error ?? "", "logs": logs, "os": ProcessInfo.processInfo.operatingSystemVersionString])
                 exit(error == nil ? 0 : 1)
             }
             player.onEvent = { event, data in
                 guard !finished else { return }
+                if event == "log", let text = data["text"] as? String {
+                    logs.append(text)
+                    if logs.count > 40 { logs.removeFirst(logs.count - 40) }
+                }
                 if event == "loaded" { loaded = true }
                 if event == "time", (data["position"] as? Double ?? 0) > 0.3 { advanced = true }
                 if event == "tracks" {
@@ -72,7 +77,10 @@ struct PlayerProbe {
                     rendered = data["pixelNonBlack"] as? Bool == true
                     renderer = data["renderer"] as? String ?? ""
                 }
-                if event == "error" { finish(data["message"] as? String ?? "Erro libmpv sem mensagem") }
+                if event == "error" {
+                    if let nativeLogs = data["logs"] as? [String] { logs = nativeLogs }
+                    finish(data["message"] as? String ?? "Erro libmpv sem mensagem")
+                }
                 if loaded && advanced && rendered { finish(nil) }
             }
             try player.handle(command: "load", args: ["url": url, "startTime": 0, "title": "Diagnóstico HEVC 4K"])

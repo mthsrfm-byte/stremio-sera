@@ -92,8 +92,13 @@ final class UIBundle {
         let base = "https://cdn.jsdelivr.net/gh/\(Self.repository)@\(commit)/site/mac/"
         let official = "https://raw.githubusercontent.com/\(Self.repository)/\(commit)/site/mac/"
         func asset(_ path: String, limit: Int = 16 * 1024 * 1024) async throws -> Data {
-            do { return try await download(URL(string: base + path)!, limit: limit) }
-            catch { return try await download(URL(string: official + path)!, limit: limit) }
+            let allowed = CharacterSet.urlPathAllowed.subtracting(CharacterSet(charactersIn: "?#%"))
+            guard let encoded = path.addingPercentEncoding(withAllowedCharacters: allowed),
+                  let cdn = URL(string: base + encoded), let origin = URL(string: official + encoded) else {
+                throw UIError.invalid("Caminho de download inválido na UI")
+            }
+            do { return try await download(cdn, limit: limit) }
+            catch { return try await download(origin, limit: limit) }
         }
         let manifestData = try await asset("manifest.json", limit: 256 * 1024)
         let manifest = try JSONDecoder().decode(UIManifest.self, from: manifestData)

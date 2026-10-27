@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
     private var player: MPVPlayer?
     private var playerStartupError: String?
     private var smokeRenderer = ""
+    private var smokeLogs: [String] = []
     private let media = MediaIntegration()
     private var updater: SPUStandardUpdaterController?
     private let launchTime = Date()
@@ -157,6 +158,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
             player.onEvent = { [weak self] event, data in
                 self?.media.receive(event, data)
                 if self?.smokeResult != nil {
+                    if event == "log", let line = data["text"] as? String {
+                        self?.smokeLogs.append(line)
+                        if (self?.smokeLogs.count ?? 0) > 40 { self?.smokeLogs.removeFirst() }
+                    }
                     if event == "tracks" { self?.testSmokeTracks(data) }
                     if event == "loaded" { self?.smokeLoaded = true }
                     if event == "rendered", data["pixelNonBlack"] as? Bool == true {
@@ -264,7 +269,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         smokeFinished = true
         let result: [String: Any] = ["ok": error == nil, "home": smokeHome, "player": player != nil,
                                      "loaded": smokeLoaded, "advanced": smokeAdvanced, "rendered": smokeRendered,
-                                     "renderer": smokeRenderer, "playerStartupError": playerStartupError ?? "",
+                                     "renderer": smokeRenderer, "playerStartupError": playerStartupError ?? "", "logs": smokeLogs,
                                      "homeSeconds": smokeHomeSeconds, "serverRestarts": max(0, smokeServerReadyCount - 1),
                                      "serverRestarted": smokeServerRestarted, "tracksSelected": smokeTracksSelected, "error": error ?? ""]
         if let bytes = try? JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys]) {

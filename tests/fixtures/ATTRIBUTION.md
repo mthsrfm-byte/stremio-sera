@@ -31,3 +31,10 @@ com a fixture ao redistribuí-la.
 
 O teste de reprodução desta fixture via HTTP local não substitui a validação
 com credenciais reais de debrid, torrent pela rede ou inspeção visual em um Mac.
+
+
+`mpeg4-smoke.mp4` também é um padrão sintético `testsrc2`, gerado nesta tarefa
+com FFmpeg (sem material audiovisual externo), disponibilizado em CC0-1.0.
+Comando: `ffmpeg -f lavfi -i testsrc2=size=640x360:rate=24 -t 4 -c:v mpeg4 -q:v 4 mpeg4-smoke.mp4`.
+SHA-256: `7819454a878f64ac13a80e4d1f5bc3c34f18036b9b5abe493247e069998f4805`.
+Serve para isolar falhas de codec/VO do smoke que gera MPEG4 no próprio runner.

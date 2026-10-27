@@ -21,17 +21,27 @@ jobs:
       - name: Baixar dylibs e headers fixados, sem compilar FFmpeg
         run: python3 scripts/prepare-dependencies.py
       - name: Compilar e inicializar somente AppKit e libmpv
+        id: init
         run: |
           mkdir -p artifacts
           set -o pipefail
           scripts/test-player-init.sh 2>&1 | tee artifacts/player-probe.log
-      - name: Decodificar HEVC 4K por HTTP e verificar pixels do framebuffer
+      - name: Decodificar MPEG4 por HTTP e verificar pixels
+        if: always() && steps.init.outcome == 'success'
         run: |
           set -o pipefail
-          python3 -m http.server 18766 --bind 127.0.0.1 --directory tests/fixtures > artifacts/player-probe-http.log 2>&1 &
+          python3 -m http.server 18766 --bind 127.0.0.1 --directory tests/fixtures > artifacts/player-probe-mpeg4-http.log 2>&1 &
           PROBE_HTTP_PID=$!
           trap 'kill "$PROBE_HTTP_PID" 2>/dev/null || true' EXIT
-          scripts/test-player-init.sh http://127.0.0.1:18766/hevc-4k-tracks.mkv 2>&1 | tee artifacts/player-probe-video.log
+          scripts/test-player-init.sh http://127.0.0.1:18766/mpeg4-smoke.mp4 mpeg4 2>&1 | tee artifacts/player-probe-mpeg4.log
+      - name: Decodificar HEVC 4K por HTTP e verificar pixels do framebuffer
+        if: always() && steps.init.outcome == 'success'
+        run: |
+          set -o pipefail
+          python3 -m http.server 18766 --bind 127.0.0.1 --directory tests/fixtures > artifacts/player-probe-hevc-http.log 2>&1 &
+          PROBE_HTTP_PID=$!
+          trap 'kill "$PROBE_HTTP_PID" 2>/dev/null || true' EXIT
+          scripts/test-player-init.sh http://127.0.0.1:18766/hevc-4k-tracks.mkv hevc 2>&1 | tee artifacts/player-probe-hevc.log
       - name: Guardar diagnóstico mesmo em falha
         if: always()
         uses: actions/upload-artifact@v4

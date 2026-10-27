@@ -35,6 +35,7 @@ final class MPVPlayer {
     private var bufferEnd: Double = 0
     private var lastTimeEvent = Date.distantPast
     private var timePending = false
+    private var diagnosticLogs: [String] = []
 
     enum Failure: LocalizedError {
         case message(String)
@@ -74,6 +75,7 @@ final class MPVPlayer {
             }
             do { try check(mpv_initialize(mpv)) }
             catch { throw Failure.message("Ao inicializar libmpv: \(error.localizedDescription)") }
+            if smokeRendering { try check(mpv_request_log_messages(mpv, "info")) }
             // Contexto fraco retido enquanto callbacks C podem existir.
             let callback = MPVCallbacks(self)
             let context = Unmanaged.passRetained(callback).toOpaque()
@@ -103,6 +105,7 @@ final class MPVPlayer {
             let start = try number(args["startTime"] ?? 0, minimum: 0)
             session += 1
             acceptingMedia = true
+            diagnosticLogs.removeAll(keepingCapacity: true)
             pendingFileLoaded = false
             frameCount = 0
             renderedForSession = false
@@ -227,7 +230,7 @@ final class MPVPlayer {
     fileprivate func draw() {
         guard !closed, let context = surface.openGLContext else { return }
         do { try prepareRenderer() }
-        catch { emit("error", ["message": error.localizedDescription]); return }
+        catch { emitFailure(error.localizedDescription); return }
         context.makeCurrentContext()
         let rect = surface.convertToBacking(surface.bounds)
         guard rect.width >= 1, rect.height >= 1, let renderer = renderContext else { return }
@@ -253,7 +256,7 @@ final class MPVPlayer {
                 emit("rendered", data)
             }
         } else if status < 0 {
-            emit("error", ["message": String(cString: mpv_error_string(status))])
+            emitFailure(String(cString: mpv_error_string(status)))
         }
     }
 
@@ -278,6 +281,17 @@ final class MPVPlayer {
             let event = pointer.pointee
             switch event.event_id {
             case MPV_EVENT_NONE: return
+            case MPV_EVENT_LOG_MESSAGE:
+                guard smokeRendering,
+                      let log = event.data?.assumingMemoryBound(to: mpv_event_log_message.self).pointee,
+                      let message = log.text else { continue }
+                let prefix = log.prefix.map { String(cString: $0) } ?? "mpv"
+                let level = log.level.map { String(cString: $0) } ?? "info"
+                let text = String(String(cString: message).trimmingCharacters(in: .whitespacesAndNewlines).prefix(1000))
+                let line = "[\(prefix)] \(text)"
+                diagnosticLogs.append(line)
+                if diagnosticLogs.count > 40 { diagnosticLogs.removeFirst(diagnosticLogs.count - 40) }
+                emit("log", ["prefix": prefix, "level": level, "text": line])
             case MPV_EVENT_START_FILE:
                 guard let start = event.data?.assumingMemoryBound(to: mpv_event_start_file.self).pointee else { continue }
                 activeEntryID = start.playlist_entry_id
@@ -324,7 +338,7 @@ final class MPVPlayer {
                 buffering = false
                 isPlaying = false
                 if end.reason == MPV_END_FILE_REASON_ERROR {
-                    emit("error", ["message": String(cString: mpv_error_string(end.error))])
+                    emitFailure(String(cString: mpv_error_string(end.error)))
                 } else {
                     emit("ended", ["reason": end.reason == MPV_END_FILE_REASON_EOF ? "eof" : "stop"])
                 }
@@ -346,10 +360,10 @@ final class MPVPlayer {
                     }
                 }
                 if event.error < 0, command.session == session, acceptingMedia {
-                    emit("error", ["message": String(cString: mpv_error_string(event.error))])
+                    emitFailure(String(cString: mpv_error_string(event.error)))
                 }
             case MPV_EVENT_QUEUE_OVERFLOW:
-                emit("error", ["message": "A fila de eventos do player excedeu o limite."])
+                emitFailure("A fila de eventos do player excedeu o limite.")
             default: break
             }
         }
@@ -427,6 +441,12 @@ final class MPVPlayer {
         emit("time", ["position": position, "duration": duration, "paused": paused,
                       "buffering": buffering, "bufferEnd": max(position, bufferEnd),
                       "active": session > 0 && acceptingMedia && (loaded || buffering)])
+    }
+
+    private func emitFailure(_ message: String) {
+        var data: [String: Any] = ["message": message]
+        if smokeRendering { data["logs"] = diagnosticLogs }
+        emit("error", data)
     }
 
     private func emit(_ event: String, _ value: [String: Any]) {
