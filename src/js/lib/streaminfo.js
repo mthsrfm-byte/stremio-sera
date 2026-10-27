@@ -99,14 +99,19 @@ export function good(info) {
 }
 
 // Smart Choice: primeira fonte da lista com áudio original + dublado e boa; se nenhuma, a primeira
-// que dá para tocar. Retorna { stream, ideal } ou null.
+// que dá para tocar. Dolby Vision fica por último: as TVs Samsung não têm DV, e o arquivo DV sem a
+// camada HDR10 (perfil 5, comum em WEB-DL) nem abre. Retorna { stream, ideal } ou null.
 export function smartPick(list, serverOk) {
   const playable = list.filter((s) => canPlay(s, serverOk));
   if (!playable.length) return null;
-  for (let i = 0; i < playable.length; i++) {
-    const info = parse(playable[i]);
-    if (info.dub && info.original && good(info)) return { stream: playable[i], ideal: true };
-  }
+  const ideal = (s) => {
+    const info = parse(s);
+    return info.dub && info.original && good(info);
+  };
+  const noDv = playable.filter((s) => !parse(s).dv);
+  for (let i = 0; i < noDv.length; i++) if (ideal(noDv[i])) return { stream: noDv[i], ideal: true };
+  if (noDv.length) return { stream: noDv[0], ideal: false };
+  for (let i = 0; i < playable.length; i++) if (ideal(playable[i])) return { stream: playable[i], ideal: true };
   return { stream: playable[0], ideal: false };
 }
 

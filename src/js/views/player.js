@@ -483,10 +483,11 @@ function PlayerView(opts) {
     const failed = stream;
     errorDetails(code, why).then((details) => {
       if (!alive || failed !== stream) return;
-      const next = tubeFallback();
+      const next = autoFallback();
       if (next) {
         failedNotes.push(details);
-        toast(t('Tentando: {what}', { what: String(next.name || '').split('\n').join(' ') }), 3500);
+        const what = addons.isTubeStream(next) ? String(next.name || '').split('\n').join(' ') : si.summary(si.parse(next)) || si.parse(next).addon;
+        toast(si.parse(failed).dv ? t('Dolby Vision não abre na TV. Tentando: {what}', { what: what }) : t('Tentando: {what}', { what: what }), 4000);
         switchTo(next);
         return;
       }
@@ -497,13 +498,22 @@ function PlayerView(opts) {
     });
   }
 
-  // XVideos/Pornhub: o mesmo vídeo vem direto e pelo serviço da TV, em mais de uma qualidade.
-  // Se uma não abre, tenta a próxima do mesmo addon antes de mostrar o erro (que então lista
-  // o que aconteceu com cada uma).
+  // Fonte que não abre: tenta outra sozinho antes de mostrar o erro (que então lista o que aconteceu
+  // com cada tentativa). XVideos/Pornhub: a próxima opção do mesmo addon (direto, pelo serviço, outra
+  // qualidade). Filmes e séries: até 2 outras fontes, sem Dolby Vision e na mesma resolução se der.
   const failedNotes = [];
-  function tubeFallback() {
-    if (!addons.isTubeStream(stream)) return null;
-    return (opts.streams || []).find((x) => x.addon === stream.addon && tried.indexOf(x) < 0) || null;
+  let autoTries = 0;
+  function autoFallback() {
+    const rest = (opts.streams || []).filter((x) => tried.indexOf(x) < 0);
+    if (addons.isTubeStream(stream)) return rest.find((x) => x.addon === stream.addon) || null;
+    if (autoTries >= 2) return null;
+    const res = si.parse(stream).res;
+    const ok = server.isAvailable();
+    const cands = rest.filter((x) => !si.parse(x).dv && si.canPlay(x, ok));
+    const pick = si.smartPick(cands.filter((x) => si.parse(x).res === res), ok) || si.smartPick(cands, ok);
+    if (!pick) return null;
+    autoTries++;
+    return pick.stream;
   }
 
   // Linha de diagnóstico do aviso de erro: código do player, de onde veio o link e, se o vídeo
