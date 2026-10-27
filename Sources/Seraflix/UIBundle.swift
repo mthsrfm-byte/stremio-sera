@@ -89,8 +89,13 @@ final class UIBundle {
         guard let json = try JSONSerialization.jsonObject(with: head) as? [String: Any],
               let commit = json["sha"] as? String, validCommit(commit) else { throw UIError.invalid("Commit main inválido") }
         if initial().lastPathComponent == commit { return nil }
-        let base = "https://raw.githubusercontent.com/\(Self.repository)/\(commit)/site/mac/"
-        let manifestData = try await download(URL(string: base + "manifest.json")!, limit: 256 * 1024)
+        let base = "https://cdn.jsdelivr.net/gh/\(Self.repository)@\(commit)/site/mac/"
+        let official = "https://raw.githubusercontent.com/\(Self.repository)/\(commit)/site/mac/"
+        func asset(_ path: String, limit: Int = 16 * 1024 * 1024) async throws -> Data {
+            do { return try await download(URL(string: base + path)!, limit: limit) }
+            catch { return try await download(URL(string: official + path)!, limit: limit) }
+        }
+        let manifestData = try await asset("manifest.json", limit: 256 * 1024)
         let manifest = try JSONDecoder().decode(UIManifest.self, from: manifestData)
         guard manifest.version == 1, manifest.bridgeVersion == 1, validCommit(manifest.commit),
               manifest.files.count <= 300, manifest.files["index.html"] != nil, manifest.files["app.js"] != nil else {
@@ -111,8 +116,7 @@ final class UIBundle {
                 for (path, hash) in entries[offset..<min(offset + 6, entries.count)] {
                     guard safePath(path) else { throw UIError.invalid("Caminho inválido na UI") }
                     group.addTask { [self] in
-                        guard let url = URL(string: base + path) else { throw UIError.invalid("URL inválida") }
-                        let data = try await download(url)
+                        let data = try await asset(path)
                         guard digest(data) == hash else { throw UIError.invalid("Hash inválido: \(path)") }
                         let destination = temporary.appendingPathComponent(path)
                         try fm.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)

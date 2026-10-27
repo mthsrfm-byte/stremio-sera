@@ -33,4 +33,4 @@ printf '%s\n' "$SPARKLE_PRIVATE_KEY" | "$TOOLS/bin/generate_appcast" \
     --embed-release-notes \
     "$WORK"
 cp "$WORK/appcast.xml" "$ROOT/artifacts/appcast-$ARCH.xml"
-echo "Appcast assinado: artifacts/appcast-$ARCH.xml; publique o XML no Pages configurado no app."
+echo "Appcast assinado: artifacts/appcast-$ARCH.xml; publique a release revisada com o XML e ZIP anexados; o app lê o asset latest por arquitetura."

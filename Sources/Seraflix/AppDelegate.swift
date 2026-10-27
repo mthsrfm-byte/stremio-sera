@@ -79,7 +79,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         }
         configuration.mediaTypesRequiringUserActionForPlayback = []
         configuration.preferences.javaScriptCanOpenWindowsAutomatically = false
-        web = WKWebView(frame: contentView.bounds, configuration: configuration)
+        web = OverlayWebView(frame: contentView.bounds, configuration: configuration)
         web.autoresizingMask = [.width, .height]
         web.navigationDelegate = self
         // WKWebView não publica drawsBackground no macOS; KVC é o mecanismo de AppKit usado aqui.
@@ -381,4 +381,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         if let monitor = inputMonitor { NSEvent.removeMonitor(monitor) }
         web?.configuration.userContentController.removeScriptMessageHandler(forName: "seraflix")
     }
+}
+
+// A view de vídeo continua visível para o compositor do AppKit sob a UI.
+// drawsBackground=false limpa a página; isOpaque=false evita oclusão da view irmã.
+private final class OverlayWebView: WKWebView {
+    override var isOpaque: Bool { false }
 }

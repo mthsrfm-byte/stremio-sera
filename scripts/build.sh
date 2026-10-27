@@ -33,7 +33,7 @@ cp "$BIN_DIR/Seraflix" "$APP/Contents/MacOS/"
 cp "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" "$APP/Contents/Info.plist"
-/usr/libexec/PlistBuddy -c "Set :SUFeedURL https://mthsrfm-byte.github.io/stremio-sera-mac/appcast-$ARCH.xml" "$APP/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :SUFeedURL https://github.com/mthsrfm-byte/stremio-sera-mac/releases/latest/download/appcast-$ARCH.xml" "$APP/Contents/Info.plist"
 if [ -n "${SPARKLE_PUBLIC_KEY:-}" ]; then
     /usr/libexec/PlistBuddy -c "Add :SUPublicEDKey string $SPARKLE_PUBLIC_KEY" "$APP/Contents/Info.plist"
     /usr/libexec/PlistBuddy -c 'Set :SUEnableAutomaticChecks true' "$APP/Contents/Info.plist"

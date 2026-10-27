@@ -19,6 +19,6 @@
         <key>NSAllowsArbitraryLoadsInWebContent</key><true/>
     </dict>
     <key>SUEnableAutomaticChecks</key><false/>
-    <key>SUFeedURL</key><string>https://mthsrfm-byte.github.io/stremio-sera-mac/appcast.xml</string>
+    <key>SUFeedURL</key><string>https://github.com/mthsrfm-byte/stremio-sera-mac/releases/latest/download/appcast-arm64.xml</string>
 </dict>
 </plist>

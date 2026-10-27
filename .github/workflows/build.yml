@@ -71,6 +71,13 @@ jobs:
           scripts/build.sh 2>&1 | tee "artifacts/build-$ARCH.log"
       - name: Smoke test nativo (WKWebView, libmpv e mídia HTTP local)
         run: scripts/smoke-test.sh
+      - name: Registrar estado dos testes nos checks
+        if: always()
+        run: |
+          for result in build/smoke-*.json; do
+            [ -f "$result" ] || continue
+            echo "::notice title=$(basename "$result")::$(jq -c . "$result")"
+          done
       - name: Assinar appcast Sparkle (quando configurado)
         if: startsWith(github.ref, 'refs/tags/') && env.DEPS_MODE == 'source'
         env:
