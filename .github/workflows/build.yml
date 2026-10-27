@@ -26,11 +26,20 @@ jobs:
           cache: npm
 
       - run: npm ci
-      - run: npm run build
+      - name: Build
+        run: |
+          export KAI_COMMIT="$GITHUB_SHA"
+          export KAI_BUILD_DATE="$(git log -1 --format=%cI)"
+          MSG="$(git log -1 --format=%s)"
+          # Merge de PR: usa o título do PR (primeira linha do corpo) em vez de "Merge pull request #N".
+          case "$MSG" in "Merge pull request"*) B="$(git log -1 --format=%b | head -1)"; [ -n "$B" ] && MSG="$B";; esac
+          export KAI_COMMIT_MSG="$MSG"
+          npm run build
 
       - name: Commit da dist/ se mudou
         run: |
           git add -A dist
+          # Push feito com o GITHUB_TOKEN não dispara a Action de novo, então não entra em loop.
           if git diff --cached --quiet; then
             echo "dist/ já está em dia."
           else
@@ -42,7 +51,7 @@ jobs:
 
       - name: Limpar cache do jsDelivr
         run: |
-          for f in package.json dist/index.html dist/app.js dist/app.css; do
+          for f in package.json dist/index.html dist/app.js dist/app.css dist/build.json; do
             for ref in "" "@main"; do
               curl -fsS -o /dev/null "https://purge.jsdelivr.net/gh/${GITHUB_REPOSITORY}${ref}/$f" || echo "Falhou: $ref $f"
             done

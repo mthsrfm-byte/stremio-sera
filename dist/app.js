@@ -58,14 +58,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     "node_modules/core-js/internals/global-this.js": function node_modules_coreJs_internals_globalThisJs(exports, module) {
       "use strict";
 
-      var check2 = function check2(it) {
+      var check3 = function check3(it) {
         return it && it.Math === Math && it;
       };
       module.exports =
       // eslint-disable-next-line es/no-global-this -- safe
-      check2((typeof globalThis === "undefined" ? "undefined" : _typeof(globalThis)) == "object" && globalThis) || check2((typeof window === "undefined" ? "undefined" : _typeof(window)) == "object" && window) ||
+      check3((typeof globalThis === "undefined" ? "undefined" : _typeof(globalThis)) == "object" && globalThis) || check3((typeof window === "undefined" ? "undefined" : _typeof(window)) == "object" && window) ||
       // eslint-disable-next-line no-restricted-globals -- safe
-      check2((typeof self === "undefined" ? "undefined" : _typeof(self)) == "object" && self) || check2((typeof global === "undefined" ? "undefined" : _typeof(global)) == "object" && global) || check2(_typeof(exports) == "object" && exports) ||
+      check3((typeof self === "undefined" ? "undefined" : _typeof(self)) == "object" && self) || check3((typeof global === "undefined" ? "undefined" : _typeof(global)) == "object" && global) || check3(_typeof(exports) == "object" && exports) ||
       // eslint-disable-next-line no-new-func -- fallback
       /* @__PURE__ */
       function () {
@@ -7465,7 +7465,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         var sub = t("Episódio {n}", {
           n: v.episode || "?"
         });
-        if (v.released) sub += " · " + formatDate(v.released);
+        if (v.released) sub += " · " + formatDate2(v.released);
         var inProgress = li && li.state && li.state.video_id === v.id && li.state.timeOffset > 0;
         if (inProgress) sub += " · " + t("parou em {time}", {
           time: fmtTime(li.state.timeOffset / 1e3)
@@ -7748,7 +7748,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         });
       } else start2(0);
     }
-    function formatDate(iso) {
+    function formatDate2(iso) {
       var d = new Date(iso);
       if (isNaN(d.getTime())) return "";
       return ("0" + d.getDate()).slice(-2) + "/" + ("0" + (d.getMonth() + 1)).slice(-2) + "/" + d.getFullYear();
@@ -8365,9 +8365,68 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
 
   // src/js/api/update.js
-  var REPO = "creachec/Stremio-Kai-Timeworn";
+  var REPO = "mthsrfm-byte/stremio-sera";
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
+  var BUILD = {
+    commit: "1ac399295255e066b9414dfdb3f20adc9059e08e",
+    date: "2026-10-26T21:30:31-03:00",
+    message: "Merge pull request #3 from mthsrfm-byte/claude/jolly-cannon-08tl69"
+  };
+  var MODULE_PREFIX = "/module/";
+  function formatDate(iso) {
+    var d = new Date(iso);
+    if (!iso || isNaN(d.getTime())) return "";
+    var p = function p(n) {
+      return (n < 10 ? "0" : "") + n;
+    };
+    return p(d.getDate()) + "/" + p(d.getMonth() + 1) + "/" + d.getFullYear() + " às " + p(d.getHours()) + ":" + p(d.getMinutes());
+  }
+  function shortCommit(sha) {
+    return String(sha || "").slice(0, 7);
+  }
+  function check2() {
+    return getJSON("https://api.github.com/repos/" + REPO + "/commits/main", {
+      timeout: 15e3,
+      quiet: true,
+      headers: {
+        Accept: "application/vnd.github+json"
+      }
+    }).then(function (c) {
+      return getJSON("https://cdn.jsdelivr.net/gh/" + REPO + "@" + c.sha + "/dist/build.json", {
+        timeout: 15e3,
+        quiet: true
+      }).then(function (b) {
+        return {
+          sha: c.sha,
+          commit: b.commit,
+          date: b.date,
+          message: b.message,
+          version: b.version,
+          isNew: !!b.commit && b.commit !== BUILD.commit
+        };
+      });
+    });
+  }
+  function install2(info) {
+    ["package.json", "dist/index.html", "dist/app.js", "dist/app.css", "dist/build.json"].forEach(function (f) {
+      try {
+        var x = new XMLHttpRequest();
+        x.open("GET", "https://purge.jsdelivr.net/gh/" + REPO + "/" + f, true);
+        x.send();
+      } catch (e) {}
+    });
+    setTimeout(function () {
+      var loc = window.location;
+      if (loc.pathname.indexOf(MODULE_PREFIX) === 0) {
+        var rest = loc.pathname.slice(MODULE_PREFIX.length);
+        var file = rest.slice(rest.indexOf("/") + 1);
+        loc.href = loc.protocol + "//" + loc.host + MODULE_PREFIX + encodeURIComponent("gh/" + REPO + "@" + info.sha) + "/" + file;
+      } else {
+        loc.reload();
+      }
+    }, 1500);
+  }
 
   // src/js/views/login.js
   function openLogin(onDone) {
@@ -8556,6 +8615,45 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }) : null]), extra || h("div.value", {
         text: value || ""
       })]);
+    }
+    var updateStatus = "";
+    function checkForUpdate() {
+      toast(t("Procurando atualização..."));
+      check2().then(function (info) {
+        var when = formatDate(info.date);
+        if (!info.isNew) {
+          updateStatus = t("Tudo em dia. Última publicada em {date}", {
+            date: when
+          });
+          render();
+          return toast(t("Você já está na versão mais nova."));
+        }
+        updateStatus = t("Versão nova de {date} disponível", {
+          date: when
+        });
+        render();
+        menu(t("Atualização disponível"), [{
+          label: t("Instalar agora"),
+          sub: t("Publicada em {date}", {
+            date: when
+          }) + (info.message ? " · " + info.message : "") + " · " + shortCommit(info.commit),
+          value: "install"
+        }, {
+          label: t("Agora não"),
+          value: "later"
+        }], {
+          center: true,
+          onPick: function onPick(v) {
+            if (v !== "install") return;
+            toast(t("Atualizando... já volto!"), 8e3);
+            install2(info);
+          }
+        });
+      }).catch(function (e) {
+        return toast(t("Não foi possível verificar: {msg}", {
+          msg: e.message
+        }), 5e3);
+      });
     }
     function installFromUrl(url2, name) {
       if (!isLoggedIn()) return toast(t("Entre na conta primeiro"));
@@ -9000,6 +9098,19 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         text: isLoggedIn() ? t("Instala na sua conta Stremio") : t("Fica só nesta TV")
       })]), addInput]));
       body.appendChild(h("div.set-section", {
+        text: t("Atualizações")
+      }));
+      var b = BUILD;
+      body.appendChild(row(t("Versão instalada"), b.date ? t("Publicada em {date}", {
+        date: formatDate(b.date)
+      }) + (b.message ? " · " + b.message : "") : t("Build local"), "v" + VERSION + (b.commit ? " · " + shortCommit(b.commit) : ""), null));
+      body.appendChild(row(t("Procurar atualização"), updateStatus || t("Busca a versão mais nova no GitHub ({repo})", {
+        repo: REPO
+      }), "", function () {
+        return checkForUpdate();
+      }));
+      if (device) body.appendChild(row(t("TV"), "", device, null));
+      body.appendChild(h("div.set-section", {
         text: t("Sobre e depuração")
       }));
       var logInput = h("input.input", {
@@ -9023,7 +9134,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }, [h("div.label", null, [t("Log remoto"), h("small", {
         text: t("npm run logs no PC")
       })]), logInput]));
-      body.appendChild(row(t("Versão"), device || t("Atualiza sozinho pelo TizenBrew"), "v" + VERSION, null));
       var rows = body.querySelectorAll(".set-row");
       if (keepIndex >= 0 && rows[keepIndex]) focus(rows[keepIndex]);
     }
@@ -9477,6 +9587,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         });
       } else maybeShowWizard();
       devLaunch();
+      setTimeout(function () {
+        check2().then(function (info) {
+          return info.isNew && toast(t("Tem Seraflix novo saindo do forno! Ajustes → Procurar atualização"), 7e3);
+        }).catch(function () {});
+      }, 8e3);
     });
   }
   function devLaunch() {

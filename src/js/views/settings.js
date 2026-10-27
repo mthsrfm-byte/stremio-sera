@@ -59,6 +59,44 @@ export function SettingsView() {
     ]);
   }
 
+  let updateStatus = '';
+
+  function checkForUpdate() {
+    toast(t('Procurando atualização...'));
+    update
+      .check()
+      .then((info) => {
+        const when = update.formatDate(info.date);
+        if (!info.isNew) {
+          updateStatus = t('Tudo em dia. Última publicada em {date}', { date: when });
+          render();
+          return toast(t('Você já está na versão mais nova.'));
+        }
+        updateStatus = t('Versão nova de {date} disponível', { date: when });
+        render();
+        menu(
+          t('Atualização disponível'),
+          [
+            {
+              label: t('Instalar agora'),
+              sub: t('Publicada em {date}', { date: when }) + (info.message ? ' · ' + info.message : '') + ' · ' + update.shortCommit(info.commit),
+              value: 'install',
+            },
+            { label: t('Agora não'), value: 'later' },
+          ],
+          {
+            center: true,
+            onPick: (v) => {
+              if (v !== 'install') return;
+              toast(t('Atualizando... já volto!'), 8000);
+              update.install(info);
+            },
+          }
+        );
+      })
+      .catch((e) => toast(t('Não foi possível verificar: {msg}', { msg: e.message }), 5000));
+  }
+
   function installFromUrl(url, name) {
     if (!stremio.isLoggedIn()) return toast(t('Entre na conta primeiro'));
     confirmDialog(t('Instalar {name} na sua conta Stremio?', { name: name }), t('Instalar'), () => {
@@ -400,6 +438,20 @@ export function SettingsView() {
       ])
     );
 
+    // ---- Atualizações (direto do GitHub, sem fechar o app) ----
+    body.appendChild(h('div.set-section', { text: t('Atualizações') }));
+    const b = update.BUILD;
+    body.appendChild(
+      row(
+        t('Versão instalada'),
+        b.date ? t('Publicada em {date}', { date: update.formatDate(b.date) }) + (b.message ? ' · ' + b.message : '') : t('Build local'),
+        'v' + update.VERSION + (b.commit ? ' · ' + update.shortCommit(b.commit) : ''),
+        null
+      )
+    );
+    body.appendChild(row(t('Procurar atualização'), updateStatus || t('Busca a versão mais nova no GitHub ({repo})', { repo: update.REPO }), '', () => checkForUpdate()));
+    if (device) body.appendChild(row(t('TV'), '', device, null));
+
     body.appendChild(h('div.set-section', { text: t('Sobre e depuração') }));
     const logInput = h('input.input', { type: 'text', value: s.devlogUrl || '', placeholder: 'http://IP-DO-PC:8099/log' });
     logInput.__submit = (v) => {
@@ -414,7 +466,6 @@ export function SettingsView() {
         logInput,
       ])
     );
-    body.appendChild(row(t('Versão'), device || t('Atualiza sozinho pelo TizenBrew'), 'v' + update.VERSION, null));
 
     const rows = body.querySelectorAll('.set-row');
     if (keepIndex >= 0 && rows[keepIndex]) nav.focus(rows[keepIndex]);
