@@ -3,6 +3,7 @@ import { h, clear } from '../lib/dom.js';
 import * as nav from '../lib/nav.js';
 import { KEY } from '../lib/nav.js';
 import * as subs from '../lib/subs.js';
+import * as subpick from '../lib/subpick.js';
 import * as substyle from '../lib/substyle.js';
 import * as store from '../lib/store.js';
 import { log } from '../lib/log.js';
@@ -93,6 +94,7 @@ function PlayerView(opts) {
   let seekRepeats = 0;
   let embedded = null; // { audio: [], subs: [] } do servidor
   let addonSubs = null;
+  let fileInfo = null;
   let currentSub = { kind: 'off' };
   let currentAudio = null;
   let triedTranscode = false;
@@ -171,18 +173,31 @@ function PlayerView(opts) {
     return tracksPromise;
   }
 
+  // Pede as legendas já com hash/tamanho/nome do arquivo, para os addons devolverem as casadas.
+  // A escolha automática espera todos os addons (ou 6s), para não ficar com a primeira que chegar.
+  let subsSettled = false;
   function loadSubtitles() {
     const forVideo = video;
+    const forUrl = mediaUrl;
     addonSubs = null;
-    addons
-      .fetchSubtitles(meta.type, video.id, {}, (list) => {
-        if (!alive || forVideo !== video) return;
-        addonSubs = (addonSubs || []).concat(list);
-        autoPick();
-      })
-      .catch(() => {
+    subsSettled = false;
+    subpick.videoInfo(stream, mediaUrl, server).then((info) => {
+      if (!alive || forVideo !== video || forUrl !== mediaUrl) return;
+      fileInfo = info;
+      const settle = () => {
+        if (!alive || forVideo !== video || subsSettled) return;
+        subsSettled = true;
         if (!addonSubs) addonSubs = [];
-      });
+        autoPick();
+      };
+      setTimeout(settle, 6000);
+      addons
+        .fetchSubtitles(meta.type, video.id, subpick.extra(info), (list) => {
+          if (!alive || forVideo !== video) return;
+          addonSubs = (addonSubs || []).concat(list);
+        })
+        .then(settle, settle);
+    });
   }
 
   // Seleção automática no estilo do Smart Track Selector do Kai (versão leve).
@@ -200,15 +215,50 @@ function PlayerView(opts) {
         if (idx > 0) selectEmbeddedAudio(idx);
       }
     }
-    if (autoDone.sub || !settings.subtitlesAuto || !prefSubs.length || !addonSubs) return;
-    for (let p = 0; p < prefSubs.length; p++) {
-      const s = addonSubs.find((x) => String(x.lang).toLowerCase() === prefSubs[p]);
-      if (s) {
-        autoDone.sub = true;
-        selectAddonSub(s, true);
-        return;
-      }
+    if (autoDone.sub || !settings.subtitlesAuto || !prefSubs.length || !subsSettled) return;
+    autoDone.sub = true;
+    const ranked = subpick.rank(addonSubs, prefSubs, fileInfo || {}, seriesInfo()).slice(0, 6);
+    if (ranked.length) whenDuration(() => tryAutoSub(ranked, 0, mediaUrl));
+  }
+
+  // A duração do vídeo é o que permite conferir a legenda; espera os metadados (até 15s).
+  function whenDuration(fn) {
+    if (isFinite(videoEl.duration) && videoEl.duration > 0) return fn();
+    let done = false;
+    const go = () => {
+      if (done) return;
+      done = true;
+      videoEl.removeEventListener('loadedmetadata', go);
+      if (alive) fn();
+    };
+    videoEl.addEventListener('loadedmetadata', go);
+    setTimeout(go, 15000);
+  }
+
+  // Testa as candidatas em ordem e liga a primeira que passa na conferência.
+  function tryAutoSub(ranked, i, forUrl) {
+    if (!alive || forUrl !== mediaUrl || currentSub.kind !== 'off') return; // usuário já escolheu algo
+    if (i >= ranked.length) {
+      // Nenhuma passou: volta ao padrão do app (a primeira no idioma preferido) e avisa que dá para trocar.
+      log.warn('Nenhuma legenda passou na conferência; usando a padrão');
+      selectAddonSub(ranked[0], true);
+      toast(t('Legenda pode não bater com este arquivo. Troque no menu de legendas.'), 5000);
+      return;
     }
+    const s = ranked[i];
+    subs
+      .load(s.url, server.subtitlesProxy(s.url))
+      .then((cues) => {
+        if (!alive || forUrl !== mediaUrl || currentSub.kind !== 'off') return;
+        const check = subpick.plausible(cues, videoEl.duration);
+        if (!check.ok) {
+          log.info('Legenda recusada', s.addon, s.lang, check.why);
+          return tryAutoSub(ranked, i + 1, forUrl);
+        }
+        currentSub = { kind: 'addon', id: s.id || s.url };
+        renderer.set(cues);
+      })
+      .catch(() => tryAutoSub(ranked, i + 1, forUrl));
   }
 
   // Áudio preferido configurado: lê as faixas uma vez, 20s depois de o vídeo começar.
@@ -750,11 +800,9 @@ function PlayerView(opts) {
       );
     }
     const pref = (settings.subtitleLangs || []).map((x) => x.toLowerCase());
-    const sorted = (addonSubs || []).slice().sort((a, b) => {
-      const ia = pref.indexOf(String(a.lang).toLowerCase());
-      const ib = pref.indexOf(String(b.lang).toLowerCase());
-      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
-    });
+    // Melhores candidatas primeiro (mesma ordem da escolha automática); o resto vem depois.
+    const best = subpick.rank(addonSubs, pref, fileInfo || {}, seriesInfo());
+    const sorted = best.concat((addonSubs || []).filter((s) => best.indexOf(s) < 0));
     sorted.slice(0, 60).forEach((s) =>
       opts2.push({
         label: langName(s.lang),

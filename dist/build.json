@@ -1,6 +1,6 @@
 {
   "version": "1.2.0",
-  "commit": "b20c60242678102428b4eb5834be9e19a2d196a1",
-  "date": "2026-10-27T05:39:41+00:00",
-  "message": "Cleaner source list, Smart Choice, player quality toggle and slow-load fallback, PT genres, upcoming episodes, cast filmography, NSFW polish"
+  "commit": "48f9182351a358f723c88cd974ba7d071771655e",
+  "date": "2026-10-27T05:40:47+00:00",
+  "message": "Hide finished source loading bar; Portuguese episode names in sources header and player"
 }

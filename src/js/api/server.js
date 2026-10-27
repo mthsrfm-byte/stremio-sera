@@ -212,6 +212,15 @@ export function streamProgress(mediaUrl) {
     .catch(() => null);
 }
 
+// Hash OpenSubtitles do arquivo (64 KB do começo e do fim), calculado pelo servidor do PC.
+export function opensubHash(mediaUrl) {
+  const base = baseUrl();
+  if (!base) return Promise.resolve(null);
+  return getJSON(base + 'opensubHash?videoUrl=' + encodeURIComponent(mediaUrl), { timeout: 5000, quiet: true }).then(
+    (r) => (r && r.result) || null
+  );
+}
+
 // Converte legendas externas para VTT pelo servidor (contorna CORS/codificação).
 export function subtitlesProxy(subUrl) {
   const base = baseUrl();
