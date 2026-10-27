@@ -26,7 +26,7 @@ const SLOW_MS = 40000; // sem começar a tocar depois disso: oferece outro prove
 const SLOW_COUNTDOWN = 5;
 const SAVE_MS = 15000;
 const LANG_NAMES = {
-  por: 'Português', pob: 'Português (BR)', pt: 'Português', 'pt-br': 'Português (BR)', eng: 'Inglês', en: 'Inglês',
+  por: 'Português (Portugal)', pob: 'Português (BR)', pt: 'Português', 'pt-br': 'Português (BR)', eng: 'Inglês', en: 'Inglês',
   spa: 'Espanhol', es: 'Espanhol', jpn: 'Japonês', ja: 'Japonês', fre: 'Francês', fra: 'Francês', fr: 'Francês',
   ger: 'Alemão', deu: 'Alemão', de: 'Alemão', ita: 'Italiano', it: 'Italiano', kor: 'Coreano', ko: 'Coreano',
   chi: 'Chinês', zho: 'Chinês', rus: 'Russo', ara: 'Árabe', hin: 'Hindi', und: 'Indefinido',
@@ -36,6 +36,34 @@ function langName(code) {
   if (!code) return t('Desconhecido');
   const name = LANG_NAMES[String(code).toLowerCase()];
   return name ? t(name) : code;
+}
+
+// Ajuste de sincronia lembrado por vídeo (e pela legenda em que foi feito): ao continuar depois,
+// a mesma legenda já volta no tempo certo.
+const SYNC_KEY = 'subSync';
+function savedSync(videoId) {
+  return (store.get(SYNC_KEY, {}) || {})[videoId] || null;
+}
+function saveSync(videoId, subId, off) {
+  const all = store.get(SYNC_KEY, {}) || {};
+  if (!off || !subId) delete all[videoId];
+  else all[videoId] = { sub: subId, off: off, at: Date.now() };
+  const ids = Object.keys(all);
+  if (ids.length > 150) {
+    ids.sort((a, b) => all[a].at - all[b].at);
+    ids.slice(0, ids.length - 150).forEach((k) => delete all[k]);
+  }
+  store.set(SYNC_KEY, all);
+}
+
+// +1,5 s / −0,3 s / 0,0 s
+function fmtOff(v) {
+  const r = Math.round(v * 10) / 10;
+  return (r > 0 ? '+' : r < 0 ? '−' : '') + Math.abs(r).toFixed(1).replace('.', ',') + ' s';
+}
+
+function isPt(lang) {
+  return /^(pob|por|pt|pt-br|pt-pt|ptbr)$/i.test(lang || '');
 }
 
 // Eventos da agenda que já avisaram (não repete o aviso ao trocar de vídeo).
@@ -137,6 +165,7 @@ function PlayerView(opts) {
   let triedTranscode = false;
   let slowTimer = null;
   let slowModal = null;
+  let syncUi = false; // painel de sincronia da legenda aberto: pausar não mostra os controles
   const tried = opts.stream ? [opts.stream] : [];
 
   const seriesInfo = () => (opts.isSeries ? { season: video.season, episode: video.episode } : null);
@@ -389,7 +418,11 @@ function PlayerView(opts) {
     }
     if (autoDone.sub || !settings.subtitlesAuto || !prefSubs.length || !subsSettled) return;
     autoDone.sub = true;
-    const ranked = subpick.rank(addonSubs, prefSubs, fileInfo || {}, seriesInfo()).slice(0, 6);
+    const ranked = subpick.rank(addonSubs, prefSubs, fileInfo || {}, seriesInfo()).slice(0, 8);
+    // A legenda que já foi sincronizada neste vídeo vai na frente.
+    const saved = savedSync(video.id);
+    const savedAt = saved ? ranked.findIndex((x) => (x.id || x.url) === saved.sub) : -1;
+    if (savedAt > 0) ranked.unshift(ranked.splice(savedAt, 1)[0]);
     if (ranked.length) whenDuration(() => tryAutoSub(ranked, 0, mediaUrl));
   }
 
@@ -407,10 +440,16 @@ function PlayerView(opts) {
     setTimeout(go, 15000);
   }
 
-  // Testa as candidatas em ordem e liga a primeira que passa na conferência.
-  function tryAutoSub(ranked, i, forUrl) {
+  // Testa as candidatas em ordem e liga a primeira que passa na conferência. Legenda de Portugal
+  // rotulada como BR fica de reserva enquanto houver outra candidata.
+  function tryAutoSub(ranked, i, forUrl, ptBackup) {
     if (!alive || forUrl !== mediaUrl || currentSub.kind !== 'off') return; // usuário já escolheu algo
     if (i >= ranked.length) {
+      if (ptBackup) {
+        useAddonCues(ptBackup.sub, ptBackup.cues);
+        toast(t('Só achei legenda em português de Portugal.'), 4000);
+        return;
+      }
       // Nenhuma passou: volta ao padrão do app (a primeira no idioma preferido) e avisa que dá para trocar.
       log.warn('Nenhuma legenda passou na conferência; usando a padrão');
       selectAddonSub(ranked[0], true);
@@ -418,19 +457,67 @@ function PlayerView(opts) {
       return;
     }
     const s = ranked[i];
-    subs
-      .load(s.url, server.subtitlesProxy(s.url))
+    loadAddonCues(s)
       .then((cues) => {
         if (!alive || forUrl !== mediaUrl || currentSub.kind !== 'off') return;
         const check = subpick.plausible(cues, videoEl.duration);
         if (!check.ok) {
           log.info('Legenda recusada', s.addon, s.lang, check.why);
-          return tryAutoSub(ranked, i + 1, forUrl);
+          return tryAutoSub(ranked, i + 1, forUrl, ptBackup);
         }
-        currentSub = { kind: 'addon', id: s.id || s.url };
-        renderer.set(cues);
+        if (wantsBr() && subVariant[s.id || s.url] === 'pt') {
+          log.info('Legenda de Portugal; procurando uma do Brasil', s.addon, s.lang);
+          return tryAutoSub(ranked, i + 1, forUrl, ptBackup || { sub: s, cues: cues });
+        }
+        useAddonCues(s, cues);
       })
-      .catch(() => tryAutoSub(ranked, i + 1, forUrl));
+      .catch(() => tryAutoSub(ranked, i + 1, forUrl, ptBackup));
+  }
+
+  // Baixa a legenda, corrige a velocidade (25 x 23,976 fps) e descobre se é PT do Brasil ou de Portugal.
+  const subVariant = {};
+  function loadAddonCues(s) {
+    return subs.load(s.url, server.subtitlesProxy(s.url)).then((cues) => {
+      const fix = subpick.fixFps(cues, videoEl.duration);
+      if (fix) {
+        log.info('Legenda em outra velocidade; reescalada', fix.factor.toFixed(4));
+        cues = fix.cues;
+      }
+      if (isPt(s.lang)) subVariant[s.id || s.url] = subpick.ptVariant(cues);
+      return cues;
+    });
+  }
+
+  function useAddonCues(s, cues) {
+    currentSub = { kind: 'addon', id: s.id || s.url };
+    renderer.set(cues);
+    applySavedOffset();
+  }
+
+  function wantsBr() {
+    const p = (settings.subtitleLangs || []).map((x) => x.toLowerCase());
+    const idx = (l) => (p.indexOf(l) < 0 ? 99 : p.indexOf(l));
+    const br = Math.min(idx('pob'), idx('pt-br'));
+    return br < 99 && br < idx('por');
+  }
+
+  function subLabel(s) {
+    const v = subVariant[s.id || s.url];
+    if (v === 'pt') return t('Português (Portugal)');
+    if (v === 'br') return t('Português (BR)');
+    return langName(s.lang);
+  }
+
+  function subKey() {
+    if (currentSub.kind === 'addon') return currentSub.id;
+    if (currentSub.kind === 'embedded') return 'emb' + currentSub.index;
+    return '';
+  }
+
+  function applySavedOffset() {
+    const saved = savedSync(video.id);
+    renderer.setOffset(saved && saved.sub === subKey() ? saved.off : 0);
+    renderer.update(videoEl.currentTime);
   }
 
   // Áudio preferido configurado: lê as faixas uma vez, 20s depois de o vídeo começar.
@@ -472,7 +559,7 @@ function PlayerView(opts) {
   });
   videoEl.addEventListener('pause', () => {
     updatePlayBtn();
-    showControls();
+    if (!syncUi) showControls();
     saveProgress();
   });
   videoEl.addEventListener('waiting', () => showSpinner(true));
@@ -854,7 +941,9 @@ function PlayerView(opts) {
       el.classList.add('controls-on');
       updateTimes();
       updatePlayBtn();
-      if (!nav.current() || !overlay.contains(nav.current())) nav.focus(focusEl || bar);
+      // Com um painel por cima (sincronia, menus), o foco fica lá.
+      const mine = nav.topLayer() && nav.topLayer().root === el;
+      if (mine && (!nav.current() || !overlay.contains(nav.current()))) nav.focus(focusEl || bar);
     } else if (focusEl) nav.focus(focusEl);
     scheduleHide();
   }
@@ -1059,6 +1148,7 @@ function PlayerView(opts) {
   function extractedSub(index) {
     const cs = { kind: 'embedded', index: index, extracted: true, sid: 'kai' + Math.random().toString(36).slice(2), segs: {}, cues: [], busy: false };
     currentSub = cs;
+    applySavedOffset();
     ensureSegments();
   }
 
@@ -1095,12 +1185,11 @@ function PlayerView(opts) {
 
   function selectAddonSub(s, silent) {
     currentSub = { kind: 'addon', id: s.id || s.url };
-    subs
-      .load(s.url, server.subtitlesProxy(s.url))
+    loadAddonCues(s)
       .then((cues) => {
         if (!alive || currentSub.id !== (s.id || s.url)) return;
-        renderer.set(cues);
-        if (!silent) toast(t('Legenda: {lang}', { lang: langName(s.lang) }));
+        useAddonCues(s, cues);
+        if (!silent) toast(t('Legenda: {lang}', { lang: subLabel(s) }));
       })
       .catch(() => toast(t('Não foi possível baixar a legenda.')));
   }
@@ -1142,7 +1231,12 @@ function PlayerView(opts) {
   }
 
   function openSubsMenu() {
-    const opts2 = [{ label: t('Desligada'), value: { kind: 'off' }, checked: currentSub.kind === 'off' }];
+    const opts2 = [];
+    if (renderer.active()) {
+      const off = renderer.offset();
+      opts2.push({ label: t('Sincronizar legenda'), sub: off ? t('Ajuste atual: {n}', { n: fmtOff(off) }) : t('Automático ou manual'), value: { kind: 'sync' } });
+    }
+    opts2.push({ label: t('Desligada'), value: { kind: 'off' }, checked: currentSub.kind === 'off' });
     if (embedded && embedded.subs.length) {
       embedded.subs.forEach((tr, i) =>
         /PGS|VOBSUB|DVD/i.test(tr.codec || '') ? null : opts2.push({
@@ -1159,13 +1253,12 @@ function PlayerView(opts) {
     const sorted = best.concat((addonSubs || []).filter((s) => best.indexOf(s) < 0));
     sorted.slice(0, 60).forEach((s) =>
       opts2.push({
-        label: langName(s.lang),
+        label: subLabel(s),
         sub: s.addon || 'Addon',
         value: { kind: 'addon', sub: s },
         checked: currentSub.kind === 'addon' && currentSub.id === (s.id || s.url),
       })
     );
-    opts2.push({ label: t('Atraso da legenda: {n}s', { n: renderer.offset().toFixed(1) }), sub: t('Ajustar sincronia'), value: { kind: 'delay' } });
     opts2.push({ label: t('Tamanho: {n}%', { n: store.settings().subtitleSize || 100 }), value: { kind: 'size' } });
     menu(t('Legendas'), opts2, {
       empty: addonSubs === null ? t('Carregando legendas...') : t('Nenhuma legenda.'),
@@ -1176,19 +1269,167 @@ function PlayerView(opts) {
           currentSub = { kind: 'off' };
         } else if (v.kind === 'embedded') selectEmbeddedSub(v.index);
         else if (v.kind === 'addon') selectAddonSub(v.sub);
-        else if (v.kind === 'delay') delayMenu();
+        else if (v.kind === 'sync') syncMenu();
         else if (v.kind === 'size') sizeMenu();
       },
     });
   }
 
-  function delayMenu() {
-    const vals = [-5, -3, -2, -1, -0.5, -0.25, 0, 0.25, 0.5, 1, 2, 3, 5];
-    menu(
-      t('Atraso da legenda'),
-      vals.map((v) => ({ label: (v > 0 ? '+' : '') + v + 's', sub: v < 0 ? t('Legenda aparece antes') : v > 0 ? t('Legenda aparece depois') : t('Sem ajuste'), value: v, checked: renderer.offset() === v })),
-      { onPick: (v) => renderer.setOffset(v) }
+  // ---------- Sincronia da legenda ----------
+  function syncMenu() {
+    const off = renderer.offset();
+    const list = [
+      { label: t('Automático'), sub: t('Pause quando alguém começa a falar e escolha a fala'), value: 'auto' },
+      { label: t('Manual'), sub: t('Ajuste fino com as setas do controle'), value: 'manual' },
+    ];
+    if (off) list.push({ label: t('Zerar ajuste'), sub: t('Agora: {n}', { n: fmtOff(off) }), value: 'zero' });
+    menu(t('Sincronizar legenda'), list, {
+      onPick: (v) => {
+        if (v === 'auto') autoSync();
+        else if (v === 'manual') manualSync();
+        else {
+          setSync(0);
+          toast(t('Legenda de volta ao tempo original.'));
+        }
+      },
+    });
+  }
+
+  function setSync(v) {
+    v = Math.round(v * 10) / 10;
+    renderer.setOffset(v);
+    renderer.update(videoEl.currentTime);
+    if (meta.id !== 'dev') saveSync(video.id, subKey(), v);
+  }
+
+  function syncHint(v) {
+    const r = Math.round(v * 10) / 10;
+    const n = Math.abs(r).toFixed(1).replace('.', ',');
+    if (!r) return t('No tempo original do arquivo');
+    return r > 0 ? t('A legenda aparece {n} s depois', { n: n }) : t('A legenda aparece {n} s antes', { n: n });
+  }
+
+  // Manual: painel no alto da tela (a legenda continua visível embaixo) e as setas mexem ao vivo.
+  function manualSync() {
+    hideControls();
+    const before = renderer.offset();
+    let cur = before;
+    const val = h('div.ss-val');
+    const hint = h('div.ss-hint');
+    const knob = h('div.ss-knob');
+    // Setas desenhadas: a fonte da TV não tem os símbolos.
+    const arrow = (d) => '<svg viewBox="0 0 24 24"><path d="' + d + '"/></svg>';
+    const LR = arrow('M15 5l-7 7 7 7') + arrow('M9 5l7 7-7 7');
+    const UD = arrow('M5 15l7-7 7 7') + arrow('M5 9l7 7 7-7');
+    const keyHint = (k, label) => h('span.ss-key', null, [h('b', { html: k }), label]);
+    const box = h('div.sub-sync', null, [
+      h('div.ss-title', { text: t('Sincronizar legenda') }),
+      val,
+      hint,
+      h('div.ss-track', null, [h('div.ss-mid'), knob, h('span.ss-end.l', { text: t('antes') }), h('span.ss-end.r', { text: t('depois') })]),
+      h('div.ss-keys', null, [keyHint(LR, '0,5 s'), keyHint(UD, '0,1 s'), keyHint('OK', t('salvar')), keyHint(t('Voltar'), t('desfazer'))]),
+    ]);
+    function draw() {
+      val.textContent = fmtOff(cur);
+      val.className = 'ss-val' + (cur > 0.05 ? ' later' : cur < -0.05 ? ' sooner' : '');
+      hint.textContent = syncHint(cur);
+      knob.style.left = 50 + Math.max(-10, Math.min(10, cur)) * 5 + '%';
+      renderer.setOffset(cur);
+      renderer.update(videoEl.currentTime);
+    }
+    function close(save) {
+      syncUi = false;
+      nav.popLayer(layer);
+      if (box.parentNode) box.parentNode.removeChild(box);
+      if (save) {
+        setSync(cur);
+        toast(t('Legenda ajustada: {n}', { n: fmtOff(cur) }));
+      } else {
+        renderer.setOffset(before);
+        renderer.update(videoEl.currentTime);
+      }
+    }
+    el.appendChild(box);
+    syncUi = true;
+    const layer = nav.pushLayer(box, {
+      onBack: () => close(false),
+      onKey: (ev) => {
+        const k = ev.keyCode;
+        if (k === KEY.BACK || k === KEY.ESC || k === KEY.BACKSPACE) return false;
+        if (k === KEY.LEFT) cur -= 0.5;
+        else if (k === KEY.RIGHT) cur += 0.5;
+        else if (k === KEY.UP) cur += 0.1;
+        else if (k === KEY.DOWN) cur -= 0.1;
+        else if (k === KEY.ENTER) {
+          close(true);
+          return true;
+        } else if (k === KEY.PLAYPAUSE || k === KEY.PLAY || k === KEY.PAUSE) {
+          if (k === KEY.PAUSE) videoEl.pause();
+          else if (k === KEY.PLAY) videoEl.play();
+          else togglePlay();
+          hideControls();
+          return true;
+        } else return true;
+        cur = Math.max(-60, Math.min(60, Math.round(cur * 10) / 10));
+        draw();
+        return true;
+      },
+    });
+    draw();
+  }
+
+  // Automático: com o vídeo parado no instante em que alguém começa a falar, mostra as falas
+  // da legenda por perto e o usuário aponta qual é. Ajuste = agora − início daquela fala.
+  function autoSync() {
+    const all = renderer.cues();
+    if (!all.length) return toast(t('Escolha uma legenda primeiro.'));
+    syncUi = true;
+    videoEl.pause();
+    hideControls();
+    const now = videoEl.currentTime;
+    const at = now - renderer.offset(); // "agora" no relógio da legenda
+    const dist = (c) => Math.abs(c.start - at);
+    let near = all.filter((c) => c.start >= at - 90 && c.start <= at + 90);
+    if (near.length < 6) near = all.slice().sort((a, b) => dist(a) - dist(b)).slice(0, 12);
+    if (near.length > 40) near = near.slice().sort((a, b) => dist(a) - dist(b)).slice(0, 40);
+    near.sort((a, b) => a.start - b.start);
+    let closest = 0;
+    near.forEach((c, i) => {
+      if (dist(c) < dist(near[closest])) closest = i;
+    });
+    const rel = (d) => {
+      if (Math.abs(d) < 0.3) return t('na legenda: agora');
+      const n = Math.abs(d) < 10 ? Math.abs(d).toFixed(1).replace('.', ',') : String(Math.round(Math.abs(d)));
+      return d > 0 ? t('na legenda: daqui a {n} s', { n: n }) : t('na legenda: há {n} s', { n: n });
+    };
+    const list = h('div.modal-list.sync-list', { 'data-scroll-y': '', 'data-pad-y': '120' });
+    const items = near.map((c) =>
+      h('div.opt.sync-opt', { focusable: true, onSelect: () => pick(c) }, [
+        h('span.so-text', { html: c.text.replace(/\n/g, '<br>') }),
+        h('small', { text: rel(c.start - at) }),
+      ])
     );
+    items.forEach((it) => list.appendChild(it));
+    const box = h('div.modal-box.sync-box', null, [
+      h('h3', { text: t('Qual fala começa agora?') }),
+      h('p.modal-text', { text: t('Pausado em {time}. Escolha a fala que começa exatamente neste momento.', { time: fmtTime(now) }) }),
+      list,
+    ]);
+    const modal = h('div.modal.sync-modal', null, box);
+    document.getElementById('app').appendChild(modal);
+    const layer = nav.pushLayer(modal, { onBack: () => close() });
+    nav.focus(items[closest]);
+    function close() {
+      syncUi = false;
+      nav.popLayer(layer);
+      if (modal.parentNode) modal.parentNode.removeChild(modal);
+    }
+    function pick(c) {
+      close();
+      setSync(now - c.start);
+      toast(t('Legenda sincronizada ({n})', { n: fmtOff(renderer.offset()) }), 4000);
+      videoEl.play();
+    }
   }
 
   function sizeMenu() {

@@ -26,6 +26,7 @@ import { applyTheme } from './lib/theme.js';
 import { openLogin } from './views/login.js';
 import { registerTizenKeys, IS_WEB } from './lib/platform.js';
 import * as intro from './lib/intro.js';
+import * as screensaver from './lib/screensaver.js';
 
 // Abertura (logo + som): o app só aparece depois dela, mesmo que carregue antes.
 let introDone = Promise.resolve();
@@ -98,6 +99,7 @@ function start() {
     // Pedidos do controle no celular ("Mandar para a TV").
     if (!IS_WEB) sendToTv.start(openFromPhone);
     calendar.start(); // agenda do Google (se tiver link em Ajustes)
+    screensaver.install(); // lançamentos passando na tela depois de uns minutos parado
     if (profiles.isNewProfilePendingLogin() && !stremio.isLoggedIn()) {
       // Perfil novo: entra na conta Stremio deste perfil (para ter o histórico próprio).
       profiles.clearNewProfileFlag();

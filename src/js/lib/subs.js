@@ -79,6 +79,7 @@ export function Renderer(el) {
       el.innerHTML = '';
     },
     active: () => cues.length > 0,
+    cues: () => cues,
     setOffset: (sec) => (offset = sec),
     offset: () => offset,
     update: (t) => {
