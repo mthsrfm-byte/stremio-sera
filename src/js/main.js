@@ -19,6 +19,7 @@ import { maybeShowWizard } from './views/wizard.js';
 import { toast } from './ui.js';
 import * as update from './api/update.js';
 import * as sendToTv from './api/sendToTv.js';
+import * as calendar from './api/calendar.js';
 import { openDetails } from './views/details.js';
 import * as profiles from './views/profiles.js';
 import { applyTheme } from './lib/theme.js';
@@ -96,6 +97,7 @@ function start() {
     intro.finish(); // a abertura some em fade por cima da tela inicial já pronta
     // Pedidos do controle no celular ("Mandar para a TV").
     if (!IS_WEB) sendToTv.start(openFromPhone);
+    calendar.start(); // agenda do Google (se tiver link em Ajustes)
     if (profiles.isNewProfilePendingLogin() && !stremio.isLoggedIn()) {
       // Perfil novo: entra na conta Stremio deste perfil (para ter o histórico próprio).
       profiles.clearNewProfileFlag();

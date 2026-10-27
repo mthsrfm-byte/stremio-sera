@@ -13,6 +13,7 @@ import * as server from '../api/server.js';
 import * as addons from '../api/addons.js';
 import * as hero from '../api/hero.js';
 import * as extras from '../api/extras.js';
+import * as calendar from '../api/calendar.js';
 import * as reco from '../api/recommend.js';
 import * as intro from '../lib/intro.js';
 import { getJSON, recentErrors } from '../lib/http.js';
@@ -619,6 +620,27 @@ export function SettingsView() {
     };
     keyRow(t('Chave TMDB'), t('Sinopses e títulos em PT-BR, logos e elenco com fotos (grátis em themoviedb.org)'), 'tmdbKey', 'API key (v3)');
     keyRow(t('Chave MDBList'), t('Notas do Rotten Tomatoes, Metacritic, Trakt e Letterboxd (grátis em mdblist.com)'), 'mdblistKey', 'API key');
+
+    // ---- Agenda ----
+    if (!IS_WEB) {
+      body.appendChild(h('div.set-section', { text: t('Google Agenda') }));
+      const calInput = h('input.input', { type: 'text', value: s.calendarUrl || '', placeholder: 'https://calendar.google.com/calendar/ical/…/basic.ics' });
+      calInput.__submit = (v) => {
+        store.saveSettings({ calendarUrl: v.trim() });
+        calendar.start();
+        toast(v.trim() ? t('Agenda ligada') : t('Agenda desligada'));
+        render();
+      };
+      body.appendChild(
+        h('div.set-row', { focusable: true, onSelect: () => nav.select(calInput) }, [
+          h('div.label', null, [
+            t('Link da agenda (iCal)'),
+            h('small', { text: t('Google Agenda › Configurações › sua agenda › "Endereço secreto no formato iCal". Fica só nesta TV. Dá para colar pelo controle no celular. Vários links: separe com espaço.') }),
+          ]),
+          calInput,
+        ])
+      );
+    }
 
     body.appendChild(h('div.set-section', { text: t('Addons') }));
     const list = addons.list();

@@ -8,6 +8,7 @@ import { avatar, switchProfile, createProfile } from './views/profiles.js';
 import { t } from './lib/i18n.js';
 import * as addons from './api/addons.js';
 import { requirePin } from './views/pin.js';
+import * as calendar from './api/calendar.js';
 
 let toastTimer = null;
 export function toast(msg, ms) {
@@ -101,6 +102,7 @@ export function confirmDialog(text, okLabel, onOk) {
 const ICONS = {
   home: '<svg viewBox="0 0 24 24"><path d="M3.5 10.5 12 3.5l8.5 7"/><path d="M5.5 9v11h4.5v-6h4v6h4.5V9"/></svg>',
   search: '<svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg>',
+  calendar: '<svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17"/><path d="M8 3v4"/><path d="M16 3v4"/></svg>',
   // Engrenagem no estilo do Feather Icons (licença MIT).
   settings:
     '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
@@ -140,10 +142,12 @@ export function topbar(activeId, onTab) {
     TABS.filter((tab) => !tab.right).map((tab) => tabEl(tab, activeId, onTab)),
     h('div.spacer'),
     TABS.filter((tab) => tab.right).map((tab) => tabEl(tab, activeId, onTab)),
+    calendarButton(),
     profileButton(onTab),
     clock,
   ]);
-  bar.__destroy = () => clearInterval(timer);
+  const offCal = calendar.onChange(refreshCalendarButtons);
+  bar.__destroy = () => (clearInterval(timer), offCal());
   // Abas condicionais (NSFW) dependem dos addons, que podem chegar depois da barra.
   addons.load().then(refreshTabs).catch(() => {});
   if (!tabsHooked) {
@@ -161,6 +165,109 @@ export function refreshTabs() {
     const show = tab.when();
     Array.prototype.forEach.call(document.querySelectorAll('.topbar .tab[data-tab="' + tab.id + '"]'), (el) => (el.style.display = show ? '' : 'none'));
   });
+}
+
+// ---------- Agenda ----------
+// Ícone de calendário ao lado do avatar: abre a agenda de hoje e amanhã. Só aparece com um link
+// de agenda em Ajustes; o ponto laranja avisa que algum evento começa na próxima hora.
+function calendarButton() {
+  const btn = h('div.tab.icon.cal-btn', { focusable: true, title: t('Agenda'), html: ICONS.calendar + '<i class="cal-dot"></i>', onSelect: () => agendaPanel() });
+  paintCalendarButton(btn);
+  return btn;
+}
+
+function paintCalendarButton(btn) {
+  btn.style.display = calendar.enabled() ? '' : 'none';
+  btn.classList.toggle('soon', calendar.startingWithin(60 * 60000).length > 0);
+}
+
+function refreshCalendarButtons() {
+  Array.prototype.forEach.call(document.querySelectorAll('.topbar .cal-btn'), paintCalendarButton);
+}
+setInterval(refreshCalendarButtons, 60000);
+
+const WEEKDAY = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
+const MONTH = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+
+// "terça, 27 de outubro" (short: "terça, 27 out")
+export function dayLabel(d, short) {
+  return WEEKDAY[d.getDay()] + ', ' + d.getDate() + (short ? ' ' + MONTH[d.getMonth()].slice(0, 3) : ' de ' + MONTH[d.getMonth()]);
+}
+
+// "19:00 – 19:45", "Dia todo"
+export function eventTime(e, withEnd) {
+  if (e.allDay) return t('Dia todo');
+  return timeHM(e.start) + (withEnd && e.end - e.start > 60000 ? ' – ' + timeHM(e.end) : '');
+}
+
+// "agora", "em 25 min", "em 2 h" (até 3 h antes); vazio depois disso ou se já passou.
+export function eventSoon(e) {
+  const now = Date.now();
+  if (e.allDay) return '';
+  if (e.start.getTime() <= now && e.end.getTime() > now) return t('agora');
+  const min = Math.round((e.start.getTime() - now) / 60000);
+  if (min <= 0 || min > 180) return '';
+  return min < 60 ? t('em {n} min', { n: min }) : t('em {n} h', { n: Math.round(min / 60) });
+}
+
+function minutesLabel(ms) {
+  const m = Math.round(ms / 60000);
+  return m >= 60 ? Math.floor(m / 60) + ' h' + (m % 60 ? ' ' + (m % 60) + ' min' : '') : m + ' min';
+}
+
+// Painel da agenda (ícone da barra e cartões da home): HOJE e AMANHÃ separados, com a data.
+export function agendaPanel() {
+  const d = calendar.days();
+  const now = Date.now();
+  const today = new Date();
+  const tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+  const list = h('div.agenda-list', { 'data-scroll-y': '', 'data-group': '' });
+  const section = (label, date, events, cls) => {
+    list.appendChild(h('div.agenda-day', { cls: cls }, [h('span.agenda-tag', { text: label }), h('span', { text: dayLabel(date) })]));
+    if (!events.length) list.appendChild(h('div.agenda-empty', { text: t('Nada na agenda.') }));
+    let nowShown = cls !== 'today';
+    events.forEach((e) => {
+      if (!nowShown && !e.allDay && e.start.getTime() > now) {
+        nowShown = true;
+        list.appendChild(h('div.agenda-now', null, [h('span', { text: t('Agora') + ' ' + timeHM(new Date()) }), h('i')]));
+      }
+      const soon = eventSoon(e);
+      const sub = [e.allDay ? '' : minutesLabel(e.end - e.start), e.location, soon].filter(Boolean).join(' · ');
+      list.appendChild(
+        h('div.agenda-ev', { focusable: true, cls: (e.end.getTime() <= now ? 'past' : '') + (soon ? ' soon' : '') }, [
+          h('span.agenda-time', { text: eventTime(e) }),
+          h('div.agenda-info', null, [h('div.agenda-title', { text: e.title }), sub ? h('div.agenda-sub', { text: sub }) : null]),
+          h('i.agenda-color', { style: { background: e.color } }),
+        ])
+      );
+    });
+    if (!nowShown) list.appendChild(h('div.agenda-now', null, [h('span', { text: t('Agora') + ' ' + timeHM(new Date()) }), h('i')]));
+  };
+  section(t('HOJE'), today, d.today, 'today');
+  list.appendChild(h('div.agenda-sep'));
+  section(t('AMANHÃ'), tomorrow, d.tomorrow, 'tomorrow');
+  const updated = calendar.lastUpdate();
+  const box = h('div.modal-box.agenda-box', null, [
+    h('h3', { text: t('Sua agenda') }),
+    h('p.agenda-head', { text: t('Hoje e amanhã') }),
+    list,
+    h('div.agenda-foot', null, [h('span', { text: updated ? t('Atualizado às {h}', { h: timeHM(new Date(updated)) }) : t('Atualizando...') }), h('span', { text: t('Voltar fecha') })]),
+  ]);
+  const modal = h('div.modal', null, box);
+  document.getElementById('app').appendChild(modal);
+  const close = () => {
+    nav.popLayer(layer);
+    if (modal.parentNode) modal.parentNode.removeChild(modal);
+  };
+  const layer = nav.pushLayer(modal, { onBack: () => close() });
+  const first = list.querySelector('.agenda-ev.soon') || list.querySelector('.agenda-ev:not(.past)') || list.querySelector('.agenda-ev');
+  if (first) nav.focus(first);
+  else {
+    const ok = h('div.btn', { focusable: true, text: t('Fechar'), onSelect: () => close() });
+    box.appendChild(ok);
+    nav.focus(ok);
+  }
+  calendar.refresh();
 }
 
 // Avatar do perfil ativo na barra superior: troca rápida de perfil.

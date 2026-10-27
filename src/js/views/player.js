@@ -10,12 +10,13 @@ import { log } from '../lib/log.js';
 import { getText, getJSON } from '../lib/http.js';
 import * as si from '../lib/streaminfo.js';
 import * as hlsplay from '../lib/hlsplay.js';
+import * as calendar from '../api/calendar.js';
 import * as server from '../api/server.js';
 import * as addons from '../api/addons.js';
 import * as stremio from '../api/stremio.js';
 import * as skip from '../api/skip.js';
 import * as hero from '../api/hero.js';
-import { menu, toast, fmtTime, timeHM, choiceDialog } from '../ui.js';
+import { menu, toast, fmtTime, timeHM, choiceDialog, eventTime } from '../ui.js';
 import * as router from '../router.js';
 import { sortedVideos, openDetails } from './details.js';
 import { t } from '../lib/i18n.js';
@@ -36,6 +37,9 @@ function langName(code) {
   const name = LANG_NAMES[String(code).toLowerCase()];
   return name ? t(name) : code;
 }
+
+// Eventos da agenda que já avisaram (não repete o aviso ao trocar de vídeo).
+const calendarSeen = {};
 
 export function openPlayer(opts) {
   router.push(PlayerView(opts));
@@ -201,6 +205,53 @@ function PlayerView(opts) {
     sourceToken++;
     if (hlsCtl) hlsCtl.destroy();
     hlsCtl = null;
+  }
+
+  // ---------- Aviso da agenda ----------
+  // Evento começando em até 5 min: cartão no canto com o X já focado (OK ou Voltar fecha) que some
+  // sozinho em 15 s. Enquanto ele está na tela, outra tecla só fecha o aviso.
+  const NOTICE_MS = 15000;
+  let calTimer = null;
+  let calNotice = null;
+  function checkCalendar() {
+    if (!alive || calNotice) return;
+    const e = calendar.startingWithin(5 * 60000).filter((x) => !calendarSeen[x.title + '|' + x.start.getTime()])[0];
+    if (!e) return;
+    calendarSeen[e.title + '|' + e.start.getTime()] = true;
+    const min = Math.max(1, Math.round((e.start.getTime() - Date.now()) / 60000));
+    const fill = h('i');
+    const closeBtn = h('div.cal-close', { focusable: true, title: t('Fechar aviso'), html: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12"/><path d="M18 6 6 18"/></svg>', onSelect: () => closeNotice() });
+    const box = h('div.cal-notice', null, [
+      h('div.cal-notice-top', null, [
+        h('span.cal-notice-ico', { html: '<svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17"/><path d="M8 3v4"/><path d="M16 3v4"/></svg>' }),
+        h('span.cal-notice-when', { text: t('Começa em {n} min', { n: min }) }),
+        closeBtn,
+      ]),
+      h('div.cal-notice-title', { text: e.title }),
+      h('div.cal-notice-sub', null, [h('i', { style: { background: e.color } }), [eventTime(e, true), e.location].filter(Boolean).join(' · ')]),
+      h('div.cal-notice-hint', { text: t('OK fecha · some sozinho em 15 s') }),
+      h('div.cal-notice-bar', null, fill),
+    ]);
+    el.appendChild(box);
+    const layer = nav.pushLayer(box, {
+      onBack: () => closeNotice(),
+      onKey: (ev) => {
+        if (ev.keyCode === KEY.ENTER || ev.keyCode === KEY.BACK || ev.keyCode === KEY.ESC || ev.keyCode === KEY.BACKSPACE) return false;
+        closeNotice();
+        return true;
+      },
+    });
+    nav.focus(closeBtn);
+    const timer = setTimeout(() => closeNotice(), NOTICE_MS);
+    setTimeout(() => (fill.style.width = '0%'), 50); // a barra esvazia até o aviso sumir
+    calNotice = { box: box, layer: layer, timer: timer };
+  }
+  function closeNotice() {
+    if (!calNotice) return;
+    clearTimeout(calNotice.timer);
+    nav.popLayer(calNotice.layer);
+    if (calNotice.box.parentNode) calNotice.box.parentNode.removeChild(calNotice.box);
+    calNotice = null;
   }
 
   function restart() {
@@ -1305,6 +1356,8 @@ function PlayerView(opts) {
           if (!videoEl.paused) saveProgress();
         }, SAVE_MS);
         watchTimer = setInterval(watchdog, 2000);
+        calTimer = setInterval(checkCalendar, 20000);
+        setTimeout(checkCalendar, 3000);
         // Build de desenvolvimento: estado do buffer a cada 10s no log remoto.
         if (__KAI_DEVLOG__) statusTimer = setInterval(() => !videoEl.paused && diag('status'), 10000);
       }
@@ -1319,6 +1372,8 @@ function PlayerView(opts) {
       clearInterval(ticker);
       clearInterval(saveTimer);
       clearInterval(watchTimer);
+      clearInterval(calTimer);
+      closeNotice();
       clearInterval(statusTimer);
       clearTimeout(hideTimer);
       clearTimeout(seekCommitTimer);
