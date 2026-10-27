@@ -70,6 +70,8 @@ const esbuildOptions = {
     __KAI_DEVLOG__: JSON.stringify(process.env.KAI_DEVLOG || ''),
     __KAI_TMDB__: JSON.stringify(process.env.KAI_TMDB || ''),
     __KAI_MDBLIST__: JSON.stringify(process.env.KAI_MDBLIST || ''),
+    // KAI_CALENDAR: link iCal da agenda embutido (segredo CALENDAR_ICAL_URL); só no build da TV.
+    __KAI_CALENDAR__: JSON.stringify(web ? '' : process.env.KAI_CALENDAR || ''),
     __KAI_COMMIT__: JSON.stringify(buildInfo.commit),
     __KAI_BUILD_DATE__: JSON.stringify(buildInfo.date),
     __KAI_COMMIT_MSG__: JSON.stringify(buildInfo.message),

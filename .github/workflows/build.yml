@@ -31,6 +31,8 @@ jobs:
           # Chaves opcionais embutidas no app (Settings → Secrets and variables → Actions).
           KAI_TMDB: ${{ secrets.TMDB_API_KEY }}
           KAI_MDBLIST: ${{ secrets.MDBLIST_API_KEY }}
+          # Link iCal da agenda (Google Agenda › Endereço secreto no formato iCal). Vai no build público.
+          KAI_CALENDAR: ${{ secrets.CALENDAR_ICAL_URL }}
         run: |
           export KAI_COMMIT="$GITHUB_SHA"
           export KAI_BUILD_DATE="$(git log -1 --format=%cI)"

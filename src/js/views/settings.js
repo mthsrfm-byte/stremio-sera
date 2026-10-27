@@ -624,7 +624,7 @@ export function SettingsView() {
     // ---- Agenda ----
     if (!IS_WEB) {
       body.appendChild(h('div.set-section', { text: t('Google Agenda') }));
-      const calInput = h('input.input', { type: 'text', value: s.calendarUrl || '', placeholder: 'https://calendar.google.com/calendar/ical/…/basic.ics' });
+      const calInput = h('input.input', { type: 'text', value: s.calendarUrl || '', placeholder: calendar.BUILTIN ? t('Embutido no app') : 'https://calendar.google.com/calendar/ical/…/basic.ics' });
       calInput.__submit = (v) => {
         store.saveSettings({ calendarUrl: v.trim() });
         calendar.start();
@@ -635,7 +635,11 @@ export function SettingsView() {
         h('div.set-row', { focusable: true, onSelect: () => nav.select(calInput) }, [
           h('div.label', null, [
             t('Link da agenda (iCal)'),
-            h('small', { text: t('Google Agenda › Configurações › sua agenda › "Endereço secreto no formato iCal". Fica só nesta TV. Dá para colar pelo controle no celular. Vários links: separe com espaço.') }),
+            h('small', {
+              text:
+                t('Google Agenda › Configurações › sua agenda › "Endereço secreto no formato iCal". Dá para colar pelo controle no celular. Vários links: separe com espaço.') +
+                (calendar.BUILTIN ? ' · ' + t('já vem embutido, só preencha para usar outro') : ''),
+            }),
           ]),
           calInput,
         ])
