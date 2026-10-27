@@ -6303,9 +6303,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "355bb61f7375681f7aea2c9cad05bd118c81ce29",
-    date: "2026-10-27T08:09:18Z",
-    message: "Site do Pages: app web na raiz, controle em /controle/"
+    commit: "442f9295632eee06756542a00d19a51c7266c2bd",
+    date: "2026-10-27T08:09:37+00:00",
+    message: "Build da dist/ para a TV"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -6455,7 +6455,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
   }
   var TUBES = ["xv", "ph"];
-  var TUBE_PORTS = [8091, 8090];
+  var TUBE_PORT = 8092;
+  var SERVICE_MIN = 4;
   var tubes = null;
   var tubeTries = 0;
   var tubeState = "searching";
@@ -6470,9 +6471,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       });
     }));
   }
-  function fetchTube(name, i) {
-    if (i >= TUBE_PORTS.length) return Promise.resolve(null);
-    var u = "http://127.0.0.1:" + TUBE_PORTS[i] + "/" + name + "/manifest.json";
+  function fetchTube(name) {
+    var u = "http://127.0.0.1:" + TUBE_PORT + "/" + name + "/manifest.json";
     return getJSON(u, {
       timeout: 3e3,
       quiet: true
@@ -6480,9 +6480,19 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return m && m.id ? {
         transportUrl: u,
         manifest: m
-      } : fetchTube(name, i + 1);
+      } : null;
     }, function () {
-      return fetchTube(name, i + 1);
+      return null;
+    });
+  }
+  function serviceVersion() {
+    return getJSON("http://127.0.0.1:" + TUBE_PORT + "/api/version", {
+      timeout: 3e3,
+      quiet: true
+    }).then(function (v) {
+      return v && v.version || 0;
+    }, function () {
+      return 0;
     });
   }
   var tubeTimer = null;
@@ -6490,10 +6500,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     if (IS_WEB) return;
     if (tubes && tubes.length || tubeTimer) return;
     tubeTimer = true;
-    Promise.all(TUBES.map(function (n) {
-      return fetchTube(n, 0);
-    })).then(function (list3) {
-      var found = normalize(list3.filter(Boolean));
+    Promise.all([serviceVersion()].concat(TUBES.map(fetchTube))).then(function (list3) {
+      var version = list3.shift();
+      var found = version >= SERVICE_MIN ? normalize(list3.filter(Boolean)) : [];
       tubeTries++;
       tubeTimer = null;
       if (found.length) {
@@ -6504,13 +6513,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }
       tubes = [];
       var before = tubeState;
+      var anyOld = version > 0 || list3.some(Boolean);
       getJSON("http://127.0.0.1:8090/api/ip", {
         timeout: 3e3,
         quiet: true
       }).then(function () {
         return tubeState = "old";
       }, function () {
-        return tubeState = "off";
+        return tubeState = anyOld ? "old" : "off";
       }).then(function () {
         if (tubeState === "old" || tubeTries >= 3) startPinnedService();
       }).then(function () {
@@ -7851,8 +7861,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return m ? m[0] : null;
   }
   var BUILTIN_KEYS = {
-    tmdbKey: true ? "9c57ed7ea044b2f01eea2fcc2e954c2e" : "",
-    mdblistKey: true ? "t9e4f1z29b3c36i1j25rul1wx" : ""
+    tmdbKey: true ? "" : "",
+    mdblistKey: true ? "" : ""
   };
   function keyOf(name) {
     return (settings()[name] || "").trim() || BUILTIN_KEYS[name];
