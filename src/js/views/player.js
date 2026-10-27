@@ -388,13 +388,31 @@ function PlayerView(opts) {
     const err = videoEl.error;
     log.warn('Erro de vídeo', err && err.code, mediaUrl);
     if (!alive) return;
+    const failed = stream;
     errorDetails(err && err.code).then((details) => {
-      if (!alive) return;
+      if (!alive || failed !== stream) return;
+      const next = tubeFallback();
+      if (next) {
+        failedNotes.push(details);
+        toast(t('Tentando: {what}', { what: String(next.name || '').split('\n').join(' ') }), 3500);
+        switchTo(next);
+        return;
+      }
+      if (failedNotes.length) details = failedNotes.concat(details).join('\n');
       if (!triedTranscode && server.isAvailable()) {
         fail(t('A TV não conseguiu tocar este arquivo diretamente.'), true, details);
       } else fail(t('A TV não conseguiu tocar este arquivo (formato ou codec não suportado).'), false, details);
     });
   });
+
+  // XVideos/Pornhub: o mesmo vídeo vem direto e pelo serviço da TV, em mais de uma qualidade.
+  // Se uma não abre, tenta a próxima do mesmo addon antes de mostrar o erro (que então lista
+  // o que aconteceu com cada uma).
+  const failedNotes = [];
+  function tubeFallback() {
+    if (!addons.isTubeStream(stream)) return null;
+    return (opts.streams || []).find((x) => x.addon === stream.addon && tried.indexOf(x) < 0) || null;
+  }
 
   // Linha de diagnóstico do aviso de erro: código do player, de onde veio o link e, se o vídeo
   // passou pelo serviço da TV, o que o site respondeu para ele. Uma foto da tela já diz onde quebrou.
