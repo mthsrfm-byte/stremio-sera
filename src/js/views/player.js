@@ -16,7 +16,7 @@ import * as addons from '../api/addons.js';
 import * as stremio from '../api/stremio.js';
 import * as skip from '../api/skip.js';
 import * as hero from '../api/hero.js';
-import { menu, toast, fmtTime, timeHM, choiceDialog, eventTime } from '../ui.js';
+import { menu, toast, fmtTime, timeHM, choiceDialog, eventTime, isFavorite, toggleFavorite } from '../ui.js';
 import * as router from '../router.js';
 import { sortedVideos, openDetails } from './details.js';
 import { t } from '../lib/i18n.js';
@@ -69,10 +69,19 @@ function PlayerView(opts) {
   const subsBtn = h('div.btn', { focusable: true, html: '<span class="ico">≡</span>' + t('Legendas'), onSelect: () => subsMenu() });
   const srcBtn = h('div.btn', { focusable: true, html: '<span class="ico">⇄</span>' + t('Fontes'), onSelect: () => sourcesMenu() });
   const nextBtn = h('div.btn', { focusable: true, html: '<span class="ico">⏭</span>' + t('Próximo'), onSelect: () => playNext() });
+  // Favoritar sem sair do vídeo (filmes e séries: biblioteca da conta; adultos: só nesta TV).
+  const favItem = { id: meta.id, type: meta.type, name: meta.name, poster: meta.poster, posterShape: meta.posterShape };
+  const favBtn = h('div.btn', { focusable: true, onSelect: () => toggleFavorite(favItem).then(paintFav) });
+  function paintFav() {
+    const on = isFavorite(favItem);
+    favBtn.innerHTML = on ? '<span class="ico fav">♥</span>' + t('Favoritado') : '<span class="ico">♡</span>' + t('Favoritar');
+  }
+  paintFav();
+  if (meta.id === 'dev') favBtn.style.display = 'none';
   // Retomou sozinho (Smart Choice): atalho para começar do zero, visível nos primeiros minutos.
   const restartBtn = h('div.btn', { focusable: true, html: '<span class="ico">↺</span>' + t('Do início'), onSelect: () => restart() });
   restartBtn.style.display = opts.startTime > 30000 ? '' : 'none';
-  const buttons = h('div.p-buttons', { 'data-group': '' }, [playBtn, restartBtn, audioBtn, subsBtn, srcBtn, nextBtn]);
+  const buttons = h('div.p-buttons', { 'data-group': '' }, [playBtn, restartBtn, audioBtn, subsBtn, srcBtn, favBtn, nextBtn]);
   const spinner = h('div.p-center', null, h('div.spinner'));
   const msgEl = h('div.p-msg');
   const skipFill = h('i');
@@ -132,9 +141,22 @@ function PlayerView(opts) {
 
   const seriesInfo = () => (opts.isSeries ? { season: video.season, episode: video.episode } : null);
 
+  // Logo do título no canto (o nome escrito fica de reserva quando não tem logo, ex.: vídeos adultos).
   function setTitle() {
     clear(titleEl);
-    titleEl.appendChild(document.createTextNode(meta.name || ''));
+    const name = h('span.p-name', { text: meta.name || '' });
+    titleEl.appendChild(name);
+    const logoUrl = meta.logo || (/^tt\d+/.test(meta.id) ? hero.logo(meta.id) : '');
+    if (logoUrl) {
+      const img = h('img.p-logo', { alt: '' });
+      img.onload = () => {
+        img.classList.add('ready');
+        name.style.display = 'none';
+      };
+      img.onerror = () => img.parentNode && img.parentNode.removeChild(img);
+      img.src = logoUrl;
+      titleEl.insertBefore(img, name);
+    }
     if (opts.isSeries) titleEl.appendChild(h('small', { text: 'T' + video.season + ' E' + video.episode + ' · ' + (video.namePt || video.name || video.title || '') }));
     nextBtn.style.display = opts.isSeries && nextVideo() ? '' : 'none';
   }
