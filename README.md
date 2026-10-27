@@ -1,137 +1,78 @@
 # Seraflix
 
-Stremio for Samsung Tizen TVs, including older models (2017 and newer, Tizen 3.0+) that can't
-run the official Stremio app. It runs as a [TizenBrew](https://github.com/reisxd/TizenBrew)
-app module and brings the [Stremio Kai](https://github.com/allecsc/Stremio-Kai) look and
-features to Tizen, fully controlled with the Samsung remote.
+**O Stremio do jeito que eu queria ver na TV.** 🍿
 
-> **Unofficial.** Not affiliated with Stremio, Stremio Kai or Samsung. The app hosts no
-> content: it only shows what the add-ons on **your** Stremio account provide.
+O Seraflix é uma releitura do [Stremio](https://www.stremio.com/) para TVs Samsung (Tizen),
+inclusive as mais antigas (2017 em diante, Tizen 3.0+) que não rodam o app oficial. Não é um
+Stremio novo: é um **remix**. Peguei projetos abertos que já existiam, juntei, ajustei e fui
+mexendo até ficar com a minha cara, pensando em três coisas:
 
-![Home screen](docs/screenshot-home.png)
+- **Usabilidade de sofá.** Tudo no controle remoto da Samsung, sem ponteiro, com atalhos nas teclas
+  coloridas, no play/pause e no avançar/voltar. Dá até para usar o celular como controle.
+- **Organização.** Início, Recomendado e Streamings separados, fileiras que fazem sentido
+  (em alta, chegou nos streamings, aclamados, true crime…), fontes de vídeo arrumadas com as
+  diretas (debrid) primeiro e etiquetas de 4K, HDR e Dolby Vision.
+- **Conteúdo adulto no lugar dele.** Os addons +18 ficam numa aba própria, organizada por site,
+  com favoritos e "continuar assistindo" separados. Nada disso aparece misturado com o resto do app.
 
-## Features
+> **Não oficial.** Sem ligação com o Stremio, o Stremio Kai ou a Samsung. O app não hospeda nenhum
+> conteúdo: ele só mostra o que os addons da **sua** conta do Stremio entregam.
 
-- **Your Stremio account.** Sign in with a code (on your phone at link.stremio.com) or by email.
-  Add-ons, library and "Continue watching" come from your account, and progress syncs back.
-- **Stremio Kai look.** Rotating hero banner, dark or OLED theme, ratings from several sources,
-  synopses and cast with photos (TMDB key built in, see below).
-- **Smart source list.** Direct (debrid) links first, filter by add-on, and 4K, HDR,
-  Dolby Vision and REMUX tags.
-- **Player.** Uses the TV's hardware player (H.264, HEVC, HDR10), skips intros and outros
-  (IntroDB and AniSkip), automatic subtitles, next episode on the same source, and reconnects
-  if a video stalls.
-- **Profiles.** "Who's watching?" screen, each profile on its own Stremio account.
-- **Built for the Samsung remote.** Arrows, OK, Return, play/pause, fast-forward/rewind,
-  colour and channel keys. No pointer needed.
-- **Light enough for old Tizen.** Plain JavaScript compiled down for the old web engine on
-  Tizen 3.0 (Chromium 47); no WebAssembly required.
+![Tela inicial](docs/screenshot-home.png)
 
-## Requirements
+## O que tem
 
-- A Samsung TV running **Tizen 3.0 or newer** (2017 onwards). Tested on a 2021 UN50AU7700 (Tizen 6.0).
-- **TizenBrew** on the TV (installation steps below).
-- For playback, **one** of:
-  - a **debrid** service (Real-Debrid, AllDebrid, etc.) in your Stremio add-ons: plays directly
-    on the TV, no PC needed;
-  - [stremio-service](https://github.com/Stremio/stremio-service/releases) running on a PC on
-    the same network, for torrent streams. Tizen TVs can't run the torrent engine themselves.
+- **Sua conta do Stremio.** Entra com um código (no celular, em link.stremio.com) ou com e-mail.
+  Addons, biblioteca e "Continuar assistindo" vêm da sua conta, e o progresso volta para ela.
+- **Cara de cinema.** Banner rotativo com trailer, tema escuro ou OLED, notas do IMDb e do Rotten
+  Tomatoes, sinopse e elenco com foto.
+- **Player que se vira.** Usa o player da própria TV (H.264, HEVC, HDR10), pula abertura e
+  encerramento, escolhe legenda sozinho, emenda o próximo episódio na mesma fonte e reconecta se o
+  vídeo travar.
+- **Perfis.** Tela de "Quem está assistindo?", cada perfil com a sua conta do Stremio.
+- **Leve.** JavaScript simples, compilado para o navegador antigo das TVs; nada de WebAssembly.
+- **Se atualiza sozinho.** Cada mudança aqui no repositório chega na TV na próxima vez que o app abrir.
 
-## Installing on a Samsung TV
+## Do que você precisa
 
-You need a PC on the same Wi-Fi as the TV for steps 1 to 3. After that, the TV works on its own.
+- Uma TV Samsung com **Tizen 3.0 ou mais novo** (2017 em diante). Testado numa UN50AU7700 de 2021 (Tizen 6.0).
+- Para assistir, **um** destes:
+  - um serviço **debrid** (Real-Debrid, AllDebrid etc.) nos addons do Stremio: toca direto na TV;
+  - o [stremio-service](https://github.com/Stremio/stremio-service/releases) rodando num computador
+    na mesma rede, para torrents (a TV não consegue rodar o motor de torrent sozinha).
 
-### 1. Turn on Developer Mode
+## Instalando na TV
 
-1. Find your PC's IP address (on Windows: open Command Prompt and run `ipconfig`; look for
-   **IPv4 Address**, e.g. `192.168.1.20`). The TV and PC must be on the same network.
-2. On the TV, press **Home** and open **Apps**.
-3. On the Apps screen, type **1 2 3 4 5** with the remote's number keys (or the on-screen
-   keypad on remotes without numbers).
-4. In the **Developer Mode** window, switch **Developer mode** to **On**, enter your PC's IP
-   address under **Host PC IP**, and select **OK**.
-5. **Restart the TV**: hold the remote's power button until the TV turns off and back on,
-   or unplug it for 30 seconds. Developer Mode only starts after a full restart.
+O jeito mais fácil é o **[SerafimFlix+](https://github.com/mthsrfm-byte/tizenbrew-sera)**, o
+lançador que já vem com o Seraflix e o YouTube sem anúncios. No Mac, baixe o
+[instalador](https://github.com/mthsrfm-byte/tizenbrew-sera/releases/latest/download/Instalar-SerafimFlix-Mac.zip),
+abra com o botão direito → **Abrir** e vá respondendo: ele acha a TV, confere o Modo Desenvolvedor
+e instala.
 
-### 2. Download TizenBrew Installer
+Já tem o [TizenBrew](https://github.com/reisxd/TizenBrew)? Então é só adicionar o módulo do GitHub:
 
-TizenBrew Installer is a small desktop app that puts TizenBrew on the TV.
+```
+mthsrfm-byte/stremio-sera
+```
 
-1. On the PC, open the
-   [TizenBrew Installer releases page](https://github.com/reisxd/TizenBrewInstaller/releases/latest).
-2. Under **Assets**, download the file for your computer:
+### Primeira vez abrindo
 
-   | Computer | File |
-   |---|---|
-   | Windows | `TizenBrewInstaller-win-x64.exe` |
-   | Mac (Apple Silicon, M1 or newer) | `TizenBrewInstaller-macos-arm64` |
-   | Mac (Intel) | `TizenBrewInstaller-macos-x64` |
-   | Linux | `TizenBrewInstaller-linux-x64` |
+1. Ele pergunta pelo **servidor de torrent**. Se você usa debrid, escolha **Pular**. Para torrents,
+   abra o [stremio-service](https://github.com/Stremio/stremio-service/releases) num computador da
+   mesma rede e escolha **Procurar na rede**.
+2. Entre na sua conta do Stremio: no celular, vá em **link.stremio.com** e digite o código da TV.
+3. Seus addons e sua biblioteca carregam. Escolha algo e dá o play.
 
-   Ignore `TizenBrewInstaller.wgt`, which is the TV version.
-3. Run it:
-   - **Windows:** double-click the `.exe`. If Windows SmartScreen says it "protected your PC",
-     click **More info → Run anyway** (the installer isn't signed by Microsoft). If the firewall
-     asks, allow it on **Private networks**.
-   - **Mac / Linux:** open Terminal in the download folder, run
-     `chmod +x TizenBrewInstaller-*`, then run the file (e.g. `./TizenBrewInstaller-macos-arm64`).
-     On a Mac, if it's blocked, allow it in **System Settings → Privacy & Security**.
+### Deu ruim?
 
-### 3. Install TizenBrew with the installer
+- **O app não abre:** confira se o Modo Desenvolvedor continua **ligado** com Host PC IP
+  **127.0.0.1**. Atualização de firmware ou reset de fábrica desligam isso.
+- **Um vídeo não toca:** tente uma fonte direta (debrid) ou confira se o stremio-service está
+  aberto no computador, no caso de torrents.
 
-1. Find the **TV's IP address**: on the TV, go to **Settings → General → Network →
-   Network Status → IP Settings** and note the **IP Address** (e.g. `192.168.1.35`).
-2. In TizenBrew Installer, type the TV's IP into the **TV IP** box and click **Connect to TV**.
-   - *"Could not connect to the SDB Daemon"* means the TV is off, the IP is wrong, or the TV
-     wasn't restarted after step 1.
-3. Click **Install TizenBrew**. It shows *Fetching package → Installing package →
-   Package installed*.
-   - **Tizen 7 or newer (2023+ TVs):** it shows **Resigning required**. Click
-     **Sign in to Samsung Account**, sign in, and follow its steps so it can sign TizenBrew
-     for your TV. Older TVs skip this.
-4. **TizenBrew** now appears in the TV's **Apps**. You can close the installer.
+---
 
-See the [TizenBrew install guide](https://github.com/reisxd/TizenBrew/blob/main/docs/README.md)
-for other install methods.
-
-### 4. Point Developer Mode at the TV itself
-
-TizenBrew needs this to run:
-
-1. On the TV, open **Apps** and type **1 2 3 4 5** again.
-2. Keep **Developer mode** **On**, change **Host PC IP** to **127.0.0.1**, and select **OK**.
-3. Restart the TV again.
-
-Leave Developer Mode on from now on, or TizenBrew won't open.
-
-### 5. Add Seraflix
-
-1. Open **TizenBrew** and go to **Module Manager → Add module**.
-2. Choose **GitHub** (not NPM) and enter:
-   ```
-   mthsrfm-byte/stremio-sera
-   ```
-3. **Seraflix** now appears in TizenBrew. Open it.
-
-### 6. First launch
-
-1. The setup asks for a **torrent server**. If you use debrid, choose **Skip**. For torrents,
-   start [stremio-service](https://github.com/Stremio/stremio-service/releases) on a PC on the
-   same network and choose **Scan network**.
-2. Sign in to your Stremio account: go to **link.stremio.com** on your phone and enter the code
-   shown on the TV, or sign in with email.
-3. Your add-ons and library load from your account. Pick something and play.
-
-TizenBrew picks up updates to Stremio Kai automatically.
-
-### Troubleshooting
-
-- **TizenBrew won't open:** check that Developer Mode is still **On** with Host PC IP
-  **127.0.0.1**. A TV firmware update or factory reset turns it off.
-- **The installer can't find the TV:** make sure the Host PC IP in step 1 is the PC's current IP,
-  the TV was restarted afterwards, and both are on the same network (not a guest network).
-- **A video won't play:** try a debrid (direct) source, or check that stremio-service is
-  running on the PC for torrent sources.
+*Daqui para baixo é a parte técnica, para quem quer mexer no código.*
 
 ## Phone remote
 
@@ -275,14 +216,16 @@ npm run build:web      # site web: site/app/ (exige KAI_WEB_PASSWORD)
 
 The built app is written to `dist/`, which TizenBrew loads (`appPath` in `package.json`).
 
-## Credits
+## Fontes do remix
 
-- [Stremio Kai](https://github.com/allecsc/Stremio-Kai) by allecsc: the original design and features.
-- [Stremio Kai Timeworn](https://github.com/creachec/Stremio-Kai-Timeworn) by binhoc: the
-  lightweight TV build this Tizen version is based on.
-- [TizenBrew](https://github.com/reisxd/TizenBrew) by reisxd: runs this app on Samsung TVs.
-- [Stremio](https://www.stremio.com/).
+O Seraflix existe porque essas pessoas abriram o código delas. Valeu demais! 💙
 
-## License
+- [Stremio](https://www.stremio.com/): o original, com a conta, os addons e todo o ecossistema.
+- [Stremio Kai](https://github.com/allecsc/Stremio-Kai), de allecsc: o visual e boa parte das ideias.
+- [Stremio Kai Timeworn](https://github.com/creachec/Stremio-Kai-Timeworn), de binhoc: a versão
+  leve para TV que serviu de base para esta.
+- [TizenBrew](https://github.com/reisxd/TizenBrew), de reisxd: o que faz o app rodar nas TVs Samsung.
 
-[GPL-3.0](LICENSE), the same as the projects it is based on.
+## Licença
+
+[GPL-3.0](LICENSE), a mesma dos projetos em que ele se baseia.
