@@ -5366,8 +5366,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       focusFirst();
       return true;
     }
+    var stay = cur.closest("[data-stay]") && !cur.closest(".topbar");
     var all = candidates(layer.root).filter(function (e) {
-      return e !== cur;
+      return e !== cur && !(stay && e.closest(".topbar"));
     });
     var group = cur.closest("[data-group]");
     var horizontal = dir === "left" || dir === "right";
@@ -6315,9 +6316,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "9adeef5d32154a7f492cd87aef6291aa131e8dae",
-    date: "2026-10-27T20:55:05Z",
-    message: "NSFW: marca títulos uncensored e subfiltro nas categorias de hentai"
+    commit: "dea1243a930aadb400404e96c2ed816fed8b2770",
+    date: "2026-10-27T20:55:22+00:00",
+    message: "Build da dist/ para a TV"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -7154,7 +7155,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var timer = null;
   var loading = null;
   var listeners2 = [];
-  var BUILTIN = true ? "https://calendar.google.com/calendar/ical/matheus.serafim%40pagaleve.com.br/private-9d7111ae13c15982affb7c795403fcdd/basic.ics" : "";
+  var BUILTIN = true ? "" : "";
   function urls() {
     return String(settings().calendarUrl || BUILTIN || "").split(/[\s,]+/).filter(function (u) {
       return /^(https?|webcal):\/\//i.test(u);
@@ -8448,8 +8449,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return m ? m[0] : null;
   }
   var BUILTIN_KEYS = {
-    tmdbKey: true ? "9c57ed7ea044b2f01eea2fcc2e954c2e" : "",
-    mdblistKey: true ? "t9e4f1z29b3c36i1j25rul1wx" : ""
+    tmdbKey: true ? "" : "",
+    mdblistKey: true ? "" : ""
   };
   function keyOf(name) {
     return (settings()[name] || "").trim() || BUILTIN_KEYS[name];
@@ -14363,7 +14364,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return /gay/i.test(n) ? 1 : 0;
   }
   function NsfwView() {
-    var el2 = h("div.view.nsfw-view");
+    var el2 = h("div.view.nsfw-view", {
+      "data-stay": ""
+    });
     var scroller = h("div.scroll-y", {
       "data-scroll-y": ""
     });
@@ -15002,7 +15005,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
   };
   function GridView(entry, extra2) {
-    var el2 = h("div.view.nsfw-view");
+    var el2 = h("div.view.nsfw-view", {
+      "data-stay": ""
+    });
     var scroller = h("div.scroll-y", {
       "data-scroll-y": ""
     });

@@ -203,7 +203,10 @@ export function move(dir) {
     focusFirst();
     return true;
   }
-  const all = candidates(layer.root).filter((e) => e !== cur);
+  // Telas com [data-stay] (categorias da NSFW) não mandam o foco para a barra de cima: subir na
+  // última fileira fica nela. Quem sai é o Voltar.
+  const stay = cur.closest('[data-stay]') && !cur.closest('.topbar');
+  const all = candidates(layer.root).filter((e) => e !== cur && !(stay && e.closest('.topbar')));
   const group = cur.closest('[data-group]');
   const horizontal = dir === 'left' || dir === 'right';
   if (group && horizontal === !group.hasAttribute('data-vertical')) {

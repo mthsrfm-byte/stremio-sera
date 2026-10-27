@@ -119,7 +119,7 @@ function catalogOrder(e) {
 }
 
 export function NsfwView() {
-  const el = h('div.view.nsfw-view');
+  const el = h('div.view.nsfw-view', { 'data-stay': '' });
   const scroller = h('div.scroll-y', { 'data-scroll-y': '' });
   const bar = topbar('nsfw', router.goTab);
   const filters = h('div.provider-rail.nsfw-rail.site-rail', { 'data-group': '', 'data-trap': '' });
@@ -568,7 +568,7 @@ const FILTER_KEEP = {
 };
 
 function GridView(entry, extra) {
-  const el = h('div.view.nsfw-view');
+  const el = h('div.view.nsfw-view', { 'data-stay': '' });
   const scroller = h('div.scroll-y', { 'data-scroll-y': '' });
   const crumb = [h('span', { text: 'NSFW › ' + siteName(entry.addon) }), ' › ', h('b', { text: extra.genre ? tr.genre(extra.genre) : catName(entry) })];
   const isHentai = /hentai/i.test((extra.genre || '') + ' ' + catName(entry));
