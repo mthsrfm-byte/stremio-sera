@@ -6927,8 +6927,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return m ? m[0] : null;
   }
   var BUILTIN_KEYS = {
-    tmdbKey: true ? "" : "",
-    mdblistKey: true ? "" : ""
+    tmdbKey: true ? "9c57ed7ea044b2f01eea2fcc2e954c2e" : "",
+    mdblistKey: true ? "t9e4f1z29b3c36i1j25rul1wx" : ""
   };
   function keyOf(name) {
     return (settings()[name] || "").trim() || BUILTIN_KEYS[name];
@@ -10799,9 +10799,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "326fd192e8d6594f1d2efebe2b11c0e72462abd2",
-    date: "2026-10-27T04:06:18+00:00",
-    message: "Build da dist/ para a TV"
+    commit: "637b82768d1b35de68e47f0eda18e4e6a3887817",
+    date: "2026-10-27T01:10:17-03:00",
+    message: "Abertura animada do Seraflix com som"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {

@@ -1,6 +1,6 @@
 {
   "version": "1.2.0",
-  "commit": "326fd192e8d6594f1d2efebe2b11c0e72462abd2",
-  "date": "2026-10-27T04:06:18+00:00",
-  "message": "Build da dist/ para a TV"
+  "commit": "637b82768d1b35de68e47f0eda18e4e6a3887817",
+  "date": "2026-10-27T01:10:17-03:00",
+  "message": "Abertura animada do Seraflix com som"
 }
