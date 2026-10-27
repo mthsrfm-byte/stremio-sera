@@ -5575,13 +5575,15 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   function set(key, value) {
     rawSet(profileKey(activeProfile().id, key), value);
   }
-  var DEVICE_KEYS = ["serverUrl", "tmdbKey", "mdblistKey", "smoothScroll", "devlogUrl", "lastUpdateCheck", "askProfile", "wizardDone", "language"];
+  var DEVICE_KEYS = ["introSound", "serverUrl", "tmdbKey", "mdblistKey", "smoothScroll", "devlogUrl", "lastUpdateCheck", "askProfile", "wizardDone", "language"];
   var DEFAULT_SETTINGS = {
     // TV
     serverUrl: "",
     tmdbKey: "",
     // vazio = usa a chave embutida no build (BUILTIN_KEYS em api/extras.js), se houver
     mdblistKey: "",
+    introSound: true,
+    // som da abertura
     smoothScroll: false,
     // rolagem animada (mais bonita, mais pesada na TV)
     devlogUrl: true ? "" : "",
@@ -6925,8 +6927,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return m ? m[0] : null;
   }
   var BUILTIN_KEYS = {
-    tmdbKey: true ? "9c57ed7ea044b2f01eea2fcc2e954c2e" : "",
-    mdblistKey: true ? "t9e4f1z29b3c36i1j25rul1wx" : ""
+    tmdbKey: true ? "" : "",
+    mdblistKey: true ? "" : ""
   };
   function keyOf(name) {
     return (settings()[name] || "").trim() || BUILTIN_KEYS[name];
@@ -9088,7 +9090,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         onSelect: function onSelect() {
           if (!playableType) return toast(t("Esse tipo de fonte não abre na TV."));
           if (needs && !serverOk) return toast(t("Torrent precisa do stremio-service rodando no PC. Configure em Ajustes."), 5e3);
-          play(video, s, all);
+          play2(video, s, all);
         }
       }, [h("div.s-addon", {
         text: (s.name || s.addon || "").trim()
@@ -9096,7 +9098,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         text: (s.title || s.description || "").trim()
       }), h("div.s-tags", null, tags)])]);
     }
-    function play(video, stream, all) {
+    function play2(video, stream, all) {
       var li = libraryItem(meta.id);
       var resumeMs = li && li.state && li.state.video_id === video.id ? li.state.timeOffset : 0;
       var start3 = function start3(ms) {
@@ -10489,10 +10491,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var front = bgA;
     var paused = true;
     var bgToken = 0;
-    function open(play) {
+    function open(play2) {
       var it = items[index];
       if (it) openDetails(it.type, it.id, {
-        autoStreams: play
+        autoStreams: play2
       });
     }
     function render() {
@@ -10797,9 +10799,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "c22746894a85991995a18c38aa37c524c6fe716c",
-    date: "2026-10-27T01:06:05-03:00",
-    message: "Streamings com trilho de logos, Início repensada, esqueletos com brilho e Figtree"
+    commit: "326fd192e8d6594f1d2efebe2b11c0e72462abd2",
+    date: "2026-10-27T04:06:18+00:00",
+    message: "Build da dist/ para a TV"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -10878,6 +10880,112 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     qr.addData(text);
     qr.make();
     return qr.createDataURL(cellSize || 8, 2);
+  }
+
+  // src/js/lib/intro.js
+  var MIN_MS = 2200;
+  var SOUND_AT_MS = 950;
+  var started = 0;
+  function play(withSound) {
+    started = Date.now();
+    var boot2 = document.getElementById("boot");
+    if (boot2) boot2.classList.add("run");
+    if (withSound) setTimeout(playSound, SOUND_AT_MS);
+    return new Promise(function (resolve) {
+      return setTimeout(resolve, MIN_MS);
+    });
+  }
+  function finish() {
+    var boot2 = document.getElementById("boot");
+    if (!boot2) return;
+    var wait = Math.max(0, MIN_MS - (Date.now() - started));
+    setTimeout(function () {
+      boot2.classList.add("out");
+      setTimeout(function () {
+        return boot2.parentNode && boot2.parentNode.removeChild(boot2);
+      }, 600);
+    }, wait);
+  }
+  function showStatic() {
+    var boot2 = document.getElementById("boot");
+    if (boot2) {
+      boot2.style.display = "";
+      boot2.classList.add("run", "done");
+    }
+  }
+  function playSound() {
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    var ctx;
+    try {
+      ctx = new AC();
+    } catch (e) {
+      return;
+    }
+    if (ctx.state === "suspended" && ctx.resume) ctx.resume().catch(function () {});
+    synth(ctx, ctx.destination, ctx.currentTime + 0.03);
+    setTimeout(function () {
+      return ctx.close && ctx.close().catch(function () {});
+    }, 2500);
+  }
+  function synth(ctx, out, t0) {
+    var master = ctx.createGain();
+    master.gain.value = 0.55;
+    master.connect(out);
+    var len = Math.floor(ctx.sampleRate * 0.03);
+    var buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    var data = buf.getChannelData(0);
+    for (var i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 4);
+    var noise = ctx.createBufferSource();
+    noise.buffer = buf;
+    var band = ctx.createBiquadFilter();
+    band.type = "bandpass";
+    band.frequency.value = 3200;
+    band.Q.value = 1.2;
+    var ng = ctx.createGain();
+    ng.gain.value = 0.9;
+    noise.connect(band);
+    band.connect(ng);
+    ng.connect(master);
+    noise.start(t0);
+    var thud = ctx.createOscillator();
+    thud.type = "sine";
+    thud.frequency.setValueAtTime(220, t0);
+    thud.frequency.exponentialRampToValueAtTime(90, t0 + 0.07);
+    var tg = ctx.createGain();
+    tg.gain.setValueAtTime(1e-4, t0);
+    tg.gain.exponentialRampToValueAtTime(0.5, t0 + 4e-3);
+    tg.gain.exponentialRampToValueAtTime(1e-4, t0 + 0.09);
+    thud.connect(tg);
+    tg.connect(master);
+    thud.start(t0);
+    thud.stop(t0 + 0.12);
+    [{
+      f: 659.25,
+      at: 0.06,
+      g: 0.16
+    }, {
+      f: 987.77,
+      at: 0.12,
+      g: 0.11
+    }, {
+      f: 1318.5,
+      at: 0.18,
+      g: 0.05
+    }].forEach(function (n) {
+      var o = ctx.createOscillator();
+      o.type = "sine";
+      o.frequency.value = n.f;
+      var g = ctx.createGain();
+      var s = t0 + n.at;
+      g.gain.setValueAtTime(1e-4, s);
+      g.gain.exponentialRampToValueAtTime(n.g, s + 0.02);
+      g.gain.exponentialRampToValueAtTime(1e-4, s + 1.4);
+      o.connect(g);
+      g.connect(master);
+      o.start(s);
+      o.stop(s + 1.5);
+    });
   }
 
   // src/js/views/login.js
@@ -11392,6 +11500,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         setSmooth(on);
         render();
       }, toggle(s.smoothScroll)));
+      body.appendChild(row(t("Som de abertura"), t("O clique com acorde quando o Seraflix abre"), "", function () {
+        var on = settings().introSound === false;
+        saveSettings({
+          introSound: on
+        });
+        if (on) playSound();
+        render();
+      }, toggle(s.introSound !== false)));
       body.appendChild(h("div.set-section", {
         text: t("Legendas e áudio")
       }));
@@ -11665,7 +11781,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var card2 = h("div.wizard-card");
     el.appendChild(h("div.wizard", null, card2));
     var step = 0;
-    function finish() {
+    function finish2() {
       saveSettings({
         wizardDone: true
       });
@@ -11695,7 +11811,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
     function next() {
       step++;
-      if (step >= steps.length) finish();else render();
+      if (step >= steps.length) finish2();else render();
     }
     function stepName() {
       card2.appendChild(h("h1", {
@@ -11822,7 +11938,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
               subtitleLangs: c.value,
               subtitlesAuto: c.value.length > 0
             });
-            finish();
+            finish2();
           }
         });
       })));
@@ -11834,7 +11950,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         if (step > 0) {
           step--;
           render();
-        } else finish();
+        } else finish2();
         return true;
       }
     };
@@ -11866,10 +11982,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
 
   // src/js/main.js
+  var introDone = Promise.resolve();
   function boot() {
     var s = settings();
     init();
     applyTheme(s);
+    introDone = play(s.introSound !== false);
     if (s.devlogUrl) log.setRemote(s.devlogUrl);
     log.info("Iniciando", navigator.userAgent);
     registerTizenKeys();
@@ -11891,11 +12009,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     registerTab("settings", SettingsView);
     registerTab("streamings", StreamingsView);
     if (needsPicker()) {
-      var bootEl = document.getElementById("boot");
-      if (bootEl) bootEl.style.display = "none";
-      showPicker(function () {
-        if (bootEl) bootEl.style.display = "";
-        start2();
+      introDone.then(function () {
+        var bootEl = document.getElementById("boot");
+        if (bootEl) bootEl.style.display = "none";
+        showPicker(function () {
+          showStatic();
+          start2();
+        });
       });
     } else start2();
     document.addEventListener("visibilitychange", function () {
@@ -11913,10 +12033,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
     Promise.all([check(), load().catch(function () {
       return null;
-    })]).then(function () {
-      var bootEl = document.getElementById("boot");
-      if (bootEl) bootEl.parentNode.removeChild(bootEl);
+    }), introDone]).then(function () {
       goTab("home");
+      finish();
       start(openFromPhone);
       if (isNewProfilePendingLogin() && !isLoggedIn()) {
         clearNewProfileFlag();

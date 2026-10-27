@@ -13,6 +13,7 @@ import * as addons from '../api/addons.js';
 import * as hero from '../api/hero.js';
 import * as extras from '../api/extras.js';
 import * as reco from '../api/recommend.js';
+import * as intro from '../lib/intro.js';
 import { topbar, toast, menu, confirmDialog, refreshProfileChips } from '../ui.js';
 import * as router from '../router.js';
 import { openLogin } from './login.js';
@@ -326,6 +327,14 @@ export function SettingsView() {
         nav.setSmooth(on);
         render();
       }, toggle(s.smoothScroll))
+    );
+    body.appendChild(
+      row(t('Som de abertura'), t('O clique com acorde quando o Seraflix abre'), '', () => {
+        const on = store.settings().introSound === false;
+        store.saveSettings({ introSound: on });
+        if (on) intro.playSound(); // toca para você ouvir
+        render();
+      }, toggle(s.introSound !== false))
     );
 
     body.appendChild(h('div.set-section', { text: t('Legendas e áudio') }));
