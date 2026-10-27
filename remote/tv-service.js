@@ -260,6 +260,16 @@ function ogTag(html, prop) {
   return m ? unhtml(m[1]) : '';
 }
 
+// Logos em SVG embutido (nítidos em qualquer tamanho e sem depender do site no ar).
+function svgLogo(svg) { return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); }
+var XV_LOGO = svgLogo('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="#0d0d0d"/>' +
+  '<text x="32" y="39" text-anchor="middle" font-family="Arial Black,Arial,Helvetica,sans-serif" font-weight="900" font-size="34" fill="#de2600">X</text>' +
+  '<text x="32" y="53" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-weight="700" font-size="10.5" letter-spacing="0.6" fill="#ffffff">VIDEOS</text></svg>');
+var PH_LOGO = svgLogo('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="#000"/>' +
+  '<text x="32" y="28" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-weight="700" font-size="17" fill="#fff">Porn</text>' +
+  '<rect x="11" y="33" width="42" height="21" rx="4" fill="#ff9000"/>' +
+  '<text x="32" y="49" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-weight="700" font-size="17" fill="#000">hub</text></svg>');
+
 var TUBES = {
   xv: {
     manifest: {
@@ -267,6 +277,7 @@ var TUBES = {
       version: '1.0.0',
       name: 'XVideos',
       description: 'XVideos pela própria TV (Seraflix). Conteúdo adulto.',
+      logo: XV_LOGO,
       resources: ['catalog', 'meta', 'stream'],
       types: ['movie'],
       idPrefixes: ['xv:'],
@@ -323,6 +334,7 @@ var TUBES = {
       version: '1.0.0',
       name: 'Pornhub',
       description: 'Pornhub pela própria TV (Seraflix). Conteúdo adulto.',
+      logo: PH_LOGO,
       resources: ['catalog', 'meta', 'stream'],
       types: ['movie'],
       idPrefixes: ['ph:'],
