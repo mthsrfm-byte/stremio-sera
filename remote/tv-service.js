@@ -14,7 +14,7 @@ var urlLib = require('url');
 
 var PORT = 8090;
 var ADDON_PORT = 8092; // addons XVideos/Pornhub e vídeo (porta nova a cada mudança que versões antigas não sabem largar)
-var SERVICE_VERSION = 9;
+var SERVICE_VERSION = 10;
 var PAGE_BASE = 'https://cdn.jsdelivr.net/gh/mthsrfm-byte/stremio-sera/remote/';
 var APP_NAME = 'Seraflix Controle';
 var TOKEN_FILE = '/home/owner/share/seraflixRemote.json';
@@ -400,6 +400,107 @@ function phThumbs(html) {
   return { urls: t.spritePatterns, cols: parseInt(grid[0], 10) || 5, rows: parseInt(grid[1], 10) || 5, w: parseInt(t.thumbWidth, 10) || 160, h: parseInt(t.thumbHeight, 10) || 90, every: Number(t.samplingFrequency) || 4 };
 }
 
+// ---------- Números de qualidade (cartões e detalhes da aba NSFW) ----------
+// stats: { views, duration, quality, channel, likes, approval } — textos curtos já prontos para a
+// tela ("3,2 mi", "10:14", "4K"); approval é um número de 0 a 100. Campos que o site não dá ficam de fora.
+function m1(re, text) {
+  var m = String(text || '').match(re);
+  return m ? unhtml(m[1]) : '';
+}
+
+// "36,549,064" ou "3M"/"47K"/"66.6k" → número
+function countOf(text) {
+  var t = String(text || '').replace(/\s/g, '');
+  var m = t.match(/^([\d.,]+)([KkMmBb])?$/);
+  if (!m) return 0;
+  if (!m[2]) return parseInt(m[1].replace(/[.,]/g, ''), 10) || 0;
+  return Math.round(parseFloat(m[1].replace(',', '.')) * { k: 1e3, m: 1e6, b: 1e9 }[m[2].toLowerCase()]);
+}
+
+// 3200000 → "3,2 mi"; 640000 → "640 mil"; 950 → "950"
+function shortCount(n) {
+  if (!(n > 0)) return '';
+  function d(x) { return (x >= 10 ? Math.round(x) : Math.round(x * 10) / 10).toString().replace('.', ','); }
+  if (n >= 1e9) return d(n / 1e9) + ' bi';
+  if (n >= 1e6) return d(n / 1e6) + ' mi';
+  if (n >= 1e3) return d(n / 1e3) + ' mil';
+  return String(n);
+}
+
+function clock(sec) {
+  sec = Math.round(sec);
+  if (!(sec > 0)) return '';
+  var h = Math.floor(sec / 3600);
+  var m = Math.floor((sec % 3600) / 60);
+  var s = sec % 60;
+  return (h ? h + ':' + (m < 10 ? '0' : '') : '') + m + ':' + (s < 10 ? '0' : '') + s;
+}
+
+// "6 min" / "1 h 2 min" / "10:14" como vem nas listagens
+function listDuration(text) {
+  var t = String(text || '').trim();
+  if (/^\d+(:\d\d){1,2}$/.test(t)) return t;
+  var h = (t.match(/(\d+)\s*h/) || [])[1];
+  var m = (t.match(/(\d+)\s*min/) || [])[1];
+  var s = (t.match(/(\d+)\s*sec/) || [])[1];
+  if (!h && !m && !s) return '';
+  return clock((+h || 0) * 3600 + (+m || 0) * 60 + (+s || 0));
+}
+
+function quality(text) {
+  var t = String(text || '').toLowerCase();
+  if (/2160|4k/.test(t)) return '4K';
+  var m = t.match(/(1440|1080|720|480|360)p/);
+  return m ? m[1] + 'p' : '';
+}
+
+function compact(o) {
+  var out = {};
+  Object.keys(o).forEach(function (k) { if (o[k] !== '' && o[k] !== 0 && o[k] !== null && o[k] !== undefined) out[k] = o[k]; });
+  return out;
+}
+
+function xvListStats(chunk) {
+  return compact({
+    quality: quality(m1(/class="video-(?:hd|sd|4k|uhd)-mark">([^<]+)</, chunk)),
+    duration: listDuration(m1(/<span class="duration">([^<]+)</, chunk)),
+    channel: m1(/<span class="name">([^<]+)</, chunk),
+    views: shortCount(countOf(m1(/([\d.,]+\s*[KMBkmb]?)\s*<span class="sprfluous">Views/, chunk)))
+  });
+}
+
+function xvPageStats(html) {
+  var good = countOf(m1(/class="rating-good-nbr">([^<]+)</, html));
+  var bad = countOf(m1(/class="rating-bad-nbr">([^<]+)</, html));
+  return compact({
+    views: shortCount(countOf(m1(/id="v-views">[\s\S]{0,120}?<strong class="mobile-hide">([^<]+)</, html))),
+    likes: shortCount(good),
+    approval: good + bad > 0 ? Math.round((good / (good + bad)) * 100) : '',
+    duration: clock(parseInt(ogTag(html, 'duration'), 10)),
+    channel: m1(/uploader-tag hover-name"><span class="name">(?:<span[^>]*><\/span>)?\s*([^<]+)</, html)
+  });
+}
+
+function phListStats(chunk) {
+  var title = m1(/title="([^"]*)"/, chunk);
+  return compact({
+    quality: quality(title),
+    duration: listDuration(m1(/<var class="[^"]*\bduration\b[^"]*"[^>]*>([^<]+)</, chunk)),
+    channel: m1(/class="usernameWrap[^"]*">\s*<a[^>]*>([^<]+)</, chunk),
+    views: shortCount(countOf(m1(/class="views">(?:<i[^>]*><\/i>)?\s*<var>([^<]+)</, chunk))),
+    approval: parseInt(m1(/<div class="value">(\d+)%</, chunk), 10) || ''
+  });
+}
+
+function phPageStats(html) {
+  return compact({
+    views: shortCount(countOf(m1(/<span class="count">([^<]+)</, html))),
+    likes: shortCount(parseInt(m1(/class="votesUp" data-rating="(\d+)"/, html), 10)),
+    duration: clock(parseInt(m1(/"video_duration":"?(\d+)/, html), 10)),
+    channel: m1(/'video_uploader_name' : '([^']+)'/, html)
+  });
+}
+
 function withThumbs(list, thumbs) {
   if (thumbs) list.forEach(function (s) { s.thumbs = thumbs; });
   return list;
@@ -451,8 +552,9 @@ var TUBES = {
     listUrl: function (cat, page, extra) {
       var p = page ? '&p=' + page : '';
       if (cat === 'xv-search') return 'https://www.xvideos.com/?k=' + encodeURIComponent(extra.search || '') + p;
-      if (cat === 'xv-cp') return 'https://www.xvideos.com/?k=creampie' + p;
-      if (cat === 'xv-cpgay') return 'https://www.xvideos.com/?k=creampie&typef=gay' + p;
+      // Creampie: mais vistos primeiro.
+      if (cat === 'xv-cp') return 'https://www.xvideos.com/?k=creampie&sort=views' + p;
+      if (cat === 'xv-cpgay') return 'https://www.xvideos.com/?k=creampie&typef=gay&sort=views' + p;
       if (cat === 'xv-top') return 'https://www.xvideos.com/?k=hd&sort=views' + p;
       if (cat === 'xv-4k') return 'https://www.xvideos.com/?k=4k&sort=rating' + p;
       // Novidades: a primeira página é a inicial; as seguintes, /new/1, /new/2...
@@ -466,13 +568,13 @@ var TUBES = {
         var title = (chunk.match(/<p class="title"><a href="[^"]*" title="([^"]*)"/) || [])[1];
         var thumb = attr(chunk, 'data-src');
         if (!title) return;
-        out.push({ id: 'xv:' + href, type: 'movie', name: unhtml(title), poster: thumb, posterShape: 'landscape' });
+        out.push({ id: 'xv:' + href, type: 'movie', name: unhtml(title), poster: thumb, posterShape: 'landscape', stats: xvListStats(chunk) });
       });
       return out;
     },
     pageUrl: function (id) { return 'https://www.xvideos.com' + id.slice(3); },
     parseMeta: function (id, html) {
-      return { id: id, type: 'movie', name: ogTag(html, 'title') || 'XVideos', poster: ogTag(html, 'image'), background: ogTag(html, 'image'), posterShape: 'landscape', description: ogTag(html, 'description') };
+      return { id: id, type: 'movie', name: ogTag(html, 'title') || 'XVideos', poster: ogTag(html, 'image'), background: ogTag(html, 'image'), posterShape: 'landscape', description: ogTag(html, 'description'), stats: xvPageStats(html) };
     },
     parseStreams: function (html) {
       var out = [];
@@ -511,14 +613,21 @@ var TUBES = {
     PAGE: 32,
     listUrl: function (cat, page, extra) {
       var p = '&page=' + ((page || 0) + 1);
-      if (cat === 'ph-cp') return 'https://www.pornhub.com/video/search?search=creampie' + p;
-      if (cat === 'ph-cpgay') return 'https://www.pornhub.com/gay/video/search?search=creampie' + p;
+      // Creampie: mais vistos primeiro.
+      if (cat === 'ph-cp') return 'https://www.pornhub.com/video/search?search=creampie&o=mv' + p;
+      if (cat === 'ph-cpgay') return 'https://www.pornhub.com/gay/video/search?search=creampie&o=mv' + p;
       if (cat === 'ph-search') return 'https://www.pornhub.com/video/search?search=' + encodeURIComponent(extra.search || '') + p;
       return 'https://www.pornhub.com/video?o=' + (cat === 'ph-top' ? 'mv' : 'ht') + p;
     },
     parseList: function (html) {
       var out = [];
       var seen = {};
+      // Só a lista principal da página (antes dela vêm vídeos promovidos e, depois, recomendados).
+      var start = Math.max(html.indexOf('id="videoSearchResult"'), html.indexOf('id="videoCategory"'), html.indexOf('id="mostRecentVideosSection"'));
+      if (start > 0) {
+        var end = html.indexOf('</ul>', start);
+        html = html.slice(start, end > 0 ? end : undefined);
+      }
       html.split('data-video-vkey="').slice(1).forEach(function (chunk) {
         var key = chunk.slice(0, chunk.indexOf('"'));
         if (!/^[\w]+$/.test(key) || seen[key]) return;
@@ -526,13 +635,13 @@ var TUBES = {
         var img = chunk.match(/<img[^>]*\ssrc="([^"]+)"/);
         if (!title) return;
         seen[key] = true;
-        out.push({ id: 'ph:' + key, type: 'movie', name: title, poster: img ? unhtml(img[1]) : '', posterShape: 'landscape' });
+        out.push({ id: 'ph:' + key, type: 'movie', name: title, poster: img ? unhtml(img[1]) : '', posterShape: 'landscape', stats: phListStats(chunk) });
       });
       return out;
     },
     pageUrl: function (id) { return 'https://www.pornhub.com/view_video.php?viewkey=' + id.slice(3); },
     parseMeta: function (id, html) {
-      return { id: id, type: 'movie', name: ogTag(html, 'title') || 'Pornhub', poster: ogTag(html, 'image'), background: ogTag(html, 'image'), posterShape: 'landscape', description: ogTag(html, 'description') };
+      return { id: id, type: 'movie', name: ogTag(html, 'title') || 'Pornhub', poster: ogTag(html, 'image'), background: ogTag(html, 'image'), posterShape: 'landscape', description: ogTag(html, 'description'), stats: phPageStats(html) };
     },
     // Pornhub: na primeira visita a página às vezes traz links que respondem 410. O serviço confere
     // a playlist e, se ela não abre, pede a página de novo já com os cookies de sessão. A ordem:
