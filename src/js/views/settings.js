@@ -14,6 +14,7 @@ import * as hero from '../api/hero.js';
 import * as extras from '../api/extras.js';
 import * as reco from '../api/recommend.js';
 import * as intro from '../lib/intro.js';
+import { getJSON, recentErrors } from '../lib/http.js';
 import { topbar, toast, menu, confirmDialog, refreshProfileChips } from '../ui.js';
 import * as router from '../router.js';
 import { openLogin } from './login.js';
@@ -86,6 +87,71 @@ export function SettingsView() {
         }
       })
       .catch(() => toast(t('Não consegui descobrir o IP da TV. Veja em Configurações → Geral → Rede.'), 6000));
+  }
+
+  // Diagnóstico de rede: testa cada servidor que o app usa e mostra os últimos erros.
+  function showNetworkCheck() {
+    const list = h('div.diag-list');
+    const box = h('div.modal-box.center.diag-box', null, [
+      h('h3', { text: t('Teste de conexão') }),
+      h('p.modal-text', { text: t('Relógio da TV: {now}', { now: new Date().toLocaleString('pt-BR') }) }),
+      list,
+      h('div.modal-actions', null, [h('div.btn.primary', { focusable: true, 'data-autofocus': '', text: t('Fechar'), onSelect: () => close() })]),
+    ]);
+    const modal = h('div.modal', null, box);
+    document.getElementById('app').appendChild(modal);
+    const layer = nav.pushLayer(modal, { onBack: () => close() });
+    nav.focusFirst(modal);
+    function close() {
+      nav.popLayer(layer);
+      if (modal.parentNode) modal.parentNode.removeChild(modal);
+    }
+    function line(name) {
+      const res = h('span.diag-res', { text: t('testando...') });
+      list.appendChild(h('div.diag-line', null, [h('span.diag-name', { text: name }), res]));
+      return res;
+    }
+    function test(name, run) {
+      const res = line(name);
+      const t0 = Date.now();
+      return run().then(
+        () => {
+          res.textContent = '✓ ' + (Date.now() - t0) + ' ms';
+          res.className = 'diag-res ok';
+        },
+        (e) => {
+          res.textContent = '✗ ' + (e.timeout ? t('tempo esgotado') : e.status ? 'HTTP ' + e.status : t('falha de rede')) + ' (' + (Date.now() - t0) + ' ms)';
+          res.className = 'diag-res bad';
+        }
+      );
+    }
+    const image = (src) =>
+      new Promise((ok, fail) => {
+        const im = new Image();
+        im.onload = ok;
+        im.onerror = () => fail({ status: 0 });
+        im.src = src + '?t=' + Date.now();
+      });
+    const tests = [
+      [t('TMDB (fileiras e busca de títulos)'), () => extras.tmdbPing()],
+      [t('Imagens do TMDB (pôsteres)'), () => image('https://image.tmdb.org/t/p/w92/rK1KljqmbvO9HQa1PBFLILWah72.png')],
+      [t('Cinemeta (detalhes dos títulos)'), () => getJSON('https://v3-cinemeta.strem.io/manifest.json', { timeout: 10000, quiet: true })],
+    ];
+    addons.list().forEach((a) => {
+      if (!/^https?:/.test(a.transportUrl || '') || /cinemeta/.test(a.transportUrl)) return;
+      tests.push([t('Addon: {name}', { name: a.manifest.name || a.manifest.id }), () => getJSON(a.transportUrl, { timeout: 10000, quiet: true })]);
+    });
+    // Um por vez: assim o tempo de cada um é o dele mesmo.
+    tests
+      .reduce((p, x) => p.then(() => test(x[0], x[1])), Promise.resolve())
+      .then(() => {
+        const errs = recentErrors();
+        list.appendChild(h('div.diag-head', { text: errs.length ? t('Últimos erros do app') : t('Nenhum erro de rede registrado desde que o app abriu.') }));
+        errs.slice(0, 8).forEach((e) => {
+          const ago = Math.round((Date.now() - e.at) / 60000);
+          list.appendChild(h('div.diag-err', { text: e.msg + ' · ' + e.ms + ' ms · ' + t('há {n} min', { n: ago }) + ' · ' + e.url.slice(0, 70) }));
+        });
+      });
   }
 
   let updateStatus = '';
@@ -496,6 +562,7 @@ export function SettingsView() {
     if (device) body.appendChild(row(t('TV'), '', device, null));
 
     body.appendChild(h('div.set-section', { text: t('Sobre e depuração') }));
+    body.appendChild(row(t('Testar conexão'), t('Coisas não carregam? Veja qual servidor a TV não alcança'), '', () => showNetworkCheck()));
     body.appendChild(row(t('Último trailer'), t('Resultado do trailer na aba Recomendado'), reco.getTrailerReport() || t('nenhum ainda'), null));
     const logInput = h('input.input', { type: 'text', value: s.devlogUrl || '', placeholder: 'http://IP-DO-PC:8099/log' });
     logInput.__submit = (v) => {

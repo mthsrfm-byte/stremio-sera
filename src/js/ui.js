@@ -175,7 +175,8 @@ export function card(item, opts) {
   }
   if (o.progress) wrap.appendChild(h('div.progress', null, h('i', { style: { width: Math.round(o.progress * 100) + '%' } })));
   if (o.badge) wrap.appendChild(h('div.badge', { text: o.badge }));
-  return h('div.card', { focusable: true, cls: o.wide ? 'wide' : '', onSelect: o.onSelect, onFocus: o.onFocus }, [
+  return h('div.card', { focusable: true, cls: o.wide ? 'wide' : o.rank ? 'ranked' : '', onSelect: o.onSelect, onFocus: o.onFocus }, [
+    o.rank ? h('div.rank', { text: String(o.rank) }) : null,
     wrap,
     h('div.name', { text: o.title || item.name || '' }),
   ]);
@@ -205,10 +206,10 @@ export function retrying(fn) {
 }
 
 // Fileira que não carregou: aviso curto e um botão para tentar de novo.
-export function rowRetry(onRetry) {
+export function rowRetry(onRetry, onFocus) {
   return h('div.row-fail', null, [
     h('span', { text: t('Essa fileira não carregou agora.') }),
-    h('div.btn.small', { focusable: true, text: t('Tentar de novo'), onSelect: onRetry }),
+    h('div.btn.small', { focusable: true, text: t('Tentar de novo'), onSelect: onRetry, onFocus: onFocus }),
   ]);
 }
 

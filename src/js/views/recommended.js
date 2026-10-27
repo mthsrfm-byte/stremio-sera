@@ -313,7 +313,7 @@ function Rail(defs) {
 
 // ---------- Fileiras ----------
 // Fileira que não carregou: botão "Tentar de novo" que volta o esqueleto e recarrega.
-export function showRetry(track, load) {
+export function showRetry(track, load, onFocus) {
   clear(track);
   track.appendChild(
     rowRetry(() => {
@@ -324,7 +324,7 @@ export function showRetry(track, load) {
         const first = track.querySelector('.card');
         if (first) nav.focus(first);
       });
-    })
+    }, onFocus)
   );
 }
 
@@ -340,7 +340,15 @@ function buildRow(def, index, ctx) {
     const all = row.parentNode ? row.parentNode.children : [];
     for (let i = 0; i < all.length; i++) all[i].classList.toggle('past', i < index);
   };
-  const failed = () => showRetry(track, () => load());
+  const failed = () =>
+    showRetry(
+      track,
+      () => load(),
+      () => {
+        focusRow();
+        ctx.billboard.stop();
+      }
+    );
   const load = () =>
     retrying(() => def.load(1))
       .then((items) => {
@@ -404,7 +412,8 @@ function CuratedView(cfg) {
     built.forEach((b) => rows.appendChild(b.row));
     // Primeira fileira já com destaque no primeiro título.
     built[0].load().then(() => {
-      const first = rows.querySelector('.card');
+      // Primeiro item focável da primeira fileira (o cartão, ou o "Tentar de novo" se ela falhou).
+      const first = rows.firstChild && rows.firstChild.querySelector('[data-focus]');
       if (first && nav.current() && nav.current().closest('.topbar')) nav.focus(first);
     });
     built.slice(1).forEach((b) => b.load());
@@ -553,7 +562,8 @@ export function StreamingsView() {
 
 // ---------- Fileira simples (Início): título + frase, cartões e "Ver tudo" ----------
 export function simpleRow(def, crumb) {
-  const row = h('div.row', { 'data-anchor': '30' });
+  if (def.moods) return moodRow(def, crumb);
+  const row = h('div.row', { 'data-anchor': '30', cls: def.ranked ? 'ranked-row' : '' });
   row.appendChild(h('div.row-title', null, [t(def.title), h('small', { text: t(def.caption) })]));
   const track = h('div.row-track.pending', { 'data-scroll-x': '', 'data-group': '', 'data-trap': '' }, skeletonCards());
   row.appendChild(track);
@@ -563,17 +573,41 @@ export function simpleRow(def, crumb) {
       .then((items) => {
         clear(track);
         track.classList.remove('pending');
-        if (!items.length) return failed();
-        items.slice(0, ROW_LIMIT).forEach((it) => track.appendChild(card(it, { onSelect: () => openItem(it) })));
-        track.appendChild(
-          h('div.card.see-all', { focusable: true, onSelect: () => openCategory(crumb, def) }, [
-            h('div.poster-wrap', null, h('div.see-all-label', null, [h('b', { text: t('Ver tudo') }), h('span', { text: t(def.title) })])),
-          ])
-        );
+        if (!items.length) {
+          // "Porque você viu": sem recomendações para esse título, a fileira só não aparece.
+          if (def.optional && row.parentNode) return row.parentNode.removeChild(row);
+          return failed();
+        }
+        items.slice(0, def.ranked ? 10 : ROW_LIMIT).forEach((it, i) => track.appendChild(card(it, { onSelect: () => openItem(it), rank: def.ranked ? i + 1 : 0 })));
+        if (!def.ranked)
+          track.appendChild(
+            h('div.card.see-all', { focusable: true, onSelect: () => openCategory(crumb, def) }, [
+              h('div.poster-wrap', null, h('div.see-all-label', null, [h('b', { text: t('Ver tudo') }), h('span', { text: t(def.title) })])),
+            ])
+          );
         loadVisibleImages(row);
       })
       .catch(failed);
   return { row: row, load: load };
+}
+
+// Explore por clima: blocos coloridos que abrem a categoria inteira.
+function moodRow(def, crumb) {
+  const row = h('div.row', { 'data-anchor': '30' });
+  row.appendChild(h('div.row-title', null, [t(def.title), h('small', { text: t(def.caption) })]));
+  const track = h('div.row-track', { 'data-scroll-x': '', 'data-group': '', 'data-trap': '' });
+  reco.MOODS.forEach((m) =>
+    track.appendChild(
+      h('div.card.mood', { focusable: true, onSelect: () => openCategory(crumb, m) }, [
+        h('div.mood-tile', { style: { background: 'linear-gradient(135deg, ' + m.colors[0] + ' 0%, ' + m.colors[1] + ' 100%)' } }, [
+          h('b', { text: t(m.title) }),
+          h('span', { text: t(m.caption) }),
+        ]),
+      ])
+    )
+  );
+  row.appendChild(track);
+  return { row: row, load: () => Promise.resolve() };
 }
 
 // ---------- Ver tudo (Recomendado › Categoria) ----------

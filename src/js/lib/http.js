@@ -2,8 +2,18 @@
 import { log } from './log.js';
 import { t } from './i18n.js';
 
+// Últimos erros de rede (para o diagnóstico em Ajustes), sem chaves nem parâmetros.
+const netErrors = [];
+export function recentErrors() {
+  return netErrors.slice();
+}
+function shortUrl(url) {
+  return String(url).split('?')[0].replace(/^https?:\/\//, '');
+}
+
 export function request(method, url, body, opts) {
   const o = opts || {};
+  const started = Date.now();
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open(method, url, true);
@@ -37,6 +47,11 @@ export function request(method, url, body, opts) {
     };
     xhr.send(body !== undefined && body !== null ? JSON.stringify(body) : null);
   }).catch((err) => {
+    err.ms = Date.now() - started;
+    if (!/127\.0\.0\.1|localhost/.test(url)) {
+      netErrors.unshift({ at: Date.now(), url: shortUrl(url), msg: err.timeout ? 'tempo esgotado' : err.status ? 'HTTP ' + err.status : err.status === 0 ? 'falha de rede' : 'resposta inválida', ms: err.ms });
+      if (netErrors.length > 12) netErrors.pop();
+    }
     if (!o.quiet) log.warn(err.message);
     throw err;
   });

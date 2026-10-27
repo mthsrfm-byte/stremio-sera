@@ -133,15 +133,23 @@ export function fetchMeta(type, id) {
   if (!sources.length) return Promise.reject(new Error(t('Nenhum addon fornece detalhes para {id}', { id: id })));
   // Tenta na ordem de instalação; o primeiro que responder com meta vence.
   let i = 0;
+  let lastErr = null;
   const next = () => {
-    if (i >= sources.length) throw new Error(t('Detalhes não encontrados'));
+    // Mostra o motivo real (falha de rede, tempo esgotado...) em vez de um genérico.
+    if (i >= sources.length) throw lastErr || new Error(t('Detalhes não encontrados'));
     const a = sources[i++];
-    return cachedJSON(url(a, 'meta', type, id), 30 * 60000)
+    const u = url(a, 'meta', type, id);
+    // Falha de rede: tenta o mesmo addon mais uma vez antes de passar para o próximo.
+    return cachedJSON(u, 30 * 60000)
+      .catch((e) => (e && e.status >= 400 ? Promise.reject(e) : new Promise((ok) => setTimeout(ok, 1200)).then(() => cachedJSON(u, 30 * 60000))))
       .then((r) => {
         if (r && r.meta) return r.meta;
         return next();
       })
-      .catch(() => next());
+      .catch((e) => {
+        if (!lastErr || (e && e.status === 0)) lastErr = e;
+        return next();
+      });
   };
   return next();
 }
