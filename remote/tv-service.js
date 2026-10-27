@@ -13,8 +13,8 @@ var os = require('os');
 var urlLib = require('url');
 
 var PORT = 8090;
-var ADDON_PORT = 8091; // addons XVideos/Pornhub (também na 8090)
-var SERVICE_VERSION = 3;
+var ADDON_PORT = 8092; // addons XVideos/Pornhub e vídeo (porta nova a cada mudança que versões antigas não sabem largar)
+var SERVICE_VERSION = 4;
 var PAGE_BASE = 'https://cdn.jsdelivr.net/gh/mthsrfm-byte/stremio-sera/remote/';
 var APP_NAME = 'Seraflix Controle';
 var TOKEN_FILE = '/home/owner/share/seraflixRemote.json';
@@ -337,8 +337,9 @@ var TUBES = {
       var out = [];
       var hls = (html.match(/setVideoHLS\('([^']+)'\)/) || [])[1];
       var high = (html.match(/setVideoUrlHigh\('([^']+)'\)/) || [])[1];
-      if (hls) out.push({ name: 'XVideos\nHLS até 1080p', title: 'Melhor qualidade disponível (1080p HD)', url: hls });
-      if (high) out.push({ name: 'XVideos\n360p', title: 'MP4 360p (mais leve)', url: high });
+      if (hls) out.push({ name: 'XVideos\nHLS até 1080p', title: 'Melhor qualidade disponível (1080p HD)', url: proxied(hls, 'hls.m3u8') });
+      if (high) out.push({ name: 'XVideos\n360p', title: 'MP4 360p (mais leve)', url: proxied(high, 'video.mp4') });
+      if (hls) out.push({ name: 'XVideos\nDireto', title: 'Link do site sem passar pela TV (se os outros falharem)', url: hls });
       return out;
     }
   },
@@ -391,7 +392,7 @@ var TUBES = {
       return jsonArrayAfter(html, 'mediaDefinitions')
         .filter(function (d) { return d.format === 'hls' && d.videoUrl && /^\d+$/.test(String(d.quality)); })
         .sort(function (a, b) { return Number(b.quality) - Number(a.quality); })
-        .map(function (d) { return { name: 'Pornhub\n' + d.quality + 'p', title: 'HLS ' + d.quality + 'p', url: d.videoUrl }; });
+        .map(function (d) { return { name: 'Pornhub\n' + d.quality + 'p', title: 'HLS ' + d.quality + 'p', url: proxied(d.videoUrl, 'hls.m3u8') }; });
     }
   }
 };
@@ -410,6 +411,99 @@ function safe(res, empty, fn) {
   return function (err, html) {
     try { fn(err, html); } catch (e) { json(res, 200, empty); }
   };
+}
+
+// ---------- Vídeo pelo serviço da TV ----------
+// O <video> da TV não toca bem direto dos sites: o XVideos manda as playlists HLS como text/plain e
+// os links do Pornhub valem só para o IP que abriu a página. Passando por aqui, playlist e pedaços
+// do vídeo são pedidos com o mesmo IP e cabeçalhos que abriram a página, e as playlists saem com o
+// tipo certo. Só repassa endereços desses sites (o serviço escuta na rede de casa).
+var PX_HOSTS = /(^|\.)(xvideos-cdn\.com|xvideos\.com|phncdn\.com|pornhub\.com)$/i;
+
+function proxied(target, file) {
+  return 'http://127.0.0.1:' + ADDON_PORT + '/px/' + file + '?u=' + encodeURIComponent(target);
+}
+
+function isPlaylist(target, type) {
+  return /mpegurl/i.test(type || '') || /\.m3u8($|\?)/i.test(urlLib.parse(target).pathname || '');
+}
+
+// Reescreve cada endereço da playlist (linhas e URI="...") para passar por aqui também.
+function rewritePlaylist(text, base) {
+  function wrap(ref) {
+    var abs = urlLib.resolve(base, ref.trim());
+    return proxied(abs, isPlaylist(abs) ? 'hls.m3u8' : 'seg.ts');
+  }
+  return text.split(/\r?\n/).map(function (line) {
+    if (!line) return line;
+    if (line.charAt(0) === '#') return line.replace(/URI="([^"]+)"/g, function (m, ref) { return 'URI="' + wrap(ref) + '"'; });
+    return wrap(line);
+  }).join('\n');
+}
+
+function proxyRoute(req, res, query) {
+  var target = query.u;
+  var parsed = target ? urlLib.parse(target) : null;
+  if (!parsed || !/^https?:$/.test(parsed.protocol || '') || !PX_HOSTS.test(parsed.hostname || '')) {
+    res.writeHead(400, { 'Content-Type': 'text/plain' });
+    return res.end('endereço não permitido');
+  }
+  var hops = 0;
+  var done = false;
+  function fail(code) {
+    if (done) return;
+    done = true;
+    try { res.writeHead(code || 502, { 'Content-Type': 'text/plain' }); res.end('falhou'); } catch (e) {}
+  }
+  function go(addr) {
+    var opts = urlLib.parse(addr);
+    var site = /phncdn|pornhub/i.test(opts.hostname) ? 'https://www.pornhub.com/' : 'https://www.xvideos.com/';
+    opts.headers = { 'User-Agent': UA, Referer: site, Origin: site.slice(0, -1), Accept: '*/*' };
+    // Playlist é reescrita inteira: pedaço dela (Range) não serve.
+    if (req.headers.range && !isPlaylist(addr)) opts.headers.Range = req.headers.range;
+    var lib = opts.protocol === 'http:' ? http : https;
+    var up;
+    try {
+      up = lib.get(opts, function (r) {
+        if (r.statusCode >= 300 && r.statusCode < 400 && r.headers.location && hops++ < 4) {
+          r.resume();
+          return go(urlLib.resolve(addr, r.headers.location));
+        }
+        var type = r.headers['content-type'] || '';
+        if ((r.statusCode === 200 || r.statusCode === 206) && isPlaylist(addr, type)) {
+          var parts = [];
+          r.on('data', function (c) { parts.push(c); });
+          r.on('end', function () {
+            if (done) return;
+            done = true;
+            var body = rewritePlaylist(Buffer.concat(parts).toString('utf8'), addr);
+            res.writeHead(200, { 'Content-Type': 'application/vnd.apple.mpegurl', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' });
+            res.end(body);
+          });
+          r.on('error', function () { fail(); });
+          return;
+        }
+        if (done) return r.resume();
+        done = true;
+        var head = { 'Access-Control-Allow-Origin': '*' };
+        // .ts vem como application/octet-stream de alguns CDNs: a TV prefere o tipo certo.
+        head['Content-Type'] = /\.ts($|\?)/i.test(opts.pathname || '') ? 'video/mp2t' : type || 'application/octet-stream';
+        ['content-length', 'content-range', 'accept-ranges', 'last-modified', 'etag'].forEach(function (k) {
+          if (r.headers[k]) head[k] = r.headers[k];
+        });
+        res.writeHead(r.statusCode, head);
+        r.pipe(res);
+        r.on('error', function () { try { res.end(); } catch (e) {} });
+      });
+    } catch (e) {
+      return fail();
+    }
+    up.on('error', function () { fail(); });
+    up.setTimeout(20000, function () { up.abort(); fail(504); });
+    // A TV desistiu (trocou de qualidade, fechou o player): para de baixar.
+    res.on('close', function () { try { up.abort(); } catch (e) {} });
+  }
+  go(target);
 }
 
 function addonRoute(url, res) {
@@ -527,6 +621,18 @@ function testDisk() {
   return res;
 }
 
+// Uma versão mais nova deste serviço quer as portas: sai e deixa ela assumir.
+function quit(res) {
+  json(res, 200, { ok: true });
+  quitting = true;
+  clearTimeout(tv.retry);
+  setTimeout(function () {
+    try { server.close(); } catch (e) {}
+    try { addonServer.close(); } catch (e) {}
+    if (tv.socket) tv.socket.destroy();
+  }, 100);
+}
+
 // Um erro num pedido nunca pode derrubar o serviço: ele roda dentro do processo do TizenBrew.
 function guarded(handler) {
   return function (req, res) {
@@ -554,17 +660,7 @@ var server = http.createServer(guarded(function (req, res) {
   if (url === '/api/ip') return json(res, 200, { ip: lanIp() });
   if (url === '/api/version') return json(res, 200, { version: SERVICE_VERSION });
   // Uma versão mais nova deste serviço quer a porta: sai e deixa ela assumir.
-  if (url === '/api/quit' && req.method === 'POST') {
-    json(res, 200, { ok: true });
-    quitting = true;
-    clearTimeout(tv.retry);
-    setTimeout(function () {
-      server.close();
-      addonServer.close();
-      if (tv.socket) tv.socket.destroy();
-    }, 100);
-    return;
-  }
+  if (url === '/api/quit' && req.method === 'POST') return quit(res);
   if (url === '/api/pending') {
     lastPoll = Date.now();
     return json(res, 200, { open: takePending() });
@@ -648,15 +744,22 @@ server.on('error', function (e) {
 server.listen(PORT, '0.0.0.0');
 var addonServer = http.createServer(guarded(function (req, res) {
   var url = req.url.split('?')[0];
+  if (url.indexOf('/px/') === 0) return proxyRoute(req, res, urlLib.parse(req.url, true).query);
   if (url === '/api/version') return json(res, 200, { version: SERVICE_VERSION });
+  if (url === '/api/quit' && req.method === 'POST') return quit(res);
   if (addonRoute(url, res)) return;
   res.writeHead(404, { 'Content-Type': 'text/plain' });
   res.end('404');
 }));
 var addonTries = 0;
 addonServer.on('error', function (e) {
-  // A versão anterior ainda está saindo: espera ela soltar a porta.
-  if (e && e.code === 'EADDRINUSE' && addonTries++ < 10) setTimeout(function () { addonServer.listen(ADDON_PORT, '0.0.0.0'); }, 1500);
+  // Outra versão deste serviço está na porta: pede para ela sair e tenta de novo.
+  if (e && e.code === 'EADDRINUSE' && addonTries++ < 10) {
+    var q = http.request({ host: '127.0.0.1', port: ADDON_PORT, path: '/api/quit', method: 'POST' }, function (r) { r.resume(); });
+    q.on('error', function () {});
+    q.end();
+    setTimeout(function () { addonServer.listen(ADDON_PORT, '0.0.0.0'); }, 1500);
+  }
 });
 addonServer.listen(ADDON_PORT, '0.0.0.0');
 tvConnect();

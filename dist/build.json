@@ -1,6 +1,6 @@
 {
   "version": "1.2.0",
-  "commit": "355bb61f7375681f7aea2c9cad05bd118c81ce29",
-  "date": "2026-10-27T08:09:18Z",
-  "message": "Site do Pages: app web na raiz, controle em /controle/"
+  "commit": "442f9295632eee06756542a00d19a51c7266c2bd",
+  "date": "2026-10-27T08:09:37+00:00",
+  "message": "Build da dist/ para a TV"
 }

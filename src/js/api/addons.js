@@ -60,10 +60,12 @@ function defaultAddons() {
 
 // Addons que o serviço do Seraflix na TV serve (XVideos e Pornhub pedidos pela própria TV).
 // Entram sozinhos quando o serviço responde; fora da TV (PC, testes) simplesmente não aparecem.
-// Porta 8091 primeiro: se uma versão antiga do serviço ainda segura a 8090 (o TizenBrew só a
-// desliga quando a TV reinicia), a nova responde lá.
+// Porta própria dos addons (8092): versões antigas do serviço que o TizenBrew ainda tenha rodando
+// (ele só as desliga quando a TV reinicia) ficam nas portas velhas e não atrapalham.
+// SERVICE_MIN: versão do serviço que este app espera (o /api/version dele); mais velha, pede a nova.
 const TUBES = ['xv', 'ph'];
-const TUBE_PORTS = [8091, 8090];
+const TUBE_PORT = 8092;
+const SERVICE_MIN = 4;
 let tubes = null; // null: ainda procurando; [] ou lista: já respondeu
 let tubeTries = 0;
 // 'searching' | 'ok' | 'old' (serviço antigo, sem os addons) | 'off' (serviço não responde)
@@ -78,12 +80,18 @@ function withTubes(list) {
   return list.concat(tubes.filter((t) => !list.some((a) => a.transportUrl === t.transportUrl)));
 }
 
-function fetchTube(name, i) {
-  if (i >= TUBE_PORTS.length) return Promise.resolve(null);
-  const u = 'http://127.0.0.1:' + TUBE_PORTS[i] + '/' + name + '/manifest.json';
+function fetchTube(name) {
+  const u = 'http://127.0.0.1:' + TUBE_PORT + '/' + name + '/manifest.json';
   return getJSON(u, { timeout: 3000, quiet: true }).then(
-    (m) => (m && m.id ? { transportUrl: u, manifest: m } : fetchTube(name, i + 1)),
-    () => fetchTube(name, i + 1)
+    (m) => (m && m.id ? { transportUrl: u, manifest: m } : null),
+    () => null
+  );
+}
+
+function serviceVersion() {
+  return getJSON('http://127.0.0.1:' + TUBE_PORT + '/api/version', { timeout: 3000, quiet: true }).then(
+    (v) => (v && v.version) || 0,
+    () => 0
   );
 }
 
@@ -94,8 +102,10 @@ function attachTubes() {
   if (IS_WEB) return; // os addons NSFW vêm do serviço da TV (127.0.0.1); no navegador não existe
   if ((tubes && tubes.length) || tubeTimer) return;
   tubeTimer = true; // uma procura por vez
-  Promise.all(TUBES.map((n) => fetchTube(n, 0))).then((list) => {
-    const found = normalize(list.filter(Boolean));
+  Promise.all([serviceVersion()].concat(TUBES.map(fetchTube))).then((list) => {
+    const version = list.shift();
+    // Serviço mais velho que o app espera: não usa (os vídeos não tocariam) e pede o novo.
+    const found = version >= SERVICE_MIN ? normalize(list.filter(Boolean)) : [];
     tubeTries++;
     tubeTimer = null;
     if (found.length) {
@@ -107,10 +117,11 @@ function attachTubes() {
     tubes = [];
     // O serviço responde mas não tem os addons: é a versão antiga ainda rodando.
     const before = tubeState;
+    const anyOld = version > 0 || list.some(Boolean);
     getJSON('http://127.0.0.1:8090/api/ip', { timeout: 3000, quiet: true })
       .then(
         () => (tubeState = 'old'),
-        () => (tubeState = 'off')
+        () => (tubeState = anyOld ? 'old' : 'off')
       )
       .then(() => {
         // Serviço velho (cache do CDN) ou parado: pede ao TizenBrew a versão exata do GitHub.
