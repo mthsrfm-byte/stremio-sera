@@ -6907,8 +6907,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return m ? m[0] : null;
   }
   var BUILTIN_KEYS = {
-    tmdbKey: true ? "" : "",
-    mdblistKey: true ? "" : ""
+    tmdbKey: true ? "9c57ed7ea044b2f01eea2fcc2e954c2e" : "",
+    mdblistKey: true ? "t9e4f1z29b3c36i1j25rul1wx" : ""
   };
   function keyOf(name) {
     return (settings()[name] || "").trim() || BUILTIN_KEYS[name];
@@ -10200,9 +10200,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "5e7280bfae677f38b22b677d7860235bef882946",
-    date: "2026-10-27T03:14:24+00:00",
-    message: "Build da dist/ para a TV"
+    commit: "fa44ff60f4badc7c4a21d7618fd478be85c82e9c",
+    date: "2026-10-27T00:19:05-03:00",
+    message: "Trailer: até 4 tentativas, sem mostrar nada até tocar"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
