@@ -6904,8 +6904,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return m ? m[0] : null;
   }
   var BUILTIN_KEYS = {
-    tmdbKey: true ? "" : "",
-    mdblistKey: true ? "" : ""
+    tmdbKey: true ? "9c57ed7ea044b2f01eea2fcc2e954c2e" : "",
+    mdblistKey: true ? "t9e4f1z29b3c36i1j25rul1wx" : ""
   };
   function keyOf(name) {
     return (settings()[name] || "").trim() || BUILTIN_KEYS[name];
@@ -9710,9 +9710,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "1d81cdf74c3ed77876a2d10783b992ee34736b91",
-    date: "2026-10-27T02:47:29+00:00",
-    message: "Build da dist/ para a TV"
+    commit: "4d6030233ca44436c23a6549537709eb20101ec0",
+    date: "2026-10-26T23:56:54-03:00",
+    message: "Mandar para a TV pelo celular e diagnóstico da TV"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
