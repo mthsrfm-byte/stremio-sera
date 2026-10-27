@@ -165,7 +165,10 @@ Rows built from TMDB (needs the TMDB key): **Em alta agora** (this week's trendi
 last 6 months, already out), **True crime** (documentary films and series with the "true crime"
 keyword, best rated first), **Suspense** and **Terror** (popular, well-rated movies). Resting on a
 title shows its art and synopsis at the top; after 3 seconds the YouTube trailer plays there
-(shown only once YouTube reports it is playing; on an embedding error it tries the next trailer).
+(shown only once YouTube reports it is playing; on an error, or if it does not start within 8 s, it
+tries the next one, up to 4, then gives up and keeps the art). Ads: the official studio trailers are
+preferred, which rarely carry ads; TizenTube's ad blocking can't be reused because it is injected
+into youtube.com, and the trailer is a cross-origin YouTube iframe.
 **Ver tudo** at the end of each row opens the whole category (Recomendado › Suspense) with
 "Carregar mais".
 

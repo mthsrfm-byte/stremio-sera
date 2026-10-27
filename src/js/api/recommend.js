@@ -119,6 +119,6 @@ export function trailerKeys(it) {
   };
   const base = it.mediaType + '/' + it.tmdbId + '/videos';
   return Promise.all([tmdb(base, { language: 'pt-BR' }).then(list).catch(() => []), tmdb(base, { language: 'en-US' }).then(list).catch(() => [])]).then(
-    (both) => both[0].concat(both[1].filter((k) => both[0].indexOf(k) < 0)).slice(0, 4)
+    (both) => both[0].concat(both[1].filter((k) => both[0].indexOf(k) < 0)).slice(0, 6)
   );
 }
