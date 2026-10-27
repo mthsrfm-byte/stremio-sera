@@ -258,8 +258,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
                 try player?.handle(command: "subtitle", args: ["id": sid])
             } catch { finishSmoke(error: error.localizedDescription) }
         } else if let aid = smokeAudioID, let sid = smokeSubtitleID {
-            smokeTracksSelected = audio.contains { $0["id"] as? String == aid && $0["selected"] as? Bool == true } &&
-                subs.contains { $0["id"] as? String == sid && $0["selected"] as? Bool == true }
+            // A prova continua válida quando o fim do arquivo esvazia a lista de faixas.
+            smokeTracksSelected = smokeTracksSelected || (
+                audio.contains { $0["id"] as? String == aid && $0["selected"] as? Bool == true } &&
+                subs.contains { $0["id"] as? String == sid && $0["selected"] as? Bool == true })
         }
     }
 

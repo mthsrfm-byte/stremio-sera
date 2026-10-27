@@ -13,6 +13,7 @@ final class MPVPlayer {
     private let surface: MPVSurface
     private var handle: OpaquePointer?
     private var renderContext: OpaquePointer?
+    private var drawing = false
     private var callbackContext: UnsafeMutableRawPointer?
     private var closed = false
     private var loaded = false
@@ -220,7 +221,12 @@ final class MPVPlayer {
                     guard let player = callback?.player, !player.closed,
                           let renderer = player.renderContext else { return }
                     if mpv_render_context_update(renderer) & UInt64(MPV_RENDER_UPDATE_FRAME.rawValue) != 0 {
-                        player.surface.needsDisplay = true
+                        // A WKWebView pode ocultar a surface para o rastreamento de
+                        // oclusão do AppKit, mesmo com pixels transparentes. Cumprir
+                        // o pedido do mpv diretamente no loop principal; não depender
+                        // de drawRect ser agendado por needsDisplay.
+                        player.surface.needsDisplay = false
+                        player.draw()
                     }
                 }
             }, callbackContext)
@@ -228,7 +234,9 @@ final class MPVPlayer {
     }
 
     fileprivate func draw() {
-        guard !closed, let context = surface.openGLContext else { return }
+        guard !closed, !drawing, let context = surface.openGLContext else { return }
+        drawing = true
+        defer { drawing = false }
         do { try prepareRenderer() }
         catch { emitFailure(error.localizedDescription); return }
         context.makeCurrentContext()
