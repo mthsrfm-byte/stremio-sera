@@ -7740,8 +7740,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return m ? m[0] : null;
   }
   var BUILTIN_KEYS = {
-    tmdbKey: true ? "9c57ed7ea044b2f01eea2fcc2e954c2e" : "",
-    mdblistKey: true ? "t9e4f1z29b3c36i1j25rul1wx" : ""
+    tmdbKey: true ? "" : "",
+    mdblistKey: true ? "" : ""
   };
   function keyOf(name) {
     return (settings()[name] || "").trim() || BUILTIN_KEYS[name];
@@ -13520,9 +13520,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "b691d98d1d12857c9ece83c37bd9b73ff5fa3f7f",
-    date: "2026-10-27T04:36:51-03:00",
-    message: "NSFW: provedores aparecem quando o serviço da TV responde; fontes antes de exibir; PIN e Ajustes"
+    commit: "94629c42a4d05ce342122dafea6868736209295d",
+    date: "2026-10-27T07:37:12+00:00",
+    message: "Build da dist/ para a TV"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -15010,22 +15010,33 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }).concat(["400", "500", "600", "700"].map(function (w) {
     return w + " 24px 'Geist'";
   }));
-  function loadFonts() {
-    if (!document.fonts || !document.fonts.load) return Promise.resolve();
-    var all = Promise.all(FONTS2.map(function (f) {
-      return document.fonts.load(f, "Seraflix ÁÉçã").catch(function () {
-        return null;
-      });
-    }));
-    return Promise.race([all, new Promise(function (r) {
-      return setTimeout(r, 3e3);
-    })]);
-  }
   function ready() {
-    loadFonts().then(function () {
+    document.body.classList.add("fonts-pending");
+    var started2 = false;
+    var go = function go() {
+      if (started2) return;
+      started2 = true;
       document.body.classList.remove("fonts-pending");
       boot();
-    });
+    };
+    setTimeout(go, 3e3);
+    try {
+      if (!document.fonts || typeof document.fonts.load !== "function") return go();
+      var left = FONTS2.length;
+      var one = function one() {
+        return --left <= 0 && go();
+      };
+      FONTS2.forEach(function (f) {
+        try {
+          var p = document.fonts.load(f, "Seraflix ÁÉçã");
+          if (p && typeof p.then === "function") p.then(one, one);else one();
+        } catch (e) {
+          one();
+        }
+      });
+    } catch (e) {
+      go();
+    }
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", ready);else ready();
 })();

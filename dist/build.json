@@ -1,6 +1,6 @@
 {
   "version": "1.2.0",
-  "commit": "b691d98d1d12857c9ece83c37bd9b73ff5fa3f7f",
-  "date": "2026-10-27T04:36:51-03:00",
-  "message": "NSFW: provedores aparecem quando o serviço da TV responde; fontes antes de exibir; PIN e Ajustes"
+  "commit": "94629c42a4d05ce342122dafea6868736209295d",
+  "date": "2026-10-27T07:37:12+00:00",
+  "message": "Build da dist/ para a TV"
 }
