@@ -140,8 +140,6 @@ function DetailsView(type, id, opts) {
 
     watchBtn = h('div.btn.primary', { focusable: true, 'data-autofocus': '', onSelect: onWatch });
     libBtn = h('div.btn', { focusable: true, onSelect: toggleLibrary });
-    // Smart Choice escolhe sozinho; quem quiser ver as fontes de um filme abre por aqui.
-    const srcBtn = !isSeries() && smartOn() ? h('div.btn', { focusable: true, html: '<span class="ico">⇄</span>' + t('Fontes'), onSelect: () => showStreams({ id: movieVideoId(), title: meta.name }, true) }) : null;
     updateButtons();
     info.appendChild(logo);
     info.appendChild(title);
@@ -151,7 +149,7 @@ function DetailsView(type, id, opts) {
     info.appendChild(genres);
     info.appendChild(desc);
     // Botões antes do elenco: o foco começa no Assistir e o elenco fica logo abaixo, para explorar.
-    info.appendChild(h('div.details-buttons', { 'data-group': '' }, [watchBtn, libBtn, srcBtn]));
+    info.appendChild(h('div.details-buttons', { 'data-group': '' }, [watchBtn, libBtn]));
     info.appendChild(castLine);
     loadExtras({ logo: logo, title: title, desc: desc, castLine: castLine, ratingsEl: ratingsEl });
   }
@@ -426,6 +424,9 @@ function DetailsView(type, id, opts) {
       done = true;
       clearTimeout(timer);
       serverReady.then((ok) => {
+        // Continuando: a mesma fonte da última vez, se ela ainda veio; senão, a escolha de sempre.
+        const last = si.rememberedStream(video.id, all);
+        if (last && si.canPlay(last, ok)) return resolve(last);
         const p = si.smartPick(all, ok);
         resolve(p ? p.stream : null);
       });
@@ -437,6 +438,8 @@ function DetailsView(type, id, opts) {
           per[srcs.indexOf(addon)] = streams;
           all.length = 0;
           per.forEach((l) => l && l.forEach((x) => all.push(x)));
+          // A fonte da última vez já chegou: não precisa esperar os outros addons.
+          if (si.rememberedStream(video.id, all)) finish();
         })
       )
       .then(finish, finish);
@@ -697,9 +700,10 @@ function DetailsView(type, id, opts) {
           return;
         }
       } else {
+        // Smart Choice: sem lista de fontes à vista (nem ao voltar do player); trocar é no player.
+        if (smartOn()) panel.style.display = 'none';
         if (opts.autoStreams) watch({ id: movieVideoId(), title: meta.name });
-        else if (smartOn()) panel.style.display = 'none'; // Smart Choice: sem lista de fontes à vista
-        else showStreams({ id: movieVideoId(), title: meta.name }, false);
+        else if (!smartOn()) showStreams({ id: movieVideoId(), title: meta.name }, false);
       }
       if (!opts.autoStreams) nav.focus(watchBtn);
     })

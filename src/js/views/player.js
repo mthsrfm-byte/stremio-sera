@@ -459,7 +459,11 @@ function PlayerView(opts) {
     hideIntro();
     clearTimeout(slowTimer);
     closeSlow();
-    if (!hasPlayed) scheduleAudioPick();
+    if (!hasPlayed) {
+      scheduleAudioPick();
+      // Abriu: é esta a fonte que o Smart Choice tenta primeiro ao continuar depois.
+      if (meta.id !== 'dev') si.rememberStream(video.id, stream);
+    }
     hasPlayed = true;
     showSpinner(false);
     message('');
