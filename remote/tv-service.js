@@ -135,6 +135,20 @@ function lanIp() {
   return '';
 }
 
+// ---------- "Mandar para a TV" ----------
+// O celular escolhe um filme/série (POST /api/open) e o app do Seraflix, que pergunta aqui a cada
+// poucos segundos (GET /api/pending), abre a tela dele. O pedido vale por 2 minutos.
+var pendingOpen = null;
+var lastPoll = 0; // última vez que o app perguntou: diz se o Seraflix está aberto
+var OPEN_TTL = 2 * 60 * 1000;
+
+function takePending() {
+  if (!pendingOpen || Date.now() - pendingOpen.at > OPEN_TTL) { pendingOpen = null; return null; }
+  var p = pendingOpen;
+  pendingOpen = null;
+  return p;
+}
+
 // ---------- Página do controle (vem do GitHub via jsDelivr, com cache curto) ----------
 var pageCache = {};
 var TYPES = { html: 'text/html; charset=utf-8', svg: 'image/svg+xml', png: 'image/png', webmanifest: 'application/manifest+json', js: 'application/javascript' };
@@ -171,7 +185,7 @@ function readBody(req, cb) {
 
 function json(res, code, obj) {
   // CORS liberado: o app do Seraflix (em 127.0.0.1:8081) lê o /api/ip para montar o QR code.
-  res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' });
+  res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Private-Network': 'true' });
   res.end(JSON.stringify(obj));
 }
 
@@ -179,7 +193,43 @@ var FILES = ['index.html', 'icon.svg', 'icon-192.png', 'icon-512.png', 'apple-to
 
 var server = http.createServer(function (req, res) {
   var url = req.url.split('?')[0];
+  // Pré-verificação de CORS / acesso à rede local (navegadores mais novos perguntam antes).
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204, {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST',
+      'Access-Control-Allow-Headers': 'Content-Type',
+      'Access-Control-Allow-Private-Network': 'true',
+      'Access-Control-Max-Age': '600'
+    });
+    return res.end();
+  }
   if (url === '/api/ip') return json(res, 200, { ip: lanIp() });
+  if (url === '/api/pending') {
+    lastPoll = Date.now();
+    return json(res, 200, { open: takePending() });
+  }
+  if (url === '/api/open' && req.method === 'POST') {
+    return readBody(req, function (b) {
+      var type = String(b.type || '');
+      var id = String(b.id || '');
+      if (!/^(movie|series)$/.test(type) || !/^[\w:.-]{1,80}$/.test(id)) return json(res, 400, { error: 'pedido inválido' });
+      pendingOpen = { type: type, id: id, name: String(b.name || '').slice(0, 120), play: !!b.play, at: Date.now() };
+      json(res, 200, { ok: true, appOpen: Date.now() - lastPoll < 10000 });
+    });
+  }
+  // Diagnóstico: o que a TV tem para rodar coisas mais pesadas (ex.: torrent sem o PC).
+  if (url === '/api/info') {
+    return json(res, 200, {
+      node: process.version,
+      arch: process.arch,
+      platform: process.platform,
+      memTotalMB: Math.round(os.totalmem() / 1048576),
+      memFreeMB: Math.round(os.freemem() / 1048576),
+      cpus: (os.cpus() || []).length,
+      uptimeMin: Math.round(os.uptime() / 60)
+    });
+  }
   if (url === '/api/status') {
     if (tv.state !== 'on') tvConnect();
     return json(res, 200, { tv: tv.state });

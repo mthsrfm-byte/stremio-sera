@@ -17,6 +17,8 @@ import { CalendarView } from './views/calendar.js';
 import { maybeShowWizard } from './views/wizard.js';
 import { toast } from './ui.js';
 import * as update from './api/update.js';
+import * as sendToTv from './api/sendToTv.js';
+import { openDetails } from './views/details.js';
 import * as profiles from './views/profiles.js';
 import { applyTheme } from './lib/theme.js';
 import { openLogin } from './views/login.js';
@@ -82,6 +84,8 @@ function start() {
     const bootEl = document.getElementById('boot');
     if (bootEl) bootEl.parentNode.removeChild(bootEl);
     router.goTab('home');
+    // Pedidos do controle no celular ("Mandar para a TV").
+    sendToTv.start(openFromPhone);
     if (profiles.isNewProfilePendingLogin() && !stremio.isLoggedIn()) {
       // Perfil novo: entra na conta Stremio deste perfil (para ter o histórico próprio).
       profiles.clearNewProfileFlag();
@@ -100,6 +104,18 @@ function start() {
         .catch(() => {});
     }, 8000);
   });
+}
+
+// Abre o filme/série escolhido no celular. Se um vídeo estiver tocando, fecha o player antes
+// pelo mesmo caminho do Voltar (salva o ponto onde parou); senão ele continuaria tocando por baixo.
+function openFromPhone(req) {
+  const cur = router.currentView();
+  if (cur && cur.el && cur.el.classList.contains('player')) {
+    if (cur.onBack) cur.onBack();
+    else router.pop();
+  }
+  toast(t('Pedido do celular: {name}', { name: req.name || t('abrindo...') }));
+  openDetails(req.type, req.id, req.play && req.type === 'movie' ? { autoStreams: true } : {});
 }
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);

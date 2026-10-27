@@ -144,6 +144,13 @@ time, the TV asks to allow "Seraflix Controle"; the token is saved in
 TizenBrew's `autoLaunchServiceList`, so from then on just opening TizenBrew (or the TV prelaunching
 it) starts the remote, without opening Seraflix.
 
+The remote also has **Mandar para a TV** (search icon): it searches the public Stremio catalog
+(Cinemeta) on the phone and sends the pick to the TV (`POST /api/open`). Seraflix polls
+`/api/pending` every few seconds and opens that title (movies open straight on the sources list).
+
+`GET /api/info` reports the TV's Node.js version, memory and CPUs, to judge whether a torrent
+engine could run on the TV itself.
+
 On the TV, **Ajustes → Controle no celular → Abrir o controle no celular** shows a QR code with that
 address (the service reports the TV's IP at `/api/ip`). `https://mthsrfm-byte.github.io/stremio-sera/`
 (the `remote/` folder on GitHub Pages) asks for the TV's IP and opens `http://TV-IP:8090`.
@@ -164,8 +171,11 @@ change `AUTH_VERSION` in `remote/index.html`.
 
 ## Known limitations
 
-- **Audio and subtitle track switching** inside a video doesn't use Samsung's player API yet,
-  so it may not work on every TV. Please open an issue if it doesn't on yours.
+- **Audio and embedded subtitle tracks.** Switching them needs Samsung's native player (AVPlay),
+  but apps that run inside TizenBrew have no access to the Tizen/Samsung web APIs (`tizen`,
+  `webapis`). So Seraflix plays with the TV's HTML5 player: embedded subtitles only work when the
+  file is fully downloaded on the PC (the server extracts them). Using AVPlay would require
+  packaging Seraflix as a signed Samsung app (certificate from Tizen Studio tied to the TV).
 - The AI enhancements of the PC version of Stremio Kai (SVP, VapourSynth, Anime4K) are not
   included: TVs can't run them.
 

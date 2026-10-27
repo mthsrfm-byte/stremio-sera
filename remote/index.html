@@ -71,6 +71,17 @@
     .pill:active { background: var(--accent); color: #fff; }
     .pill svg.i { width: 18px; height: 18px; }
 
+    .bar-right { display: flex; gap: 10px; }
+    .results { max-height: 52vh; overflow-y: auto; margin-top: 14px; -webkit-overflow-scrolling: touch; }
+    .result { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 8px; border-radius: 14px; }
+    .result:active { background: var(--surface-2); }
+    .result img, .result .ph { width: 46px; height: 69px; border-radius: 8px; object-fit: cover; background: var(--surface-2); flex: 0 0 auto; }
+    .result b { display: block; font-weight: 600; font-size: 15px; }
+    .result small { color: var(--muted); font-size: 13px; }
+    .result .go { margin-left: auto; color: var(--lav); font-size: 13px; font-weight: 600; white-space: nowrap; }
+    .mini-toast { position: fixed; left: 50%; bottom: max(24px, env(safe-area-inset-bottom)); transform: translateX(-50%) translateY(20px); background: var(--ink); color: var(--bg); padding: 12px 18px; border-radius: 22px; font-size: 14px; font-weight: 600; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 20; max-width: 90vw; text-align: center; }
+    .mini-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
     .foot { text-align: center; font-size: 12px; color: var(--muted); }
     .foot button { text-decoration: underline; color: var(--muted); }
 
@@ -171,7 +182,10 @@
   <div class="bar">
     <button class="round power" data-key="KEY_POWER" aria-label="Ligar/desligar"><svg class="i" viewBox="0 0 24 24"><path d="M12 3v9"/><path d="M6.3 6.3a8 8 0 1 0 11.4 0"/></svg></button>
     <div class="status off" id="status"><i></i><span id="statusText">desconectado</span></div>
+    <div class="bar-right">
+    <button class="round" id="openSearch" aria-label="Buscar filme ou série"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg></button>
     <button class="round" id="openType" aria-label="Digitar"><svg class="i" viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8"/></svg></button>
+    </div>
   </div>
 
   <div class="ring-wrap">
@@ -239,6 +253,19 @@
     <button class="key" data-key="KEY_CYAN" aria-label="Azul"><span class="dot" style="background:#3e63dd"></span></button>
   </div>
 </section>
+
+<!-- Mandar para a TV: busca no celular e abre o filme/série no Seraflix da TV -->
+<section class="sheet" id="searchSheet">
+  <div class="grab"></div>
+  <h2>Mandar para a TV</h2>
+  <form class="type" id="searchForm">
+    <input type="text" id="searchText" placeholder="Filme ou série" autocomplete="off" enterkeyhint="search">
+    <button class="btn primary" type="submit">Buscar</button>
+  </form>
+  <div class="results" id="results"></div>
+</section>
+
+<div class="mini-toast" id="miniToast"></div>
 
 <!-- Digitar na TV -->
 <section class="sheet" id="typeSheet">
@@ -458,6 +485,69 @@
   }
   $('openMore').addEventListener('click', function () { openSheet('moreSheet'); });
   $('openType').addEventListener('click', function () { openSheet('typeSheet'); });
+  $('openSearch').addEventListener('click', function () {
+    openSheet('searchSheet');
+    setTimeout(function () { $('searchText').focus(); }, 250);
+  });
+
+  var toastTimer = null;
+  function miniToast(text) {
+    $('miniToast').textContent = text;
+    $('miniToast').classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { $('miniToast').classList.remove('show'); }, 2600);
+  }
+
+  // Busca no catálogo público do Stremio (Cinemeta), filmes e séries juntos.
+  var CINEMETA = 'https://v3-cinemeta.strem.io/catalog/';
+  var searchSeq = 0;
+  $('searchForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var q = $('searchText').value.trim();
+    if (q.length < 2) return;
+    $('searchText').blur();
+    var box = $('results');
+    box.textContent = 'Procurando...';
+    var seq = ++searchSeq;
+    var get = function (type) {
+      return fetch(CINEMETA + type + '/top/search=' + encodeURIComponent(q) + '.json')
+        .then(function (r) { return r.json(); })
+        .then(function (j) { return (j.metas || []).slice(0, 12).map(function (m) { m.type = m.type || type; return m; }); })
+        .catch(function () { return []; });
+    };
+    Promise.all([get('movie'), get('series')]).then(function (lists) {
+      if (seq !== searchSeq) return;
+      var all = lists[0].concat(lists[1]);
+      box.textContent = '';
+      if (!all.length) { box.textContent = 'Nada encontrado para "' + q + '".'; return; }
+      all.forEach(function (m) {
+        var b = document.createElement('button');
+        b.className = 'result';
+        var img = document.createElement(m.poster ? 'img' : 'div');
+        if (m.poster) { img.src = m.poster; img.loading = 'lazy'; img.alt = ''; } else img.className = 'ph';
+        var txt = document.createElement('div');
+        var name = document.createElement('b'); name.textContent = m.name;
+        var info = document.createElement('small'); info.textContent = (m.type === 'series' ? 'Série' : 'Filme') + (m.releaseInfo ? ' · ' + m.releaseInfo : '');
+        txt.appendChild(name); txt.appendChild(info);
+        var go = document.createElement('span'); go.className = 'go'; go.textContent = m.type === 'series' ? 'Abrir na TV' : 'Assistir na TV';
+        b.appendChild(img); b.appendChild(txt); b.appendChild(go);
+        b.addEventListener('click', function () { sendToTv(m); });
+        box.appendChild(b);
+      });
+    });
+  });
+
+  function sendToTv(m) {
+    api('/api/open', { type: m.type, id: m.id, name: m.name, play: m.type === 'movie' }).then(function (r) {
+      if (r && r.ok && !r.appOpen) {
+        closeSheets();
+        miniToast('Abra o Seraflix na TV: o pedido fica guardado por 2 minutos.');
+      } else if (r && r.ok) {
+        closeSheets();
+        miniToast(m.type === 'movie' ? 'Abrindo "' + m.name + '" na TV. Escolha a fonte por lá.' : 'Abrindo "' + m.name + '" na TV.');
+      } else miniToast('A TV não respondeu. O Seraflix está aberto?');
+    });
+  }
   $('scrim').addEventListener('click', closeSheets);
 
   // Digitar: manda o texto inteiro para o campo aberto na TV.
