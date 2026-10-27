@@ -114,7 +114,7 @@ export function set(key, value) {
 
 // ---------- Preferências ----------
 // Da TV (iguais para todos os perfis):
-const DEVICE_KEYS = ['introSound', 'serverUrl', 'tmdbKey', 'mdblistKey', 'smoothScroll', 'devlogUrl', 'lastUpdateCheck', 'askProfile', 'wizardDone', 'language'];
+const DEVICE_KEYS = ['introSound', 'serverUrl', 'tmdbKey', 'mdblistKey', 'smoothScroll', 'devlogUrl', 'lastUpdateCheck', 'askProfile', 'wizardDone', 'language', 'screensaver'];
 
 const DEFAULT_SETTINGS = {
   // TV
@@ -127,6 +127,7 @@ const DEFAULT_SETTINGS = {
   language: 'auto', // 'auto' (idioma da TV) | 'pt' | 'en'
   askProfile: true, // "Quem está assistindo?" ao abrir, se houver mais de um perfil
   wizardDone: false,
+  screensaver: 5, // minutos parado até o protetor de tela (0 = desligado)
   // Perfil
   heroSource: 'cinemeta',
   theme: 'dark', // 'dark' | 'light'; ver lib/theme.js

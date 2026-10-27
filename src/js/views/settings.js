@@ -16,6 +16,7 @@ import * as extras from '../api/extras.js';
 import * as calendar from '../api/calendar.js';
 import * as reco from '../api/recommend.js';
 import * as intro from '../lib/intro.js';
+import * as screensaver from '../lib/screensaver.js';
 import { getJSON, recentErrors } from '../lib/http.js';
 import { topbar, toast, menu, confirmDialog, refreshProfileChips, refreshTabs } from '../ui.js';
 import * as router from '../router.js';
@@ -494,6 +495,25 @@ export function SettingsView() {
         nav.setSmooth(on);
         render();
       }, toggle(s.smoothScroll))
+    );
+    const ssMin = screensaver.minutes();
+    body.appendChild(
+      row(t('Protetor de tela'), t('Os lançamentos passando na tela quando o controle fica parado'), ssMin ? t('{n} min', { n: ssMin }) : t('Desligado'), () =>
+        menu(
+          t('Protetor de tela'),
+          screensaver.OPTIONS.map((m) => ({ label: m ? t('Depois de {n} min parado', { n: m }) : t('Desligado'), value: m, checked: m === ssMin })).concat([
+            { label: t('Ver agora'), sub: t('Mostra o protetor de tela já'), value: 'now' },
+          ]),
+          {
+            onPick: (v) => {
+              if (v === 'now') return setTimeout(() => screensaver.start(), 300);
+              store.saveSettings({ screensaver: v });
+              screensaver.arm();
+              render();
+            },
+          }
+        )
+      )
     );
     body.appendChild(
       row(t('Som de abertura'), t('O clique com acorde quando o Seraflix abre'), '', () => {

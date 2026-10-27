@@ -98,6 +98,11 @@ function localize(items) {
   );
 }
 
+// Protetor de tela: os mais vistos do Cinemeta (filmes e séries), com sinopse em PT-BR.
+export function saverItems() {
+  return cinemeta('top').then((items) => localize(items.slice(0, 16)));
+}
+
 export function load() {
   return loadRaw().then((items) => localize(items.slice(0, 12)));
 }

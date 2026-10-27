@@ -113,3 +113,59 @@ export function plausible(cues, duration) {
   if (first > duration * 0.25) return { ok: false, why: 'começa tarde demais' };
   return { ok: true };
 }
+
+// Português do Brasil ou de Portugal? Os addons erram muito o rótulo (pob/por), então decide
+// pelo texto: "estou a fazer", "telemóvel", grafia antiga (facto, acção) x "estou fazendo", "você", "ônibus".
+// Fronteira de palavra que entende acento (o \b do JS só conhece a-z).
+function words(list) {
+  return new RegExp('(?:^|[^a-zA-Z\u00C0-\u00FF])(?:' + list.join('|') + ')(?![a-zA-Z\u00C0-\u00FF])', 'gi');
+}
+const PT_PT = words([
+  '(?:estou|estás|está|estamos|estão|estava|estavas|estive|andas|anda|continua|vou|vais|começa|começou) a [a-zà-ÿ]+(?:ar|er|ir)',
+  'telemóvel', 'autocarro', 'comboio', 'raparigas?', 'miúd[oa]s?', 'fixe', 'bué', 'casa de banho', 'pequeno-almoço', 'ecrã',
+  'equipa', 'facto', 'acç(?:ão|ões)', 'óptim[oa]', 'actual(?:mente)?', 'direcção', 'projecto', 'exact(?:o|a|amente)', 'contacto',
+  'frigorífico', 'malta', 'gaj[oa]', 'pá', 'chávena', 't(?:ens|enho|emos|em) de', 'há-de', 'percebes(?:te)?', 'connosco',
+]);
+const PT_BR = words([
+  '(?:estou|está|estamos|estão|estava|estive|fico|ficou) [a-zà-ÿ]+(?:ando|endo|indo)',
+  'vocês?', 'ônibus', 'trem', 'banheiro', 'garot[oa]s?', 'celular', 'legal', 'cara', 'tela', 'café da manhã', 'geladeira',
+  'a gente', 'pra', 'pro', 'tá', 'tô', 'né', 'cadê', 'moleque', 'grana', 'tchau', 'ótim[oa]', 'atual(?:mente)?', 'direção',
+  'projeto', 'exat(?:o|a|amente)', 'contato', 'fato',
+]);
+
+export function ptVariant(cues) {
+  if (!cues || !cues.length) return '';
+  let text = '';
+  for (let i = 0; i < cues.length && text.length < 60000; i += cues.length > 600 ? 2 : 1) text += ' ' + cues[i].text;
+  text = text.replace(/<[^>]+>/g, '');
+  const pt = (text.match(PT_PT) || []).length;
+  const br = (text.match(PT_BR) || []).length;
+  if (pt >= 4 && pt > br * 1.5) return 'pt';
+  if (br >= 4 && br > pt * 1.5) return 'br';
+  return '';
+}
+
+// Legenda feita para outra velocidade (25 x 23,976 fps, PAL x cinema) vai escorregando até
+// terminar depois (ou bem antes) do vídeo. Se a conferência recusa e uma das proporções conhecidas
+// encaixa, devolve as falas reescaladas; senão, null.
+const FPS_RATIOS = [23.976 / 25, 25 / 23.976, 24 / 25, 25 / 24, 23.976 / 24, 24 / 23.976];
+
+export function scaleCues(cues, f) {
+  return cues.map((c) => ({ start: c.start * f, end: c.end * f, text: c.text }));
+}
+
+export function fixFps(cues, duration) {
+  if (!cues || cues.length < 20 || !isFinite(duration) || duration <= 0) return null;
+  if (plausible(cues, duration).ok) return null;
+  const last = cues[cues.length - 1].end;
+  // Na ordem das conversões mais comuns; a primeira em que a última fala cai antes do fim
+  // do vídeo (com folga para os créditos) vence.
+  let best = null;
+  FPS_RATIOS.forEach((f) => {
+    const end = last * f;
+    if (!best && end <= duration + 5 && end >= duration * 0.7) best = { f: f };
+  });
+  if (!best) return null;
+  const scaled = scaleCues(cues, best.f);
+  return plausible(scaled, duration).ok ? { cues: scaled, factor: best.f } : null;
+}
