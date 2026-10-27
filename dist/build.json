@@ -1,6 +1,6 @@
 {
   "version": "1.2.0",
-  "commit": "9bba80533d70eb49f68a44013185655c0d2d7929",
-  "date": "2026-10-27T02:43:24-03:00",
-  "message": "Aba NSFW com PIN, fontes enxutas, Smart Choice, qualidade no player e filmografia"
+  "commit": "1e245ab1d9d85a34b4dcf7a9a0123bcc9a9b5975",
+  "date": "2026-10-27T06:08:38+00:00",
+  "message": "See-all grids: centered, always-full rows, auto-load at the last row, focus returns to last row after Load more"
 }

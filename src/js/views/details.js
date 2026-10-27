@@ -5,7 +5,7 @@ import * as addons from '../api/addons.js';
 import * as stremio from '../api/stremio.js';
 import * as server from '../api/server.js';
 import * as hero from '../api/hero.js';
-import { toast, spinnerLine, menu, fmtTime } from '../ui.js';
+import { toast, spinnerLine, menu, fmtTime, choiceDialog } from '../ui.js';
 import * as router from '../router.js';
 import { openPlayer } from './player.js';
 import * as extras from '../api/extras.js';
@@ -139,6 +139,8 @@ function DetailsView(type, id, opts) {
 
     watchBtn = h('div.btn.primary', { focusable: true, 'data-autofocus': '', onSelect: onWatch });
     libBtn = h('div.btn', { focusable: true, onSelect: toggleLibrary });
+    // Smart Choice escolhe sozinho; quem quiser ver as fontes de um filme abre por aqui.
+    const srcBtn = !isSeries() && smartOn() ? h('div.btn', { focusable: true, html: '<span class="ico">⇄</span>' + t('Fontes'), onSelect: () => showStreams({ id: movieVideoId(), title: meta.name }, true) }) : null;
     updateButtons();
     info.appendChild(logo);
     info.appendChild(title);
@@ -146,8 +148,9 @@ function DetailsView(type, id, opts) {
     info.appendChild(ratingsEl);
     info.appendChild(genres);
     info.appendChild(desc);
+    // Botões antes do elenco: o foco começa no Assistir e o elenco fica logo abaixo, para explorar.
+    info.appendChild(h('div.details-buttons', { 'data-group': '' }, [watchBtn, libBtn, srcBtn]));
     info.appendChild(castLine);
-    info.appendChild(h('div.details-buttons', { 'data-group': '' }, [watchBtn, libBtn]));
     loadExtras({ logo: logo, title: title, desc: desc, castLine: castLine, ratingsEl: ratingsEl });
   }
 
@@ -255,9 +258,9 @@ function DetailsView(type, id, opts) {
   function onWatch() {
     if (isSeries()) {
       const v = nextUpVideo();
-      if (v) showStreams(v, true, true);
+      if (v) watch(v);
     } else {
-      showStreams({ id: movieVideoId(), title: meta.name }, true, true);
+      watch({ id: movieVideoId(), title: meta.name });
     }
   }
 
@@ -328,7 +331,7 @@ function DetailsView(type, id, opts) {
         const inProgress = li && li.state && li.state.video_id === v.id && li.state.timeOffset > 0;
         if (inProgress) sub += ' · ' + t('parou em {time}', { time: fmtTime(li.state.timeOffset / 1000) });
         const soon = isUpcoming(v);
-        const row = h('div.episode', { focusable: true, cls: soon ? 'upcoming' : '', onSelect: () => (soon ? toast(t('Esse episódio ainda não saiu. Estreia em {date}.', { date: formatDate(v.released) })) : showStreams(v, true, true)) }, [
+        const row = h('div.episode', { focusable: true, cls: soon ? 'upcoming' : '', onSelect: () => (soon ? toast(t('Esse episódio ainda não saiu. Estreia em {date}.', { date: formatDate(v.released) })) : watch(v)) }, [
           thumb,
           h('div.ep-info', null, [
             h('div.ep-title', null, [soon ? h('span.soon-tag', { text: t('Em breve') }) : null, (v.episode ? v.episode + '. ' : '') + (v.name || v.title || t('Episódio'))]),
@@ -357,6 +360,60 @@ function DetailsView(type, id, opts) {
     return 2;
   }
 
+  // Addons de streams na ordem de prioridade (debrid, Torrentio, o resto).
+  function streamAddons(video) {
+    return addons
+      .withResource('stream', meta.type, video.id)
+      .map((a, i) => ({ a: a, i: i }))
+      .sort((x, y) => addonRank(x.a) - addonRank(y.a) || x.i - y.i)
+      .map((x) => x.a);
+  }
+
+  const smartOn = () => store.settings().smartChoice !== false;
+
+  // Assistir um episódio/filme: com Smart Choice vai direto para o player (sem a lista de fontes);
+  // sem ele, mostra a lista.
+  function watch(video) {
+    if (smartOn() && streamAddons(video).length) smartPlay(video);
+    else showStreams(video, true);
+  }
+
+  // Smart Choice: o player abre na hora e recebe a fonte quando os addons responderem (no máximo
+  // ~12s). As fontes vão chegando em "all", na ordem de prioridade, para o menu Fontes do player.
+  function smartPlay(video) {
+    const srcs = streamAddons(video);
+    const per = srcs.map(() => null);
+    const all = [];
+    let resolve = null;
+    const pick = new Promise((ok) => (resolve = ok));
+    let done = false;
+    const serverReady = server.isAvailable() ? Promise.resolve(true) : server.check().then((r) => !!(r && r.ok), () => false);
+    const finish = () => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      serverReady.then((ok) => {
+        const p = si.smartPick(all, ok);
+        resolve(p ? p.stream : null);
+      });
+    };
+    const timer = setTimeout(finish, 12000);
+    serverReady
+      .then(() =>
+        addons.fetchStreams(meta.type, video.id, (addon, streams) => {
+          per[srcs.indexOf(addon)] = streams;
+          all.length = 0;
+          per.forEach((l) => l && l.forEach((x) => all.push(x)));
+        })
+      )
+      .then(finish, finish);
+    // Nada tocável: volta com a lista aberta para escolher na mão.
+    pick.then((st) => {
+      if (!st && alive) showStreams(video, true);
+    });
+    play(video, null, all, pick);
+  }
+
   function runtimeMinutes() {
     const r = String(meta.runtime || '');
     const hMatch = r.match(/(\d+)\s*h/i);
@@ -372,7 +429,8 @@ function DetailsView(type, id, opts) {
     return mbps > 30 ? mbps : 0;
   }
 
-  function showStreams(video, focusFirst, smart) {
+  function showStreams(video, focusFirst) {
+    panel.style.display = '';
     mode = 'streams';
     streamsVideo = video;
     clear(panel);
@@ -393,11 +451,7 @@ function DetailsView(type, id, opts) {
     const list = h('div.list', { 'data-scroll-y': '', 'data-pad-y': '120', 'data-group': '', 'data-vertical': '' });
     list.style.top = '178px';
     panel.appendChild(list);
-    const srcs = addons
-      .withResource('stream', meta.type, video.id)
-      .map((a, i) => ({ a: a, i: i }))
-      .sort((x, y) => addonRank(x.a) - addonRank(y.a) || x.i - y.i)
-      .map((x) => x.a);
+    const srcs = streamAddons(video);
     if (!srcs.length) {
       list.appendChild(h('div.loading-line', { text: t('Nenhum addon de streams instalado (ex.: Torrentio). Instale pela sua conta Stremio.') }));
       return;
@@ -406,7 +460,7 @@ function DetailsView(type, id, opts) {
     const groups = srcs.map((a) => {
       const el = h('div.stream-group');
       list.appendChild(el);
-      return { addon: a, el: el, count: 0, done: false };
+      return { addon: a, el: el, count: 0, done: false, streams: [] };
     });
     const loadingLine = spinnerLine(t('Buscando fontes nos addons...'));
     list.appendChild(loadingLine);
@@ -415,31 +469,7 @@ function DetailsView(type, id, opts) {
     const all = [];
     let autoFocused = null;
     let serverOk = server.isAvailable();
-    // Smart Choice: espera os addons (no máximo ~12s) e abre sozinho a melhor fonte, a não ser
-    // que a pessoa mexa no controle antes.
-    let smartOn = !!(smart && focusFirst && store.settings().smartChoice !== false);
-    const smartTimer = smartOn ? setTimeout(() => runSmart(), 12000) : null;
-    function runSmart() {
-      if (!smartOn) return;
-      smartOn = false;
-      clearTimeout(smartTimer);
-      if (!alive || streamsVideo !== video || mode !== 'streams') return;
-      if (autoFocused && nav.current() !== autoFocused) return; // a pessoa já está escolhendo
-      if (router.currentView() !== view) return;
-      const pick = si.smartPick(all, serverOk);
-      status();
-      if (!pick) return;
-      const info = si.parse(pick.stream);
-      toast(t('Smart Choice: {what}', { what: si.summary(info) || info.addon }), 3500);
-      play(video, pick.stream, all);
-    }
-
     function status() {
-      if (smartOn) {
-        sub.textContent = t('Smart Choice escolhendo a melhor fonte...  ·  aperte qualquer seta para escolher você');
-        barFill.style.width = Math.round(((srcs.length - pendingCount) / srcs.length) * 100) + '%';
-        return;
-      }
       const srv = serverOk ? t('Servidor do PC conectado') : t('Servidor do PC não conectado: só links diretos');
       sub.textContent = srv + (pendingCount > 0 ? '  ·  ' + t('{n} addon(s) ainda carregando', { n: pendingCount }) : '  ·  ' + t('{n} fontes', { n: all.length }));
       barFill.style.width = Math.round(((srcs.length - pendingCount) / srcs.length) * 100) + '%';
@@ -495,10 +525,12 @@ function DetailsView(type, id, opts) {
           if (g) {
             g.done = true;
             g.count = streams.length;
-            streams.forEach((s) => {
-              all.push(s);
-              g.el.appendChild(streamItem(s, video, serverOk, all));
-            });
+            g.streams = streams;
+            streams.forEach((s) => g.el.appendChild(streamItem(s, video, serverOk, all)));
+            // "all" segue a ordem da tela (addon de maior prioridade primeiro), não a de chegada:
+            // é nela que o Smart Choice e o player procuram a próxima fonte.
+            all.length = 0;
+            groups.forEach((x) => x.streams.forEach((s) => all.push(s)));
           }
           // Mantém o foco na primeira fonte (a de maior prioridade) enquanto o usuário não mexer.
           if (focusFirst && (!autoFocused || nav.current() === autoFocused)) {
@@ -509,7 +541,6 @@ function DetailsView(type, id, opts) {
             }
           }
           if (pendingCount <= 0) {
-            if (smartOn) setTimeout(runSmart, 0);
             if (loadingLine.parentNode) list.removeChild(loadingLine);
             if (!all.length) list.appendChild(h('div.loading-line', { text: t('Nenhuma fonte encontrada.') }));
           }
@@ -557,19 +588,19 @@ function DetailsView(type, id, opts) {
     );
   }
 
-  function play(video, stream, all) {
+  // stream null + pick: o player abre já e espera a fonte do Smart Choice.
+  function play(video, stream, all, pick) {
     const li = stremio.libraryItem(meta.id);
     const resumeMs = li && li.state && li.state.video_id === video.id ? li.state.timeOffset : 0;
-    const start = (ms) => openPlayer({ meta: meta, video: video, stream: stream, streams: all, startTime: ms, isSeries: isSeries() });
-    if (resumeMs > 30000) {
-      menu(
-        t('Continuar de onde parou?'),
-        [
-          { label: t('Continuar de {time}', { time: fmtTime(resumeMs / 1000) }), value: resumeMs, checked: true },
-          { label: t('Começar do início'), value: 0 },
-        ],
-        { center: true, onPick: (v) => start(v) }
-      );
+    const start = (ms) => openPlayer({ meta: meta, video: video, stream: stream, pick: pick, streams: all, startTime: ms, isSeries: isSeries() });
+    if (resumeMs > 30000 && pick) {
+      // Smart Choice: entra direto continuando; o player oferece "Do início".
+      start(resumeMs);
+    } else if (resumeMs > 30000) {
+      choiceDialog(t('Continuar de onde parou?'), isSeries() ? 'T' + video.season + 'E' + video.episode + ' · ' + (video.namePt || video.name || '') : meta.name, [
+        { label: '<span class="ico">▶</span>' + t('Continuar de {time}', { time: fmtTime(resumeMs / 1000) }), primary: true, onSelect: () => start(resumeMs) },
+        { label: '<span class="ico">↺</span>' + t('Do início'), onSelect: () => start(0) },
+      ]);
     } else start(0);
   }
 
@@ -601,18 +632,20 @@ function DetailsView(type, id, opts) {
           const v = sortedVideos(meta).find((x) => x.id === opts.videoId);
           if (v) season = v.season || 0;
           if (v && opts.autoStreams) {
-            showStreams(v, true, true);
+            watch(v);
             return;
           }
         }
         showEpisodes(opts.videoId);
         if (opts.autoStreams) {
           const v = nextUpVideo();
-          if (v) showStreams(v, true, true);
+          if (v) watch(v);
           return;
         }
       } else {
-        showStreams({ id: movieVideoId(), title: meta.name }, !!opts.autoStreams, !!opts.autoStreams);
+        if (opts.autoStreams) watch({ id: movieVideoId(), title: meta.name });
+        else if (smartOn()) panel.style.display = 'none'; // Smart Choice: sem lista de fontes à vista
+        else showStreams({ id: movieVideoId(), title: meta.name }, false);
       }
       if (!opts.autoStreams) nav.focus(watchBtn);
     })
@@ -646,6 +679,12 @@ function DetailsView(type, id, opts) {
       loadVisibleImages(panel, 300);
     },
     onBack: () => {
+      if (mode === 'streams' && !isSeries() && smartOn()) {
+        panel.style.display = 'none';
+        mode = 'none';
+        nav.focus(watchBtn);
+        return true;
+      }
       if (mode === 'streams' && isSeries()) {
         const v = streamsVideo;
         showEpisodes(v && v.id);

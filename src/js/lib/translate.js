@@ -103,3 +103,29 @@ export function titles(items) {
     items.map((it) => (it && c[it.name] && c[it.name] !== it.name ? Object.assign({}, it, { name: c[it.name], originalName: it.name }) : it))
   );
 }
+
+// Texto corrido (ex.: biografia) para português, em pedaços que cabem na URL. Falhou: null.
+export function text(str) {
+  const src = String(str || '').trim();
+  if (!src) return Promise.resolve(null);
+  const parts = [];
+  let cur = '';
+  // Frases pelo ponto final (sem lookbehind: o Chromium 47 da TV não entende).
+  (src.match(/[^.!?]+[.!?]*\s*/g) || [src]).map((x) => x.trim()).forEach((sentence) => {
+    if ((cur + ' ' + sentence).length > 1500 && cur) {
+      parts.push(cur);
+      cur = sentence;
+    } else cur = cur ? cur + ' ' + sentence : sentence;
+  });
+  if (cur) parts.push(cur);
+  return Promise.all(
+    parts.map((q) =>
+      getJSON('https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=pt&dt=t&q=' + encodeURIComponent(q), { timeout: 10000 }).then((r) =>
+        ((r && r[0]) || []).map((p) => p[0] || '').join('')
+      )
+    )
+  ).then(
+    (out) => out.join(' ').trim() || null,
+    () => null
+  );
+}

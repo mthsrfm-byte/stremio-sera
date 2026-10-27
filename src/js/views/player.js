@@ -13,6 +13,7 @@ import * as server from '../api/server.js';
 import * as addons from '../api/addons.js';
 import * as stremio from '../api/stremio.js';
 import * as skip from '../api/skip.js';
+import * as hero from '../api/hero.js';
 import { menu, toast, fmtTime, timeHM } from '../ui.js';
 import * as router from '../router.js';
 import { sortedVideos, openDetails } from './details.js';
@@ -49,7 +50,6 @@ function PlayerView(opts) {
   const subsEl = h('div.subs');
   const titleEl = h('div.p-title');
   const clockEl = h('div.p-clock');
-  const qualityBtn = h('div.btn.p-quality', { focusable: true, onSelect: () => toggleQuality() });
   const posEl = h('div.pos');
   const bufEl = h('div.buf');
   const knobEl = h('div.knob');
@@ -62,17 +62,34 @@ function PlayerView(opts) {
   const subsBtn = h('div.btn', { focusable: true, html: '<span class="ico">≡</span>' + t('Legendas'), onSelect: () => subsMenu() });
   const srcBtn = h('div.btn', { focusable: true, html: '<span class="ico">⇄</span>' + t('Fontes'), onSelect: () => sourcesMenu() });
   const nextBtn = h('div.btn', { focusable: true, html: '<span class="ico">⏭</span>' + t('Próximo'), onSelect: () => playNext() });
-  const buttons = h('div.p-buttons', { 'data-group': '' }, [playBtn, audioBtn, subsBtn, srcBtn, nextBtn]);
+  // Retomou sozinho (Smart Choice): atalho para começar do zero, visível nos primeiros minutos.
+  const restartBtn = h('div.btn', { focusable: true, html: '<span class="ico">↺</span>' + t('Do início'), onSelect: () => restart() });
+  restartBtn.style.display = opts.startTime > 30000 ? '' : 'none';
+  const buttons = h('div.p-buttons', { 'data-group': '' }, [playBtn, restartBtn, audioBtn, subsBtn, srcBtn, nextBtn]);
   const spinner = h('div.p-center', null, h('div.spinner'));
   const msgEl = h('div.p-msg');
   const skipFill = h('i');
   const skipBtn = h('div.btn', { focusable: true, onSelect: () => doSkip() });
   const skipBox = h('div.p-skip', null, [skipBtn, h('div.bar', null, skipFill)]);
   const overlay = h('div.p-overlay', null, [
-    h('div.p-top', null, [titleEl, h('div.p-top-right', { 'data-group': '' }, [qualityBtn, clockEl])]),
+    h('div.p-top', null, [titleEl, clockEl]),
     h('div.p-bottom', null, [bar, h('div.p-times', null, [curTimeEl, h('div.spacer'), durEl]), buttons]),
   ]);
-  const el = h('div.view.player', null, [videoEl, subsEl, overlay, skipBox, spinner, msgEl]);
+  // Abertura: arte do título, logo e o que está acontecendo, até o vídeo começar a tocar.
+  const introBg = h('div.pi-bg');
+  const introLogo = h('img.pi-logo', { alt: '' });
+  const introTitle = h('div.pi-title', { text: meta.name || '' });
+  const introSub = h('div.pi-sub');
+  // Centro: círculo, o que está acontecendo (destaque) e o contexto (menor). Título no canto.
+  const introStatus = h('div.pi-main');
+  const introCaption = h('div.pi-caption');
+  const intro = h('div.p-intro', null, [
+    introBg,
+    h('div.pi-shade'),
+    h('div.pi-center', null, [h('div.pi-ring'), introStatus, introCaption]),
+    h('div.pi-info', null, [introLogo, introTitle, introSub]),
+  ]);
+  const el = h('div.view.player.intro-on', null, [videoEl, subsEl, overlay, skipBox, spinner, msgEl, intro]);
 
   const renderer = subs.Renderer(subsEl);
   substyle.apply(subsEl, settings);
@@ -100,7 +117,7 @@ function PlayerView(opts) {
   let triedTranscode = false;
   let slowTimer = null;
   let slowModal = null;
-  const tried = [opts.stream];
+  const tried = opts.stream ? [opts.stream] : [];
 
   const seriesInfo = () => (opts.isSeries ? { season: video.season, episode: video.episode } : null);
 
@@ -120,7 +137,7 @@ function PlayerView(opts) {
   // ---------- Carregamento ----------
   function start() {
     setTitle();
-    updateQuality();
+    if (!stream) return waitForPick();
     armSlow();
     showSpinner(true);
     message('');
@@ -152,6 +169,35 @@ function PlayerView(opts) {
       .catch((e) => fail(e.message));
   }
 
+  function restart() {
+    restartBtn.style.display = 'none';
+    try {
+      videoEl.currentTime = 0;
+    } catch (e) {
+      pendingStart = 0;
+    }
+    if (nav.current() === restartBtn) nav.focus(playBtn);
+  }
+
+  // Smart Choice: o player abre na hora e a fonte chega depois (os addons ainda estão respondendo).
+  function waitForPick() {
+    showSpinner(true);
+    (opts.pick || Promise.resolve(null)).then((s) => {
+      if (!alive || stream) return;
+      if (!s) {
+        toast(t('Nenhuma fonte tocável encontrada. Escolha na lista.'), 4000);
+        router.pop();
+        return;
+      }
+      stream = s;
+      tried.push(s);
+      const info = si.parse(s);
+      introStatus.textContent = t('Preparando o vídeo');
+      introCaption.innerHTML = '<b>✦</b>' + t('Smart Choice') + ' · ' + escapeHtml(si.summary(info) || info.addon);
+      start();
+    });
+  }
+
   let tracksPromise = null;
   function loadEmbeddedTracks() {
     if (!server.isAvailable()) return Promise.resolve(null);
@@ -181,22 +227,39 @@ function PlayerView(opts) {
     const forUrl = mediaUrl;
     addonSubs = null;
     subsSettled = false;
-    subpick.videoInfo(stream, mediaUrl, server).then((info) => {
-      if (!alive || forVideo !== video || forUrl !== mediaUrl) return;
-      fileInfo = info;
-      const settle = () => {
-        if (!alive || forVideo !== video || subsSettled) return;
-        subsSettled = true;
-        if (!addonSubs) addonSubs = [];
-        autoPick();
+    // Torrent pelo PC: o hash lê o fim do arquivo e faria o servidor baixar essa parte antes do
+    // começo. Espera o vídeo começar (ou 60s) para não atrasar o play.
+    const ready = viaServer && !hasPlayed ? untilPlaying(60000) : Promise.resolve();
+    ready
+      .then(() => subpick.videoInfo(stream, mediaUrl, server))
+      .then((info) => {
+        if (!alive || forVideo !== video || forUrl !== mediaUrl) return;
+        fileInfo = info;
+        const settle = () => {
+          if (!alive || forVideo !== video || subsSettled) return;
+          subsSettled = true;
+          if (!addonSubs) addonSubs = [];
+          autoPick();
+        };
+        setTimeout(settle, 6000);
+        addons
+          .fetchSubtitles(meta.type, video.id, subpick.extra(info), (list) => {
+            if (!alive || forVideo !== video) return;
+            addonSubs = (addonSubs || []).concat(list);
+          })
+          .then(settle, settle);
+      });
+  }
+
+  function untilPlaying(maxMs) {
+    return new Promise((ok) => {
+      const done = () => {
+        videoEl.removeEventListener('playing', done);
+        clearTimeout(timer);
+        ok();
       };
-      setTimeout(settle, 6000);
-      addons
-        .fetchSubtitles(meta.type, video.id, subpick.extra(info), (list) => {
-          if (!alive || forVideo !== video) return;
-          addonSubs = (addonSubs || []).concat(list);
-        })
-        .then(settle, settle);
+      const timer = setTimeout(done, maxMs);
+      videoEl.addEventListener('playing', done);
     });
   }
 
@@ -283,8 +346,8 @@ function PlayerView(opts) {
     updateTimes();
     loadSegments();
   });
-  videoEl.addEventListener('loadedmetadata', () => updateQuality());
   videoEl.addEventListener('playing', () => {
+    hideIntro();
     clearTimeout(slowTimer);
     closeSlow();
     if (!hasPlayed) scheduleAudioPick();
@@ -302,6 +365,7 @@ function PlayerView(opts) {
   videoEl.addEventListener('waiting', () => showSpinner(true));
   videoEl.addEventListener('canplay', () => showSpinner(false));
   videoEl.addEventListener('timeupdate', () => {
+    if (restartBtn.style.display !== 'none' && videoEl.currentTime * 1000 > (opts.startTime || 0) + 300000) restartBtn.style.display = 'none';
     const now = Date.now();
     if (!videoEl.paused && lastTick) {
       const d = now - lastTick;
@@ -531,6 +595,7 @@ function PlayerView(opts) {
   }
 
   function fail(text, offerTranscode) {
+    hideIntro();
     clearTimeout(slowTimer);
     closeSlow();
     showSpinner(false);
@@ -632,12 +697,46 @@ function PlayerView(opts) {
     }, HIDE_MS);
   }
 
+  let introOn = true;
+  function setupIntro() {
+    requestAnimationFrame(() => requestAnimationFrame(() => introOn && intro.classList.add('in')));
+    const art = meta.background || hero.background(meta.id);
+    if (art) {
+      const pre = new Image();
+      pre.onload = () => introOn && (introBg.style.backgroundImage = 'url("' + art + '")') && introBg.classList.add('show');
+      pre.src = art;
+    }
+    introTitle.style.display = 'none';
+    introLogo.onerror = () => {
+      introLogo.style.display = 'none';
+      introTitle.style.display = '';
+    };
+    introLogo.src = meta.logo || hero.logo(meta.id);
+    introSub.textContent = opts.isSeries ? 'T' + video.season + ' E' + video.episode + ' · ' + (video.namePt || video.name || video.title || '') : '';
+    introStatus.textContent = stream ? t('Preparando o vídeo') : t('Escolhendo a melhor fonte');
+    introCaption.innerHTML = stream ? '' : '<b>✦</b>' + t('Smart Choice ativado');
+  }
+
+  function hideIntro() {
+    if (!introOn) return;
+    introOn = false;
+    intro.classList.remove('in');
+    // Controles e círculo voltam junto com o fim do fade.
+    setTimeout(() => el.classList.remove('intro-on'), 600);
+    // Depois do fade, solta a arte (1920x1080 pesa na memória da TV).
+    setTimeout(() => {
+      introBg.style.backgroundImage = '';
+      intro.style.display = 'none';
+    }, 900);
+  }
+
   function showSpinner(on) {
     spinner.style.display = on ? '' : 'none';
   }
 
   function message(text) {
-    msgEl.textContent = text;
+    msgEl.textContent = introOn ? '' : text;
+    if (introOn && text) introStatus.textContent = text;
   }
 
   // Busca acumulada: segurar a seta acelera (10s → 30s → 60s).
@@ -874,37 +973,11 @@ function PlayerView(opts) {
     saveProgress();
     if (videoEl.currentTime > 1) pendingStart = videoEl.currentTime * 1000;
     stream = s;
+    slowExtensions = 0;
     if (tried.indexOf(s) < 0) tried.push(s);
     triedTranscode = false;
     autoDone = { sub: false, audio: false };
     start();
-  }
-
-  // ---------- Qualidade (4K ⇄ 1080p) ----------
-  function currentRes() {
-    const hgt = videoEl.videoHeight;
-    if (hgt >= 1800) return '4K';
-    if (hgt >= 1000) return '1080p';
-    if (hgt >= 700) return '720p';
-    if (hgt > 0) return 'SD';
-    return si.parse(stream).res || '';
-  }
-
-  function updateQuality() {
-    const cur = currentRes();
-    const target = cur === '4K' ? '1080p' : '4K';
-    const alt = si.bestAt(opts.streams || [], target, server.isAvailable(), stream);
-    qualityBtn.innerHTML = '<b>' + (cur || 'Auto') + '</b>' + (alt ? '<small>' + t('trocar p/ {res}', { res: target }) + '</small>' : '');
-    qualityBtn.classList.toggle('no-alt', !alt);
-  }
-
-  function toggleQuality() {
-    const cur = currentRes();
-    const target = cur === '4K' ? '1080p' : '4K';
-    const alt = si.bestAt(opts.streams || [], target, server.isAvailable(), stream);
-    if (!alt) return toast(t('Nenhuma fonte em {res} para este título.', { res: target }));
-    toast(t('Trocando para {res}...', { res: target }));
-    switchTo(alt);
   }
 
   // ---------- Demorando para carregar: oferece outro provedor ----------
@@ -912,8 +985,28 @@ function PlayerView(opts) {
     clearTimeout(slowTimer);
     closeSlow();
     slowTimer = setTimeout(() => {
-      if (alive && !hasPlayed) slowPrompt();
+      if (alive && !hasPlayed) checkSlow();
     }, SLOW_MS);
+  }
+
+  // Torrent que ainda está baixando (o progresso anda) ganha mais tempo, até 3 vezes:
+  // começar um torrent pelo PC pode passar de 40s, e trocar ali só recomeçaria do zero.
+  let slowExtensions = 0;
+  function checkSlow() {
+    if (!viaServer || slowExtensions >= 3) return slowPrompt();
+    server.streamProgress(mediaUrl).then((p1) => {
+      setTimeout(() => {
+        server.streamProgress(mediaUrl).then((p2) => {
+          if (!alive || hasPlayed) return;
+          if (p1 !== null && p2 !== null && p2 > p1) {
+            slowExtensions++;
+            message(t('Ainda baixando pelo PC ({pct}% do arquivo)...', { pct: Math.round(p2 * 100) }));
+            clearTimeout(slowTimer);
+            slowTimer = setTimeout(() => alive && !hasPlayed && checkSlow(), 20000);
+          } else slowPrompt();
+        });
+      }, 4000);
+    });
   }
 
   function closeSlow() {
@@ -1097,7 +1190,7 @@ function PlayerView(opts) {
         return true;
       }
       if (k === KEY.UP) {
-        nav.focus(qualityBtn, { noScroll: true });
+        hideControls();
         return true;
       }
     }
@@ -1114,6 +1207,7 @@ function PlayerView(opts) {
     onKey: onKey,
     onShow: () => {
       if (!ticker) {
+        setupIntro();
         start();
         ticker = setInterval(() => {
           if (controlsOn) updateTimes();
@@ -1153,4 +1247,8 @@ function PlayerView(opts) {
       }
     },
   };
+}
+
+function escapeHtml(x) {
+  return String(x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 }

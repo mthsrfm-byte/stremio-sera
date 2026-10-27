@@ -6,7 +6,7 @@
 import { h, clear, loadVisibleImages } from '../lib/dom.js';
 import * as nav from '../lib/nav.js';
 import { KEY } from '../lib/nav.js';
-import { topbar, card, skeletonCards, retrying, rowRetry, toast } from '../ui.js';
+import { topbar, card, skeletonCards, retrying, rowRetry, toast, pagedGrid } from '../ui.js';
 import * as router from '../router.js';
 import { openDetails } from './details.js';
 import * as reco from '../api/recommend.js';
@@ -498,8 +498,11 @@ export function StreamingsView() {
     billboard.stop();
     rail.setDefs(p.rows);
     rail.set(0);
+    // Troca de serviço: as fileiras novas sobem e aparecem num fade (só opacity/transform, leve na TV).
+    rows.classList.add('sw');
     clear(rows);
     rows.scrollTop = 0;
+    requestAnimationFrame(() => requestAnimationFrame(() => rows.classList.remove('sw')));
     const ctx = { billboard: billboard, rail: rail, crumb: 'Streamings › ' + p.name };
     const built = p.rows.map((def, i) => buildRow(def, i, ctx));
     built.forEach((b) => rows.appendChild(b.row));
@@ -619,44 +622,16 @@ function CategoryView(crumb, def) {
   const el = h('div.view');
   const scroller = h('div.scroll-y', { 'data-scroll-y': '' });
   const header = h('div.reco-crumb', null, [h('span', { text: t(crumb) }), ' › ', h('b', { text: t(def.title) })]);
-  const grid = h('div.grid');
-  const more = h('div.btn.reco-more', { focusable: true, text: t('Carregar mais'), onSelect: () => loadPage() });
+  const pg = pagedGrid({
+    load: (page) => def.load(page),
+    key: (it) => it.mediaType + ':' + it.tmdbId,
+    card: (it) => card(it, { onSelect: () => openItem(it) }),
+  });
   scroller.appendChild(header);
-  scroller.appendChild(grid);
-  scroller.appendChild(h('div.reco-more-wrap', null, more));
+  scroller.appendChild(pg.el);
   el.appendChild(scroller);
-
-  let page = 0;
-  let busy = false;
-  const seen = {};
-  function loadPage() {
-    if (busy) return;
-    busy = true;
-    more.textContent = t('Carregando...');
-    const firstPage = page === 0;
-    def
-      .load(++page)
-      .then((items) => {
-        const fresh = items.filter((it) => !seen[it.mediaType + ':' + it.tmdbId]);
-        fresh.forEach((it) => {
-          seen[it.mediaType + ':' + it.tmdbId] = true;
-          grid.appendChild(card(it, { onSelect: () => openItem(it) }));
-        });
-        if (!fresh.length) more.style.display = 'none';
-        loadVisibleImages(el, 400);
-        if (firstPage && grid.firstChild) nav.focus(grid.firstChild);
-      })
-      .catch(() => toast(t('Não foi possível carregar')))
-      .then(() => {
-        busy = false;
-        more.textContent = t('Carregar mais');
-      });
-  }
-
   return {
     el: el,
-    onShow: () => {
-      if (!page) loadPage();
-    },
+    onShow: () => pg.start(),
   };
 }

@@ -1,6 +1,6 @@
 // Componentes compartilhados: toast, menus modais, barra superior, cartões.
 import { LOGO_HTML } from './lib/logo.js';
-import { h, clear } from './lib/dom.js';
+import { h, clear, loadVisibleImages } from './lib/dom.js';
 import * as nav from './lib/nav.js';
 import { smallPoster, smallBackground } from './lib/img.js';
 import * as store from './lib/store.js';
@@ -60,6 +60,25 @@ export function menu(title, options, opts) {
   return { close: close, el: modal };
 }
 
+// Pergunta curta com botões lado a lado (o primeiro já vem focado).
+// buttons: [{ label, onSelect, primary }]
+export function choiceDialog(title, sub, buttons) {
+  const close = () => {
+    nav.popLayer(layer);
+    if (modal.parentNode) modal.parentNode.removeChild(modal);
+  };
+  const btns = buttons.map((b) => h('div.btn', { focusable: true, cls: b.primary ? 'primary' : '', html: b.label, onSelect: () => (close(), b.onSelect && b.onSelect()) }));
+  const box = h('div.modal-box.center.choice-box', null, [
+    h('h3', { text: title }),
+    sub ? h('p.modal-text', { text: sub }) : null,
+    h('div.modal-actions', { 'data-group': '' }, btns),
+  ]);
+  const modal = h('div.modal', null, box);
+  document.getElementById('app').appendChild(modal);
+  const layer = nav.pushLayer(modal, { onBack: () => close() });
+  nav.focus(btns[0]);
+}
+
 export function confirmDialog(text, okLabel, onOk) {
   const box = h('div.modal-box.center', null, [
     h('h3', { text: text }),
@@ -78,16 +97,38 @@ export function confirmDialog(text, okLabel, onOk) {
   }
 }
 
-// Barra superior com as abas principais.
+// Ícones da barra (traço em currentColor, desenhados à mão: a fonte da TV não tem símbolos).
+const ICONS = {
+  home: '<svg viewBox="0 0 24 24"><path d="M3.5 10.5 12 3.5l8.5 7"/><path d="M5.5 9v11h4.5v-6h4v6h4.5V9"/></svg>',
+  search: '<svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg>',
+  // Engrenagem no estilo do Feather Icons (licença MIT).
+  settings:
+    '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
+};
+
+// Barra superior: à esquerda casinha, lupa e as abas; à direita engrenagem, perfil e relógio.
 export const TABS = [
-  { id: 'home', label: 'Início' },
-  { id: 'recommended', label: 'Recomendado' },
-  { id: 'search', label: 'Buscar' },
+  { id: 'home', label: 'Início', icon: 'home' },
+  { id: 'search', label: 'Buscar', icon: 'search' },
+  { id: 'recommended', label: 'Favoritos' },
   { id: 'library', label: 'Biblioteca' },
   { id: 'streamings', label: 'Streamings' },
   { id: 'nsfw', label: 'NSFW', when: () => addons.nsfwEnabled() },
-  { id: 'settings', label: 'Ajustes' },
+  { id: 'settings', label: 'Ajustes', icon: 'settings', right: true },
 ];
+
+function tabEl(tab, activeId, onTab) {
+  return h('div.tab', {
+    focusable: true,
+    'data-tab': tab.id,
+    title: t(tab.label),
+    cls: (tab.id === activeId ? 'active' : '') + (tab.icon ? ' icon' : '') + (tab.id === 'nsfw' ? ' tab-nsfw' : ''),
+    style: tab.when && !tab.when() ? { display: 'none' } : null,
+    html: tab.icon ? ICONS[tab.icon] : null,
+    text: tab.icon ? null : t(tab.label),
+    onSelect: () => (tab.id === 'nsfw' ? requirePin(() => onTab(tab.id)) : onTab(tab.id)),
+  });
+}
 
 export function topbar(activeId, onTab) {
   const clock = h('div.clock');
@@ -96,25 +137,23 @@ export function topbar(activeId, onTab) {
   const timer = setInterval(tick, 20000);
   const bar = h('div.topbar', { 'data-group': '' }, [
     h('div.brand', { html: LOGO_HTML }),
-    TABS.map((tab) =>
-      h('div.tab', {
-        focusable: true,
-        'data-tab': tab.id,
-        cls: (tab.id === activeId ? 'active' : '') + (tab.id === 'nsfw' ? ' tab-nsfw' : ''),
-        style: tab.when && !tab.when() ? { display: 'none' } : null,
-        text: t(tab.label),
-        onSelect: () => (tab.id === 'nsfw' ? requirePin(() => onTab(tab.id)) : onTab(tab.id)),
-      })
-    ),
+    TABS.filter((tab) => !tab.right).map((tab) => tabEl(tab, activeId, onTab)),
     h('div.spacer'),
+    TABS.filter((tab) => tab.right).map((tab) => tabEl(tab, activeId, onTab)),
     profileButton(onTab),
     clock,
   ]);
   bar.__destroy = () => clearInterval(timer);
   // Abas condicionais (NSFW) dependem dos addons, que podem chegar depois da barra.
   addons.load().then(refreshTabs).catch(() => {});
+  if (!tabsHooked) {
+    tabsHooked = true;
+    addons.onChange(refreshTabs);
+  }
   return bar;
 }
+
+let tabsHooked = false;
 
 // Mostra/esconde as abas condicionais em todas as barras (addons mudaram, ajuste trocado).
 export function refreshTabs() {
@@ -134,8 +173,9 @@ function profileButton(onTab) {
 function fillChip(chip) {
   const p = store.activeProfile();
   clear(chip);
+  // Só a inicial (no avatar): o nome inteiro fica no menu de perfis.
   chip.appendChild(avatar(p, 'small'));
-  chip.appendChild(h('span', { text: p.name }));
+  chip.title = p.name;
 }
 
 // Atualiza o avatar/nome em todas as barras (depois de renomear ou trocar a cor).
@@ -226,6 +266,101 @@ export function rowRetry(onRetry, onFocus) {
     h('span', { text: t('Essa fileira não carregou agora.') }),
     h('div.btn.small', { focusable: true, text: t('Tentar de novo'), onSelect: onRetry, onFocus: onFocus }),
   ]);
+}
+
+// Grade do "Ver tudo": centralizada, linhas sempre com o mesmo número de capas (as que sobram
+// esperam a próxima página) e a página seguinte carrega sozinha quando o foco chega na última
+// linha. Pelo botão "Carregar mais", o foco volta ao primeiro título da última linha de antes.
+// opts: { load(page) -> Promise<itens>, key(item), card(item) -> elemento, onEmpty() }
+export function pagedGrid(opts) {
+  const grid = h('div.grid.paged');
+  const more = h('div.btn.reco-more', { focusable: true, text: t('Carregar mais'), onSelect: () => loadMore(true) });
+  const moreWrap = h('div.reco-more-wrap.paged-more', null, more);
+  const el = h('div.paged-wrap', null, [grid, moreWrap]);
+  const GAP = 26;
+  const seen = {};
+  let page = 0;
+  let busy = false;
+  let ended = false;
+  let cols = 0;
+  let buffer = [];
+  let count = 0;
+
+  // Quantas capas cabem e quanto sobra de cada lado para centralizar.
+  function layout(sample) {
+    if (cols) return;
+    const width = el.clientWidth || window.innerWidth;
+    const cw = sample.offsetWidth || 210;
+    cols = Math.max(1, Math.floor((width - 2 * 96 + GAP) / (cw + GAP)));
+    const side = Math.floor((width - (cols * (cw + GAP) - GAP)) / 2);
+    grid.style.paddingLeft = side + 'px';
+    grid.style.paddingRight = Math.max(0, side - GAP) + 'px'; // o último cartão também tem margem à direita
+    moreWrap.style.paddingLeft = side + 'px';
+  }
+
+  function add(item) {
+    const c = opts.card(item);
+    const idx = count++;
+    const prev = c.__focus;
+    c.__focus = (x) => {
+      if (prev) prev(x);
+      // Chegou na última linha: já busca a próxima página.
+      if (!ended && idx >= count - cols) loadMore(false);
+    };
+    grid.appendChild(c);
+    return c;
+  }
+
+  // Renderiza só linhas cheias; o resto fica no buffer. No fim do catálogo vai tudo.
+  function flush() {
+    const pool = buffer;
+    buffer = [];
+    if (!pool.length) return;
+    if (!cols) layout(add(pool.shift()));
+    const total = count + pool.length;
+    const target = ended ? total : Math.floor(total / cols) * cols;
+    const n = Math.max(0, target - count);
+    pool.slice(0, n).forEach(add);
+    buffer = pool.slice(n);
+  }
+
+  function loadMore(byButton) {
+    if (busy || ended) return;
+    busy = true;
+    more.textContent = t('Carregando...');
+    const lastRowFirst = count ? grid.children[count - (count % cols || cols)] : null;
+    const first = page === 0;
+    opts
+      .load(++page)
+      .then((items) => {
+        const fresh = (items || []).filter((it) => {
+          const k = opts.key(it);
+          if (seen[k]) return false;
+          seen[k] = true;
+          return true;
+        });
+        if (!fresh.length) ended = true;
+        buffer = buffer.concat(fresh);
+        const before = count;
+        flush();
+        busy = false;
+        more.textContent = t('Carregar mais');
+        moreWrap.style.display = ended ? 'none' : '';
+        loadVisibleImages(el, 400);
+        if (first && !count && opts.onEmpty) opts.onEmpty();
+        if (first && grid.firstChild) nav.focus(grid.firstChild);
+        else if (byButton && lastRowFirst) nav.focus(lastRowFirst);
+        // Página que não fechou nem uma linha nova: busca a próxima já.
+        if (!ended && count === before) loadMore(byButton);
+      })
+      .catch(() => {
+        busy = false;
+        more.textContent = t('Carregar mais');
+        toast(t('Não foi possível carregar'));
+      });
+  }
+
+  return { el: el, start: () => page === 0 && loadMore(false), started: () => page > 0 };
 }
 
 export function spinnerLine(text) {
