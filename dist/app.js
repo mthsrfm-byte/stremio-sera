@@ -13523,9 +13523,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "fa7b776d6dd232af3b7d6ad5191b5e868a6fe875",
-    date: "2026-10-27T07:45:01+00:00",
-    message: "Build da dist/ para a TV"
+    commit: "ce9b45d3b3fb7d08cd0402478d8938171c7fde5d",
+    date: "2026-10-27T07:54:17+00:00",
+    message: "Versão web do Seraflix no GitHub Pages, atrás de senha"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -13583,8 +13583,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
 
   // src/js/lib/intro.js
-  var MIN_MS = 2200;
-  var SOUND_AT_MS = 950;
+  var MIN_MS = IS_WEB ? 1700 : 2200;
+  var SOUND_AT_MS = IS_WEB ? 850 : 950;
   var started = 0;
   function play(withSound) {
     started = Date.now();

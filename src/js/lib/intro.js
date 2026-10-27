@@ -2,8 +2,11 @@
 // o "flix" sobe, um brilho pulsa e toca um som curto (clique seco + acorde suave), sintetizado
 // aqui com Web Audio (sem arquivo de áudio e sem usar som de ninguém). Dura ~2,2 s; depois a tela
 // de abertura some em fade quando o app estiver pronto.
-const MIN_MS = 2200;
-const SOUND_AT_MS = 950; // quando a linha termina de revelar o logo
+import { IS_WEB } from './platform.js';
+
+// Na web a abertura é mais curta (o CSS de src/web/web.css acompanha estes tempos).
+const MIN_MS = IS_WEB ? 1700 : 2200;
+const SOUND_AT_MS = IS_WEB ? 850 : 950; // quando a linha termina de revelar o logo
 
 let started = 0;
 

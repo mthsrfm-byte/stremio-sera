@@ -45,6 +45,9 @@
     sha256Hex(window.SERA_GATE.salt + input.value).then(function (h) {
       if (h === window.SERA_GATE.hash) return openApp();
       msg.textContent = 'Senha errada.';
+      form.classList.remove('shake');
+      void form.offsetWidth; // reinicia a animação se errar de novo
+      form.classList.add('shake');
       input.value = '';
       input.focus();
     });
