@@ -202,6 +202,13 @@ shimmering skeleton until the image is fully loaded, then fade in.
   instead of a hard outline. Figtree is offered as a free alternative close to Disney+'s (licensed)
 Avenir.
 
+## Opening
+
+On launch, a thin blue line sweeps across and reveals the Serafim logo, "flix" rises and a soft glow
+pulses (about 2.2 s), then the opening fades out over the ready home screen. A short sound plays
+with it: a dry click plus a soft fifth (E and B), synthesized with Web Audio in `src/js/lib/intro.js`
+(no audio file). **Ajustes → Aparência → Som de abertura** turns it off.
+
 ## Tizen integration
 
 - Samsung **Return**, media, colour and channel keys, registered through the Tizen

@@ -23,11 +23,16 @@ import * as profiles from './views/profiles.js';
 import { applyTheme } from './lib/theme.js';
 import { openLogin } from './views/login.js';
 import { registerTizenKeys } from './lib/platform.js';
+import * as intro from './lib/intro.js';
+
+// Abertura (logo + som): o app só aparece depois dela, mesmo que carregue antes.
+let introDone = Promise.resolve();
 
 function boot() {
   const s = store.settings();
   initI18n();
   applyTheme(s);
+  introDone = intro.play(s.introSound !== false);
   if (s.devlogUrl) log.setRemote(s.devlogUrl);
   log.info('Iniciando', navigator.userAgent);
 
@@ -54,11 +59,14 @@ function boot() {
 
   // "Quem está assistindo?" (com mais de um perfil) antes de carregar a conta.
   if (profiles.needsPicker()) {
-    const bootEl = document.getElementById('boot');
-    if (bootEl) bootEl.style.display = 'none';
-    profiles.showPicker(() => {
-      if (bootEl) bootEl.style.display = '';
-      start();
+    // A abertura toca inteira e depois vem o "Quem está assistindo?".
+    introDone.then(() => {
+      const bootEl = document.getElementById('boot');
+      if (bootEl) bootEl.style.display = 'none';
+      profiles.showPicker(() => {
+        intro.showStatic();
+        start();
+      });
     });
   } else start();
 
@@ -81,10 +89,9 @@ function start() {
     stremio.getLibrary().catch(() => {});
   }
 
-  Promise.all([server.check(), addons.load().catch(() => null)]).then(() => {
-    const bootEl = document.getElementById('boot');
-    if (bootEl) bootEl.parentNode.removeChild(bootEl);
+  Promise.all([server.check(), addons.load().catch(() => null), introDone]).then(() => {
     router.goTab('home');
+    intro.finish(); // a abertura some em fade por cima da tela inicial já pronta
     // Pedidos do controle no celular ("Mandar para a TV").
     sendToTv.start(openFromPhone);
     if (profiles.isNewProfilePendingLogin() && !stremio.isLoggedIn()) {
