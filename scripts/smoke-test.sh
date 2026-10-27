@@ -6,12 +6,17 @@ ARCH="${ARCH:-$(uname -m)}"
 APP="$ROOT/build/$ARCH/Seraflix.app"
 mkdir -p "$ROOT/build/smoke-media"
 "$APP/Contents/Helpers/ffmpeg" -hide_banner -loglevel error -f lavfi -i testsrc2=size=640x360:rate=24 -t 4 -c:v mpeg4 -q:v 4 -y "$ROOT/build/smoke-media/sample.mp4"
+cp "$ROOT/tests/fixtures/hevc-4k-tracks.mkv" "$ROOT/build/smoke-media/"
+printf '%s  %s\n' 6cbf117eea73fc860246c4810ac9a78cd9dac13911dbd60eb0acfab3c8267325 "$ROOT/build/smoke-media/hevc-4k-tracks.mkv" | shasum -a 256 -c -
 python3 -m http.server 18765 --bind 127.0.0.1 --directory "$ROOT/build/smoke-media" > "$ROOT/build/smoke-http.log" 2>&1 &
 HTTP_PID=$!
 trap 'kill "$HTTP_PID" 2>/dev/null || true' EXIT
-RESULT="$ROOT/build/smoke-$ARCH.json"
+run_smoke() {
+local RESULT="$ROOT/build/smoke-$ARCH-$1.json"
+local MEDIA="$2"
+shift 2
 rm -f "$RESULT"
-open -n "$APP" --args --smoke-test "$RESULT" --smoke-server --smoke-video http://127.0.0.1:18765/sample.mp4
+open -n -W "$APP" --args --smoke-test "$RESULT" --smoke-server --smoke-video "$MEDIA" "$@"
 python3 - "$RESULT" <<'PY'
 import json, pathlib, sys, time
 p = pathlib.Path(sys.argv[1])
@@ -26,3 +31,7 @@ for _ in range(90):
 else:
     raise SystemExit('App não concluiu smoke test em 90 segundos')
 PY
+
+}
+run_smoke mpeg4 http://127.0.0.1:18765/sample.mp4
+run_smoke hevc-4k http://127.0.0.1:18765/hevc-4k-tracks.mkv --smoke-tracks

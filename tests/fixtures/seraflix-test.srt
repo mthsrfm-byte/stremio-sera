@@ -1,0 +1,7 @@
+1
+00:00:00,200 --> 00:00:01,800
+Seraflix: legenda embutida em MKV / HEVC.
+
+2
+00:00:01,800 --> 00:00:03,800
+Teste 4K (upscale), duas faixas de áudio.

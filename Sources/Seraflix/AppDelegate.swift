@@ -18,6 +18,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
     private var smokeLoaded = false
     private var smokeAdvanced = false
     private var smokeRendered = false
+    private var smokeAudioID: String?
+    private var smokeSubtitleID: String?
+    private var smokeTracksSelected = false
     private var smokeHomeSeconds: Double = 0
     private var smokeResult: String? {
         let args = CommandLine.arguments
@@ -54,6 +57,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         controller.add(self, name: "seraflix")
         let configuration = WKWebViewConfiguration()
         configuration.userContentController = controller
+        if smokeResult != nil {
+            // Perfil efêmero só do harness: não altera conta/preferências do usuário.
+            configuration.websiteDataStore = .nonPersistent()
+            controller.addUserScript(WKUserScript(source: """
+                localStorage.setItem('kai.device', JSON.stringify({wizardDone:true,introSound:false,askProfile:false}));
+                localStorage.setItem('kai.profiles', JSON.stringify([{id:'ci',name:'Teste CI',color:'#7b5bf5'}]));
+                localStorage.setItem('kai.activeProfile', JSON.stringify('ci'));
+                """, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        }
         configuration.mediaTypesRequiringUserActionForPlayback = []
         configuration.preferences.javaScriptCanOpenWindowsAutomatically = false
         web = WKWebView(frame: contentView.bounds, configuration: configuration)
@@ -89,8 +101,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
             player.onEvent = { [weak self] event, data in
                 self?.media.receive(event, data)
                 if self?.smokeResult != nil {
+                    if event == "tracks" { self?.testSmokeTracks(data) }
                     if event == "loaded" { self?.smokeLoaded = true }
-                    if event == "rendered" { self?.smokeRendered = true }
+                    if event == "rendered", data["pixelNonBlack"] as? Bool == true { self?.smokeRendered = true }
                     if event == "time", (data["position"] as? Double ?? 0) > 0.3 { self?.smokeAdvanced = true }
                     if event == "error" { self?.finishSmoke(error: data["message"] as? String ?? "Erro libmpv") }
                     self?.checkSmokeComplete()
@@ -193,7 +206,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
     private func checkSmokeComplete() {
         guard smokeResult != nil, smokeHome, player != nil else { return }
         guard !CommandLine.arguments.contains("--smoke-server") || smokeServerRestarted else { return }
+        guard !CommandLine.arguments.contains("--smoke-tracks") || smokeTracksSelected else { return }
         if smokeVideo == nil || (smokeLoaded && smokeAdvanced && smokeRendered) { finishSmoke(error: nil) }
+    }
+
+    private func testSmokeTracks(_ data: [String: Any]) {
+        guard CommandLine.arguments.contains("--smoke-tracks"),
+              let audio = data["audio"] as? [[String: Any]], let subs = data["subtitles"] as? [[String: Any]] else { return }
+        if smokeAudioID == nil, audio.count >= 2,
+           let aid = audio.last?["id"] as? String, let sid = subs.first?["id"] as? String {
+            smokeAudioID = aid
+            smokeSubtitleID = sid
+            do {
+                try player?.handle(command: "audio", args: ["id": aid])
+                try player?.handle(command: "subtitle", args: ["id": sid])
+            } catch { finishSmoke(error: error.localizedDescription) }
+        } else if let aid = smokeAudioID, let sid = smokeSubtitleID {
+            smokeTracksSelected = audio.contains { $0["id"] as? String == aid && $0["selected"] as? Bool == true } &&
+                subs.contains { $0["id"] as? String == sid && $0["selected"] as? Bool == true }
+        }
     }
 
     private var smokeFinished = false
@@ -203,7 +234,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         let result: [String: Any] = ["ok": error == nil, "home": smokeHome, "player": player != nil,
                                      "loaded": smokeLoaded, "advanced": smokeAdvanced, "rendered": smokeRendered,
                                      "homeSeconds": smokeHomeSeconds, "serverRestarts": max(0, smokeServerReadyCount - 1),
-                                     "serverRestarted": smokeServerRestarted, "error": error ?? ""]
+                                     "serverRestarted": smokeServerRestarted, "tracksSelected": smokeTracksSelected, "error": error ?? ""]
         if let bytes = try? JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys]) {
             try? bytes.write(to: URL(fileURLWithPath: path), options: .atomic)
         }

@@ -1,5 +1,6 @@
 import AppKit
 import CMPV
+import Darwin
 import OpenGL.GL3
 
 /// libmpv decodifica/renderiza; a WKWebView sobreposta continua dona dos controles.
@@ -25,6 +26,8 @@ final class MPVPlayer {
     private var acceptingMedia = false
     private var pendingFileLoaded = false
     private var frameCount = 0
+    private var renderedForSession = false
+    private let smokeRendering = CommandLine.arguments.contains("--smoke-test")
     private var position: Double = 0
     private var duration: Double = 0
     private var paused = true
@@ -42,6 +45,8 @@ final class MPVPlayer {
     }
 
     init() throws {
+        // libmpv exige decimal com ponto mesmo em sistemas configurados em pt-BR.
+        setlocale(LC_NUMERIC, "C")
         guard let surface = MPVSurface(videoSurface: true), let mpv = mpv_create() else {
             throw Failure.message("Não foi possível criar o player OpenGL/libmpv.")
         }
@@ -95,6 +100,7 @@ final class MPVPlayer {
             acceptingMedia = true
             pendingFileLoaded = false
             frameCount = 0
+            renderedForSession = false
             loaded = false
             paused = false
             position = start
@@ -219,19 +225,44 @@ final class MPVPlayer {
         let rect = surface.convertToBacking(surface.bounds)
         guard rect.width >= 1, rect.height >= 1, let renderer = renderContext else { return }
         let status = sera_mpv_render(renderer, Int32(rect.width), Int32(rect.height))
+        // Apenas o smoke lê a GPU: comprova pixels não pretos no framebuffer do
+        // mpv. Não comprova a composição final da WKWebView nem fidelidade HDR.
+        let current = status >= 0 && acceptingMedia && loaded && activeSession == session
+        let pixelNonBlack = smokeRendering && current && !renderedForSession
+            ? sampleNonBlack(width: Int32(rect.width), height: Int32(rect.height)) : false
         context.flushBuffer()
         mpv_render_context_report_swap(renderer)
-        if status >= 0, acceptingMedia, loaded, activeSession == session {
+        if current {
             frameCount += 1
-            if frameCount == 1 { emit("rendered", ["frameCount": frameCount]) }
+            if !renderedForSession && (!smokeRendering || pixelNonBlack) {
+                renderedForSession = true
+                var data: [String: Any] = ["frameCount": frameCount]
+                if smokeRendering { data["pixelNonBlack"] = pixelNonBlack }
+                emit("rendered", data)
+            }
         } else if status < 0 {
             emit("error", ["message": String(cString: mpv_error_string(status))])
         }
     }
 
+    private func sampleNonBlack(width: Int32, height: Int32) -> Bool {
+        let sampleWidth = min(width, 8)
+        let sampleHeight = min(height, 8)
+        var pixels = [UInt8](repeating: 0, count: Int(sampleWidth * sampleHeight * 4))
+        glBindFramebuffer(GLenum(GL_READ_FRAMEBUFFER), 0)
+        glReadBuffer(GLenum(GL_BACK))
+        pixels.withUnsafeMutableBytes { bytes in
+            glReadPixels((width - sampleWidth) / 2, (height - sampleHeight) / 2,
+                         sampleWidth, sampleHeight, GLenum(GL_RGBA), GLenum(GL_UNSIGNED_BYTE), bytes.baseAddress)
+        }
+        return stride(from: 0, to: pixels.count, by: 4).contains { index in
+            pixels[index] > 8 || pixels[index + 1] > 8 || pixels[index + 2] > 8
+        }
+    }
+
     private func drainEvents() {
         guard !closed, let mpv = handle else { return }
-        while let pointer = mpv_wait_event(mpv, 0) {
+        while !closed, let pointer = mpv_wait_event(mpv, 0) {
             let event = pointer.pointee
             switch event.event_id {
             case MPV_EVENT_NONE: return
@@ -364,6 +395,7 @@ final class MPVPlayer {
     }
 
     private func emit(_ event: String, _ value: [String: Any]) {
+        guard !closed else { return }
         var payload = value
         payload["session"] = session
         onEvent?(event, payload)

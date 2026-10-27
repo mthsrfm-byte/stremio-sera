@@ -4,7 +4,7 @@ import path from 'node:path';
 import { createHash } from 'node:crypto';
 const root = path.resolve(process.argv[2] || 'Resources/fallback');
 const manifest = JSON.parse(fs.readFileSync(path.join(root, 'manifest.json'), 'utf8'));
-if (manifest.bridgeVersion !== 1 || !/^[a-f0-9]{40}$/.test(manifest.commit) || !manifest.files || !manifest.files['index.html'] || !manifest.files['app.js']) throw Error('Manifesto inválido');
+if (manifest.version !== 1 || manifest.bridgeVersion !== 1 || !/^[a-f0-9]{40}$/.test(manifest.commit) || !manifest.files || !manifest.files['index.html'] || !manifest.files['app.js']) throw Error('Manifesto inválido');
 for (const [name, expected] of Object.entries(manifest.files)) {
   if (!name || name.startsWith('/') || name.includes('\\') || name.split('/').some(x => !x || x === '.' || x === '..') || !/^[a-f0-9]{64}$/.test(expected)) throw Error('Caminho/hash inválido: ' + name);
   const file = path.join(root, name);

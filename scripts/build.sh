@@ -8,6 +8,7 @@ ARCH="${ARCH:-$(uname -m)}"
 case "$ARCH" in arm64) NODE_ARCH=arm64; NODE_SHA=db4b275b83736df67533529a18cc55de2549a8329ace6c7bcc68f8d22d3c9000;; x86_64) NODE_ARCH=x64; NODE_SHA=12a6abb9c2902cf48a21120da13f87fde1ed1b71a13330712949e8db818708ba;; *) echo 'Arquitetura não suportada' >&2; exit 1;; esac
 export ARCH MACOSX_DEPLOYMENT_TARGET=13.0
 VERSION="${VERSION:-0.1.0}"
+VERSION="${VERSION#v}"
 BUILD_NUMBER="${BUILD_NUMBER:-1}"
 DEPS="$ROOT/.build/native-deps"
 ARTIFACTS="$ROOT/artifacts"

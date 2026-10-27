@@ -10,6 +10,7 @@ if [ ! -d "$CHECKOUT/.git" ]; then
     git init -q "$CHECKOUT"
     git -C "$CHECKOUT" remote add origin "$UI_SOURCE"
 fi
+git -C "$CHECKOUT" remote set-url origin "$UI_SOURCE"
 git -C "$CHECKOUT" fetch --depth=1 origin "$UI_REF"
 git -C "$CHECKOUT" checkout --detach --force FETCH_HEAD
 UI_COMMIT="$(git -C "$CHECKOUT" rev-parse HEAD)"

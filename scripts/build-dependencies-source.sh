@@ -8,7 +8,7 @@ DEPS="$ROOT/.build/native-deps"
 COMMIT="$(python3 -c 'import json; print(json.load(open("scripts/dependency-lock.json"))["buildScripts"]["commit"])')"
 MARKER="$DEPS/source-$ARCH.commit"
 mkdir -p "$ROOT/.build" "$ROOT/artifacts" "$DEPS/notices"
-if [ ! -f "$MARKER" ] || [ "$(cat "$MARKER")" != "$COMMIT" ]; then
+if [ ! -f "$MARKER" ] || [ "$(cat "$MARKER")" != "$COMMIT" ] || [ ! -d "$WORK/sources" ] || [ ! -d "$WORK/output/$ARCH" ]; then
     if [ ! -d "$WORK/.git" ]; then
         git init -q "$WORK"
         git -C "$WORK" remote add origin https://github.com/iina/deps-buildscripts.git
@@ -21,7 +21,10 @@ if [ ! -f "$MARKER" ] || [ "$(cat "$MARKER")" != "$COMMIT" ]; then
     mkdir -p "$DEPS/lib/pkgconfig" "$DEPS/include/mpv"
     cp "$WORK/output/$ARCH/"*.dylib "$DEPS/lib/"
     cp "$WORK/install/$ARCH/include/mpv/"*.h "$DEPS/include/mpv/"
-    ln -sf libmpv.2.dylib "$DEPS/lib/libmpv.dylib"
+    # Não supor o nome real que o meson escolheu para a versão da libmpv.
+    MPV_LIBRARY="$(find "$DEPS/lib" -maxdepth 1 -type f -name 'libmpv.*.dylib' | head -n 1)"
+    [ -n "$MPV_LIBRARY" ] || { echo 'libmpv não foi gerado pela receita.' >&2; exit 1; }
+    ln -sf "$(basename "$MPV_LIBRARY")" "$DEPS/lib/libmpv.dylib"
     printf '%s\n' "$COMMIT" > "$MARKER"
 fi
 cat > "$DEPS/lib/pkgconfig/mpv.pc" <<PC
