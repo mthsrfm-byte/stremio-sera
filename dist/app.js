@@ -6303,9 +6303,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "884e56fc50e6889cbb6bbbd2b43670f042e62f91",
-    date: "2026-10-27T07:23:49-03:00",
-    message: "Player: prévia do quadro ao avançar/voltar no XVideos e no Pornhub"
+    commit: "954bd0b110382b4eb46df405f8c7c2a5a752232d",
+    date: "2026-10-27T07:27:22-03:00",
+    message: "Player: prévia ao avançar/voltar em qualquer vídeo, pelo servidor do PC"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -10203,17 +10203,15 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       updateTimes();
       var withPreview = showPreview(seekTarget, d);
       clearTimeout(seekCommitTimer);
-      seekCommitTimer = setTimeout(commitSeek, withPreview ? 1400 : 700);
+      seekCommitTimer = setTimeout(commitSeek, withPreview === "pc" ? 1800 : withPreview ? 1400 : 700);
     }
     var PREVIEW_W = 320;
     var PREVIEW_H = 180;
     var sheetCache = {};
     function showPreview(time, duration2) {
       var th = stream && stream.thumbs;
-      if (!th || !th.urls || !th.urls.length || !(th.every > 0) || !(th.cols > 0) || !(th.rows > 0)) {
-        preview.classList.remove("on");
-        return false;
-      }
+      if (!th || !th.urls || !th.urls.length || !(th.every > 0) || !(th.cols > 0) || !(th.rows > 0)) return pcPreview(time, duration2);
+      preview.classList.remove("pc");
       var per = th.cols * th.rows;
       var i = Math.floor(time / th.every);
       var sheet = Math.floor(i / per);
@@ -10239,6 +10237,37 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       preview.classList.add("on");
       return true;
     }
+    var pcTimer = null;
+    var pcWanted = "";
+    function pcPreview(time, duration2) {
+      var src = mediaUrl;
+      if (!_isAvailable() || !/^https?:/.test(src) || !(duration2 > 0)) {
+        preview.classList.remove("on");
+        return false;
+      }
+      var w = bar.offsetWidth || 1;
+      preview.style.left = Math.max(PREVIEW_W / 2, Math.min(w - PREVIEW_W / 2, time / duration2 * w)) + "px";
+      preview.classList.add("on");
+      preview.classList.add("pc");
+      if (!pcWanted) previewImg.style.backgroundImage = "";
+      clearTimeout(pcTimer);
+      pcTimer = setTimeout(function () {
+        var url2 = _baseUrl() + "thumb.jpg?from=" + encodeURIComponent(encodeURIComponent(src)) + "&at=" + Math.round(time);
+        pcWanted = url2;
+        preview.classList.add("loading");
+        var img = new Image();
+        img.onload = function () {
+          if (pcWanted !== url2) return;
+          previewImg.style.backgroundImage = 'url("' + url2 + '")';
+          preview.classList.remove("loading");
+        };
+        img.onerror = function () {
+          return pcWanted === url2 && preview.classList.remove("loading");
+        };
+        img.src = url2;
+      }, 300);
+      return "pc";
+    }
     function commitSeek() {
       if (seekTarget === null) return;
       try {
@@ -10247,6 +10276,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       seekTarget = null;
       bar.classList.remove("seeking");
       preview.classList.remove("on");
+      clearTimeout(pcTimer);
+      pcWanted = "";
       if (videoEl.paused) videoEl.play();
       scheduleHide();
     }
@@ -10255,6 +10286,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       seekTarget = null;
       bar.classList.remove("seeking");
       preview.classList.remove("on");
+      clearTimeout(pcTimer);
+      pcWanted = "";
       updateTimes();
     }
     function selectEmbeddedAudio(index) {
