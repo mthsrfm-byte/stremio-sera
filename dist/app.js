@@ -8369,9 +8369,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "84c76e0193df06cce08df6f02b9a4fdfeb12fbab",
-    date: "2026-10-26T22:08:09-03:00",
-    message: "Controle mais simples, no estilo do One Remote da Samsung, e favicon"
+    commit: "ea1ebd8cbb54feef26c2f979aaf0bf2a8f307a2a",
+    date: "2026-10-26T22:18:13-03:00",
+    message: "Controle servido pela própria TV (funciona no iPhone) e IP com vírgula"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
