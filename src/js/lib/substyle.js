@@ -18,6 +18,17 @@ export const FONTS = [
     measure: 1320,
     halo: '0 0 2px rgba(0,0,0,0.95), 0 1px 3px rgba(0,0,0,0.9), 0 3px 14px rgba(0,0,0,0.6)',
   },
+  {
+    // Disney+ usa a Avenir (paga, não dá para embutir); a Figtree é a alternativa livre mais próxima.
+    id: 'figtree',
+    label: 'Figtree (estilo Disney+)',
+    css: "'Figtree', 'Geist', sans-serif",
+    weights: { normal: 600, bold: 700 },
+    letterSpacing: '0.005em',
+    lineHeight: 1.2,
+    measure: 1360,
+    halo: '0 0 2px rgba(0,0,0,0.95), 0 1px 3px rgba(0,0,0,0.9), 0 3px 14px rgba(0,0,0,0.6)',
+  },
   { id: 'nata', label: 'Nata Sans (Kai)', css: "'Nata Sans', 'Montserrat', sans-serif" },
   { id: 'montserrat', label: 'Montserrat', css: "'Montserrat', sans-serif" },
   { id: 'classic', label: 'Clássica (Arial)', css: 'Arial, Helvetica, sans-serif' },

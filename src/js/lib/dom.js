@@ -60,7 +60,9 @@ export function lazyImg(url, cls) {
 
 // A imagem só aparece pronta (classe "ready" com fade no CSS), nunca se formando aos pedaços.
 function onLoaded() {
-  if (this.__on) this.classList.add('ready');
+  if (!this.__on) return;
+  this.classList.add('ready');
+  if (this.parentNode) this.parentNode.classList.add('img-loaded'); // para o esqueleto (shimmer)
 }
 
 function setOn(el, on) {
@@ -87,6 +89,7 @@ function setOn(el, on) {
   } else if (!on && el.__on) {
     el.__on = false;
     el.classList.remove('ready');
+    if (el.parentNode) el.parentNode.classList.remove('img-loaded');
     el.src = BLANK;
   }
 }

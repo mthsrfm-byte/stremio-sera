@@ -21,6 +21,27 @@ const RT_SVG =
   '<path d="M16 6c-2-3-6-3-8-1 3 0 5 1 6 3-3-1-6 0-7 2 3-1 6 0 8 1 2-1 5-2 8-1-1-2-4-3-7-2 1-2 3-3 6-3-2-2-6-2-6 1z" fill="#00912D"/>' +
   '<ellipse cx="11" cy="15" rx="3" ry="2" fill="#fff" opacity="0.35"/></svg>';
 
+// Foto do elenco: esqueleto com brilho até a foto chegar inteira; sem foto, só o círculo.
+function castPhoto(url) {
+  const ph = h('div.ph');
+  if (!url) {
+    ph.classList.add('img-loaded');
+    return ph;
+  }
+  const im = h('img', { alt: '' });
+  im.onload = () => {
+    im.classList.add('ready');
+    ph.classList.add('img-loaded');
+  };
+  im.onerror = () => {
+    im.style.display = 'none';
+    ph.classList.add('img-loaded');
+  };
+  im.src = url;
+  ph.appendChild(im);
+  return ph;
+}
+
 export function openDetails(type, id, opts) {
   router.push(DetailsView(type, id, opts || {}));
 }
@@ -161,7 +182,7 @@ function DetailsView(type, id, opts) {
             null,
             loc.cast.slice(0, 7).map((c) =>
               h('div.cast', null, [
-                h('div.ph', null, c.photo ? h('img', { src: c.photo, alt: '' }) : null),
+                castPhoto(c.photo),
                 h('div.nm', { text: c.name }),
                 h('div.ch', { text: c.character }),
               ])
@@ -268,9 +289,12 @@ function DetailsView(type, id, opts) {
         if (v.thumbnail) {
           const im = h('img', { alt: '' });
           im.setAttribute('data-lazy', smallThumb(v.thumbnail));
-          im.onerror = () => (im.style.display = 'none');
+          im.onerror = () => {
+            im.style.display = 'none';
+            thumb.classList.add('img-loaded'); // sem imagem: para o esqueleto
+          };
           thumb.appendChild(im);
-        }
+        } else thumb.classList.add('img-loaded');
         let sub = t('Episódio {n}', { n: v.episode || '?' });
         if (v.released) sub += ' · ' + formatDate(v.released);
         const inProgress = li && li.state && li.state.video_id === v.id && li.state.timeOffset > 0;

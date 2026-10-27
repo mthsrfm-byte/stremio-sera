@@ -98,7 +98,7 @@ async function emit(result) {
     }
   }
   // Fontes do Seraflix (as mesmas de matheusserafim.com): Bricolage Grotesque nos títulos, Geist no texto.
-  for (const [name, weights, subs] of [['bricolage-grotesque', [600, 700, 800], ['latin', 'latin-ext']], ['geist-sans', [400, 500, 600, 700], ['latin']]]) {
+  for (const [name, weights, subs] of [['bricolage-grotesque', [600, 700, 800], ['latin', 'latin-ext']], ['geist-sans', [400, 500, 600, 700], ['latin']], ['figtree', [600, 700], ['latin', 'latin-ext']]]) {
     const dir = path.join(root, 'node_modules', '@fontsource', name, 'files');
     for (const w of weights) {
       for (const sub of subs) {

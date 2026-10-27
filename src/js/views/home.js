@@ -1,4 +1,5 @@
-// Tela inicial: Hero Banner rotativo (Kai) + "Continuar assistindo" + catálogos dos addons.
+// Tela inicial: Hero Banner rotativo + "Continuar assistindo" + fileiras escolhidas no TMDB
+// (em alta, novidades dos streamings, aclamados...). Sem chave do TMDB, usa os catálogos dos addons.
 import { h, clear, loadVisibleImages } from '../lib/dom.js';
 import * as nav from '../lib/nav.js';
 import { KEY } from '../lib/nav.js';
@@ -9,6 +10,8 @@ import { topbar, card, spinnerLine } from '../ui.js';
 import * as router from '../router.js';
 import { openDetails } from './details.js';
 import { t } from '../lib/i18n.js';
+import * as reco from '../api/recommend.js';
+import { simpleRow } from './recommended.js';
 
 const ROTATE_MS = 8000;
 
@@ -88,6 +91,15 @@ export function HomeView() {
     loadedBoard = true;
     pending = [];
     clear(rows);
+    if (reco.available()) {
+      pending = reco.HOME_ROWS.map((def) => {
+        const r = simpleRow(def, 'Início');
+        rows.appendChild(r.row);
+        return Object.assign(r, { state: 'idle' });
+      });
+      loadNearby();
+      return;
+    }
     rows.appendChild(spinnerLine(t('Carregando catálogos...')));
     addons
       .load()

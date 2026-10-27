@@ -178,10 +178,20 @@ into youtube.com, and the trailer is a cross-origin YouTube iframe.
 
 ## Streamings tab
 
-Same layout as Recomendado, one row per service available in Brazil (Netflix, Prime Video, Disney+,
-HBO Max, Apple TV+, Paramount+, Globoplay): films from the last 6 months and series from the last
-4 months on the service's subscription, most popular first. A rail under the billboard lists the
-categories and highlights the one in focus.
+A rail of service logos sits under the top bar (Netflix, Prime Video, Disney+, HBO Max, Apple TV+,
+Paramount+, Globoplay, MUBI, Crunchyroll). Moving across it switches to that service's own home:
+**Novidades** (recent releases), **Filmes** and **Séries** (the whole catalogue on the service's
+subscription in Brazil, most popular first; **Ver tudo** pages through all of it) and **Aclamados**.
+
+## Início
+
+With the TMDB key, the home rows are picked from TMDB instead of the add-ons' generic catalogues:
+Filmes em alta, Séries em alta, Chegou nos streamings, Aclamados do último ano, Séries obrigatórias
+and Clássicos modernos, each with **Ver tudo**. Without the key it falls back to the add-on
+catalogues, leaving out channels (YouTube), TV and public-domain movies.
+
+Images never show half-loaded: posters, episode thumbnails, cast photos and service logos show a
+shimmering skeleton until the image is fully loaded, then fade in.
 
 ## Ratings and subtitles
 
@@ -189,7 +199,8 @@ categories and highlights the one in focus.
   the tomato, audience on the right, `--` when one is missing (from MDBList).
 - Subtitles default to Bricolage Grotesque with their own typesetting: 90% size, weight 600,
   slightly open letter and word spacing, 1.18 line height, ~40-character lines and a soft halo
-  instead of a hard outline.
+  instead of a hard outline. Figtree is offered as a free alternative close to Disney+'s (licensed)
+Avenir.
 
 ## Tizen integration
 

@@ -1,6 +1,6 @@
 {
   "version": "1.2.0",
-  "commit": "6c38aa9ac99fde371cb77cf5d5b02ff60a7d7903",
-  "date": "2026-10-27T00:57:15-03:00",
-  "message": "Streamings, trilho de categorias, transições, notas IMDb/RT e legenda em Bricolage"
+  "commit": "5fb4c8cfde282b1d7a3ec54abd3b91a1dd214ddb",
+  "date": "2026-10-27T03:57:30+00:00",
+  "message": "Build da dist/ para a TV"
 }

@@ -165,10 +165,14 @@ export function card(item, opts) {
     im.setAttribute('data-lazy', src);
     im.onerror = () => {
       im.style.display = 'none';
+      wrap.classList.add('img-loaded'); // sem imagem: para o esqueleto e mostra o nome
       wrap.appendChild(h('div.ph', { text: item.name || '' }));
     };
     wrap.appendChild(im);
-  } else wrap.appendChild(h('div.ph', { text: item.name || '' }));
+  } else {
+    wrap.classList.add('img-loaded');
+    wrap.appendChild(h('div.ph', { text: item.name || '' }));
+  }
   if (o.progress) wrap.appendChild(h('div.progress', null, h('i', { style: { width: Math.round(o.progress * 100) + '%' } })));
   if (o.badge) wrap.appendChild(h('div.badge', { text: o.badge }));
   return h('div.card', { focusable: true, cls: o.wide ? 'wide' : '', onSelect: o.onSelect, onFocus: o.onFocus }, [
