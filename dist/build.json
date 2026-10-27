@@ -1,6 +1,6 @@
 {
   "version": "1.2.0",
-  "commit": "63c4986824aa36c4dde8644eb307dd28041d3370",
-  "date": "2026-10-27T07:55:38Z",
-  "message": "Refina animações da versão web"
+  "commit": "cb440b605c753397e0628b661a2b35b7367ad87c",
+  "date": "2026-10-27T08:00:21+00:00",
+  "message": "Build da dist/ para a TV"
 }

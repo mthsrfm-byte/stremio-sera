@@ -312,8 +312,7 @@ export function NsfwView() {
   function emptyHint() {
     const st = addons.tubeStatus();
     if (st === 'searching') return t('Procurando os provedores no serviço da TV...');
-    if (st === 'old')
-      return t('O serviço da TV está numa versão antiga e não tem os provedores. Desligue a TV da tomada por 30 segundos e abra o Seraflix de novo.');
+    if (st === 'old') return t('O serviço da TV está numa versão antiga. Já pedi ao TizenBrew a versão nova; os provedores aparecem aqui em alguns segundos.');
     return t('O serviço do Seraflix na TV não respondeu. Abra o TizenBrew, confira se o Seraflix está na lista de serviços e abra o app de novo. Continuo procurando.');
   }
 

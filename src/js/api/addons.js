@@ -4,6 +4,7 @@ import * as stremio from './stremio.js';
 import * as store from '../lib/store.js';
 import { log } from '../lib/log.js';
 import { t } from '../lib/i18n.js';
+import { startPinnedService } from './tizenbrew.js';
 import { IS_WEB } from '../lib/platform.js';
 
 export const CINEMETA = 'https://v3-cinemeta.strem.io/manifest.json';
@@ -111,6 +112,10 @@ function attachTubes() {
         () => (tubeState = 'old'),
         () => (tubeState = 'off')
       )
+      .then(() => {
+        // Serviço velho (cache do CDN) ou parado: pede ao TizenBrew a versão exata do GitHub.
+        if (tubeState === 'old' || tubeTries >= 3) startPinnedService();
+      })
       .then(() => tubeState !== before && addons && changed(addons));
     tubeTimer = setTimeout(() => {
       tubeTimer = null;

@@ -10,10 +10,11 @@ var tls = require('tls');
 var crypto = require('crypto');
 var fs = require('fs');
 var os = require('os');
+var urlLib = require('url');
 
 var PORT = 8090;
 var ADDON_PORT = 8091; // addons XVideos/Pornhub (também na 8090)
-var SERVICE_VERSION = 2;
+var SERVICE_VERSION = 3;
 var PAGE_BASE = 'https://cdn.jsdelivr.net/gh/mthsrfm-byte/stremio-sera/remote/';
 var APP_NAME = 'Seraflix Controle';
 var TOKEN_FILE = '/home/owner/share/seraflixRemote.json';
@@ -204,17 +205,26 @@ var UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, l
 function fetchText(url, cb, hops) {
   var done = false;
   function end(err, text) { if (!done) { done = true; cb(err, text); } }
-  var req = https.get(url, { headers: { 'User-Agent': UA, 'Accept-Language': 'en-US,en;q=0.8', Cookie: 'platform=pc; age_verified=1; accessAgeDisclaimerPH=1' } }, function (r) {
+  // Node 4 (o da TV) não aceita https.get(url, opções, cb): as opções vão num objeto só.
+  var opts = urlLib.parse(url);
+  opts.headers = { 'User-Agent': UA, 'Accept-Language': 'en-US,en;q=0.8', Cookie: 'platform=pc; age_verified=1; accessAgeDisclaimerPH=1' };
+  var req;
+  try {
+    req = https.get(opts, onResponse);
+  } catch (e) {
+    return end(e);
+  }
+  function onResponse(r) {
     if (r.statusCode >= 300 && r.statusCode < 400 && r.headers.location && (hops || 0) < 4) {
       r.resume();
       var next = r.headers.location.indexOf('http') === 0 ? r.headers.location : url.split('/').slice(0, 3).join('/') + r.headers.location;
-      return fetchText(next, cb, (hops || 0) + 1);
+      return fetchText(next, end, (hops || 0) + 1);
     }
     if (r.statusCode !== 200) { r.resume(); return end(new Error('HTTP ' + r.statusCode)); }
     var chunks = [];
     r.on('data', function (c) { chunks.push(c); });
     r.on('end', function () { end(null, Buffer.concat(chunks).toString('utf8')); });
-  });
+  }
   req.on('error', function (e) { end(e); });
   req.setTimeout(15000, function () { req.abort(); end(new Error('tempo esgotado')); });
 }
@@ -517,7 +527,18 @@ function testDisk() {
   return res;
 }
 
-var server = http.createServer(function (req, res) {
+// Um erro num pedido nunca pode derrubar o serviço: ele roda dentro do processo do TizenBrew.
+function guarded(handler) {
+  return function (req, res) {
+    try {
+      handler(req, res);
+    } catch (e) {
+      try { json(res, 500, { error: String(e && e.message) }); } catch (e2) {}
+    }
+  };
+}
+
+var server = http.createServer(guarded(function (req, res) {
   var url = req.url.split('?')[0];
   // Pré-verificação de CORS / acesso à rede local (navegadores mais novos perguntam antes).
   if (req.method === 'OPTIONS') {
@@ -597,7 +618,7 @@ var server = http.createServer(function (req, res) {
   if (FILES.indexOf(file) >= 0) return servePage(file, res);
   res.writeHead(404, { 'Content-Type': 'text/plain' });
   res.end('404');
-});
+}));
 
 // Coloca o Seraflix na lista de serviços que o TizenBrew liga sozinho ao abrir. Assim o controle
 // funciona só de abrir o TizenBrew (ou quando a TV pré-carrega o TizenBrew ao ligar), sem entrar
@@ -625,13 +646,13 @@ server.on('error', function (e) {
   }
 });
 server.listen(PORT, '0.0.0.0');
-var addonServer = http.createServer(function (req, res) {
+var addonServer = http.createServer(guarded(function (req, res) {
   var url = req.url.split('?')[0];
   if (url === '/api/version') return json(res, 200, { version: SERVICE_VERSION });
   if (addonRoute(url, res)) return;
   res.writeHead(404, { 'Content-Type': 'text/plain' });
   res.end('404');
-});
+}));
 var addonTries = 0;
 addonServer.on('error', function (e) {
   // A versão anterior ainda está saindo: espera ela soltar a porta.
