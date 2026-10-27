@@ -133,6 +133,17 @@ TizenBrew picks up updates to Stremio Kai automatically.
 - **A video won't play:** try a debrid (direct) source, or check that stremio-service is
   running on the PC for torrent sources.
 
+## Phone remote
+
+`remote/index.html` is a remote control page for the phone, published to GitHub Pages by the
+**Publicar controle remoto** workflow. It talks to the TV over Samsung's remote-control WebSocket
+(`wss://TV-IP:8002`, 2018+ models). The phone must be on the same Wi-Fi as the TV. The first time:
+open the "Liberar" link and accept the certificate warning, then "Conectar" and allow it on the TV.
+
+The page is locked with a 6-digit PIN (only its SHA-256 is in the code). After the right PIN the
+device stays unlocked (cookie renewed on every visit + localStorage). To lock every device again,
+change `AUTH_VERSION` in `remote/index.html`.
+
 ## Tizen integration
 
 - Samsung **Return**, media, colour and channel keys, registered through the Tizen
