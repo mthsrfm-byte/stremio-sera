@@ -7740,8 +7740,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return m ? m[0] : null;
   }
   var BUILTIN_KEYS = {
-    tmdbKey: true ? "" : "",
-    mdblistKey: true ? "" : ""
+    tmdbKey: true ? "9c57ed7ea044b2f01eea2fcc2e954c2e" : "",
+    mdblistKey: true ? "t9e4f1z29b3c36i1j25rul1wx" : ""
   };
   function keyOf(name) {
     return (settings()[name] || "").trim() || BUILTIN_KEYS[name];
@@ -13520,9 +13520,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "1eaec11253bdc58f2f95b6ab7d7d8dc6e300f13b",
-    date: "2026-10-27T07:23:38+00:00",
-    message: "Build da dist/ para a TV"
+    commit: "b691d98d1d12857c9ece83c37bd9b73ff5fa3f7f",
+    date: "2026-10-27T04:36:51-03:00",
+    message: "NSFW: provedores aparecem quando o serviço da TV responde; fontes antes de exibir; PIN e Ajustes"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
