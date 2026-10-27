@@ -9,6 +9,24 @@ export const CINEMETA = 'https://v3-cinemeta.strem.io/manifest.json';
 export const OPENSUBTITLES = 'https://opensubtitles-v3.strem.io/manifest.json';
 
 let addons = null; // [{ transportUrl, manifest, base }]
+const listeners = [];
+
+// Avisa quando a lista de addons muda (ex.: a da conta chegou depois do cache).
+export function onChange(fn) {
+  listeners.push(fn);
+}
+
+function changed(list) {
+  addons = list;
+  listeners.forEach((fn) => {
+    try {
+      fn();
+    } catch (e) {
+      /* ignore */
+    }
+  });
+  return list;
+}
 
 function normalize(list) {
   return (list || [])
@@ -37,7 +55,7 @@ export function load(force) {
   if (addons && !force) return Promise.resolve(addons);
   if (stremio.isLoggedIn()) {
     const cached = stremio.cachedAddons();
-    const fresh = stremio.getAddonCollection().then((list) => (addons = normalize(list)));
+    const fresh = stremio.getAddonCollection().then((list) => changed(normalize(list)));
     if (cached && cached.length && !force) {
       addons = normalize(cached);
       fresh.catch((e) => log.warn('Addons: usando cache', e.message));
@@ -48,7 +66,7 @@ export function load(force) {
       return addons;
     });
   }
-  return defaultAddons().then((list) => (addons = normalize(list)));
+  return defaultAddons().then((list) => changed(normalize(list)));
 }
 
 export function list() {
@@ -89,13 +107,25 @@ function url(addon, resource, type, id, extra) {
 // ---------- Conteúdo adulto (aba NSFW) ----------
 // Addon adulto: o próprio manifest diz (behaviorHints.adult), o nome/descrição entrega, ou a
 // pessoa marcou à mão em Ajustes. O conteúdo dele só aparece na aba NSFW.
-const ADULT_RE = /\b(porn\w*|xxx|nsfw|adult[oa]?s?|hentai|18\+|onlyfans|erotic\w*|er[oó]tic[oa]s?)\b/i;
+const ADULT_RE = /porn|xxx|nsfw|hentai|onlyfans|\badult[oa]?s?\b|\b18\+|erotic|er[oó]tic|\bsex[oy]?\b|brazzers|xvideos|xhamster|redtube|youporn|spankbang|eporner|chaturbate/i;
+// Categorias que só catálogo adulto tem: duas ou mais delas entregam o addon.
+const ADULT_GENRES = /^(anal|blowjob|milf|creampie|cumshot|gangbang|threesome|squirt|deepthroat|handjob|big tits|big ass|bbw|pov|bdsm|fisting|hardcore|interracial|lesbian|masturbation|orgy|pornstar|stepmom|step mom|teen \(18\+\)|cuckold)$/i;
+
+function adultGenres(m) {
+  let n = 0;
+  (m.catalogs || []).forEach((c) =>
+    (c.extra || []).forEach((e) => {
+      if (e.name === 'genre') (e.options || []).forEach((o) => ADULT_GENRES.test(String(o).trim()) && n++);
+    })
+  );
+  return n >= 2;
+}
 
 export function adultByManifest(addon) {
   const m = addon.manifest || {};
   if (m.behaviorHints && m.behaviorHints.adult) return true;
   // A descrição só conta com termos inequívocos: addons de anime citam "NSFW"/"hentai" como opção.
-  return ADULT_RE.test([m.id, m.name].join(' ')) || /\b(porn\w*|xxx)\b/i.test(m.description || '');
+  return ADULT_RE.test([m.id, m.name].join(' ')) || /porn|xxx/i.test(m.description || '') || adultGenres(m);
 }
 
 export function isAdult(addon) {

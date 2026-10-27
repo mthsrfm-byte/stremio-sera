@@ -5,7 +5,7 @@ import * as addons from '../api/addons.js';
 import * as stremio from '../api/stremio.js';
 import * as server from '../api/server.js';
 import * as hero from '../api/hero.js';
-import { toast, spinnerLine, menu, fmtTime } from '../ui.js';
+import { toast, spinnerLine, menu, fmtTime, choiceDialog } from '../ui.js';
 import * as router from '../router.js';
 import { openPlayer } from './player.js';
 import * as extras from '../api/extras.js';
@@ -415,31 +415,22 @@ function DetailsView(type, id, opts) {
     const all = [];
     let autoFocused = null;
     let serverOk = server.isAvailable();
-    // Smart Choice: espera os addons (no máximo ~12s) e abre sozinho a melhor fonte, a não ser
-    // que a pessoa mexa no controle antes.
+    // Smart Choice: o player abre na hora; a fonte é escolhida quando os addons responderem
+    // (no máximo ~12s). Voltar do player cai nesta lista, para escolher na mão.
     let smartOn = !!(smart && focusFirst && store.settings().smartChoice !== false);
+    let smartResolve = null;
     const smartTimer = smartOn ? setTimeout(() => runSmart(), 12000) : null;
     function runSmart() {
       if (!smartOn) return;
       smartOn = false;
       clearTimeout(smartTimer);
-      if (!alive || streamsVideo !== video || mode !== 'streams') return;
-      if (autoFocused && nav.current() !== autoFocused) return; // a pessoa já está escolhendo
-      if (router.currentView() !== view) return;
-      const pick = si.smartPick(all, serverOk);
       status();
-      if (!pick) return;
-      const info = si.parse(pick.stream);
-      toast(t('Smart Choice: {what}', { what: si.summary(info) || info.addon }), 3500);
-      play(video, pick.stream, all);
+      const ok = alive && streamsVideo === video;
+      const pick = ok ? si.smartPick(all, serverOk) : null;
+      if (smartResolve) smartResolve(pick ? pick.stream : null);
     }
 
     function status() {
-      if (smartOn) {
-        sub.textContent = t('Smart Choice escolhendo a melhor fonte...  ·  aperte qualquer seta para escolher você');
-        barFill.style.width = Math.round(((srcs.length - pendingCount) / srcs.length) * 100) + '%';
-        return;
-      }
       const srv = serverOk ? t('Servidor do PC conectado') : t('Servidor do PC não conectado: só links diretos');
       sub.textContent = srv + (pendingCount > 0 ? '  ·  ' + t('{n} addon(s) ainda carregando', { n: pendingCount }) : '  ·  ' + t('{n} fontes', { n: all.length }));
       barFill.style.width = Math.round(((srcs.length - pendingCount) / srcs.length) * 100) + '%';
@@ -485,6 +476,7 @@ function DetailsView(type, id, opts) {
     }
 
     status();
+    if (smartOn) play(video, null, all, new Promise((ok) => (smartResolve = ok)));
     (serverOk ? Promise.resolve() : server.check().then((r) => (serverOk = r.ok)))
       .then(() => {
         status();
@@ -559,19 +551,19 @@ function DetailsView(type, id, opts) {
     );
   }
 
-  function play(video, stream, all) {
+  // stream null + pick: o player abre já e espera a fonte do Smart Choice.
+  function play(video, stream, all, pick) {
     const li = stremio.libraryItem(meta.id);
     const resumeMs = li && li.state && li.state.video_id === video.id ? li.state.timeOffset : 0;
-    const start = (ms) => openPlayer({ meta: meta, video: video, stream: stream, streams: all, startTime: ms, isSeries: isSeries() });
-    if (resumeMs > 30000) {
-      menu(
-        t('Continuar de onde parou?'),
-        [
-          { label: t('Continuar de {time}', { time: fmtTime(resumeMs / 1000) }), value: resumeMs, checked: true },
-          { label: t('Começar do início'), value: 0 },
-        ],
-        { center: true, onPick: (v) => start(v) }
-      );
+    const start = (ms) => openPlayer({ meta: meta, video: video, stream: stream, pick: pick, streams: all, startTime: ms, isSeries: isSeries() });
+    if (resumeMs > 30000 && pick) {
+      // Smart Choice: entra direto continuando; o player oferece "Do início".
+      start(resumeMs);
+    } else if (resumeMs > 30000) {
+      choiceDialog(t('Continuar de onde parou?'), isSeries() ? 'T' + video.season + 'E' + video.episode + ' · ' + (video.namePt || video.name || '') : meta.name, [
+        { label: '<span class="ico">▶</span>' + t('Continuar de {time}', { time: fmtTime(resumeMs / 1000) }), primary: true, onSelect: () => start(resumeMs) },
+        { label: '<span class="ico">↺</span>' + t('Do início'), onSelect: () => start(0) },
+      ]);
     } else start(0);
   }
 

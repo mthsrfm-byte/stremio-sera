@@ -62,7 +62,10 @@ function PlayerView(opts) {
   const subsBtn = h('div.btn', { focusable: true, html: '<span class="ico">≡</span>' + t('Legendas'), onSelect: () => subsMenu() });
   const srcBtn = h('div.btn', { focusable: true, html: '<span class="ico">⇄</span>' + t('Fontes'), onSelect: () => sourcesMenu() });
   const nextBtn = h('div.btn', { focusable: true, html: '<span class="ico">⏭</span>' + t('Próximo'), onSelect: () => playNext() });
-  const buttons = h('div.p-buttons', { 'data-group': '' }, [playBtn, audioBtn, subsBtn, srcBtn, nextBtn]);
+  // Retomou sozinho (Smart Choice): atalho para começar do zero, visível nos primeiros minutos.
+  const restartBtn = h('div.btn', { focusable: true, html: '<span class="ico">↺</span>' + t('Do início'), onSelect: () => restart() });
+  restartBtn.style.display = opts.startTime > 30000 ? '' : 'none';
+  const buttons = h('div.p-buttons', { 'data-group': '' }, [playBtn, restartBtn, audioBtn, subsBtn, srcBtn, nextBtn]);
   const spinner = h('div.p-center', null, h('div.spinner'));
   const msgEl = h('div.p-msg');
   const skipFill = h('i');
@@ -100,7 +103,7 @@ function PlayerView(opts) {
   let triedTranscode = false;
   let slowTimer = null;
   let slowModal = null;
-  const tried = [opts.stream];
+  const tried = opts.stream ? [opts.stream] : [];
 
   const seriesInfo = () => (opts.isSeries ? { season: video.season, episode: video.episode } : null);
 
@@ -120,6 +123,7 @@ function PlayerView(opts) {
   // ---------- Carregamento ----------
   function start() {
     setTitle();
+    if (!stream) return waitForPick();
     updateQuality();
     armSlow();
     showSpinner(true);
@@ -150,6 +154,37 @@ function PlayerView(opts) {
         // e, num torrent, rouba prioridade do trecho que está tocando.
       })
       .catch((e) => fail(e.message));
+  }
+
+  function restart() {
+    restartBtn.style.display = 'none';
+    try {
+      videoEl.currentTime = 0;
+    } catch (e) {
+      pendingStart = 0;
+    }
+    if (nav.current() === restartBtn) nav.focus(playBtn);
+  }
+
+  // Smart Choice: o player abre na hora e a fonte chega depois (os addons ainda estão respondendo).
+  function waitForPick() {
+    showSpinner(true);
+    qualityBtn.style.display = 'none';
+    message(t('Smart Choice: escolhendo a melhor fonte...'));
+    (opts.pick || Promise.resolve(null)).then((s) => {
+      if (!alive || stream) return;
+      if (!s) {
+        toast(t('Nenhuma fonte tocável encontrada. Escolha na lista.'), 4000);
+        router.pop();
+        return;
+      }
+      stream = s;
+      tried.push(s);
+      qualityBtn.style.display = '';
+      const info = si.parse(s);
+      toast(t('Smart Choice: {what}', { what: si.summary(info) || info.addon }), 3500);
+      start();
+    });
   }
 
   let tracksPromise = null;
@@ -319,6 +354,7 @@ function PlayerView(opts) {
   videoEl.addEventListener('waiting', () => showSpinner(true));
   videoEl.addEventListener('canplay', () => showSpinner(false));
   videoEl.addEventListener('timeupdate', () => {
+    if (restartBtn.style.display !== 'none' && videoEl.currentTime * 1000 > (opts.startTime || 0) + 300000) restartBtn.style.display = 'none';
     const now = Date.now();
     if (!videoEl.paused && lastTick) {
       const d = now - lastTick;
@@ -905,7 +941,7 @@ function PlayerView(opts) {
     if (hgt >= 1000) return '1080p';
     if (hgt >= 700) return '720p';
     if (hgt > 0) return 'SD';
-    return si.parse(stream).res || '';
+    return stream ? si.parse(stream).res || '' : '';
   }
 
   function updateQuality() {

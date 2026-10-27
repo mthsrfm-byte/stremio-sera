@@ -60,6 +60,25 @@ export function menu(title, options, opts) {
   return { close: close, el: modal };
 }
 
+// Pergunta curta com botões lado a lado (o primeiro já vem focado).
+// buttons: [{ label, onSelect, primary }]
+export function choiceDialog(title, sub, buttons) {
+  const close = () => {
+    nav.popLayer(layer);
+    if (modal.parentNode) modal.parentNode.removeChild(modal);
+  };
+  const btns = buttons.map((b) => h('div.btn', { focusable: true, cls: b.primary ? 'primary' : '', html: b.label, onSelect: () => (close(), b.onSelect && b.onSelect()) }));
+  const box = h('div.modal-box.center.choice-box', null, [
+    h('h3', { text: title }),
+    sub ? h('p.modal-text', { text: sub }) : null,
+    h('div.modal-actions', { 'data-group': '' }, btns),
+  ]);
+  const modal = h('div.modal', null, box);
+  document.getElementById('app').appendChild(modal);
+  const layer = nav.pushLayer(modal, { onBack: () => close() });
+  nav.focus(btns[0]);
+}
+
 export function confirmDialog(text, okLabel, onOk) {
   const box = h('div.modal-box.center', null, [
     h('h3', { text: text }),
@@ -113,8 +132,14 @@ export function topbar(activeId, onTab) {
   bar.__destroy = () => clearInterval(timer);
   // Abas condicionais (NSFW) dependem dos addons, que podem chegar depois da barra.
   addons.load().then(refreshTabs).catch(() => {});
+  if (!tabsHooked) {
+    tabsHooked = true;
+    addons.onChange(refreshTabs);
+  }
   return bar;
 }
+
+let tabsHooked = false;
 
 // Mostra/esconde as abas condicionais em todas as barras (addons mudaram, ajuste trocado).
 export function refreshTabs() {

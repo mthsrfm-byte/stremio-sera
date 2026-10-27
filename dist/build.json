@@ -1,6 +1,6 @@
 {
   "version": "1.2.0",
-  "commit": "506798317237d1bc93503bbbe0451bc88fd4fe39",
-  "date": "2026-10-27T05:43:37+00:00",
-  "message": "Build da dist/ para a TV"
+  "commit": "b8353026201f0a5d833623cb70d9de90500d6c2f",
+  "date": "2026-10-27T05:51:23+00:00",
+  "message": "Playback fixes: Smart Choice follows list order and needs real health, torrent still downloading gets more time, subtitle hash waits for playback on torrents, narrower adult add-on detection"
 }

@@ -6301,6 +6301,19 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var CINEMETA = "https://v3-cinemeta.strem.io/manifest.json";
   var OPENSUBTITLES = "https://opensubtitles-v3.strem.io/manifest.json";
   var addons = null;
+  var listeners = [];
+  function onChange(fn) {
+    listeners.push(fn);
+  }
+  function changed(list2) {
+    addons = list2;
+    listeners.forEach(function (fn) {
+      try {
+        fn();
+      } catch (e) {}
+    });
+    return list2;
+  }
   function normalize(list2) {
     return (list2 || []).filter(function (a) {
       return a && a.transportUrl && a.manifest;
@@ -6335,7 +6348,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     if (isLoggedIn()) {
       var cached = cachedAddons();
       var fresh = getAddonCollection().then(function (list2) {
-        return addons = normalize(list2);
+        return changed(normalize(list2));
       });
       if (cached && cached.length && !force) {
         addons = normalize(cached);
@@ -6350,7 +6363,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       });
     }
     return defaultAddons().then(function (list2) {
-      return addons = normalize(list2);
+      return changed(normalize(list2));
     });
   }
   function list() {
@@ -6390,11 +6403,23 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
     return addon.base + path + ".json" + addon.query;
   }
-  var ADULT_RE = /\b(porn\w*|xxx|nsfw|adult[oa]?s?|hentai|18\+|onlyfans|erotic\w*|er[oó]tic[oa]s?)\b/i;
+  var ADULT_RE = /porn|xxx|nsfw|hentai|onlyfans|\badult[oa]?s?\b|\b18\+|erotic|er[oó]tic|\bsex[oy]?\b|brazzers|xvideos|xhamster|redtube|youporn|spankbang|eporner|chaturbate/i;
+  var ADULT_GENRES = /^(anal|blowjob|milf|creampie|cumshot|gangbang|threesome|squirt|deepthroat|handjob|big tits|big ass|bbw|pov|bdsm|fisting|hardcore|interracial|lesbian|masturbation|orgy|pornstar|stepmom|step mom|teen \(18\+\)|cuckold)$/i;
+  function adultGenres(m) {
+    var n = 0;
+    (m.catalogs || []).forEach(function (c) {
+      return (c.extra || []).forEach(function (e) {
+        if (e.name === "genre") (e.options || []).forEach(function (o) {
+          return ADULT_GENRES.test(String(o).trim()) && n++;
+        });
+      });
+    });
+    return n >= 2;
+  }
   function adultByManifest(addon) {
     var m = addon.manifest || {};
     if (m.behaviorHints && m.behaviorHints.adult) return true;
-    return ADULT_RE.test([m.id, m.name].join(" ")) || /\b(porn\w*|xxx)\b/i.test(m.description || "");
+    return ADULT_RE.test([m.id, m.name].join(" ")) || /porn|xxx/i.test(m.description || "") || adultGenres(m);
   }
   function isAdult(addon) {
     var s = settings();
@@ -6950,6 +6975,37 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       el: modal
     };
   }
+  function choiceDialog(title, sub, buttons) {
+    var close = function close() {
+      popLayer(layer);
+      if (modal.parentNode) modal.parentNode.removeChild(modal);
+    };
+    var btns = buttons.map(function (b) {
+      return h("div.btn", {
+        focusable: true,
+        cls: b.primary ? "primary" : "",
+        html: b.label,
+        onSelect: function onSelect() {
+          return close(), b.onSelect && b.onSelect();
+        }
+      });
+    });
+    var box = h("div.modal-box.center.choice-box", null, [h("h3", {
+      text: title
+    }), sub ? h("p.modal-text", {
+      text: sub
+    }) : null, h("div.modal-actions", {
+      "data-group": ""
+    }, btns)]);
+    var modal = h("div.modal", null, box);
+    document.getElementById("app").appendChild(modal);
+    var layer = pushLayer(modal, {
+      onBack: function onBack() {
+        return close();
+      }
+    });
+    focus(btns[0]);
+  }
   function confirmDialog(text, okLabel, onOk) {
     var box = h("div.modal-box.center", null, [h("h3", {
       text: text
@@ -7036,8 +7092,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return clearInterval(timer2);
     };
     load().then(refreshTabs).catch(function () {});
+    if (!tabsHooked) {
+      tabsHooked = true;
+      onChange(refreshTabs);
+    }
     return bar;
   }
+  var tabsHooked = false;
   function refreshTabs() {
     TABS.filter(function (tab) {
       return tab.when;
@@ -8271,9 +8332,17 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         return playNext();
       }
     });
+    var restartBtn = h("div.btn", {
+      focusable: true,
+      html: '<span class="ico">↺</span>' + t("Do início"),
+      onSelect: function onSelect() {
+        return restart();
+      }
+    });
+    restartBtn.style.display = opts.startTime > 3e4 ? "" : "none";
     var buttons = h("div.p-buttons", {
       "data-group": ""
-    }, [playBtn, audioBtn, subsBtn, srcBtn, nextBtn]);
+    }, [playBtn, restartBtn, audioBtn, subsBtn, srcBtn, nextBtn]);
     var spinner = h("div.p-center", null, h("div.spinner"));
     var msgEl = h("div.p-msg");
     var skipFill = h("i");
@@ -8315,7 +8384,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var triedTranscode = false;
     var slowTimer = null;
     var slowModal = null;
-    var tried = [opts.stream];
+    var tried = opts.stream ? [opts.stream] : [];
     var seriesInfo = function seriesInfo() {
       return opts.isSeries ? {
         season: video.season,
@@ -8339,6 +8408,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
     function start3() {
       setTitle();
+      if (!stream) return waitForPick();
       updateQuality();
       armSlow();
       showSpinner(true);
@@ -8365,6 +8435,36 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         loadSubtitles();
       }).catch(function (e) {
         return fail(e.message);
+      });
+    }
+    function restart() {
+      restartBtn.style.display = "none";
+      try {
+        videoEl.currentTime = 0;
+      } catch (e) {
+        pendingStart = 0;
+      }
+      if (current2() === restartBtn) focus(playBtn);
+    }
+    function waitForPick() {
+      showSpinner(true);
+      qualityBtn.style.display = "none";
+      message(t("Smart Choice: escolhendo a melhor fonte..."));
+      (opts.pick || Promise.resolve(null)).then(function (s) {
+        if (!alive || stream) return;
+        if (!s) {
+          toast(t("Nenhuma fonte tocável encontrada. Escolha na lista."), 4e3);
+          pop();
+          return;
+        }
+        stream = s;
+        tried.push(s);
+        qualityBtn.style.display = "";
+        var info = parse2(s);
+        toast(t("Smart Choice: {what}", {
+          what: summary(info) || info.addon
+        }), 3500);
+        start3();
       });
     }
     var tracksPromise = null;
@@ -8529,6 +8629,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return showSpinner(false);
     });
     videoEl.addEventListener("timeupdate", function () {
+      if (restartBtn.style.display !== "none" && videoEl.currentTime * 1e3 > (opts.startTime || 0) + 3e5) restartBtn.style.display = "none";
       var now = Date.now();
       if (!videoEl.paused && lastTick) {
         var d = now - lastTick;
@@ -9139,7 +9240,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       if (hgt >= 1e3) return "1080p";
       if (hgt >= 700) return "720p";
       if (hgt > 0) return "SD";
-      return parse2(stream).res || "";
+      return stream ? parse2(stream).res || "" : "";
     }
     function updateQuality() {
       var cur = currentRes();
@@ -11279,6 +11380,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var autoFocused = null;
       var serverOk = _isAvailable();
       var smartOn = !!(smart && focusFirst2 && settings().smartChoice !== false);
+      var smartResolve = null;
       var smartTimer = smartOn ? setTimeout(function () {
         return runSmart();
       }, 12e3) : null;
@@ -11286,24 +11388,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         if (!smartOn) return;
         smartOn = false;
         clearTimeout(smartTimer);
-        if (!alive || streamsVideo !== video || mode !== "streams") return;
-        if (autoFocused && current2() !== autoFocused) return;
-        if (currentView() !== view) return;
-        var pick2 = smartPick(all, serverOk);
         status2();
-        if (!pick2) return;
-        var info2 = parse2(pick2.stream);
-        toast(t("Smart Choice: {what}", {
-          what: summary(info2) || info2.addon
-        }), 3500);
-        play2(video, pick2.stream, all);
+        var ok = alive && streamsVideo === video;
+        var pick2 = ok ? smartPick(all, serverOk) : null;
+        if (smartResolve) smartResolve(pick2 ? pick2.stream : null);
       }
       function status2() {
-        if (smartOn) {
-          sub.textContent = t("Smart Choice escolhendo a melhor fonte...  ·  aperte qualquer seta para escolher você");
-          barFill.style.width = Math.round((srcs.length - pendingCount) / srcs.length * 100) + "%";
-          return;
-        }
         var srv = serverOk ? t("Servidor do PC conectado") : t("Servidor do PC não conectado: só links diretos");
         sub.textContent = srv + (pendingCount > 0 ? "  ·  " + t("{n} addon(s) ainda carregando", {
           n: pendingCount
@@ -11368,6 +11458,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         });
       }
       status2();
+      if (smartOn) play2(video, null, all, new Promise(function (ok) {
+        return smartResolve = ok;
+      }));
       (serverOk ? Promise.resolve() : _check().then(function (r) {
         return serverOk = r.ok;
       })).then(function () {
@@ -11464,7 +11557,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         text: info2.file || (s.title || s.description || "").split("\n")[0]
       }), h("div.s-tags", null, tags), stats])]);
     }
-    function play2(video, stream, all) {
+    function play2(video, stream, all, pick2) {
       var li = libraryItem(meta.id);
       var resumeMs = li && li.state && li.state.video_id === video.id ? li.state.timeOffset : 0;
       var start3 = function start3(ms) {
@@ -11472,27 +11565,29 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           meta: meta,
           video: video,
           stream: stream,
+          pick: pick2,
           streams: all,
           startTime: ms,
           isSeries: isSeries()
         });
       };
-      if (resumeMs > 3e4) {
-        menu(t("Continuar de onde parou?"), [{
-          label: t("Continuar de {time}", {
+      if (resumeMs > 3e4 && pick2) {
+        start3(resumeMs);
+      } else if (resumeMs > 3e4) {
+        choiceDialog(t("Continuar de onde parou?"), isSeries() ? "T" + video.season + "E" + video.episode + " · " + (video.namePt || video.name || "") : meta.name, [{
+          label: '<span class="ico">▶</span>' + t("Continuar de {time}", {
             time: fmtTime(resumeMs / 1e3)
           }),
-          value: resumeMs,
-          checked: true
-        }, {
-          label: t("Começar do início"),
-          value: 0
-        }], {
-          center: true,
-          onPick: function onPick(v) {
-            return start3(v);
+          primary: true,
+          onSelect: function onSelect() {
+            return start3(resumeMs);
           }
-        });
+        }, {
+          label: '<span class="ico">↺</span>' + t("Do início"),
+          onSelect: function onSelect() {
+            return start3(0);
+          }
+        }]);
       } else start3(0);
     }
     function isUpcoming(v) {
@@ -12783,9 +12878,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "506798317237d1bc93503bbbe0451bc88fd4fe39",
-    date: "2026-10-27T05:43:37+00:00",
-    message: "Build da dist/ para a TV"
+    commit: "b8353026201f0a5d833623cb70d9de90500d6c2f",
+    date: "2026-10-27T05:51:23+00:00",
+    message: "Playback fixes: Smart Choice follows list order and needs real health, torrent still downloading gets more time, subtitle hash waits for playback on torrents, narrower adult add-on detection"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {

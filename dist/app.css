@@ -745,3 +745,10 @@ body.light .filmo-count { color: rgba(17,17,16,0.55); }
 body.light .nsfw-genres .chip { background: rgba(229,80,140,0.12); }
 .load-bar { -webkit-transition: opacity 0.4s; transition: opacity 0.4s; }
 .load-bar.done { opacity: 0; }
+
+/* Mensagem do player abaixo do círculo de carregamento (não por cima) */
+.p-msg { top: 58%; }
+.choice-box { width: 760px; padding: 36px 40px 32px; }
+.choice-box h3, .choice-box .modal-text { padding-left: 0; padding-right: 0; }
+.choice-box .modal-actions { padding: 0; }
+.choice-box .modal-actions .btn { margin-right: 16px; }
