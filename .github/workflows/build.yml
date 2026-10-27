@@ -62,7 +62,10 @@ jobs:
           scripts/test-ui-cache.sh
           node --test tests/server-bootstrap.test.mjs
       - name: Compilar .app e DMG assinado ad hoc
-        run: scripts/build.sh
+        run: |
+          mkdir -p artifacts
+          set -o pipefail
+          scripts/build.sh 2>&1 | tee "artifacts/build-$ARCH.log"
       - name: Smoke test nativo (WKWebView, libmpv e mídia HTTP local)
         run: scripts/smoke-test.sh
       - name: Assinar appcast Sparkle (quando configurado)

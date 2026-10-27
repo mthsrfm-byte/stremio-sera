@@ -2,6 +2,7 @@
 """Reloca dependências, valida arquitetura/minOS e assina o bundle de dentro para fora."""
 import argparse
 import os
+import plistlib
 from pathlib import Path
 import re
 import shutil
@@ -73,10 +74,25 @@ for path in files:
     if '/opt/homebrew/' in linked or '/usr/local/' in linked or '/.build/' in linked:
         raise SystemExit(f'Caminho de desenvolvimento no Mach-O: {path}')
 
-# Primeiro os arquivos e bundles internos; depois framework e app externos.
-for path in sorted(files, key=lambda p: len(p.parts), reverse=True):
+# Assinar o executável principal diretamente faz codesign reconhecer o bundle inteiro
+# e validar seus filhos antes da hora. Cada main é assinado somente pelo seu bundle,
+# depois de todas as dependências e bundles mais internos estarem assinados.
+bundles = [p for p in app.rglob('*') if not p.is_symlink() and p.is_dir() and p.suffix in ('.framework', '.xpc', '.app', '.bundle')]
+bundle_executables = set()
+for bundle in [app, *bundles]:
+    for info in (bundle / 'Contents/Info.plist', bundle / 'Resources/Info.plist', bundle / 'Info.plist'):
+        if info.is_file():
+            executable = plistlib.loads(info.read_bytes()).get('CFBundleExecutable')
+            if executable:
+                for candidate in (bundle / 'Contents/MacOS' / executable, bundle / executable):
+                    if candidate.is_file():
+                        bundle_executables.add(candidate.resolve())
+            break
+# A aplicação não depende de um Info.plist ausente para excluir seu main nesta etapa.
+bundle_executables.add((app / 'Contents/MacOS/Seraflix').resolve())
+leaves = [p for p in files if p.resolve() not in bundle_executables]
+for path in sorted(leaves, key=lambda p: (p.suffix != '.dylib', -len(p.parts))):
     subprocess.run(['codesign', '--force', '--sign', args.identity, '--timestamp=none', str(path)], check=True)
-bundles = [p for p in app.rglob('*') if p.is_dir() and p.suffix in ('.framework', '.xpc', '.app', '.bundle')]
 for path in sorted(bundles, key=lambda p: len(p.parts), reverse=True):
     subprocess.run(['codesign', '--force', '--sign', args.identity, '--timestamp=none', str(path)], check=True)
 subprocess.run(['codesign', '--force', '--sign', args.identity, '--timestamp=none', str(app)], check=True)

@@ -112,7 +112,9 @@ final class MPVPlayer {
             // aqui evita depender do primeiro draw para liberar o VO do mpv.
             try prepareRenderer()
             try send(["set", "pause", "no"])
-            try send(["loadfile", url, "replace", "-1", "start=\(start)"])
+            // Opções por arquivo: não herdar IDs da mídia anterior e respeitar
+            // o estado inicial “legendas desligadas” da interface.
+            try send(["loadfile", url, "replace", "-1", "start=\(start),aid=auto,sid=no"])
             emitTime(force: true)
         case "play": try send(["set", "pause", "no"])
         case "pause": try send(["set", "pause", "yes"])
