@@ -11,6 +11,13 @@ import { spinnerLine } from '../ui.js';
 import { openItem } from './recommended.js';
 import { t } from '../lib/i18n.js';
 
+// Ícones das redes (traço em currentColor, como os da barra).
+const NET_ICON = {
+  instagram: '<svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="0.9" fill="currentColor" stroke="none"/></svg>',
+  tiktok: '<svg viewBox="0 0 24 24"><path d="M14 3.5v11a3.75 3.75 0 1 1-3.75-3.75"/><path d="M14 3.5c.6 2.6 2.5 4.4 5.5 4.6"/></svg>',
+  x: '<svg viewBox="0 0 24 24"><path d="M4 4l16 16"/><path d="M20 4L4 20"/></svg>',
+};
+
 export function openFilmography(person) {
   if (!person || !person.id) return;
   router.push(FilmographyView(person));
@@ -118,14 +125,25 @@ function FilmographyView(person) {
       socialEl.appendChild(
         h('div.fp-insta', { focusable: true, onSelect: () => showQr('@' + handle, url) }, [
           h('img.fp-qr', { src: qrDataUrl(url, 4), alt: '' }),
-          h('div', null, [h('b', { text: '@' + handle }), h('small', { text: t('Aponte a câmera do celular') })]),
+          h('div', null, [h('b', { html: NET_ICON.instagram + '<span></span>' }), h('small', { text: t('Aponte a câmera do celular') })]),
         ])
       );
     }
+    // Instagram ganha o QR na tela; as outras redes viram botões com o ícone (o QR abre ao apertar).
+    const insta = socialEl.querySelector('.fp-insta b span');
+    if (insta) insta.textContent = '@' + String(info.instagram).replace(/^@/, '');
     const others = [];
-    if (info.tiktok) others.push({ label: 'TikTok @' + info.tiktok, url: 'https://tiktok.com/@' + info.tiktok });
-    if (info.twitter) others.push({ label: 'X @' + info.twitter, url: 'https://x.com/' + info.twitter });
-    others.forEach((o) => socialEl.appendChild(h('div.chip.fp-net', { focusable: true, text: o.label, onSelect: () => showQr(o.label, o.url) })));
+    if (info.tiktok) others.push({ icon: NET_ICON.tiktok, label: '@' + info.tiktok, title: 'TikTok @' + info.tiktok, url: 'https://tiktok.com/@' + info.tiktok });
+    if (info.twitter) others.push({ icon: NET_ICON.x, label: '@' + info.twitter, title: 'X @' + info.twitter, url: 'https://x.com/' + info.twitter });
+    if (others.length) {
+      const nets = h('div.fp-nets');
+      others.forEach((o) => {
+        const chip = h('div.chip.fp-net', { focusable: true, html: o.icon + '<span></span>', onSelect: () => showQr(o.title, o.url) });
+        chip.lastChild.textContent = o.label;
+        nets.appendChild(chip);
+      });
+      socialEl.appendChild(nets);
+    }
     clear(bioEl);
     if (info.bio) {
       bioEl.appendChild(h('div.fp-bio-text', { text: info.bio }));

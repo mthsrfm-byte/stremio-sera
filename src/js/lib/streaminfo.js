@@ -2,6 +2,7 @@
 // resolução, HDR, Dolby Vision, áudio dublado/original, seeders e tamanho. Também escolhe a
 // fonte do "Smart Choice".
 import * as server from '../api/server.js';
+import * as store from './store.js';
 
 const FLAG_RE = /\uD83C[\uDDE6-\uDDFF]\uD83C[\uDDE6-\uDDFF]/g;
 const BR = '🇧🇷';
@@ -82,6 +83,34 @@ export function signalSvg(level) {
     bars += '<rect x="' + i * 6 + '" y="' + (20 - hgt) + '" width="4" height="' + hgt + '" rx="1.2" class="' + (i < level ? 'on' : 'off') + '"/>';
   }
   return '<svg class="sig" width="22" height="20" viewBox="0 0 22 20">' + bars + '</svg>';
+}
+
+// ---------- Fonte da última vez ----------
+// Ao parar no meio e continuar depois, o Smart Choice tenta a mesma fonte (mesmo torrent/arquivo).
+// A chave não usa a URL (links de debrid trocam a cada pedido): torrent pelo hash + arquivo,
+// o resto pelo addon + nome + primeira linha do título.
+export function streamKey(s) {
+  if (!s) return '';
+  if (s.infoHash) return 'h:' + String(s.infoHash).toLowerCase() + ':' + (s.fileIdx === undefined || s.fileIdx === null ? '' : s.fileIdx);
+  return 'n:' + (s.addon || '') + '|' + String(s.name || '').replace(/\s+/g, ' ') + '|' + String(s.title || s.description || '').split('\n')[0];
+}
+
+const LAST_KEY = 'lastStream';
+export function rememberStream(videoId, s) {
+  const key = streamKey(s);
+  if (!videoId || !key) return;
+  const all = store.get(LAST_KEY, {}) || {};
+  all[videoId] = { key: key, at: Date.now() };
+  // Guarda só os 300 mais recentes.
+  const ids = Object.keys(all).sort((a, b) => all[b].at - all[a].at);
+  ids.slice(300).forEach((id) => delete all[id]);
+  store.set(LAST_KEY, all);
+}
+
+export function rememberedStream(videoId, list) {
+  const last = (store.get(LAST_KEY, {}) || {})[videoId];
+  if (!last) return null;
+  return (list || []).filter((s) => streamKey(s) === last.key)[0] || null;
 }
 
 export function canPlay(s, serverOk) {
