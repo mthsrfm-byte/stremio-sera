@@ -518,7 +518,7 @@ function catName(entry) {
 
 function catalogRow(entry, parent) {
   const row = h('div.row', { 'data-anchor': '30' });
-  const sub = entry.extra && entry.extra.search ? t('busca no {site}', { site: siteName(entry.addon) }) : /creampie/i.test(entry.catalog.name || '') ? t('mais vistos primeiro') : siteName(entry.addon);
+  const sub = entry.extra && entry.extra.search ? t('busca no {site}', { site: siteName(entry.addon) }) : /creampie/i.test(entry.catalog.name || '') ? t('mais vistos') : siteName(entry.addon);
   const track = h('div.row-track.pending', { 'data-scroll-x': '', 'data-group': '', 'data-trap': '' }, skeletonCards());
   row.appendChild(h('div.row-title', null, [catName(entry), h('small', { text: sub })]));
   row.appendChild(track);
