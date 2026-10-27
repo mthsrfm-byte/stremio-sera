@@ -7036,15 +7036,23 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       if (modal.parentNode) modal.parentNode.removeChild(modal);
     }
   }
+  var ICONS = {
+    home: '<svg viewBox="0 0 24 24"><path d="M3.5 10.5 12 3.5l8.5 7"/><path d="M5.5 9v11h4.5v-6h4v6h4.5V9"/></svg>',
+    search: '<svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg>',
+    // Engrenagem no estilo do Feather Icons (licença MIT).
+    settings: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>'
+  };
   var TABS = [{
     id: "home",
-    label: "Início"
-  }, {
-    id: "recommended",
-    label: "Recomendado"
+    label: "Início",
+    icon: "home"
   }, {
     id: "search",
-    label: "Buscar"
+    label: "Buscar",
+    icon: "search"
+  }, {
+    id: "recommended",
+    label: "Favoritos"
   }, {
     id: "library",
     label: "Biblioteca"
@@ -7059,8 +7067,28 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
   }, {
     id: "settings",
-    label: "Ajustes"
+    label: "Ajustes",
+    icon: "settings",
+    right: true
   }];
+  function tabEl(tab, activeId, onTab) {
+    return h("div.tab", {
+      focusable: true,
+      "data-tab": tab.id,
+      title: t(tab.label),
+      cls: (tab.id === activeId ? "active" : "") + (tab.icon ? " icon" : "") + (tab.id === "nsfw" ? " tab-nsfw" : ""),
+      style: tab.when && !tab.when() ? {
+        display: "none"
+      } : null,
+      html: tab.icon ? ICONS[tab.icon] : null,
+      text: tab.icon ? null : t(tab.label),
+      onSelect: function onSelect() {
+        return tab.id === "nsfw" ? requirePin(function () {
+          return onTab(tab.id);
+        }) : onTab(tab.id);
+      }
+    });
+  }
   function topbar(activeId, onTab) {
     var clock = h("div.clock");
     var tick = function tick() {
@@ -7072,22 +7100,15 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       "data-group": ""
     }, [h("div.brand", {
       html: LOGO_HTML
-    }), TABS.map(function (tab) {
-      return h("div.tab", {
-        focusable: true,
-        "data-tab": tab.id,
-        cls: (tab.id === activeId ? "active" : "") + (tab.id === "nsfw" ? " tab-nsfw" : ""),
-        style: tab.when && !tab.when() ? {
-          display: "none"
-        } : null,
-        text: t(tab.label),
-        onSelect: function onSelect() {
-          return tab.id === "nsfw" ? requirePin(function () {
-            return onTab(tab.id);
-          }) : onTab(tab.id);
-        }
-      });
-    }), h("div.spacer"), profileButton(onTab), clock]);
+    }), TABS.filter(function (tab) {
+      return !tab.right;
+    }).map(function (tab) {
+      return tabEl(tab, activeId, onTab);
+    }), h("div.spacer"), TABS.filter(function (tab) {
+      return tab.right;
+    }).map(function (tab) {
+      return tabEl(tab, activeId, onTab);
+    }), profileButton(onTab), clock]);
     bar.__destroy = function () {
       return clearInterval(timer2);
     };
@@ -7123,9 +7144,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var p = activeProfile();
     clear(chip);
     chip.appendChild(avatar(p, "small"));
-    chip.appendChild(h("span", {
-      text: p.name
-    }));
+    chip.title = p.name;
   }
   function refreshProfileChips() {
     Array.prototype.forEach.call(document.querySelectorAll(".profile-chip"), fillChip);
@@ -13263,9 +13282,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "e80432540e0727c17af3128c4b2e41cfef2330d5",
-    date: "2026-10-27T06:05:30+00:00",
-    message: "Details: buttons before cast, focus starts on Watch, ring-and-grow cast focus instead of a box"
+    commit: "1e245ab1d9d85a34b4dcf7a9a0123bcc9a9b5975",
+    date: "2026-10-27T06:08:38+00:00",
+    message: "See-all grids: centered, always-full rows, auto-load at the last row, focus returns to last row after Load more"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -13323,13 +13342,38 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
 
   // src/js/lib/intro.js
-  var MIN_MS = 2200;
-  var SOUND_AT_MS = 950;
+  var MIN_MS = 2e3;
+  var SOUND_AT_MS = 450;
+  var OUT_MS = 950;
+  var RIBBON_COLORS = ["#3347FF", "#6E7BFF", "#A9B4F5", "#8A5CFF", "#FFFFFF", "#4C6BFF", "#C9BBFF"];
   var started = 0;
+  var sound = false;
+  function ribbons(boot2) {
+    var box = boot2.querySelector(".intro-ribbons");
+    if (!box || box.firstChild) return;
+    var seed = 7;
+    var rnd = function rnd() {
+      return (seed = (seed * 9301 + 49297) % 233280) / 233280;
+    };
+    for (var i = 0; i < 34; i++) {
+      var c = RIBBON_COLORS[i % RIBBON_COLORS.length];
+      var el = document.createElement("i");
+      el.style.left = (rnd() * 100).toFixed(1) + "%";
+      el.style.width = Math.round(4 + rnd() * 36) + "px";
+      el.style.background = "linear-gradient(to bottom, rgba(0,0,0,0), " + c + " 30%, " + c + " 70%, rgba(0,0,0,0))";
+      el.style.boxShadow = "0 0 " + Math.round(10 + rnd() * 22) + "px " + c;
+      el.style.webkitAnimationDelay = el.style.animationDelay = Math.round(rnd() * 260) + "ms";
+      box.appendChild(el);
+    }
+  }
   function play(withSound) {
     started = Date.now();
+    sound = !!withSound;
     var boot2 = document.getElementById("boot");
-    if (boot2) boot2.classList.add("run");
+    if (boot2) {
+      ribbons(boot2);
+      boot2.classList.add("run");
+    }
     if (withSound) setTimeout(playSound, SOUND_AT_MS);
     return new Promise(function (resolve) {
       return setTimeout(resolve, MIN_MS);
@@ -13340,10 +13384,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     if (!boot2) return;
     var wait = Math.max(0, MIN_MS - (Date.now() - started));
     setTimeout(function () {
+      ribbons(boot2);
       boot2.classList.add("out");
+      if (sound) playWhoosh();
       setTimeout(function () {
         return boot2.parentNode && boot2.parentNode.removeChild(boot2);
-      }, 600);
+      }, OUT_MS + 50);
     }, wait);
   }
   function showStatic() {
@@ -13367,6 +13413,53 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     setTimeout(function () {
       return ctx.close && ctx.close().catch(function () {});
     }, 2500);
+  }
+  function playWhoosh() {
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    var ctx;
+    try {
+      ctx = new AC();
+    } catch (e) {
+      return;
+    }
+    if (ctx.state === "suspended" && ctx.resume) ctx.resume().catch(function () {});
+    var t0 = ctx.currentTime + 0.02;
+    var dur = 0.85;
+    var len = Math.floor(ctx.sampleRate * dur);
+    var buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    var data = buf.getChannelData(0);
+    for (var i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+    var noise = ctx.createBufferSource();
+    noise.buffer = buf;
+    var band = ctx.createBiquadFilter();
+    band.type = "bandpass";
+    band.Q.value = 0.9;
+    band.frequency.setValueAtTime(350, t0);
+    band.frequency.exponentialRampToValueAtTime(2600, t0 + dur * 0.7);
+    var g = ctx.createGain();
+    g.gain.setValueAtTime(1e-4, t0);
+    g.gain.exponentialRampToValueAtTime(0.22, t0 + dur * 0.6);
+    g.gain.exponentialRampToValueAtTime(1e-4, t0 + dur);
+    noise.connect(band);
+    band.connect(g);
+    g.connect(ctx.destination);
+    noise.start(t0);
+    var boom = ctx.createOscillator();
+    boom.type = "sine";
+    boom.frequency.setValueAtTime(90, t0 + dur * 0.55);
+    boom.frequency.exponentialRampToValueAtTime(42, t0 + dur + 0.3);
+    var bg = ctx.createGain();
+    bg.gain.setValueAtTime(1e-4, t0 + dur * 0.55);
+    bg.gain.exponentialRampToValueAtTime(0.35, t0 + dur * 0.62);
+    bg.gain.exponentialRampToValueAtTime(1e-4, t0 + dur + 0.35);
+    boom.connect(bg);
+    bg.connect(ctx.destination);
+    boom.start(t0 + dur * 0.55);
+    boom.stop(t0 + dur + 0.4);
+    setTimeout(function () {
+      return ctx.close && ctx.close().catch(function () {});
+    }, 2e3);
   }
   function synth(ctx, out, t0) {
     var master = ctx.createGain();

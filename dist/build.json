@@ -1,6 +1,6 @@
 {
   "version": "1.2.0",
-  "commit": "e80432540e0727c17af3128c4b2e41cfef2330d5",
-  "date": "2026-10-27T06:05:30+00:00",
-  "message": "Details: buttons before cast, focus starts on Watch, ring-and-grow cast focus instead of a box"
+  "commit": "1e245ab1d9d85a34b4dcf7a9a0123bcc9a9b5975",
+  "date": "2026-10-27T06:08:38+00:00",
+  "message": "See-all grids: centered, always-full rows, auto-load at the last row, focus returns to last row after Load more"
 }

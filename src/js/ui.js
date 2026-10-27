@@ -97,16 +97,38 @@ export function confirmDialog(text, okLabel, onOk) {
   }
 }
 
-// Barra superior com as abas principais.
+// Ícones da barra (traço em currentColor, desenhados à mão: a fonte da TV não tem símbolos).
+const ICONS = {
+  home: '<svg viewBox="0 0 24 24"><path d="M3.5 10.5 12 3.5l8.5 7"/><path d="M5.5 9v11h4.5v-6h4v6h4.5V9"/></svg>',
+  search: '<svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg>',
+  // Engrenagem no estilo do Feather Icons (licença MIT).
+  settings:
+    '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
+};
+
+// Barra superior: à esquerda casinha, lupa e as abas; à direita engrenagem, perfil e relógio.
 export const TABS = [
-  { id: 'home', label: 'Início' },
-  { id: 'recommended', label: 'Recomendado' },
-  { id: 'search', label: 'Buscar' },
+  { id: 'home', label: 'Início', icon: 'home' },
+  { id: 'search', label: 'Buscar', icon: 'search' },
+  { id: 'recommended', label: 'Favoritos' },
   { id: 'library', label: 'Biblioteca' },
   { id: 'streamings', label: 'Streamings' },
   { id: 'nsfw', label: 'NSFW', when: () => addons.nsfwEnabled() },
-  { id: 'settings', label: 'Ajustes' },
+  { id: 'settings', label: 'Ajustes', icon: 'settings', right: true },
 ];
+
+function tabEl(tab, activeId, onTab) {
+  return h('div.tab', {
+    focusable: true,
+    'data-tab': tab.id,
+    title: t(tab.label),
+    cls: (tab.id === activeId ? 'active' : '') + (tab.icon ? ' icon' : '') + (tab.id === 'nsfw' ? ' tab-nsfw' : ''),
+    style: tab.when && !tab.when() ? { display: 'none' } : null,
+    html: tab.icon ? ICONS[tab.icon] : null,
+    text: tab.icon ? null : t(tab.label),
+    onSelect: () => (tab.id === 'nsfw' ? requirePin(() => onTab(tab.id)) : onTab(tab.id)),
+  });
+}
 
 export function topbar(activeId, onTab) {
   const clock = h('div.clock');
@@ -115,17 +137,9 @@ export function topbar(activeId, onTab) {
   const timer = setInterval(tick, 20000);
   const bar = h('div.topbar', { 'data-group': '' }, [
     h('div.brand', { html: LOGO_HTML }),
-    TABS.map((tab) =>
-      h('div.tab', {
-        focusable: true,
-        'data-tab': tab.id,
-        cls: (tab.id === activeId ? 'active' : '') + (tab.id === 'nsfw' ? ' tab-nsfw' : ''),
-        style: tab.when && !tab.when() ? { display: 'none' } : null,
-        text: t(tab.label),
-        onSelect: () => (tab.id === 'nsfw' ? requirePin(() => onTab(tab.id)) : onTab(tab.id)),
-      })
-    ),
+    TABS.filter((tab) => !tab.right).map((tab) => tabEl(tab, activeId, onTab)),
     h('div.spacer'),
+    TABS.filter((tab) => tab.right).map((tab) => tabEl(tab, activeId, onTab)),
     profileButton(onTab),
     clock,
   ]);
@@ -159,8 +173,9 @@ function profileButton(onTab) {
 function fillChip(chip) {
   const p = store.activeProfile();
   clear(chip);
+  // Só a inicial (no avatar): o nome inteiro fica no menu de perfis.
   chip.appendChild(avatar(p, 'small'));
-  chip.appendChild(h('span', { text: p.name }));
+  chip.title = p.name;
 }
 
 // Atualiza o avatar/nome em todas as barras (depois de renomear ou trocar a cor).
