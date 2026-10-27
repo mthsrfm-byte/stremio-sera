@@ -6315,9 +6315,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "e27fce9f58b46d1b020375199f060c49e25c320a",
-    date: "2026-10-27T15:56:01-03:00",
-    message: "Sincronizar legenda (automático e manual), PT-BR x PT-PT, correção de fps e protetor de tela (#50)"
+    commit: "b78bccca9547b2db4200dfc3e1bb3227edc25759",
+    date: "2026-10-27T20:44:27Z",
+    message: "README em português: o que é o Seraflix e as fontes do remix"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
