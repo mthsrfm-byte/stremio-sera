@@ -222,11 +222,10 @@ final class MPVPlayer {
                           let renderer = player.renderContext else { return }
                     if mpv_render_context_update(renderer) & UInt64(MPV_RENDER_UPDATE_FRAME.rawValue) != 0 {
                         // A WKWebView pode ocultar a surface para o rastreamento de
-                        // oclusão do AppKit, mesmo com pixels transparentes. Cumprir
-                        // o pedido do mpv diretamente no loop principal; não depender
-                        // de drawRect ser agendado por needsDisplay.
-                        player.surface.needsDisplay = false
-                        player.draw()
+                        // oclusão do AppKit, mesmo com pixels transparentes. Forçar
+                        // a pintura pelo AppKit para preservar o foco/drawable do
+                        // NSOpenGLView; makeCurrentContext sozinho não faz esse preparo.
+                        player.surface.displayIgnoringOpacity(player.surface.bounds)
                     }
                 }
             }, callbackContext)
