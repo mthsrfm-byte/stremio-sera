@@ -59,7 +59,9 @@ function PlayerView(opts) {
   const bufEl = h('div.buf');
   const knobEl = h('div.knob');
   const seekLabel = h('div.seek-label');
-  const bar = h('div.p-bar', { focusable: true, onSelect: () => togglePlay() }, [bufEl, posEl, knobEl, seekLabel]);
+  const previewImg = h('div.seek-preview-img');
+  const preview = h('div.seek-preview', null, previewImg);
+  const bar = h('div.p-bar', { focusable: true, onSelect: () => togglePlay() }, [bufEl, posEl, knobEl, preview, seekLabel]);
   const curTimeEl = h('span');
   const durEl = h('span');
   const playBtn = h('div.btn', { focusable: true, onSelect: () => togglePlay() });
@@ -891,8 +893,50 @@ function PlayerView(opts) {
     seekLabel.textContent = fmtTime(seekTarget);
     showControls(bar);
     updateTimes();
+    const withPreview = showPreview(seekTarget, d);
     clearTimeout(seekCommitTimer);
-    seekCommitTimer = setTimeout(commitSeek, 700);
+    // Com prévia, espera um pouco mais antes de pular: dá tempo de ver o quadro.
+    seekCommitTimer = setTimeout(commitSeek, withPreview ? 1400 : 700);
+  }
+
+  // Prévia ao avançar/voltar: o quadro daquele ponto, das miniaturas da linha do tempo que o
+  // addon manda junto com a fonte (stream.thumbs; hoje XVideos e Pornhub). Cada folha é uma
+  // imagem em grade; o quadro é recortado com background-position, sem decodificar vídeo.
+  const PREVIEW_W = 320;
+  const PREVIEW_H = 180;
+  const sheetCache = {};
+  function showPreview(time, duration) {
+    const th = stream && stream.thumbs;
+    if (!th || !th.urls || !th.urls.length || !(th.every > 0) || !(th.cols > 0) || !(th.rows > 0)) {
+      preview.classList.remove('on');
+      return false;
+    }
+    const per = th.cols * th.rows;
+    let i = Math.floor(time / th.every);
+    let sheet = Math.floor(i / per);
+    if (sheet >= th.urls.length) {
+      sheet = th.urls.length - 1;
+      i = sheet * per + per - 1;
+    }
+    const cell = i % per;
+    const url = th.urls[sheet];
+    // Folhas vizinhas já vão baixando (avançar segurando a seta passa por várias).
+    [sheet - 1, sheet, sheet + 1].forEach((n) => {
+      const u = th.urls[n];
+      if (!u || sheetCache[u]) return;
+      const img = new Image();
+      img.src = u;
+      sheetCache[u] = img;
+    });
+    previewImg.style.backgroundImage = 'url("' + url.replace(/"/g, '%22') + '")';
+    previewImg.style.backgroundSize = th.cols * PREVIEW_W + 'px ' + th.rows * PREVIEW_H + 'px';
+    previewImg.style.backgroundPosition = -(cell % th.cols) * PREVIEW_W + 'px ' + -Math.floor(cell / th.cols) * PREVIEW_H + 'px';
+    // Acompanha o ponto na barra sem sair das bordas.
+    const w = bar.offsetWidth || 1;
+    const x = Math.max(PREVIEW_W / 2, Math.min(w - PREVIEW_W / 2, (time / duration) * w));
+    preview.style.left = x + 'px';
+    preview.classList.add('on');
+    return true;
   }
 
   function commitSeek() {
@@ -904,6 +948,7 @@ function PlayerView(opts) {
     }
     seekTarget = null;
     bar.classList.remove('seeking');
+    preview.classList.remove('on');
     if (videoEl.paused) videoEl.play();
     scheduleHide();
   }
@@ -912,6 +957,7 @@ function PlayerView(opts) {
     clearTimeout(seekCommitTimer);
     seekTarget = null;
     bar.classList.remove('seeking');
+    preview.classList.remove('on');
     updateTimes();
   }
 

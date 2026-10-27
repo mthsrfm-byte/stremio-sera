@@ -14,7 +14,7 @@ var urlLib = require('url');
 
 var PORT = 8090;
 var ADDON_PORT = 8092; // addons XVideos/Pornhub e vídeo (porta nova a cada mudança que versões antigas não sabem largar)
-var SERVICE_VERSION = 8;
+var SERVICE_VERSION = 9;
 var PAGE_BASE = 'https://cdn.jsdelivr.net/gh/mthsrfm-byte/stremio-sera/remote/';
 var APP_NAME = 'Seraflix Controle';
 var TOKEN_FILE = '/home/owner/share/seraflixRemote.json';
@@ -353,9 +353,14 @@ function unhtml(s) {
 
 // Lê o array JSON que vem depois de "chave": no HTML, contando colchetes (e ignorando os que estão dentro de textos).
 function jsonArrayAfter(html, key) {
-  var i = html.indexOf('"' + key + '":[');
-  if (i < 0) return [];
-  var start = html.indexOf('[', i);
+  return jsonAfter(html, key, '[') || [];
+}
+
+// O mesmo para objeto ou array (open: '{' ou '['); null quando não acha.
+function jsonAfter(html, key, open) {
+  var i = html.indexOf('"' + key + '":' + open);
+  if (i < 0) return null;
+  var start = html.indexOf(open, i);
   var depth = 0;
   var inStr = false;
   for (var j = start; j < html.length; j++) {
@@ -368,11 +373,36 @@ function jsonArrayAfter(html, key) {
     else if (ch === ']' || ch === '}') {
       depth--;
       if (depth === 0) {
-        try { return JSON.parse(html.slice(start, j + 1)); } catch (e) { return []; }
+        try { return JSON.parse(html.slice(start, j + 1)); } catch (e) { return null; }
       }
     }
   }
-  return [];
+  return null;
+}
+
+// Miniaturas da linha do tempo (prévia ao avançar/voltar no player): imagens em grade que o próprio
+// site publica. { urls: [uma por folha], cols, rows, w, h (px de cada quadro), every (s por quadro) }.
+// XVideos: uma folha por minuto (mozaiquemin_0.jpg, _1...), 10×6 quadros de 208×117, um por segundo.
+function xvThumbs(html) {
+  var pattern = (html.match(/setThumbSlideMinute\('([^']+)'\)/) || [])[1];
+  var duration = parseInt(ogTag(html, 'duration'), 10);
+  if (!pattern || pattern.indexOf('NUM') < 0 || !(duration > 0)) return null;
+  var urls = [];
+  for (var n = 0; n < Math.ceil(duration / 60); n++) urls.push(pattern.replace('NUM', n));
+  return { urls: urls, cols: 10, rows: 6, w: 208, h: 117, every: 1 };
+}
+
+// Pornhub: "thumbs" da página (folhas 5×5 de 160×90, um quadro a cada samplingFrequency segundos).
+function phThumbs(html) {
+  var t = jsonAfter(html, 'thumbs', '{');
+  if (!t || !t.spritePatterns || !t.spritePatterns.length) return null;
+  var grid = String(t.format || '5x5').split('x');
+  return { urls: t.spritePatterns, cols: parseInt(grid[0], 10) || 5, rows: parseInt(grid[1], 10) || 5, w: parseInt(t.thumbWidth, 10) || 160, h: parseInt(t.thumbHeight, 10) || 90, every: Number(t.samplingFrequency) || 4 };
+}
+
+function withThumbs(list, thumbs) {
+  if (thumbs) list.forEach(function (s) { s.thumbs = thumbs; });
+  return list;
 }
 
 function attr(chunk, name) {
@@ -454,7 +484,9 @@ var TUBES = {
       if (hls) out.push({ name: 'XVideos\nHLS pela TV', title: 'Mesmo vídeo passando pelo serviço da TV', url: proxied(hls, 'hls.m3u8') });
       if (high) out.push({ name: 'XVideos\n360p', title: 'MP4 360p (mais leve)', url: high });
       if (high) out.push({ name: 'XVideos\n360p pela TV', title: 'MP4 360p passando pelo serviço da TV', url: proxied(high, 'video.mp4') });
-      return out;
+      var thumbs = null;
+      try { thumbs = xvThumbs(html); } catch (e) {}
+      return withThumbs(out, thumbs);
     }
   },
   ph: {
@@ -531,11 +563,13 @@ var TUBES = {
       function finish(hls, html) {
         var gm = '';
         try { gm = mp4Url(html); } catch (e) {}
-        if (!gm) return cb(null, build(hls, []));
+        var thumbs = null;
+        try { thumbs = phThumbs(html); } catch (e) {}
+        if (!gm) return cb(null, withThumbs(build(hls, []), thumbs));
         fetchText(gm, function (err, text) {
           var mp4 = [];
           try { mp4 = err ? [] : JSON.parse(text); } catch (e) {}
-          try { cb(null, build(hls, Array.isArray(mp4) ? mp4 : [])); } catch (e) { cb(e); }
+          try { cb(null, withThumbs(build(hls, Array.isArray(mp4) ? mp4 : []), thumbs)); } catch (e) { cb(e); }
         });
       }
       function build(hls, mp4) {
