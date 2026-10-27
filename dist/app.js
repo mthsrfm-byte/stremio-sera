@@ -7725,8 +7725,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return m ? m[0] : null;
   }
   var BUILTIN_KEYS = {
-    tmdbKey: true ? "9c57ed7ea044b2f01eea2fcc2e954c2e" : "",
-    mdblistKey: true ? "t9e4f1z29b3c36i1j25rul1wx" : ""
+    tmdbKey: true ? "" : "",
+    mdblistKey: true ? "" : ""
   };
   function keyOf(name) {
     return (settings()[name] || "").trim() || BUILTIN_KEYS[name];
@@ -13282,9 +13282,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "396349afdc3cca784ef7ae218922a674a860bd2b",
-    date: "2026-10-27T03:15:47-03:00",
-    message: "Correções de play, Smart Choice direto no player, perfil do ator, grade do Ver tudo, barra com ícones e nova abertura"
+    commit: "53be52fdc13dc99aeaa2645841ef8fc30762866e",
+    date: "2026-10-27T06:16:02+00:00",
+    message: "Build da dist/ para a TV"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -13342,38 +13342,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
 
   // src/js/lib/intro.js
-  var MIN_MS = 2e3;
-  var SOUND_AT_MS = 450;
-  var OUT_MS = 950;
-  var RIBBON_COLORS = ["#3347FF", "#6E7BFF", "#A9B4F5", "#8A5CFF", "#FFFFFF", "#4C6BFF", "#C9BBFF"];
+  var MIN_MS = 2200;
+  var SOUND_AT_MS = 950;
   var started = 0;
-  var sound = false;
-  function ribbons(boot2) {
-    var box = boot2.querySelector(".intro-ribbons");
-    if (!box || box.firstChild) return;
-    var seed = 7;
-    var rnd = function rnd() {
-      return (seed = (seed * 9301 + 49297) % 233280) / 233280;
-    };
-    for (var i = 0; i < 34; i++) {
-      var c = RIBBON_COLORS[i % RIBBON_COLORS.length];
-      var el = document.createElement("i");
-      el.style.left = (rnd() * 100).toFixed(1) + "%";
-      el.style.width = Math.round(4 + rnd() * 36) + "px";
-      el.style.background = "linear-gradient(to bottom, rgba(0,0,0,0), " + c + " 30%, " + c + " 70%, rgba(0,0,0,0))";
-      el.style.boxShadow = "0 0 " + Math.round(10 + rnd() * 22) + "px " + c;
-      el.style.webkitAnimationDelay = el.style.animationDelay = Math.round(rnd() * 260) + "ms";
-      box.appendChild(el);
-    }
-  }
   function play(withSound) {
     started = Date.now();
-    sound = !!withSound;
     var boot2 = document.getElementById("boot");
-    if (boot2) {
-      ribbons(boot2);
-      boot2.classList.add("run");
-    }
+    if (boot2) boot2.classList.add("run");
     if (withSound) setTimeout(playSound, SOUND_AT_MS);
     return new Promise(function (resolve) {
       return setTimeout(resolve, MIN_MS);
@@ -13384,12 +13359,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     if (!boot2) return;
     var wait = Math.max(0, MIN_MS - (Date.now() - started));
     setTimeout(function () {
-      ribbons(boot2);
       boot2.classList.add("out");
-      if (sound) playWhoosh();
       setTimeout(function () {
         return boot2.parentNode && boot2.parentNode.removeChild(boot2);
-      }, OUT_MS + 50);
+      }, 600);
     }, wait);
   }
   function showStatic() {
@@ -13413,53 +13386,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     setTimeout(function () {
       return ctx.close && ctx.close().catch(function () {});
     }, 2500);
-  }
-  function playWhoosh() {
-    var AC = window.AudioContext || window.webkitAudioContext;
-    if (!AC) return;
-    var ctx;
-    try {
-      ctx = new AC();
-    } catch (e) {
-      return;
-    }
-    if (ctx.state === "suspended" && ctx.resume) ctx.resume().catch(function () {});
-    var t0 = ctx.currentTime + 0.02;
-    var dur = 0.85;
-    var len = Math.floor(ctx.sampleRate * dur);
-    var buf = ctx.createBuffer(1, len, ctx.sampleRate);
-    var data = buf.getChannelData(0);
-    for (var i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
-    var noise = ctx.createBufferSource();
-    noise.buffer = buf;
-    var band = ctx.createBiquadFilter();
-    band.type = "bandpass";
-    band.Q.value = 0.9;
-    band.frequency.setValueAtTime(350, t0);
-    band.frequency.exponentialRampToValueAtTime(2600, t0 + dur * 0.7);
-    var g = ctx.createGain();
-    g.gain.setValueAtTime(1e-4, t0);
-    g.gain.exponentialRampToValueAtTime(0.22, t0 + dur * 0.6);
-    g.gain.exponentialRampToValueAtTime(1e-4, t0 + dur);
-    noise.connect(band);
-    band.connect(g);
-    g.connect(ctx.destination);
-    noise.start(t0);
-    var boom = ctx.createOscillator();
-    boom.type = "sine";
-    boom.frequency.setValueAtTime(90, t0 + dur * 0.55);
-    boom.frequency.exponentialRampToValueAtTime(42, t0 + dur + 0.3);
-    var bg = ctx.createGain();
-    bg.gain.setValueAtTime(1e-4, t0 + dur * 0.55);
-    bg.gain.exponentialRampToValueAtTime(0.35, t0 + dur * 0.62);
-    bg.gain.exponentialRampToValueAtTime(1e-4, t0 + dur + 0.35);
-    boom.connect(bg);
-    bg.connect(ctx.destination);
-    boom.start(t0 + dur * 0.55);
-    boom.stop(t0 + dur + 0.4);
-    setTimeout(function () {
-      return ctx.close && ctx.close().catch(function () {});
-    }, 2e3);
   }
   function synth(ctx, out, t0) {
     var master = ctx.createGain();
