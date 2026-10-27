@@ -9,6 +9,7 @@ var https = require('https');
 var tls = require('tls');
 var crypto = require('crypto');
 var fs = require('fs');
+var os = require('os');
 
 var PORT = 8090;
 var PAGE_BASE = 'https://cdn.jsdelivr.net/gh/mthsrfm-byte/stremio-sera/remote/';
@@ -120,6 +121,18 @@ function tvSend(params) {
   sendFrame(1, JSON.stringify({ method: 'ms.remote.control', params: params }));
 }
 
+// IP da TV na rede de casa (o primeiro IPv4 que não é o localhost).
+function lanIp() {
+  var ifaces = os.networkInterfaces();
+  for (var name in ifaces) {
+    for (var i = 0; i < ifaces[name].length; i++) {
+      var a = ifaces[name][i];
+      if ((a.family === 'IPv4' || a.family === 4) && !a.internal) return a.address;
+    }
+  }
+  return '';
+}
+
 // ---------- Página do controle (vem do GitHub via jsDelivr, com cache curto) ----------
 var pageCache = {};
 var TYPES = { html: 'text/html; charset=utf-8', svg: 'image/svg+xml', png: 'image/png', webmanifest: 'application/manifest+json', js: 'application/javascript' };
@@ -155,7 +168,8 @@ function readBody(req, cb) {
 }
 
 function json(res, code, obj) {
-  res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+  // CORS liberado: o app do Seraflix (em 127.0.0.1:8081) lê o /api/ip para montar o QR code.
+  res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' });
   res.end(JSON.stringify(obj));
 }
 
@@ -163,6 +177,7 @@ var FILES = ['index.html', 'icon.svg', 'icon-192.png', 'icon-512.png', 'apple-to
 
 var server = http.createServer(function (req, res) {
   var url = req.url.split('?')[0];
+  if (url === '/api/ip') return json(res, 200, { ip: lanIp() });
   if (url === '/api/status') {
     if (tv.state !== 'on') tvConnect();
     return json(res, 200, { tv: tv.state });

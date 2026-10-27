@@ -26,7 +26,8 @@
     "@webos-tools/cli": "^3.2.6",
     "acorn": "^8.19.0",
     "core-js": "^3.45.0",
-    "esbuild": "^0.25.0"
+    "esbuild": "^0.25.0",
+    "qrcode-generator": "^1.4.4"
   },
   "repository": {
     "type": "git",
