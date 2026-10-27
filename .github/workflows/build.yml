@@ -52,7 +52,16 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git commit -m "Build da dist/ para a TV"
-            git push
+            # A publicação do bundle Mac também avança a main; reaplica este commit sem perder a dist/.
+            pushed=false
+            for attempt in 1 2 3; do
+              git pull --rebase origin main
+              if git push; then
+                pushed=true
+                break
+              fi
+            done
+            if [ "$pushed" != true ]; then exit 1; fi
           fi
 
       - name: Limpar cache do jsDelivr
