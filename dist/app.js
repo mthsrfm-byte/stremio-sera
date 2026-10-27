@@ -7743,8 +7743,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return m ? m[0] : null;
   }
   var BUILTIN_KEYS = {
-    tmdbKey: true ? "" : "",
-    mdblistKey: true ? "" : ""
+    tmdbKey: true ? "9c57ed7ea044b2f01eea2fcc2e954c2e" : "",
+    mdblistKey: true ? "t9e4f1z29b3c36i1j25rul1wx" : ""
   };
   function keyOf(name) {
     return (settings()[name] || "").trim() || BUILTIN_KEYS[name];
@@ -13523,9 +13523,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "ce9b45d3b3fb7d08cd0402478d8938171c7fde5d",
-    date: "2026-10-27T07:54:17+00:00",
-    message: "Versão web do Seraflix no GitHub Pages, atrás de senha"
+    commit: "63c4986824aa36c4dde8644eb307dd28041d3370",
+    date: "2026-10-27T07:55:38Z",
+    message: "Refina animações da versão web"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
