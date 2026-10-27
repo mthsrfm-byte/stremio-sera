@@ -15,8 +15,19 @@ function imdbOf(id) {
   return m ? m[0] : null;
 }
 
+// Chaves embutidas no build pela GitHub Action (secrets TMDB_API_KEY / MDBLIST_API_KEY).
+// A digitada em Ajustes, se houver, tem prioridade.
+export const BUILTIN_KEYS = {
+  tmdbKey: typeof __KAI_TMDB__ !== 'undefined' ? __KAI_TMDB__ : '',
+  mdblistKey: typeof __KAI_MDBLIST__ !== 'undefined' ? __KAI_MDBLIST__ : '',
+};
+
+function keyOf(name) {
+  return (store.settings()[name] || '').trim() || BUILTIN_KEYS[name];
+}
+
 function tmdbKey() {
-  return (store.settings().tmdbKey || '').trim();
+  return keyOf('tmdbKey');
 }
 
 export function hasTmdb() {
@@ -85,7 +96,7 @@ export function seasonPt(tmdbId, season) {
 
 // ---------- Notas ----------
 function mdblist(meta) {
-  const key = (store.settings().mdblistKey || '').trim();
+  const key = keyOf('mdblistKey');
   const imdb = imdbOf(meta.id);
   if (!key || !imdb) return Promise.resolve([]);
   const type = meta.type === 'series' ? 'show' : 'movie';

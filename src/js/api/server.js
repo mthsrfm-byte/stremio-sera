@@ -2,7 +2,7 @@
 // Ele baixa torrents e entrega à TV por HTTP; também expõe /tracks para as faixas embutidas.
 import { getJSON, postJSON } from '../lib/http.js';
 import * as store from '../lib/store.js';
-import { getTvIp } from '../lib/luna.js';
+import { getTvIp } from '../lib/tv.js';
 import { t } from '../lib/i18n.js';
 
 let status = { ok: false, checkedAt: 0, url: '' };

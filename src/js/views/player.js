@@ -2,7 +2,6 @@
 import { h, clear } from '../lib/dom.js';
 import * as nav from '../lib/nav.js';
 import { KEY } from '../lib/nav.js';
-import { luna, hasLuna, closeHeavyBackgroundApps } from '../lib/luna.js';
 import * as subs from '../lib/subs.js';
 import * as substyle from '../lib/substyle.js';
 import * as store from '../lib/store.js';
@@ -121,7 +120,6 @@ function PlayerView(opts) {
     currentSub = { kind: 'off' };
     segments = [];
     segmentsLoaded = false;
-    nativeOffDone = false;
     hideSkip();
     server
       .toPlayable(stream, seriesInfo())
@@ -130,7 +128,7 @@ function PlayerView(opts) {
         mediaUrl = res.url;
         viaServer = res.viaServer;
         log.info('Tocando', mediaUrl);
-        // Só src + autoplay, como o player oficial do Stremio no webOS: load()/play() extras
+        // Só src + autoplay, como o player oficial do Stremio para TV: load()/play() extras
         // faziam a TV abrir o stream duas vezes.
         hasPlayed = false;
         videoEl.autoplay = true;
@@ -372,7 +370,7 @@ function PlayerView(opts) {
     videoEl.addEventListener(ev, () => diag(ev))
   );
 
-  // O player do webOS às vezes para de pedir dados no meio de arquivos longos via HTTP
+  // O player da TV às vezes para de pedir dados no meio de arquivos longos via HTTP
   // e fica "carregando" para sempre. Se o tempo não anda por 15s sem pausa, reabre o stream no mesmo ponto.
   let lastT = -1;
   let hasPlayed = false; // só vigia depois que o vídeo começou (o torrent pode demorar a iniciar)
@@ -409,10 +407,8 @@ function PlayerView(opts) {
     );
   }
 
-  // Memória: fecha apps pesados que o webOS deixa em segundo plano (ex.: Netflix ~80 MB)
-  // e pede para a tela inicial soltar as fileiras enquanto o vídeo toca.
+  // Memória: pede para a tela inicial soltar as fileiras enquanto o vídeo toca.
   function freeBackgroundMemory() {
-    closeHeavyBackgroundApps().then((closed) => closed.length && log.info('Apps fechados em segundo plano: ' + closed.join(', ')));
     const home = router.tabView('home');
     if (home && home.freeMemory) home.freeMemory();
   }
@@ -469,12 +465,6 @@ function PlayerView(opts) {
       hasPlayed = false;
       videoEl.autoplay = true;
       videoEl.src = src;
-      nativeOffDone = false;
-      // Legenda embutida nativa precisa ser reaplicada no novo mediaId.
-      if (currentSub.kind === 'embedded' && !currentSub.extracted) {
-        const idx = currentSub.index;
-        setTimeout(() => alive && selectEmbeddedSub(idx), 2500);
-      }
     }, 300);
   }
 
@@ -626,11 +616,6 @@ function PlayerView(opts) {
   }
 
   // ---------- Faixas ----------
-  function mediaId() {
-    const id = String(videoEl.mediaId || '').trim();
-    return id && id !== '<invalid mediaId>' ? id : null;
-  }
-
   function selectEmbeddedAudio(index) {
     const native = videoEl.audioTracks;
     if (native && native.length > index) {
@@ -638,20 +623,7 @@ function PlayerView(opts) {
       currentAudio = index;
       return;
     }
-    const id = mediaId();
-    if (!id || !hasLuna()) return toast(t('Troca de áudio indisponível agora.'));
-    luna('luna://com.webos.media', 'selectTrack', { mediaId: id, type: 'audio', index: index })
-      .then(() => (currentAudio = index))
-      .catch((e) => toast(t('Falha ao trocar áudio: {msg}', { msg: e.message })));
-  }
-
-  // O player da TV às vezes liga sozinho a legenda padrão do MKV; desliga assim que houver mediaId.
-  let nativeOffDone = false;
-  function nativeSubsOff() {
-    const id = mediaId();
-    if (!id || !hasLuna()) return;
-    nativeOffDone = true;
-    luna('luna://com.webos.media', 'setSubtitleEnable', { mediaId: id, enable: false }).catch(() => {});
+    toast(t('Troca de áudio indisponível agora.'));
   }
 
   // Legenda embutida: se o arquivo já está 100% no PC, o servidor extrai a faixa (WebVTT, blocos
@@ -667,7 +639,6 @@ function PlayerView(opts) {
   }
 
   function extractedSub(index) {
-    nativeSubsOff();
     const cs = { kind: 'embedded', index: index, extracted: true, sid: 'kai' + Math.random().toString(36).slice(2), segs: {}, cues: [], busy: false };
     currentSub = cs;
     ensureSegments();
@@ -698,31 +669,13 @@ function PlayerView(opts) {
       .then(() => (cs.busy = false));
   }
 
-  function nativeEmbeddedSub(index) {
-    const id = mediaId();
-    if (!id || !hasLuna()) {
-      // mediaId pode demorar a existir logo após abrir o vídeo.
-      setTimeout(() => alive && mediaId() && nativeEmbeddedSub(index), 1200);
-      return;
-    }
-    substyle.applyNative(id, store.settings());
-    luna('luna://com.webos.media', 'setSubtitleEnable', { mediaId: id, enable: true })
-      .then(() => luna('luna://com.webos.media', 'selectTrack', { mediaId: id, type: 'text', index: index }))
-      .then(() => {
-        currentSub = { kind: 'embedded', index: index };
-      })
-      .catch((e) => toast(t('Falha na legenda embutida: {msg}', { msg: e.message })));
-  }
-
-  function disableEmbeddedSubs() {
-    const id = mediaId();
-    if (id && hasLuna() && currentSub.kind === 'embedded' && !currentSub.extracted) {
-      luna('luna://com.webos.media', 'setSubtitleEnable', { mediaId: id, enable: false }).catch(() => {});
-    }
+  // Sem o arquivo inteiro no PC não dá para extrair a faixa; o player HTML5 da TV não mostra
+  // legenda embutida sozinho (falta o player nativo da Samsung, AVPlay).
+  function nativeEmbeddedSub() {
+    toast(t('Essa legenda embutida só aparece com o arquivo inteiro baixado no PC. Tente uma legenda dos addons.'), 5000);
   }
 
   function selectAddonSub(s, silent) {
-    disableEmbeddedSubs();
     currentSub = { kind: 'addon', id: s.id || s.url };
     subs
       .load(s.url, server.subtitlesProxy(s.url))
@@ -803,7 +756,6 @@ function PlayerView(opts) {
       onPick: (v) => {
         if (v.kind === 'off' || v.kind === 'embedded' || v.kind === 'addon') autoDone.sub = true;
         if (v.kind === 'off') {
-          disableEmbeddedSubs();
           renderer.clear();
           currentSub = { kind: 'off' };
         } else if (v.kind === 'embedded') selectEmbeddedSub(v.index);
@@ -833,7 +785,6 @@ function PlayerView(opts) {
         onPick: (v) => {
           const next = store.saveSettings({ subtitleSize: v });
           substyle.apply(subsEl, next);
-          if (currentSub.kind === 'embedded') substyle.applyNative(mediaId(), next);
         },
       }
     );
@@ -977,7 +928,6 @@ function PlayerView(opts) {
           if (controlsOn) updateTimes();
           renderer.update(videoEl.currentTime);
           checkSkip();
-          if (!nativeOffDone && !(currentSub.kind === 'embedded' && !currentSub.extracted)) nativeSubsOff();
           if (currentSub.extracted) ensureSegments();
         }, 250);
         saveTimer = setInterval(() => {
@@ -1001,7 +951,6 @@ function PlayerView(opts) {
       clearInterval(statusTimer);
       clearTimeout(hideTimer);
       clearTimeout(seekCommitTimer);
-      disableEmbeddedSubs();
       try {
         videoEl.pause();
         videoEl.removeAttribute('src');

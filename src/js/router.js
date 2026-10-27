@@ -1,6 +1,6 @@
 // Pilha de telas. Cada tela: { el, layer, onShow, onHide, onBack, destroy }.
 import * as nav from './lib/nav.js';
-import { platformBack } from './lib/luna.js';
+import { platformBack } from './lib/tv.js';
 import { confirmDialog } from './ui.js';
 import { loadVisibleImages, unloadImages } from './lib/dom.js';
 import { t } from './lib/i18n.js';

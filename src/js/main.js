@@ -1,4 +1,4 @@
-// Ponto de entrada do Stremio Kai para webOS.
+// Ponto de entrada do Seraflix (Samsung Tizen, via TizenBrew).
 import './polyfills.js';
 import { log } from './lib/log.js';
 import { t, init as initI18n } from './lib/i18n.js';
@@ -15,7 +15,6 @@ import { LibraryView } from './views/library.js';
 import { SettingsView } from './views/settings.js';
 import { CalendarView } from './views/calendar.js';
 import { maybeShowWizard } from './views/wizard.js';
-import { openPlayer } from './views/player.js';
 import { toast } from './ui.js';
 import * as update from './api/update.js';
 import * as profiles from './views/profiles.js';
@@ -61,10 +60,6 @@ function boot() {
   } else start();
 
   // Ao voltar do segundo plano, revalida o servidor do PC.
-  document.addEventListener('webOSRelaunch', () => {
-    server.check();
-    devLaunch();
-  });
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) server.check();
   });
@@ -97,7 +92,6 @@ function start() {
         });
       });
     } else maybeShowWizard();
-    devLaunch();
     // Avisa se saiu versão nova no GitHub (instala em Ajustes → Procurar atualização).
     setTimeout(() => {
       update
@@ -105,30 +99,6 @@ function start() {
         .then((info) => info.isNew && toast(t('Tem Seraflix novo saindo do forno! Ajustes → Procurar atualização'), 7000))
         .catch(() => {});
     }, 8000);
-  });
-}
-
-// Só em builds de desenvolvimento (KAI_DEVLOG): abre o player direto com uma URL passada pelo
-// luna-send (params.devPlay), para reproduzir travamentos sem precisar navegar com o controle.
-function devLaunch() {
-  if (!__KAI_DEVLOG__ || !window.PalmSystem) return;
-  let params = {};
-  try {
-    params = JSON.parse(window.PalmSystem.launchParams || '{}') || {};
-  } catch (e) {
-    return;
-  }
-  // devPlay64: URL em base64 (o webOS escapa "&" nos parâmetros de lançamento).
-  if (params.devPlay64) params.devPlay = window.atob(params.devPlay64);
-  if (!params.devPlay) return;
-  log.info('devPlay', params.devPlay);
-  openPlayer({
-    meta: { id: 'dev', type: 'movie', name: params.devTitle || 'Teste' },
-    video: { id: 'dev' },
-    stream: { url: params.devPlay },
-    streams: [],
-    startTime: (params.devStart || 0) * 1000,
-    isSeries: false,
   });
 }
 

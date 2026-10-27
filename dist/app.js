@@ -5158,8 +5158,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     RIGHT: 39,
     DOWN: 40,
     ENTER: 13,
-    BACK: TIZEN ? 10009 : 461,
-    // Samsung Return / LG Back
+    BACK: 10009,
+    // Samsung Return (no PC: Esc ou Backspace)
     ESC: 27,
     BACKSPACE: 8,
     PLAY: 415,
@@ -5569,8 +5569,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var DEFAULT_SETTINGS = {
     // TV
     serverUrl: "",
-    tmdbKey: true ? "" : "",
-    mdblistKey: true ? "" : "",
+    tmdbKey: "",
+    // vazio = usa a chave embutida no build (BUILTIN_KEYS em api/extras.js), se houver
+    mdblistKey: "",
     smoothScroll: false,
     // rolagem animada (mais bonita, mais pesada na TV)
     devlogUrl: true ? "" : "",
@@ -5889,66 +5890,27 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
   }
 
-  // src/js/lib/luna.js
-  var pending = /* @__PURE__ */new Set();
-  function hasLuna() {
-    return typeof window.PalmServiceBridge === "function";
-  }
-  function luna(service, method, params) {
-    return new Promise(function (resolve2, reject) {
-      if (!hasLuna()) return reject(new Error("Luna indisponível"));
-      var bridge = new window.PalmServiceBridge();
-      pending.add(bridge);
-      bridge.onservicecallback = function (msg) {
-        pending.delete(bridge);
-        var res;
-        try {
-          res = JSON.parse(msg);
-        } catch (e) {
-          return reject(new Error("Resposta Luna inválida"));
-        }
-        if (res && res.returnValue === false) {
-          var err = new Error(service + "/" + method + ": " + (res.errorText || res.errorCode || "falhou"));
-          err.result = res;
-          reject(err);
-        } else resolve2(res);
-      };
-      bridge.call(service.replace(/\/$/, "") + "/" + method, JSON.stringify(params || {}));
-    });
-  }
+  // src/js/lib/tv.js
   function platformBack() {
     try {
       if (window.tizen && window.tizen.application) return window.tizen.application.getCurrentApplication().exit();
-      if (window.webOSSystem && window.webOSSystem.platformBack) return window.webOSSystem.platformBack();
-      if (window.PalmSystem && window.PalmSystem.platformBack) return window.PalmSystem.platformBack();
     } catch (e) {}
     window.close();
   }
   function getTvIp() {
-    if (!hasLuna()) return tizenIp();
-    return luna("luna://com.webos.service.connectionmanager", "getStatus", {}).then(function (r) {
-      var w = r.wired && r.wired.ipAddress || r.wifi && r.wifi.ipAddress;
-      if (!w) throw new Error("Sem IP");
-      return w;
-    });
+    return tizenIp();
   }
   function deviceInfo() {
     var pi = window.webapis && window.webapis.productinfo;
     if (pi) {
       return Promise.resolve({
         modelName: pi.getRealModel ? pi.getRealModel() : pi.getModel(),
-        firmwareVersion: pi.getFirmware(),
-        sdkVersion: "",
-        platform: "Tizen"
+        firmwareVersion: pi.getFirmware()
       });
     }
-    if (isTizen()) return Promise.resolve({
+    return Promise.resolve({
       modelName: "Samsung",
-      firmwareVersion: "",
-      sdkVersion: ""
-    });
-    return luna("luna://com.webos.service.tv.systemproperty", "getSystemInfo", {
-      keys: ["modelName", "firmwareVersion", "sdkVersion"]
+      firmwareVersion: ""
     });
   }
   function tizenIp() {
@@ -5983,30 +5945,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       pc.createOffer(function (o) {
         return pc.setLocalDescription(o, function () {}, function () {});
       }, function () {});
-    });
-  }
-  var HEAVY = /netflix|youtube|amazon|primevideo|disney|hbo|\.max\b|globoplay|spotify|twitch|plex|crunchyroll|paramount|starplus|appletv/i;
-  function closeHeavyBackgroundApps() {
-    if (!hasLuna()) return Promise.resolve([]);
-    return luna("luna://com.webos.applicationManager", "running", {}).then(function (r) {
-      var ids = (r && r.running || []).map(function (a) {
-        return a.id;
-      }).filter(function (id) {
-        return id && HEAVY.test(id);
-      });
-      return Promise.all(ids.map(function (id) {
-        return luna("luna://com.webos.applicationManager", "closeByAppId", {
-          id: id
-        }).then(function () {
-          return id;
-        }).catch(function () {
-          return null;
-        });
-      })).then(function (list2) {
-        return list2.filter(Boolean);
-      });
-    }).catch(function () {
-      return [];
     });
   }
 
@@ -6965,8 +6903,15 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var m = String(id || "").match(/^tt\d+/);
     return m ? m[0] : null;
   }
+  var BUILTIN_KEYS = {
+    tmdbKey: true ? "" : "",
+    mdblistKey: true ? "" : ""
+  };
+  function keyOf(name) {
+    return (settings()[name] || "").trim() || BUILTIN_KEYS[name];
+  }
   function tmdbKey() {
-    return (settings().tmdbKey || "").trim();
+    return keyOf("tmdbKey");
   }
   function hasTmdb() {
     return !!tmdbKey();
@@ -7059,7 +7004,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
   }
   function mdblist(meta) {
-    var key = (settings().mdblistKey || "").trim();
+    var key = keyOf("mdblistKey");
     var imdb = imdbOf(meta.id);
     if (!key || !imdb) return Promise.resolve([]);
     var type = meta.type === "series" ? "show" : "movie";
@@ -7353,10 +7298,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     label: "Montserrat",
     css: "'Montserrat', sans-serif"
   }, {
-    id: "tv",
-    label: "Fonte da TV (LG)",
-    css: "'LG Display', 'Museo Sans', sans-serif"
-  }, {
     id: "classic",
     label: "Clássica (Arial)",
     css: "Arial, Helvetica, sans-serif"
@@ -7376,36 +7317,29 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }];
   var COLORS2 = [{
     id: "#ffffff",
-    label: "Branco",
-    webos: "white"
+    label: "Branco"
   }, {
     id: "#ffe14d",
-    label: "Amarelo",
-    webos: "yellow"
+    label: "Amarelo"
   }, {
     id: "#dcdcdc",
-    label: "Cinza claro",
-    webos: "white"
+    label: "Cinza claro"
   }, {
     id: "#8ff0ff",
-    label: "Ciano",
-    webos: "blue"
+    label: "Ciano"
   }];
   var POSITIONS = [{
     id: "low",
     label: "Baixa",
-    bottom: 56,
-    webos: -3
+    bottom: 56
   }, {
     id: "mid",
     label: "Média",
-    bottom: 120,
-    webos: 0
+    bottom: 120
   }, {
     id: "high",
     label: "Alta",
-    bottom: 200,
-    webos: 2
+    bottom: 200
   }];
   var SIZES = [70, 85, 100, 115, 130, 150];
   var BASE_PX = 64;
@@ -7430,38 +7364,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     el.style.textShadow = SHADOWS[s.subtitleStyle] || SHADOWS.kai;
     el.style.bottom = pos.bottom + "px";
     el.classList.toggle("box", s.subtitleStyle === "box");
-  }
-  function applyNative(mediaId, s) {
-    if (!hasLuna() || !mediaId) return;
-    var size = s.subtitleSize || 100;
-    var fontSize = size <= 85 ? 0 : size <= 100 ? 1 : size <= 125 ? 2 : size <= 150 ? 3 : 4;
-    var color = find(COLORS2, s.subtitleColor).webos;
-    var box = s.subtitleStyle === "box";
-    var calls = {
-      setSubtitleCharacterColor: {
-        charColor: color
-      },
-      setSubtitleFontSize: {
-        fontSize: fontSize
-      },
-      setSubtitlePosition: {
-        position: find(POSITIONS, s.subtitlePosition).webos
-      },
-      setSubtitleBackgroundColor: {
-        bgColor: "black"
-      },
-      setSubtitleBackgroundOpacity: {
-        bgOpacity: box ? 190 : 0
-      },
-      setSubtitleCharacterOpacity: {
-        charOpacity: 255
-      }
-    };
-    Object.keys(calls).forEach(function (m) {
-      luna("luna://com.webos.media", m, Object.assign({
-        mediaId: mediaId
-      }, calls[m])).catch(function () {});
-    });
   }
   function labels(s) {
     return {
@@ -7763,7 +7665,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       };
       segments = [];
       segmentsLoaded = false;
-      nativeOffDone = false;
       hideSkip();
       toPlayable(stream, seriesInfo()).then(function (res) {
         if (!alive) return;
@@ -8035,9 +7936,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       });
     }
     function freeBackgroundMemory() {
-      closeHeavyBackgroundApps().then(function (closed) {
-        return closed.length && log.info("Apps fechados em segundo plano: " + closed.join(", "));
-      });
       var home = tabView("home");
       if (home && home.freeMemory) home.freeMemory();
     }
@@ -8090,13 +7988,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         hasPlayed = false;
         videoEl.autoplay = true;
         videoEl.src = src;
-        nativeOffDone = false;
-        if (currentSub.kind === "embedded" && !currentSub.extracted) {
-          var idx = currentSub.index;
-          setTimeout(function () {
-            return alive && selectEmbeddedSub(idx);
-          }, 2500);
-        }
       }, 300);
     }
     function fail(text, offerTranscode) {
@@ -8243,10 +8134,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       bar.classList.remove("seeking");
       updateTimes();
     }
-    function mediaId() {
-      var id = String(videoEl.mediaId || "").trim();
-      return id && id !== "<invalid mediaId>" ? id : null;
-    }
     function selectEmbeddedAudio(index) {
       var native = videoEl.audioTracks;
       if (native && native.length > index) {
@@ -8254,29 +8141,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         currentAudio = index;
         return;
       }
-      var id = mediaId();
-      if (!id || !hasLuna()) return toast(t("Troca de áudio indisponível agora."));
-      luna("luna://com.webos.media", "selectTrack", {
-        mediaId: id,
-        type: "audio",
-        index: index
-      }).then(function () {
-        return currentAudio = index;
-      }).catch(function (e) {
-        return toast(t("Falha ao trocar áudio: {msg}", {
-          msg: e.message
-        }));
-      });
-    }
-    var nativeOffDone = false;
-    function nativeSubsOff() {
-      var id = mediaId();
-      if (!id || !hasLuna()) return;
-      nativeOffDone = true;
-      luna("luna://com.webos.media", "setSubtitleEnable", {
-        mediaId: id,
-        enable: false
-      }).catch(function () {});
+      toast(t("Troca de áudio indisponível agora."));
     }
     function selectEmbeddedSub(index) {
       renderer.clear();
@@ -8286,7 +8151,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       });
     }
     function extractedSub(index) {
-      nativeSubsOff();
       var cs = {
         kind: "embedded",
         index: index,
@@ -8331,46 +8195,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         return cs.busy = false;
       });
     }
-    function nativeEmbeddedSub(index) {
-      var id = mediaId();
-      if (!id || !hasLuna()) {
-        setTimeout(function () {
-          return alive && mediaId() && nativeEmbeddedSub(index);
-        }, 1200);
-        return;
-      }
-      applyNative(id, settings());
-      luna("luna://com.webos.media", "setSubtitleEnable", {
-        mediaId: id,
-        enable: true
-      }).then(function () {
-        return luna("luna://com.webos.media", "selectTrack", {
-          mediaId: id,
-          type: "text",
-          index: index
-        });
-      }).then(function () {
-        currentSub = {
-          kind: "embedded",
-          index: index
-        };
-      }).catch(function (e) {
-        return toast(t("Falha na legenda embutida: {msg}", {
-          msg: e.message
-        }));
-      });
-    }
-    function disableEmbeddedSubs() {
-      var id = mediaId();
-      if (id && hasLuna() && currentSub.kind === "embedded" && !currentSub.extracted) {
-        luna("luna://com.webos.media", "setSubtitleEnable", {
-          mediaId: id,
-          enable: false
-        }).catch(function () {});
-      }
+    function nativeEmbeddedSub() {
+      toast(t("Essa legenda embutida só aparece com o arquivo inteiro baixado no PC. Tente uma legenda dos addons."), 5e3);
     }
     function selectAddonSub(s, silent) {
-      disableEmbeddedSubs();
       currentSub = {
         kind: "addon",
         id: s.id || s.url
@@ -8490,7 +8318,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         onPick: function onPick(v) {
           if (v.kind === "off" || v.kind === "embedded" || v.kind === "addon") autoDone.sub = true;
           if (v.kind === "off") {
-            disableEmbeddedSubs();
             renderer.clear();
             currentSub = {
               kind: "off"
@@ -8529,7 +8356,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             subtitleSize: v
           });
           apply(subsEl, next);
-          if (currentSub.kind === "embedded") applyNative(mediaId(), next);
         }
       });
     }
@@ -8669,7 +8495,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             if (controlsOn) updateTimes();
             renderer.update(videoEl.currentTime);
             checkSkip();
-            if (!nativeOffDone && !(currentSub.kind === "embedded" && !currentSub.extracted)) nativeSubsOff();
             if (currentSub.extracted) ensureSegments();
           }, 250);
           saveTimer = setInterval(function () {
@@ -8694,7 +8519,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         clearInterval(statusTimer);
         clearTimeout(hideTimer);
         clearTimeout(seekCommitTimer);
-        disableEmbeddedSubs();
         try {
           videoEl.pause();
           videoEl.removeAttribute("src");
@@ -9401,13 +9225,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       cwRow.appendChild(track);
       loadVisibleImages(cwRow);
     }
-    var pending2 = [];
+    var pending = [];
     var active = 0;
     function loadNearby() {
       if (el.offsetParent === null) return;
       var limit = window.innerHeight * 2.2;
       var _loop5 = function _loop5() {
-          var p = pending2[i];
+          var p = pending[i];
           if (p.state !== "idle") return 0; // continue
           if (!p.row.parentNode) {
             p.state = "done";
@@ -9423,7 +9247,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           });
         },
         _ret3;
-      for (var i = 0; i < pending2.length && active < 2; i++) {
+      for (var i = 0; i < pending.length && active < 2; i++) {
         _ret3 = _loop5();
         if (_ret3 === 0) continue;
         if (_ret3 === 1) break;
@@ -9431,7 +9255,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
     function renderBoard() {
       loadedBoard = true;
-      pending2 = [];
+      pending = [];
       clear(rows);
       rows.appendChild(spinnerLine(t("Carregando catálogos...")));
       load().then(function () {
@@ -9440,7 +9264,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         if (!cats.length) rows.appendChild(h("div.row-empty", {
           text: t("Nenhum catálogo. Entre na sua conta em Ajustes.")
         }));
-        pending2 = cats.map(function (c) {
+        pending = cats.map(function (c) {
           return Object.assign(buildRow(c, rows), {
             state: "idle"
           });
@@ -9472,7 +9296,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       },
       // Chamado quando um vídeo começa: solta as fileiras (o catálogo volta do cache ao retornar).
       freeMemory: function freeMemory() {
-        pending2 = [];
+        pending = [];
         clear(rows);
         loadedBoard = false;
       },
@@ -9745,7 +9569,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           text: t("Nenhum addon com busca instalado.")
         }));
         var found = 0;
-        var pending2 = cats.length;
+        var pending = cats.length;
         cats.forEach(function (entry) {
           var row = h("div.row", {
             "data-anchor": "30"
@@ -9773,8 +9597,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             results.appendChild(row);
             loadVisibleImages(row);
           }).catch(function () {}).then(function () {
-            pending2--;
-            if (my === token && pending2 === 0 && !found) results.appendChild(h("div.hint", {
+            pending--;
+            if (my === token && pending === 0 && !found) results.appendChild(h("div.hint", {
               text: t('Nada encontrado para "{q}".', {
                 q: query
               })
@@ -9886,9 +9710,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "53aae493e437c642c6057f115e9a6e734888c2c1",
-    date: "2026-10-26T22:59:35-03:00",
-    message: "Controle liga sozinho junto com o TizenBrew"
+    commit: "f3846f9c16d0d546845d9696e7f14dd55b915962",
+    date: "2026-10-27T02:00:12+00:00",
+    message: "Build da dist/ para a TV"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -10145,7 +9969,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     el.appendChild(scroller);
     var device = "";
     deviceInfo().then(function (d) {
-      device = [d.modelName, d.firmwareVersion, d.sdkVersion ? "webOS " + d.sdkVersion : ""].filter(Boolean).join(" · ");
+      device = [d.modelName, d.firmwareVersion].filter(Boolean).join(" · ");
     }).catch(function () {});
     function row(label, sub, value, onSelect, extra) {
       return h("div.set-row", {
@@ -10600,10 +10424,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         text: t("Metadados extras (opcional)")
       }));
       var keyRow = function keyRow(title, sub, key, placeholder) {
+        var builtin = !!BUILTIN_KEYS[key];
+        if (builtin) sub += " · " + t("já vem embutida, só preencha para usar outra");
         var input = h("input.input", {
           type: "text",
           value: s[key] || "",
-          placeholder: placeholder
+          placeholder: builtin ? t("Embutida no app") : placeholder
         });
         input.__submit = function (v) {
           var patch = {};
@@ -11137,10 +10963,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         start();
       });
     } else start();
-    document.addEventListener("webOSRelaunch", function () {
-      check();
-      devLaunch();
-    });
     document.addEventListener("visibilitychange", function () {
       if (!document.hidden) check();
     });
@@ -11169,40 +10991,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           });
         });
       } else maybeShowWizard();
-      devLaunch();
       setTimeout(function () {
         check2().then(function (info) {
           return info.isNew && toast(t("Tem Seraflix novo saindo do forno! Ajustes → Procurar atualização"), 7e3);
         }).catch(function () {});
       }, 8e3);
-    });
-  }
-  function devLaunch() {
-    if (true) return;
-    var params = {};
-    try {
-      params = JSON.parse(window.PalmSystem.launchParams || "{}") || {};
-    } catch (e) {
-      return;
-    }
-    if (params.devPlay64) params.devPlay = window.atob(params.devPlay64);
-    if (!params.devPlay) return;
-    log.info("devPlay", params.devPlay);
-    openPlayer({
-      meta: {
-        id: "dev",
-        type: "movie",
-        name: params.devTitle || "Teste"
-      },
-      video: {
-        id: "dev"
-      },
-      stream: {
-        url: params.devPlay
-      },
-      streams: [],
-      startTime: (params.devStart || 0) * 1e3,
-      isSeries: false
     });
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);else boot();

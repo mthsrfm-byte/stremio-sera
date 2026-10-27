@@ -3,7 +3,7 @@ import { h, clear } from '../lib/dom.js';
 import * as nav from '../lib/nav.js';
 import * as store from '../lib/store.js';
 import { log } from '../lib/log.js';
-import { deviceInfo } from '../lib/luna.js';
+import { deviceInfo } from '../lib/tv.js';
 import * as substyle from '../lib/substyle.js';
 import * as update from '../api/update.js';
 import * as phoneRemote from '../api/phoneRemote.js';
@@ -11,6 +11,7 @@ import * as stremio from '../api/stremio.js';
 import * as server from '../api/server.js';
 import * as addons from '../api/addons.js';
 import * as hero from '../api/hero.js';
+import * as extras from '../api/extras.js';
 import { topbar, toast, menu, confirmDialog, refreshProfileChips } from '../ui.js';
 import * as router from '../router.js';
 import { openLogin } from './login.js';
@@ -49,7 +50,7 @@ export function SettingsView() {
   let device = '';
   deviceInfo()
     .then((d) => {
-      device = [d.modelName, d.firmwareVersion, d.sdkVersion ? 'webOS ' + d.sdkVersion : ''].filter(Boolean).join(' · ');
+      device = [d.modelName, d.firmwareVersion].filter(Boolean).join(' · ');
     })
     .catch(() => {});
 
@@ -415,7 +416,9 @@ export function SettingsView() {
     // ---- Metadados (opcional, como no Kai) ----
     body.appendChild(h('div.set-section', { text: t('Metadados extras (opcional)') }));
     const keyRow = (title, sub, key, placeholder) => {
-      const input = h('input.input', { type: 'text', value: s[key] || '', placeholder: placeholder });
+      const builtin = !!extras.BUILTIN_KEYS[key];
+      if (builtin) sub += ' · ' + t('já vem embutida, só preencha para usar outra');
+      const input = h('input.input', { type: 'text', value: s[key] || '', placeholder: builtin ? t('Embutida no app') : placeholder });
       input.__submit = (v) => {
         const patch = {};
         patch[key] = v.trim();

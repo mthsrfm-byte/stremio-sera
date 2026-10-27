@@ -1,11 +1,9 @@
 // Estilo das legendas. Padrão igual ao mpv.conf do Kai:
 // sub-font='Nata Sans', sub-bold=yes, sub-font-size=48 (≈64px em 1080p), sub-border-size=0.5, sub-shadow-offset=1.3.
-import { luna, hasLuna } from './luna.js';
 
 export const FONTS = [
   { id: 'nata', label: 'Nata Sans (padrão Kai)', css: "'Nata Sans', 'Montserrat', sans-serif" },
   { id: 'montserrat', label: 'Montserrat', css: "'Montserrat', sans-serif" },
-  { id: 'tv', label: 'Fonte da TV (LG)', css: "'LG Display', 'Museo Sans', sans-serif" },
   { id: 'classic', label: 'Clássica (Arial)', css: 'Arial, Helvetica, sans-serif' },
 ];
 
@@ -16,18 +14,17 @@ export const STYLES = [
   { id: 'box', label: 'Caixa de fundo' },
 ];
 
-// webos = nome de cor aceito pelo player nativo (legendas embutidas).
 export const COLORS = [
-  { id: '#ffffff', label: 'Branco', webos: 'white' },
-  { id: '#ffe14d', label: 'Amarelo', webos: 'yellow' },
-  { id: '#dcdcdc', label: 'Cinza claro', webos: 'white' },
-  { id: '#8ff0ff', label: 'Ciano', webos: 'blue' },
+  { id: '#ffffff', label: 'Branco' },
+  { id: '#ffe14d', label: 'Amarelo' },
+  { id: '#dcdcdc', label: 'Cinza claro' },
+  { id: '#8ff0ff', label: 'Ciano' },
 ];
 
 export const POSITIONS = [
-  { id: 'low', label: 'Baixa', bottom: 56, webos: -3 },
-  { id: 'mid', label: 'Média', bottom: 120, webos: 0 },
-  { id: 'high', label: 'Alta', bottom: 200, webos: 2 },
+  { id: 'low', label: 'Baixa', bottom: 56 },
+  { id: 'mid', label: 'Média', bottom: 120 },
+  { id: 'high', label: 'Alta', bottom: 200 },
 ];
 
 export const SIZES = [70, 85, 100, 115, 130, 150];
@@ -57,26 +54,6 @@ export function apply(el, s) {
   el.style.textShadow = SHADOWS[s.subtitleStyle] || SHADOWS.kai;
   el.style.bottom = pos.bottom + 'px';
   el.classList.toggle('box', s.subtitleStyle === 'box');
-}
-
-// Legendas embutidas são desenhadas pelo player da TV: só cor, tamanho e posição.
-export function applyNative(mediaId, s) {
-  if (!hasLuna() || !mediaId) return;
-  const size = s.subtitleSize || 100;
-  const fontSize = size <= 85 ? 0 : size <= 100 ? 1 : size <= 125 ? 2 : size <= 150 ? 3 : 4;
-  const color = find(COLORS, s.subtitleColor).webos;
-  const box = s.subtitleStyle === 'box';
-  const calls = {
-    setSubtitleCharacterColor: { charColor: color },
-    setSubtitleFontSize: { fontSize: fontSize },
-    setSubtitlePosition: { position: find(POSITIONS, s.subtitlePosition).webos },
-    setSubtitleBackgroundColor: { bgColor: 'black' },
-    setSubtitleBackgroundOpacity: { bgOpacity: box ? 190 : 0 },
-    setSubtitleCharacterOpacity: { charOpacity: 255 },
-  };
-  Object.keys(calls).forEach((m) => {
-    luna('luna://com.webos.media', m, Object.assign({ mediaId: mediaId }, calls[m])).catch(() => {});
-  });
 }
 
 export function labels(s) {
