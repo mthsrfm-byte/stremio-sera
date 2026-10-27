@@ -191,6 +191,100 @@ function json(res, code, obj) {
 
 var FILES = ['index.html', 'icon.svg', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png', 'manifest.webmanifest'];
 
+// ---------- Teste: dá para rodar torrent aqui na TV, sem o PC? ----------
+// Mede o que um motor de torrent precisa: Node, memória livre, UDP (trackers/DHT), TCP de saída
+// (troca com os peers), velocidade de download e onde dá para gravar. Cada parte tem tempo-limite.
+function torrentTest(done) {
+  var out = {
+    node: process.version,
+    arch: process.arch,
+    memTotalMB: Math.round(os.totalmem() / 1048576),
+    memFreeMB: Math.round(os.freemem() / 1048576),
+    cpus: (os.cpus() || []).length
+  };
+  var left = 4;
+  var finished = false;
+  function step() {
+    if (--left === 0 && !finished) { finished = true; done(out); }
+  }
+  setTimeout(function () { if (!finished) { finished = true; out.timeout = true; done(out); } }, 40000);
+  testUdp(function (r) { out.udp = r; step(); });
+  testTcp(function (r) { out.tcp = r; step(); });
+  testSpeed(function (r) { out.speed = r; step(); });
+  out.disk = testDisk();
+  step();
+}
+
+// Pedido "connect" do protocolo de tracker UDP (BEP 15): resposta de 16 bytes = UDP funciona.
+function testUdp(cb) {
+  var dgram;
+  try { dgram = require('dgram'); } catch (e) { return cb({ ok: false, why: 'sem dgram' }); }
+  var sock = dgram.createSocket('udp4');
+  var t0 = Date.now();
+  var tid = Math.floor(Math.random() * 0xffffffff);
+  var msg = bufAlloc(16);
+  msg.writeUInt32BE(0x417, 0);
+  msg.writeUInt32BE(0x27101980, 4);
+  msg.writeUInt32BE(0, 8);
+  msg.writeUInt32BE(tid, 12);
+  var ended = false;
+  function end(r) { if (ended) return; ended = true; try { sock.close(); } catch (e) {} cb(r); }
+  sock.on('error', function (e) { end({ ok: false, why: e.code || e.message }); });
+  sock.on('message', function (m) {
+    if (m.length >= 16 && m.readUInt32BE(4) === tid) end({ ok: true, ms: Date.now() - t0 });
+  });
+  sock.send(msg, 0, 16, 1337, 'tracker.opentrackr.org', function (e) { if (e) end({ ok: false, why: e.code || e.message }); });
+  setTimeout(function () { end({ ok: false, why: 'sem resposta' }); }, 8000);
+}
+
+// TCP de saída para uma porta alta (peers costumam usar 6881+): portquiz responde em qualquer porta.
+function testTcp(cb) {
+  var net = require('net');
+  var t0 = Date.now();
+  var s = net.connect({ host: 'portquiz.net', port: 6881 });
+  var ended = false;
+  function end(r) { if (ended) return; ended = true; s.destroy(); cb(r); }
+  s.setTimeout(8000, function () { end({ ok: false, why: 'tempo esgotado' }); });
+  s.on('connect', function () { end({ ok: true, ms: Date.now() - t0 }); });
+  s.on('error', function (e) { end({ ok: false, why: e.code || e.message }); });
+}
+
+// Baixa 10 MB e mede a velocidade (Mbps). Também mostra se o Node aguenta HTTPS moderno.
+function testSpeed(cb) {
+  var bytes = 10000000;
+  var t0 = Date.now();
+  var got = 0;
+  var req = https.get('https://speed.cloudflare.com/__down?bytes=' + bytes, function (r) {
+    if (r.statusCode !== 200) { r.resume(); return cb({ ok: false, why: 'HTTP ' + r.statusCode }); }
+    r.on('data', function (c) { got += c.length; });
+    r.on('end', function () {
+      var s = (Date.now() - t0) / 1000;
+      cb({ ok: got > 0, mbps: Math.round((got * 8) / s / 1e5) / 10, MB: Math.round(got / 1e5) / 10, s: Math.round(s * 10) / 10 });
+    });
+  });
+  req.on('error', function (e) { cb({ ok: false, why: e.code || e.message }); });
+  req.setTimeout(30000, function () { req.abort(); cb({ ok: false, why: 'tempo esgotado', MB: Math.round(got / 1e5) / 10 }); });
+}
+
+// Onde dá para gravar pedaços do vídeo (1 MB de teste em cada pasta, apagado em seguida).
+function testDisk() {
+  var dirs = [os.tmpdir ? os.tmpdir() : '/tmp', '/tmp', '/home/owner/share', '/opt/usr/home/owner/content'];
+  var res = {};
+  var chunk = bufAlloc(1048576);
+  dirs.forEach(function (d) {
+    if (res[d] !== undefined) return;
+    var f = d + '/seraflix-test-' + Date.now();
+    try {
+      fs.writeFileSync(f, chunk);
+      fs.unlinkSync(f);
+      res[d] = true;
+    } catch (e) {
+      res[d] = e.code || false;
+    }
+  });
+  return res;
+}
+
 var server = http.createServer(function (req, res) {
   var url = req.url.split('?')[0];
   // Pré-verificação de CORS / acesso à rede local (navegadores mais novos perguntam antes).
@@ -229,6 +323,9 @@ var server = http.createServer(function (req, res) {
       cpus: (os.cpus() || []).length,
       uptimeMin: Math.round(os.uptime() / 60)
     });
+  }
+  if (url === '/api/torrent-test') {
+    return torrentTest(function (r) { json(res, 200, r); });
   }
   if (url === '/api/status') {
     if (tv.state !== 'on') tvConnect();

@@ -7725,8 +7725,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return m ? m[0] : null;
   }
   var BUILTIN_KEYS = {
-    tmdbKey: true ? "9c57ed7ea044b2f01eea2fcc2e954c2e" : "",
-    mdblistKey: true ? "t9e4f1z29b3c36i1j25rul1wx" : ""
+    tmdbKey: true ? "" : "",
+    mdblistKey: true ? "" : ""
   };
   function keyOf(name) {
     return (settings()[name] || "").trim() || BUILTIN_KEYS[name];
@@ -13400,9 +13400,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "72446dd8e825393020b82029faf94e52ec8e25c3",
-    date: "2026-10-27T03:33:21-03:00",
-    message: "Abertura com aurora boreal e trilho de provedores na aba NSFW"
+    commit: "34bb21ad34d3ab33bc028bb4377023add4e1ba22",
+    date: "2026-10-27T06:33:36+00:00",
+    message: "Build da dist/ para a TV"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -14030,6 +14030,60 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         });
       })));
     }
+    function torrentTest() {
+      toast(t("Testando a TV... leva até 40 segundos"), 6e3);
+      getJSON("http://127.0.0.1:8090/api/torrent-test", {
+        timeout: 45e3,
+        quiet: true
+      }).then(function (r) {
+        var yes = function yes(ok) {
+          return ok ? "✓ " : "✗ ";
+        };
+        var nodeMajor = parseInt(String(r.node || "v0").slice(1), 10) || 0;
+        var disk = r.disk || {};
+        var writable = Object.keys(disk).filter(function (d) {
+          return disk[d] === true;
+        });
+        var lines = [{
+          label: yes(nodeMajor >= 8) + "Node " + r.node,
+          sub: nodeMajor >= 8 ? t("Dá para rodar um motor de torrent") : t("Muito antigo para os motores de torrent atuais")
+        }, {
+          label: yes(r.memFreeMB >= 150) + t("Memória livre: {n} MB", {
+            n: r.memFreeMB
+          }),
+          sub: t("de {n} MB · {c} núcleos", {
+            n: r.memTotalMB,
+            c: r.cpus
+          })
+        }, {
+          label: yes(r.udp && r.udp.ok) + t("UDP (trackers e DHT)"),
+          sub: r.udp && r.udp.ok ? r.udp.ms + " ms" : r.udp && r.udp.why || "-"
+        }, {
+          label: yes(r.tcp && r.tcp.ok) + t("TCP de saída (peers)"),
+          sub: r.tcp && r.tcp.ok ? r.tcp.ms + " ms" : r.tcp && r.tcp.why || "-"
+        }, {
+          label: yes(r.speed && r.speed.ok) + t("Download: {n} Mbps", {
+            n: r.speed && r.speed.mbps || 0
+          }),
+          sub: r.speed && r.speed.ok ? t("{mb} MB em {s} s", {
+            mb: r.speed.MB,
+            s: r.speed.s
+          }) : r.speed && r.speed.why || "-"
+        }, {
+          label: yes(writable.length > 0) + t("Gravar no disco"),
+          sub: writable.length ? writable.join(", ") : t("nenhuma pasta gravável")
+        }];
+        var viable = nodeMajor >= 8 && r.memFreeMB >= 150 && r.tcp && r.tcp.ok && r.speed && r.speed.ok;
+        lines.push({
+          label: viable ? t("Veredito: dá para tentar torrent na TV") : t("Veredito: a TV não aguenta torrent sozinha"),
+          sub: viable ? t("Me mande uma foto desta tela") : t("Continue com o PC ou use debrid")
+        });
+        log.info("Teste de torrent na TV", JSON.stringify(r));
+        menu(t("Torrent na TV"), lines, {});
+      }).catch(function () {
+        return toast(t("O serviço da TV não respondeu. Abra o Seraflix pelo TizenBrew e tente de novo."), 6e3);
+      });
+    }
     function toggle(on) {
       return h("div.toggle", {
         cls: on ? "on" : ""
@@ -14217,6 +14271,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           }));
           render();
         });
+      }));
+      body.appendChild(row(t("Testar torrent na TV (sem o PC)"), t("Mede se a própria TV aguenta baixar torrent: Node, memória, rede e disco"), "", function () {
+        return torrentTest();
       }));
       body.appendChild(h("div.set-section", {
         text: t("Aparência (Kai)")
