@@ -17,6 +17,7 @@ import { CalendarView } from './views/calendar.js';
 import { maybeShowWizard } from './views/wizard.js';
 import { openPlayer } from './views/player.js';
 import { toast } from './ui.js';
+import * as update from './api/update.js';
 import * as profiles from './views/profiles.js';
 import { applyTheme } from './lib/theme.js';
 import { openLogin } from './views/login.js';
@@ -97,6 +98,13 @@ function start() {
       });
     } else maybeShowWizard();
     devLaunch();
+    // Avisa se saiu versão nova no GitHub (instala em Ajustes → Procurar atualização).
+    setTimeout(() => {
+      update
+        .check()
+        .then((info) => info.isNew && toast(t('Tem Seraflix novo saindo do forno! Ajustes → Procurar atualização'), 7000))
+        .catch(() => {});
+    }, 8000);
   });
 }
 

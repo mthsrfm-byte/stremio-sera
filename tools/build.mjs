@@ -4,11 +4,27 @@ import { transformAsync } from '@babel/core';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { execSync } from 'node:child_process';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const src = path.join(root, 'src');
 const dist = path.join(root, 'dist');
 const watch = process.argv.includes('--watch');
+
+// Qual commit este build representa (para o botão de atualizar comparar com o GitHub).
+// Na GitHub Action vem de KAI_COMMIT/KAI_BUILD_DATE/KAI_COMMIT_MSG; localmente, do git.
+function git(cmd) {
+  try {
+    return execSync('git ' + cmd, { cwd: root, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+  } catch (e) {
+    return '';
+  }
+}
+const buildInfo = {
+  commit: process.env.KAI_COMMIT || git('rev-parse HEAD'),
+  date: process.env.KAI_BUILD_DATE || git('log -1 --format=%cI'),
+  message: (process.env.KAI_COMMIT_MSG || git('log -1 --format=%s')).split('\n')[0],
+};
 
 function copyDir(from, to) {
   fs.mkdirSync(to, { recursive: true });
@@ -45,6 +61,9 @@ const esbuildOptions = {
     __KAI_DEVLOG__: JSON.stringify(process.env.KAI_DEVLOG || ''),
     __KAI_TMDB__: JSON.stringify(process.env.KAI_TMDB || ''),
     __KAI_MDBLIST__: JSON.stringify(process.env.KAI_MDBLIST || ''),
+    __KAI_COMMIT__: JSON.stringify(buildInfo.commit),
+    __KAI_BUILD_DATE__: JSON.stringify(buildInfo.date),
+    __KAI_COMMIT_MSG__: JSON.stringify(buildInfo.message),
     __KAI_VERSION__: JSON.stringify(JSON.parse(fs.readFileSync(path.join(root, 'appinfo.json'), 'utf8')).version),
   },
   logLevel: 'warning',
@@ -55,6 +74,8 @@ async function emit(result) {
   fs.mkdirSync(dist, { recursive: true });
   copyDir(path.join(src, 'static'), dist);
   fs.copyFileSync(path.join(root, 'appinfo.json'), path.join(dist, 'appinfo.json'));
+  const version = JSON.parse(fs.readFileSync(path.join(root, 'appinfo.json'), 'utf8')).version;
+  fs.writeFileSync(path.join(dist, 'build.json'), JSON.stringify({ version, ...buildInfo }, null, 2) + '\n');
   const fonts = path.join(root, 'node_modules', '@fontsource', 'montserrat', 'files');
   fs.mkdirSync(path.join(dist, 'fonts'), { recursive: true });
   for (const w of [400, 600, 700, 800]) {
