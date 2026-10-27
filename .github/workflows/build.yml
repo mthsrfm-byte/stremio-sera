@@ -55,8 +55,10 @@ jobs:
           path: |
             .build/downloads
             .build/native-deps
-          key: native-${{ runner.os }}-${{ matrix.arch }}-${{ env.DEPS_MODE }}-${{ hashFiles('scripts/dependency-lock.json', 'scripts/build-ffmpeg.sh', 'scripts/build-dependencies-source.sh') }}
-          restore-keys: native-${{ runner.os }}-${{ matrix.arch }}-${{ env.DEPS_MODE }}-
+          key: native-v2-${{ runner.os }}-${{ matrix.arch }}-${{ env.DEPS_MODE }}-${{ hashFiles('scripts/dependency-lock.json', 'scripts/build-ffmpeg.sh', 'scripts/build-dependencies-source.sh') }}
+          restore-keys: |
+            native-v2-${{ runner.os }}-${{ matrix.arch }}-${{ env.DEPS_MODE }}-
+            native-${{ runner.os }}-${{ matrix.arch }}-${{ env.DEPS_MODE }}-
       - name: Testar validador real de cache e bootstrap
         run: |
           scripts/test-ui-cache.sh
@@ -77,7 +79,7 @@ jobs:
           RELEASE_REPOSITORY: ${{ github.repository }}
         run: scripts/generate-appcast.sh
       - uses: actions/cache/save@v4
-        if: always() && steps.native-cache.outputs.cache-hit != 'true'
+        if: always() && steps.native-cache.outputs.cache-hit != 'true' && hashFiles(format('.build/native-deps/ffmpeg-{0}.sha256', matrix.arch)) != '' && hashFiles('.build/native-deps/bin/ffmpeg') != '' && hashFiles('.build/native-deps/bin/ffprobe') != ''
         with:
           path: |
             .build/downloads

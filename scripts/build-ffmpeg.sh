@@ -5,7 +5,9 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 ARCH="${ARCH:-$(uname -m)}"
 DEPS="$ROOT/.build/native-deps"
 ARCHIVE="$(cat "$DEPS/ffmpeg-source-path.txt")"
-VERSION_HASH="$(shasum -a 256 "$ARCHIVE" | awk '{print $1}')"
+SOURCE_HASH="$(shasum -a 256 "$ARCHIVE" | awk '{print $1}')"
+RECIPE_HASH="$(shasum -a 256 "$ROOT/scripts/build-ffmpeg.sh" | awk '{print $1}')"
+VERSION_HASH="$(printf '%s\n%s\n' "$SOURCE_HASH" "$RECIPE_HASH" | shasum -a 256 | awk '{print $1}')"
 MARKER="$DEPS/ffmpeg-$ARCH.sha256"
 if [ -f "$MARKER" ] && [ "$(cat "$MARKER")" = "$VERSION_HASH" ] && [ -x "$DEPS/bin/ffmpeg" ] && [ -x "$DEPS/bin/ffprobe" ]; then
     exit 0

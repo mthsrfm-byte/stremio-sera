@@ -1,0 +1,34 @@
+name: Diagnóstico rápido do player nativo
+
+on:
+  push:
+    branches: ['build/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: player-probe-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    runs-on: macos-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Baixar dylibs e headers fixados, sem compilar FFmpeg
+        run: python3 scripts/prepare-dependencies.py
+      - name: Compilar e inicializar somente AppKit e libmpv
+        run: |
+          mkdir -p artifacts
+          set -o pipefail
+          scripts/test-player-init.sh 2>&1 | tee artifacts/player-probe.log
+      - name: Guardar diagnóstico mesmo em falha
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Seraflix-player-probe
+          path: artifacts/player-probe.*
+          retention-days: 7

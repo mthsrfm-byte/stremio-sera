@@ -360,8 +360,31 @@ final class MPVPlayer {
         pendingFileLoaded = false
         loaded = true
         buffering = false
+        // As notificações iniciais podem preceder o COMMAND_REPLY do loadfile.
+        // Reconstituir o estado por propriedades tipadas, sem depender de nova
+        // mudança de duração/pausa que talvez não aconteça durante este arquivo.
+        if let mpv = handle {
+            func readNumber(_ name: String, fallback: Double) -> Double {
+                var value = fallback
+                guard mpv_get_property(mpv, name, MPV_FORMAT_DOUBLE, &value) >= 0,
+                      value.isFinite else { return fallback }
+                return value
+            }
+            func readFlag(_ name: String, fallback: Bool) -> Bool {
+                var value: Int32 = fallback ? 1 : 0
+                guard mpv_get_property(mpv, name, MPV_FORMAT_FLAG, &value) >= 0 else { return fallback }
+                return value != 0
+            }
+            duration = max(0, readNumber("duration", fallback: duration))
+            position = max(0, readNumber("time-pos", fallback: position))
+            bufferEnd = max(position, readNumber("demuxer-cache-time", fallback: bufferEnd))
+            paused = readFlag("pause", fallback: paused)
+            buffering = readFlag("paused-for-cache", fallback: buffering)
+        }
         isPlaying = !paused
-        emit("loaded", [:])
+        let loadedSession = session
+        emit("loaded", ["duration": duration, "position": position])
+        guard !closed, acceptingMedia, session == loadedSession else { return }
         // Não perder track-list caso sua primeira notificação tenha chegado antes
         // do COMMAND_REPLY que identifica esta entrada da playlist.
         if let mpv = handle {
