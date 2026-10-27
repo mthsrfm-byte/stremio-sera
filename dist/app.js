@@ -6303,9 +6303,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "ff1643ed7ef95473ff32375ea4225874b4b7fa22",
-    date: "2026-10-27T08:28:54-03:00",
-    message: "Player: logo do título no canto com vinheta e botão Favoritar"
+    commit: "2f3dcb0e84115276f05b6f259c1638228dbdea20",
+    date: "2026-10-27T08:37:06-03:00",
+    message: "Player: logo do título numa área fixa de 672×260 e vinheta maior"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {

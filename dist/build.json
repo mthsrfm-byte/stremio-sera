@@ -1,6 +1,6 @@
 {
   "version": "1.2.0",
-  "commit": "ff1643ed7ef95473ff32375ea4225874b4b7fa22",
-  "date": "2026-10-27T08:28:54-03:00",
-  "message": "Player: logo do título no canto com vinheta e botão Favoritar"
+  "commit": "2f3dcb0e84115276f05b6f259c1638228dbdea20",
+  "date": "2026-10-27T08:37:06-03:00",
+  "message": "Player: logo do título numa área fixa de 672×260 e vinheta maior"
 }
