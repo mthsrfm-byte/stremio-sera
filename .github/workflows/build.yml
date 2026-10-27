@@ -10,6 +10,11 @@ on:
         description: Commit ou branch da UI (main após merge do PR mac)
         default: main
         type: string
+      architecture:
+        description: Arquitetura para o build manual
+        type: choice
+        options: [ambas, arm64, x86_64]
+        default: ambas
       source_dependencies:
         description: Compilar dependências das fontes, preservando corresponding source
         default: false
@@ -19,7 +24,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: mac-${{ github.ref }}
+  group: mac-${{ github.ref }}${{ inputs.architecture && format('-{0}', inputs.architecture) || '' }}
   cancel-in-progress: false
 
 jobs:
@@ -27,11 +32,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - arch: arm64
-            runner: macos-latest
-          - arch: x86_64
-            runner: macos-15-intel
+        include: ${{ fromJSON(inputs.architecture == 'arm64' && '[{"arch":"arm64","runner":"macos-latest"}]' || inputs.architecture == 'x86_64' && '[{"arch":"x86_64","runner":"macos-15-intel"}]' || '[{"arch":"arm64","runner":"macos-latest"},{"arch":"x86_64","runner":"macos-15-intel"}]') }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 120
     env:
