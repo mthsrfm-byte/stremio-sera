@@ -66,8 +66,11 @@ export function back() {
     pop();
     return;
   }
+  // Voltar numa aba (inclusive a NSFW) leva ao Início com o foco no botão da casinha.
   if (view && view.tabId && view.tabId !== 'home') {
     goTab('home');
+    const homeBtn = tabs.home && tabs.home.el.querySelector('.topbar .tab[data-tab="home"]');
+    if (homeBtn) nav.focus(homeBtn, { noScroll: true });
     return;
   }
   if (IS_WEB) return; // no navegador não há "sair do app": fechar a aba é com o usuário

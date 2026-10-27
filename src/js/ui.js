@@ -104,6 +104,7 @@ export function confirmDialog(text, okLabel, onOk) {
 const ICONS = {
   home: '<svg viewBox="0 0 24 24"><path d="M3.5 10.5 12 3.5l8.5 7"/><path d="M5.5 9v11h4.5v-6h4v6h4.5V9"/></svg>',
   search: '<svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg>',
+  lock: '<svg viewBox="0 0 24 24"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg>',
   calendar: '<svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17"/><path d="M8 3v4"/><path d="M16 3v4"/></svg>',
   // Engrenagem no estilo do Feather Icons (licença MIT).
   settings:
@@ -117,7 +118,8 @@ export const TABS = [
   { id: 'recommended', label: 'Favoritos' },
   { id: 'library', label: 'Biblioteca' },
   { id: 'streamings', label: 'Streamings' },
-  { id: 'nsfw', label: 'NSFW', when: () => addons.nsfwEnabled() },
+  // NSFW: só o cadeado, à esquerda da engrenagem.
+  { id: 'nsfw', label: 'NSFW', icon: 'lock', right: true, when: () => addons.nsfwEnabled() },
   { id: 'settings', label: 'Ajustes', icon: 'settings', right: true },
 ];
 
