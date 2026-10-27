@@ -1,5 +1,5 @@
 // Abertura do Seraflix: o logo é revelado por uma linha azul que varre da esquerda para a direita,
-// o "flix" sobe, uma aurora boreal acende ao fundo e toca um som curto (clique seco + acorde suave), sintetizado
+// o "flix" sobe, um brilho pulsa e toca um som curto (clique seco + acorde suave), sintetizado
 // aqui com Web Audio (sem arquivo de áudio e sem usar som de ninguém). Dura ~2,2 s; depois a tela
 // de abertura some em fade quando o app estiver pronto.
 const MIN_MS = 2200;

@@ -35,30 +35,6 @@ function openDetails(type, id, opts, item) {
   openDetailsRaw(type, id, Object.assign({ fallbackMeta: item || null }, opts));
 }
 
-// Títulos em português sem segurar a fileira: os cartões aparecem já com o nome original e
-// trocam quando a tradução chega (antes a fileira esperava a tradução, até 8 s).
-// Pedidos do mesmo instante viram um só (a grade cria uma capa por vez).
-let queue = [];
-function translateCards(metas, cards) {
-  metas.forEach((m, i) => queue.push({ m: m, c: cards[i] }));
-  if (queue.length !== metas.length) return; // já tem um envio agendado
-  setTimeout(() => {
-    const batch = queue;
-    queue = [];
-    tr.titles(batch.map((x) => x.m)).then((list) =>
-      list.forEach((m, i) => {
-        const c = batch[i].c;
-        if (!c || !m.originalName) return;
-        batch[i].m.name = m.name; // os detalhes (sem addon de meta) usam este item
-        const name = c.querySelector('.name');
-        if (name) name.textContent = m.name;
-        const ph = c.querySelector('.ph');
-        if (ph) ph.textContent = m.name;
-      })
-    );
-  }, 0);
-}
-
 // Cartão do catálogo: vídeos com capa deitada (posterShape "landscape") usam o cartão largo.
 function itemCard(m, entry) {
   const wide = m.posterShape === 'landscape' || (entry && entry.catalog.posterShape === 'landscape');
@@ -287,11 +263,7 @@ export function NsfwView() {
           .then((metas) => {
             if (my !== token || !metas.length) return;
             found++;
-            const shown = metas.slice(0, 30);
-            translateCards(
-              shown,
-              shown.map((m) => track.appendChild(itemCard(m, entry)))
-            );
+            metas.slice(0, 30).forEach((m) => track.appendChild(itemCard(m, entry)));
             results.appendChild(row);
             loadVisibleImages(row);
           })
@@ -376,9 +348,7 @@ function catalogRow(entry, parent) {
           if (row.parentNode) row.parentNode.removeChild(row);
           return;
         }
-        const shown = metas.slice(0, ROW_LIMIT);
-        const cards = shown.map((m) => track.appendChild(itemCard(m, entry)));
-        translateCards(shown, cards);
+        metas.slice(0, ROW_LIMIT).forEach((m) => track.appendChild(itemCard(m, entry)));
         if (metas.length > ROW_LIMIT)
           track.appendChild(
             h('div.card.see-all', { focusable: true, onSelect: () => router.push(GridView(entry, {})) }, [
@@ -404,11 +374,7 @@ function GridView(entry, extra) {
         return metas;
       }),
     key: (m) => m.id,
-    card: (m) => {
-      const c = itemCard(m, entry);
-      translateCards([m], [c]);
-      return c;
-    },
+    card: (m) => itemCard(m, entry),
     onEmpty: () => pg.el.insertBefore(h('div.hint', { text: t('Nada por aqui.') }), pg.el.firstChild),
   });
   scroller.appendChild(h('div.reco-crumb', null, crumb));

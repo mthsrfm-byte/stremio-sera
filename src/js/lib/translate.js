@@ -1,7 +1,6 @@
-// Tradução para a aba NSFW: categorias por dicionário (sem rede) e títulos pelo tradutor do
-// Google (endpoint gratuito), em lote e com cache. Se a tradução falhar, fica o original.
+// Tradução: categorias da aba NSFW por dicionário (sem rede) e texto corrido (ex.: bio de atores)
+// pelo tradutor do Google (endpoint gratuito). Se a tradução falhar, fica o original.
 import { getJSON } from './http.js';
-import * as store from './store.js';
 import { genreName } from './genres.js';
 
 const GENRES = {
@@ -35,73 +34,6 @@ export function isHiddenCategory(name) {
 export function genre(name) {
   const key = String(name || '').trim().toLowerCase();
   return GENRES[key] || GENRES[key.replace(/[-_]+/g, ' ')] || genreName(name);
-}
-
-// ---------- Títulos ----------
-const CACHE_KEY = 'nsfwTitles';
-const CACHE_MAX = 3000;
-let cache = null;
-
-function mem() {
-  if (!cache) cache = store.get(CACHE_KEY, {}) || {};
-  return cache;
-}
-
-let saveTimer = null;
-function save() {
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => {
-    const c = mem();
-    const keys = Object.keys(c);
-    if (keys.length > CACHE_MAX) keys.slice(0, keys.length - CACHE_MAX).forEach((k) => delete c[k]);
-    store.set(CACHE_KEY, c);
-  }, 1500);
-}
-
-export function enabled() {
-  return store.settings().nsfwTranslate !== false;
-}
-
-// Já parece português: não gasta tradução.
-function looksPt(s) {
-  return /[ãõçáéíóúâêô]/i.test(s) || /\b(com|uma|para|gostosa|novinha|esposa|não)\b/i.test(s);
-}
-
-// Uma ida ao tradutor com várias linhas juntas (uma por título).
-function translateBatch(lines) {
-  const u = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=pt&dt=t&q=' + encodeURIComponent(lines.join('\n'));
-  return getJSON(u, { timeout: 8000 }).then((r) => {
-    const text = ((r && r[0]) || []).map((p) => p[0] || '').join('');
-    const out = text.split('\n');
-    return out.length === lines.length ? out : null;
-  });
-}
-
-// Troca item.name pela versão em português (guarda o original em item.originalName).
-export function titles(items) {
-  if (!enabled() || !items.length) return Promise.resolve(items);
-  const c = mem();
-  const todo = [];
-  items.forEach((it) => {
-    const n = it && it.name;
-    if (!n || looksPt(n) || c[n] !== undefined || todo.indexOf(n) >= 0) return;
-    todo.push(n.replace(/\n/g, ' '));
-  });
-  const batches = [];
-  for (let i = 0; i < todo.length; i += 25) batches.push(todo.slice(i, i + 25));
-  return Promise.all(
-    batches.map((b) =>
-      translateBatch(b)
-        .then((out) => {
-          if (!out) return;
-          b.forEach((n, i) => (c[n] = out[i].trim() || n));
-          save();
-        })
-        .catch(() => {})
-    )
-  ).then(() =>
-    items.map((it) => (it && c[it.name] && c[it.name] !== it.name ? Object.assign({}, it, { name: c[it.name], originalName: it.name }) : it))
-  );
 }
 
 // Texto corrido (ex.: biografia) para português, em pedaços que cabem na URL. Falhou: null.

@@ -238,13 +238,6 @@ export function SettingsView() {
       ])
     );
     body.appendChild(
-      row(t('Traduzir títulos NSFW'), t('Nomes dos vídeos em português (precisa de internet; sem tradução fica o original)'), '', guarded(() => {
-        store.saveSettings({ nsfwTranslate: store.settings().nsfwTranslate === false });
-        router.dropTab('nsfw');
-        render();
-      }), toggle(s.nsfwTranslate !== false))
-    );
-    body.appendChild(
       row(t('Addons adultos'), t('Detectados sozinhos; marque ou desmarque à mão'), adult.length ? t('{n} addon(s)', { n: adult.length }) : t('nenhum'), guarded(() =>
         menu(
           t('Addons adultos'),

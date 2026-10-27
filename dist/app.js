@@ -7623,71 +7623,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var key = String(name || "").trim().toLowerCase();
     return GENRES[key] || GENRES[key.replace(/[-_]+/g, " ")] || genreName(name);
   }
-  var CACHE_KEY = "nsfwTitles";
-  var CACHE_MAX = 3e3;
-  var cache2 = null;
-  function mem() {
-    if (!cache2) cache2 = get(CACHE_KEY, {}) || {};
-    return cache2;
-  }
-  var saveTimer = null;
-  function save() {
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(function () {
-      var c = mem();
-      var keys = Object.keys(c);
-      if (keys.length > CACHE_MAX) keys.slice(0, keys.length - CACHE_MAX).forEach(function (k) {
-        return delete c[k];
-      });
-      set(CACHE_KEY, c);
-    }, 1500);
-  }
-  function enabled() {
-    return settings().nsfwTranslate !== false;
-  }
-  function looksPt(s) {
-    return /[ãõçáéíóúâêô]/i.test(s) || /\b(com|uma|para|gostosa|novinha|esposa|não)\b/i.test(s);
-  }
-  function translateBatch(lines) {
-    var u = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=pt&dt=t&q=" + encodeURIComponent(lines.join("\n"));
-    return getJSON(u, {
-      timeout: 8e3
-    }).then(function (r) {
-      var text2 = (r && r[0] || []).map(function (p) {
-        return p[0] || "";
-      }).join("");
-      var out = text2.split("\n");
-      return out.length === lines.length ? out : null;
-    });
-  }
-  function titles(items) {
-    if (!enabled() || !items.length) return Promise.resolve(items);
-    var c = mem();
-    var todo = [];
-    items.forEach(function (it) {
-      var n = it && it.name;
-      if (!n || looksPt(n) || c[n] !== void 0 || todo.indexOf(n) >= 0) return;
-      todo.push(n.replace(/\n/g, " "));
-    });
-    var batches = [];
-    for (var i = 0; i < todo.length; i += 25) batches.push(todo.slice(i, i + 25));
-    return Promise.all(batches.map(function (b) {
-      return translateBatch(b).then(function (out) {
-        if (!out) return;
-        b.forEach(function (n, i) {
-          return c[n] = out[i].trim() || n;
-        });
-        save();
-      }).catch(function () {});
-    })).then(function () {
-      return items.map(function (it) {
-        return it && c[it.name] && c[it.name] !== it.name ? Object.assign({}, it, {
-          name: c[it.name],
-          originalName: it.name
-        }) : it;
-      });
-    });
-  }
   function text(str) {
     var src = String(str || "").trim();
     if (!src) return Promise.resolve(null);
@@ -8746,7 +8681,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var controlsOn = false;
     var hideTimer = null;
     var ticker = null;
-    var saveTimer2 = null;
+    var saveTimer = null;
     var watchTimer = null;
     var statusTimer = null;
     var mediaUrl = "";
@@ -9913,7 +9848,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             checkSkip();
             if (currentSub.extracted) ensureSegments();
           }, 250);
-          saveTimer2 = setInterval(function () {
+          saveTimer = setInterval(function () {
             if (!videoEl.paused) saveProgress2();
           }, SAVE_MS);
           watchTimer = setInterval(watchdog, 2e3);
@@ -9930,7 +9865,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       destroy: function destroy() {
         alive = false;
         clearInterval(ticker);
-        clearInterval(saveTimer2);
+        clearInterval(saveTimer);
         clearInterval(watchTimer);
         clearInterval(statusTimer);
         clearTimeout(hideTimer);
@@ -10454,7 +10389,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var revealTimer = null;
     var fadeTimer = null;
     var token = 0;
-    var queue2 = [];
+    var queue = [];
     var attempt = {
       key: "",
       host: ""
@@ -10468,7 +10403,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       clearTimeout(revealTimer);
       clearInterval(fadeTimer);
       el.classList.remove("playing", "buffering");
-      queue2 = [];
+      queue = [];
       frameWin = null;
       revealed = false;
       clear(frameBox);
@@ -10589,12 +10524,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     function playTrailer(it, tk) {
       trailerKeys(it).then(function (keys) {
         if (tk !== token || document.hidden) return;
-        queue2 = keys.slice(0, MAX_TRAILERS);
+        queue = keys.slice(0, MAX_TRAILERS);
         nextTrailer(tk);
       });
     }
     function nextTrailer(tk) {
-      var key = queue2.shift();
+      var key = queue.shift();
       if (!key) {
         clearTimeout(attemptTimer);
         frameWin = null;
@@ -12702,33 +12637,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       fallbackMeta: item || null
     }, opts));
   }
-  var queue = [];
-  function translateCards(metas, cards) {
-    metas.forEach(function (m, i) {
-      return queue.push({
-        m: m,
-        c: cards[i]
-      });
-    });
-    if (queue.length !== metas.length) return;
-    setTimeout(function () {
-      var batch2 = queue;
-      queue = [];
-      titles(batch2.map(function (x) {
-        return x.m;
-      })).then(function (list2) {
-        return list2.forEach(function (m, i) {
-          var c = batch2[i].c;
-          if (!c || !m.originalName) return;
-          batch2[i].m.name = m.name;
-          var name = c.querySelector(".name");
-          if (name) name.textContent = m.name;
-          var ph = c.querySelector(".ph");
-          if (ph) ph.textContent = m.name;
-        });
-      });
-    }, 0);
-  }
   function itemCard(m, entry) {
     var wide = m.posterShape === "landscape" || entry && entry.catalog.posterShape === "landscape";
     return _card(m, {
@@ -13076,10 +12984,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           }).then(function (metas) {
             if (my !== token || !metas.length) return;
             found++;
-            var shown = metas.slice(0, 30);
-            translateCards(shown, shown.map(function (m) {
+            metas.slice(0, 30).forEach(function (m) {
               return track.appendChild(itemCard(m, entry));
-            }));
+            });
             results.appendChild(row);
             loadVisibleImages(row);
           }).catch(function () {}).then(function () {
@@ -13172,11 +13079,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           if (row.parentNode) row.parentNode.removeChild(row);
           return;
         }
-        var shown = metas.slice(0, ROW_LIMIT3);
-        var cards = shown.map(function (m) {
+        metas.slice(0, ROW_LIMIT3).forEach(function (m) {
           return track.appendChild(itemCard(m, entry));
         });
-        translateCards(shown, cards);
         if (metas.length > ROW_LIMIT3) track.appendChild(h("div.card.see-all", {
           focusable: true,
           onSelect: function onSelect() {
@@ -13223,9 +13128,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         return m.id;
       },
       card: function card(m) {
-        var c = itemCard(m, entry);
-        translateCards([m], [c]);
-        return c;
+        return itemCard(m, entry);
       },
       onEmpty: function onEmpty() {
         return pg.el.insertBefore(h("div.hint", {
@@ -13442,9 +13345,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "34bb21ad34d3ab33bc028bb4377023add4e1ba22",
-    date: "2026-10-27T06:33:36+00:00",
-    message: "Build da dist/ para a TV"
+    commit: "a58265d9db61154ce24eb48e76ed22306537ef1e",
+    date: "2026-10-27T06:49:28+00:00",
+    message: "NSFW: no full-height animated layers or scrolling gradient, titles translate after cards render (batched), details fall back to the catalog item when the add-on has no meta, clearer reason when nothing plays"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -14030,13 +13933,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }, [h("div.label", null, [t("PIN da aba NSFW"), h("small", {
         text: t("Pedido ao entrar na aba; vale até o app fechar ou ir para segundo plano")
       })]), pinInput]));
-      body.appendChild(row(t("Traduzir títulos NSFW"), t("Nomes dos vídeos em português (precisa de internet; sem tradução fica o original)"), "", guarded(function () {
-        saveSettings({
-          nsfwTranslate: settings().nsfwTranslate === false
-        });
-        dropTab("nsfw");
-        render();
-      }), toggle(s.nsfwTranslate !== false)));
       body.appendChild(row(t("Addons adultos"), t("Detectados sozinhos; marque ou desmarque à mão"), adult.length ? t("{n} addon(s)", {
         n: adult.length
       }) : t("nenhum"), guarded(function () {
@@ -14639,7 +14535,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         focusable: true,
         "data-autofocus": ""
       });
-      var save2 = function save2() {
+      var save = function save() {
         var name = String(input.value || "").trim();
         if (!name) {
           err.textContent = t("Digite um nome para o perfil.");
@@ -14652,12 +14548,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         refreshProfileChips();
         next();
       };
-      input.__submit = save2;
+      input.__submit = save;
       card2.appendChild(input);
       card2.appendChild(err);
       card2.appendChild(h("div.actions", {
         "data-group": ""
-      }, [btn(t("Continuar"), true, save2)]));
+      }, [btn(t("Continuar"), true, save)]));
     }
     function stepAccount() {
       card2.appendChild(h("h1", {
