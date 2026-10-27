@@ -55,7 +55,7 @@ jobs:
 
       - name: Limpar cache do jsDelivr
         run: |
-          for f in package.json dist/index.html dist/app.js dist/app.css dist/build.json remote/tv-service.js; do
+          for f in package.json dist/index.html dist/app.js dist/app.css dist/build.json dist/hls.js remote/tv-service.js; do
             for ref in "" "@main"; do
               curl -fsS -o /dev/null "https://purge.jsdelivr.net/gh/${GITHUB_REPOSITORY}${ref}/$f" || echo "Falhou: $ref $f"
             done

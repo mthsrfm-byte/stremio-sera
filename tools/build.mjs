@@ -125,6 +125,8 @@ async function emit(result) {
       }
     }
   }
+  // hls.js (já em ES5): o player baixa só quando abre um vídeo HLS (.m3u8), fora do app.js.
+  fs.copyFileSync(path.join(root, 'node_modules', 'hls.js', 'dist', 'hls.min.js'), path.join(dist, 'hls.js'));
   const code = await downlevel(result.outputFiles[0].text);
   fs.writeFileSync(path.join(dist, 'app.js'), code);
   // Guarda simples: nada de sintaxe que o Chromium 38 não entende pode sobrar.

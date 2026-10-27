@@ -9,6 +9,7 @@ import * as store from '../lib/store.js';
 import { log } from '../lib/log.js';
 import { getText, getJSON } from '../lib/http.js';
 import * as si from '../lib/streaminfo.js';
+import * as hlsplay from '../lib/hlsplay.js';
 import * as server from '../api/server.js';
 import * as addons from '../api/addons.js';
 import * as stremio from '../api/stremio.js';
@@ -163,14 +164,43 @@ function PlayerView(opts) {
         // Só src + autoplay, como o player oficial do Stremio para TV: load()/play() extras
         // faziam a TV abrir o stream duas vezes.
         hasPlayed = false;
-        videoEl.autoplay = true;
-        videoEl.src = mediaUrl;
+        setSource(mediaUrl);
         freeBackgroundMemory();
         loadSubtitles();
         // Faixas embutidas só quando o usuário abre o menu: o ffprobe do servidor lê o arquivo
         // e, num torrent, rouba prioridade do trecho que está tocando.
       })
       .catch((e) => fail(e.message));
+  }
+
+  // Põe a URL no <video>: HLS (.m3u8) pelo hls.js, o resto direto. O resto continua só src +
+  // autoplay, como o player oficial do Stremio para TV.
+  let hlsCtl = null;
+  let sourceUrl = '';
+  let sourceToken = 0;
+  function setSource(url) {
+    dropSource();
+    const token = ++sourceToken;
+    sourceUrl = url;
+    videoEl.autoplay = true;
+    if (!hlsplay.isHls(url)) {
+      videoEl.src = url;
+      return;
+    }
+    hlsplay
+      .attach(videoEl, url, (why) => {
+        if (alive && token === sourceToken) playbackError(null, why);
+      })
+      .then((ctl) => {
+        if (!alive || token !== sourceToken) return ctl && ctl.destroy();
+        if (ctl) hlsCtl = ctl;
+        else videoEl.src = url; // sem hls.js aqui: tenta o <video> mesmo
+      });
+  }
+  function dropSource() {
+    sourceToken++;
+    if (hlsCtl) hlsCtl.destroy();
+    hlsCtl = null;
   }
 
   function restart() {
@@ -386,10 +416,19 @@ function PlayerView(opts) {
   });
   videoEl.addEventListener('error', () => {
     const err = videoEl.error;
-    log.warn('Erro de vídeo', err && err.code, mediaUrl);
-    if (!alive) return;
+    // Sem src (fonte sendo trocada ou o hls.js soltando o <video>) não é erro do vídeo.
+    if (!sourceUrl || !videoEl.getAttribute('src')) return;
+    playbackError(err && err.code);
+  });
+
+  // Erro do <video> (código 1–4) ou do hls.js (why: o que ele disse). Um aviso por fonte.
+  let errorToken = -1;
+  function playbackError(code, why) {
+    log.warn('Erro de vídeo', code || why, mediaUrl);
+    if (!alive || errorToken === sourceToken) return;
+    errorToken = sourceToken;
     const failed = stream;
-    errorDetails(err && err.code).then((details) => {
+    errorDetails(code, why).then((details) => {
       if (!alive || failed !== stream) return;
       const next = tubeFallback();
       if (next) {
@@ -403,7 +442,7 @@ function PlayerView(opts) {
         fail(t('A TV não conseguiu tocar este arquivo diretamente.'), true, details);
       } else fail(t('A TV não conseguiu tocar este arquivo (formato ou codec não suportado).'), false, details);
     });
-  });
+  }
 
   // XVideos/Pornhub: o mesmo vídeo vem direto e pelo serviço da TV, em mais de uma qualidade.
   // Se uma não abre, tenta a próxima do mesmo addon antes de mostrar o erro (que então lista
@@ -417,7 +456,7 @@ function PlayerView(opts) {
   // Linha de diagnóstico do aviso de erro: código do player, de onde veio o link e, se o vídeo
   // passou pelo serviço da TV, o que o site respondeu para ele. Uma foto da tela já diz onde quebrou.
   const MEDIA_ERR = { 1: 'cancelado', 2: 'rede', 3: 'decodificação', 4: 'formato/endereço não suportado' };
-  function errorDetails(code) {
+  function errorDetails(code, why) {
     let host = '';
     let target = '';
     try {
@@ -427,7 +466,7 @@ function PlayerView(opts) {
     } catch (e) {
       /* ignore */
     }
-    const parts = [t('erro {c}', { c: (code || '?') + (MEDIA_ERR[code] ? ' (' + MEDIA_ERR[code] + ')' : '') })];
+    const parts = [why || t('erro {c}', { c: (code || '?') + (MEDIA_ERR[code] ? ' (' + MEDIA_ERR[code] + ')' : '') })];
     parts.push((stream && stream.name ? String(stream.name).split('\n').join(' ') + ' · ' : '') + (host || '?') + (target !== mediaUrl ? ' ' + t('via TV') : ''));
     if (target === mediaUrl) return Promise.resolve(parts.join(' · '));
     return getJSON(mediaUrl.replace(/\/px\/.*$/, '/api/pxlog'), { timeout: 3000, quiet: true })
@@ -627,9 +666,10 @@ function PlayerView(opts) {
     showSpinner(true);
     toast(t('Reconectando ao vídeo...'));
     pendingStart = Math.max(0, pos - 1) * 1000;
-    const src = videoEl.currentSrc || mediaUrl;
+    const src = sourceUrl || mediaUrl;
     try {
       videoEl.pause();
+      dropSource();
       videoEl.removeAttribute('src');
       videoEl.load();
     } catch (e) {
@@ -639,8 +679,7 @@ function PlayerView(opts) {
     setTimeout(() => {
       if (!alive) return;
       hasPlayed = false;
-      videoEl.autoplay = true;
-      videoEl.src = src;
+      setSource(src);
     }, 300);
   }
 
@@ -675,9 +714,7 @@ function PlayerView(opts) {
     showSpinner(true);
     message('');
     log.info('Transcodificando', url);
-    videoEl.src = url;
-    videoEl.load();
-    videoEl.play();
+    setSource(url);
   }
 
   // ---------- Controles ----------
@@ -1287,6 +1324,7 @@ function PlayerView(opts) {
       closeSlow();
       try {
         videoEl.pause();
+        dropSource();
         videoEl.removeAttribute('src');
         videoEl.load();
       } catch (e) {
