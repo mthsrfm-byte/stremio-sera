@@ -9710,9 +9710,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "f3846f9c16d0d546845d9696e7f14dd55b915962",
-    date: "2026-10-27T02:00:12+00:00",
-    message: "Build da dist/ para a TV"
+    commit: "e4f96cf400bac4935c77ee9daf54c348a7b8f05b",
+    date: "2026-10-26T23:34:35-03:00",
+    message: "Faxina da versão de LG e chave do TMDB embutida"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
