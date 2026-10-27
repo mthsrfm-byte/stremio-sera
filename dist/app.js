@@ -6315,9 +6315,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "b78bccca9547b2db4200dfc3e1bb3227edc25759",
-    date: "2026-10-27T20:44:27Z",
-    message: "README em português: o que é o Seraflix e as fontes do remix"
+    commit: "516b0efca6fbff23e6f3343f9839d941b9a381ec",
+    date: "2026-10-27T20:44:49+00:00",
+    message: "Build da dist/ para a TV"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -7154,7 +7154,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var timer = null;
   var loading = null;
   var listeners2 = [];
-  var BUILTIN = true ? "https://calendar.google.com/calendar/ical/matheus.serafim%40pagaleve.com.br/private-9d7111ae13c15982affb7c795403fcdd/basic.ics" : "";
+  var BUILTIN = true ? "" : "";
   function urls() {
     return String(settings().calendarUrl || BUILTIN || "").split(/[\s,]+/).filter(function (u) {
       return /^(https?|webcal):\/\//i.test(u);
@@ -7973,6 +7973,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       cls: o.corner === "4K" ? "uhd" : "",
       text: o.corner
     }));
+    if (o.flag) wrap.appendChild(h("div.card-flag", {
+      text: o.flag
+    }));
     if (o.duration) wrap.appendChild(h("div.card-dur", {
       text: o.duration
     }));
@@ -8445,8 +8448,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return m ? m[0] : null;
   }
   var BUILTIN_KEYS = {
-    tmdbKey: true ? "9c57ed7ea044b2f01eea2fcc2e954c2e" : "",
-    mdblistKey: true ? "t9e4f1z29b3c36i1j25rul1wx" : ""
+    tmdbKey: true ? "" : "",
+    mdblistKey: true ? "" : ""
   };
   function keyOf(name) {
     return (settings()[name] || "").trim() || BUILTIN_KEYS[name];
@@ -14331,6 +14334,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       fallbackMeta: item || null
     }, opts));
   }
+  function isUncensored(m) {
+    return /uncensored/i.test(m.name || "");
+  }
   function itemCard(m, entry) {
     var wide = m.posterShape === "landscape" || entry && entry.catalog.posterShape === "landscape";
     var st = m.stats || {};
@@ -14343,6 +14349,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       image: wide ? m.poster || m.background : void 0,
       dropWithoutImage: true,
       corner: st.quality,
+      flag: isUncensored(m) ? "UNCENSORED" : null,
       duration: st.duration,
       stats: statsLine(st) || extra2,
       onSelect: function onSelect() {
@@ -14973,6 +14980,27 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     out.load = _load;
     return out;
   }
+  var UNCENSORED_FILTERS = [{
+    id: "all",
+    label: "Todos"
+  }, {
+    id: "uncensored",
+    label: "Só uncensored"
+  }, {
+    id: "censored",
+    label: "Sem uncensored"
+  }];
+  var FILTER_KEEP = {
+    all: function all() {
+      return true;
+    },
+    uncensored: function uncensored(m) {
+      return isUncensored(m);
+    },
+    censored: function censored(m) {
+      return !isUncensored(m);
+    }
+  };
   function GridView(entry, extra2) {
     var el2 = h("div.view.nsfw-view");
     var scroller = h("div.scroll-y", {
@@ -14983,30 +15011,79 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }), " › ", h("b", {
       text: extra2.genre ? genre(extra2.genre) : catName(entry)
     })];
-    var skip = 0;
-    var pg = pagedGrid({
-      load: function load() {
-        return fetchCatalog(entry, Object.assign({
-          skip: skip || void 0
-        }, extra2)).then(function (metas) {
-          skip += metas.length;
-          return metas;
-        });
-      },
-      key: function key(m) {
-        return m.id;
-      },
-      card: function card(m) {
-        return itemCard(m, entry);
-      },
-      onEmpty: function onEmpty() {
-        return pg.el.insertBefore(h("div.hint", {
-          text: t("Nada por aqui.")
-        }), pg.el.firstChild);
-      }
-    });
+    var isHentai = /hentai/i.test((extra2.genre || "") + " " + catName(entry));
+    var slot = h("div");
+    var mode = "all";
+    var pg = null;
+    function fetcher() {
+      var skip = 0;
+      var keep = FILTER_KEEP[mode];
+      return function load4() {
+        var got = [];
+        var _step3 = function step(tries) {
+          return fetchCatalog(entry, Object.assign({
+            skip: skip || void 0
+          }, extra2)).then(function (metas) {
+            skip += metas.length;
+            metas.forEach(function (m) {
+              return keep(m) && got.push(m);
+            });
+            if (!metas.length || got.length >= 20 || tries >= 5) return got;
+            return _step3(tries + 1);
+          });
+        };
+        return _step3(0);
+      };
+    }
+    function build2() {
+      var load4 = fetcher();
+      pg = pagedGrid({
+        load: load4,
+        key: function key(m) {
+          return m.id;
+        },
+        card: function card(m) {
+          return itemCard(m, entry);
+        },
+        onEmpty: function onEmpty() {
+          return pg.el.insertBefore(h("div.hint", {
+            text: t("Nada por aqui.")
+          }), pg.el.firstChild);
+        }
+      });
+      clear(slot);
+      slot.appendChild(pg.el);
+    }
     scroller.appendChild(h("div.reco-crumb", null, crumb));
-    scroller.appendChild(pg.el);
+    if (isHentai) {
+      var chips = UNCENSORED_FILTERS.map(function (f) {
+        return h("div.chip", {
+          focusable: true,
+          text: t(f.label),
+          onSelect: function onSelect() {
+            if (f.id === mode) return;
+            mode = f.id;
+            chips.forEach(function (c, i) {
+              return c.classList.toggle("active", UNCENSORED_FILTERS[i].id === mode);
+            });
+            build2();
+            pg.start();
+          }
+        });
+      });
+      chips.forEach(function (c, i) {
+        return c.classList.toggle("active", UNCENSORED_FILTERS[i].id === mode);
+      });
+      scroller.appendChild(h("div.row.nsfw-genres", {
+        "data-anchor": "30"
+      }, [h("div.chip-track", {
+        "data-scroll-x": "",
+        "data-group": "",
+        "data-trap": ""
+      }, chips)]));
+    }
+    build2();
+    scroller.appendChild(slot);
     el2.appendChild(scroller);
     return {
       el: el2,

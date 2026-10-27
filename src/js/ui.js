@@ -399,6 +399,7 @@ export function card(item, opts) {
   if (o.progress) wrap.appendChild(h('div.progress', null, h('i', { style: { width: Math.round(o.progress * 100) + '%' } })));
   if (o.badge) wrap.appendChild(h('div.badge', { text: o.badge }));
   if (o.corner) wrap.appendChild(h('div.card-corner', { cls: o.corner === '4K' ? 'uhd' : '', text: o.corner }));
+  if (o.flag) wrap.appendChild(h('div.card-flag', { text: o.flag }));
   if (o.duration) wrap.appendChild(h('div.card-dur', { text: o.duration }));
   // Coração: cheio quando favoritado; vazio só no cartão em foco (dica da tecla amarela).
   const favItem = o.fav === false ? null : o.favItem || ((item.id || item._id) && item.type ? item : null);

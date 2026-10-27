@@ -89,6 +89,11 @@ function openDetails(type, id, opts, item) {
 
 // Cartão do catálogo: capa deitada, qualidade e duração em cima da prévia e, embaixo, os números
 // do vídeo (visualizações, aprovação, canal). Sem prévia (capa que não abre), o vídeo sai da fileira.
+// Títulos sem censura: o addon costuma escrever "uncensored" no nome.
+function isUncensored(m) {
+  return /uncensored/i.test(m.name || '');
+}
+
 function itemCard(m, entry) {
   const wide = m.posterShape === 'landscape' || (entry && entry.catalog.posterShape === 'landscape');
   const st = m.stats || {};
@@ -99,6 +104,7 @@ function itemCard(m, entry) {
     image: wide ? m.poster || m.background : undefined,
     dropWithoutImage: true,
     corner: st.quality,
+    flag: isUncensored(m) ? 'UNCENSORED' : null,
     duration: st.duration,
     stats: statsLine(st) || extra,
     onSelect: () => openDetails(m.type || entry.catalog.type, m.id, null, m),
@@ -549,23 +555,76 @@ function catalogRow(entry, parent) {
 }
 
 // Grade com o catálogo inteiro (opcionalmente filtrado por categoria ou busca), paginada pelo "skip".
+// Nas categorias de hentai, um subfiltro separa os títulos "uncensored" dos demais.
+const UNCENSORED_FILTERS = [
+  { id: 'all', label: 'Todos' },
+  { id: 'uncensored', label: 'Só uncensored' },
+  { id: 'censored', label: 'Sem uncensored' },
+];
+const FILTER_KEEP = {
+  all: () => true,
+  uncensored: (m) => isUncensored(m),
+  censored: (m) => !isUncensored(m),
+};
+
 function GridView(entry, extra) {
   const el = h('div.view.nsfw-view');
   const scroller = h('div.scroll-y', { 'data-scroll-y': '' });
   const crumb = [h('span', { text: 'NSFW › ' + siteName(entry.addon) }), ' › ', h('b', { text: extra.genre ? tr.genre(extra.genre) : catName(entry) })];
-  let skip = 0;
-  const pg = pagedGrid({
-    load: () =>
-      addons.fetchCatalog(entry, Object.assign({ skip: skip || undefined }, extra)).then((metas) => {
-        skip += metas.length;
-        return metas;
-      }),
-    key: (m) => m.id,
-    card: (m) => itemCard(m, entry),
-    onEmpty: () => pg.el.insertBefore(h('div.hint', { text: t('Nada por aqui.') }), pg.el.firstChild),
-  });
+  const isHentai = /hentai/i.test((extra.genre || '') + ' ' + catName(entry));
+  const slot = h('div');
+  let mode = 'all';
+  let pg = null;
+
+  // Busca uma página do catálogo; no filtro, junta páginas até ter o bastante (ou o catálogo acabar).
+  function fetcher() {
+    let skip = 0;
+    const keep = FILTER_KEEP[mode];
+    return function load() {
+      const got = [];
+      const step = (tries) =>
+        addons.fetchCatalog(entry, Object.assign({ skip: skip || undefined }, extra)).then((metas) => {
+          skip += metas.length;
+          metas.forEach((m) => keep(m) && got.push(m));
+          if (!metas.length || got.length >= 20 || tries >= 5) return got;
+          return step(tries + 1);
+        });
+      return step(0);
+    };
+  }
+
+  function build() {
+    const load = fetcher();
+    pg = pagedGrid({
+      load: load,
+      key: (m) => m.id,
+      card: (m) => itemCard(m, entry),
+      onEmpty: () => pg.el.insertBefore(h('div.hint', { text: t('Nada por aqui.') }), pg.el.firstChild),
+    });
+    clear(slot);
+    slot.appendChild(pg.el);
+  }
+
   scroller.appendChild(h('div.reco-crumb', null, crumb));
-  scroller.appendChild(pg.el);
+  if (isHentai) {
+    const chips = UNCENSORED_FILTERS.map((f) =>
+      h('div.chip', {
+        focusable: true,
+        text: t(f.label),
+        onSelect: () => {
+          if (f.id === mode) return;
+          mode = f.id;
+          chips.forEach((c, i) => c.classList.toggle('active', UNCENSORED_FILTERS[i].id === mode));
+          build();
+          pg.start();
+        },
+      })
+    );
+    chips.forEach((c, i) => c.classList.toggle('active', UNCENSORED_FILTERS[i].id === mode));
+    scroller.appendChild(h('div.row.nsfw-genres', { 'data-anchor': '30' }, [h('div.chip-track', { 'data-scroll-x': '', 'data-group': '', 'data-trap': '' }, chips)]));
+  }
+  build();
+  scroller.appendChild(slot);
   el.appendChild(scroller);
   return {
     el: el,
