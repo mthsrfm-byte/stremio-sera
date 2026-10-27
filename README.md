@@ -15,7 +15,7 @@ features to Tizen, fully controlled with the Samsung remote.
 - **Your Stremio account.** Sign in with a code (on your phone at link.stremio.com) or by email.
   Add-ons, library and "Continue watching" come from your account, and progress syncs back.
 - **Stremio Kai look.** Rotating hero banner, dark or OLED theme, ratings from several sources,
-  synopses and cast with photos (with a TMDB key).
+  synopses and cast with photos (TMDB key built in, see below).
 - **Smart source list.** Direct (debrid) links first, filter by add-on, and 4K, HDR,
   Dolby Vision and REMUX tags.
 - **Player.** Uses the TV's hardware player (H.264, HEVC, HDR10), skips intros and outros
@@ -29,7 +29,7 @@ features to Tizen, fully controlled with the Samsung remote.
 
 ## Requirements
 
-- A Samsung TV running **Tizen 3.0 or newer** (2017 onwards). Tested on a 2017 UA65MU8500 (Tizen 3.0).
+- A Samsung TV running **Tizen 3.0 or newer** (2017 onwards). Tested on a 2021 UN50AU7700 (Tizen 6.0).
 - **TizenBrew** on the TV (installation steps below).
 - For playback, **one** of:
   - a **debrid** service (Real-Debrid, AllDebrid, etc.) in your Stremio add-ons: plays directly
@@ -168,6 +168,17 @@ change `AUTH_VERSION` in `remote/index.html`.
   so it may not work on every TV. Please open an issue if it doesn't on yours.
 - The AI enhancements of the PC version of Stremio Kai (SVP, VapourSynth, Anime4K) are not
   included: TVs can't run them.
+
+## TMDB and MDBList keys
+
+The app can ship with API keys built in, so nobody has to type them on the TV. Add them as
+repository secrets (**Settings → Secrets and variables → Actions → New repository secret**):
+
+- `TMDB_API_KEY`: TMDB API key (v3), free at themoviedb.org → Settings → API.
+- `MDBLIST_API_KEY` (optional): free at mdblist.com → Preferences → API.
+
+The **Build e publicar na TV** workflow embeds them in `dist/app.js`. The repository is public, so
+the keys are readable by anyone. A key typed in Ajustes on the TV takes priority.
 
 ## Building
 

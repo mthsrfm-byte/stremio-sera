@@ -119,8 +119,8 @@ const DEVICE_KEYS = ['serverUrl', 'tmdbKey', 'mdblistKey', 'smoothScroll', 'devl
 const DEFAULT_SETTINGS = {
   // TV
   serverUrl: '',
-  tmdbKey: typeof __KAI_TMDB__ !== 'undefined' ? __KAI_TMDB__ : '',
-  mdblistKey: typeof __KAI_MDBLIST__ !== 'undefined' ? __KAI_MDBLIST__ : '',
+  tmdbKey: '', // vazio = usa a chave embutida no build (BUILTIN_KEYS em api/extras.js), se houver
+  mdblistKey: '',
   smoothScroll: false, // rolagem animada (mais bonita, mais pesada na TV)
   devlogUrl: typeof __KAI_DEVLOG__ !== 'undefined' ? __KAI_DEVLOG__ : '',
   language: 'auto', // 'auto' (idioma da TV) | 'pt' | 'en'

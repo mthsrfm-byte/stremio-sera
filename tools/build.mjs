@@ -1,4 +1,5 @@
-// Build: esbuild junta os módulos, Babel reescreve para Chromium 38 (webOS 3.x).
+// Build: esbuild junta os módulos e o Babel reescreve para navegadores antigos (Chromium 38+),
+// para rodar também nas TVs Samsung mais velhas.
 import { build, context } from 'esbuild';
 import { transformAsync } from '@babel/core';
 import fs from 'node:fs';

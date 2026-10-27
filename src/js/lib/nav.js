@@ -12,7 +12,7 @@ export const KEY = {
   RIGHT: 39,
   DOWN: 40,
   ENTER: 13,
-  BACK: TIZEN ? 10009 : 461, // Samsung Return / LG Back
+  BACK: 10009, // Samsung Return (no PC: Esc ou Backspace)
   ESC: 27,
   BACKSPACE: 8,
   PLAY: 415,
