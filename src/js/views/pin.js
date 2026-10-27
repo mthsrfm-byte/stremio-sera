@@ -9,6 +9,8 @@ import { t } from '../lib/i18n.js';
 import * as router from '../router.js';
 
 export const DEFAULT_PIN = '7789';
+const LOCK_SVG = '<svg viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/><circle cx="12" cy="15.5" r="1.3"/></svg>';
+const ERASE_SVG = '<svg viewBox="0 0 24 24"><path d="M9 5h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9l-6-7z"/><path d="m12.5 9.5 5 5m0-5-5 5"/></svg>';
 const MAX_TRIES = 3;
 const LOCK_MS = 60000;
 
@@ -52,7 +54,7 @@ function shuffle(a) {
 // Já desbloqueado: segue direto. Senão pede o PIN.
 export function requirePin(onOk) {
   if (unlocked) return onOk();
-  askPin(t('Aba protegida'), (ok) => {
+  askPin(t('Área adulta'), (ok) => {
     if (!ok) return;
     unlocked = true;
     onOk();
@@ -64,8 +66,16 @@ export function askPin(title, onDone) {
   const dots = h('div.pin-dots');
   const msg = h('div.pin-msg');
   const pad = h('div.pin-pad', { 'data-group': '' });
-  const box = h('div.modal-box.center.pin-box', null, [h('h3', { text: title }), dots, pad, msg]);
-  const modal = h('div.modal', null, box);
+  const box = h('div.pin-box', null, [
+    h('div.pin-lock', { html: LOCK_SVG }),
+    h('h2.pin-title', { text: title }),
+    h('div.pin-sub', { text: t('Digite o PIN') }),
+    dots,
+    pad,
+    msg,
+    h('div.pin-hint', { text: t('Os números do controle também funcionam') }),
+  ]);
+  const modal = h('div.modal.pin-screen', null, box);
   const want = pin();
   let entered = []; // cada toque: lista de dígitos possíveis
 
@@ -79,9 +89,9 @@ export function askPin(title, onDone) {
     const digits = shuffle(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']);
     for (let i = 0; i < 10; i += 2) {
       const pair = [digits[i], digits[i + 1]];
-      pad.appendChild(h('div.btn.pin-key', { focusable: true, text: pair[0] + ' ' + t('ou') + ' ' + pair[1], onSelect: () => press(pair) }));
+      pad.appendChild(h('div.pin-key', { focusable: true, onSelect: () => press(pair) }, [h('b', { text: pair[0] }), h('i'), h('b', { text: pair[1] })]));
     }
-    pad.appendChild(h('div.btn.pin-key', { focusable: true, text: '⌫', onSelect: () => erase() }));
+    pad.appendChild(h('div.pin-key.erase', { focusable: true, html: ERASE_SVG, onSelect: () => erase() }));
   }
 
   function erase() {

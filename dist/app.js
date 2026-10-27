@@ -6343,27 +6343,58 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return list2.filter(Boolean);
     });
   }
+  var TUBE_URLS = ["http://127.0.0.1:8090/xv/manifest.json", "http://127.0.0.1:8090/ph/manifest.json"];
+  var tubes = null;
+  function withTubes(list2) {
+    if (!tubes || !tubes.length) return list2;
+    return list2.concat(tubes.filter(function (t2) {
+      return !list2.some(function (a) {
+        return a.transportUrl === t2.transportUrl;
+      });
+    }));
+  }
+  function attachTubes() {
+    if (tubes) return;
+    tubes = [];
+    Promise.all(TUBE_URLS.map(function (u) {
+      return getJSON(u, {
+        timeout: 3e3,
+        quiet: true
+      }).then(function (m) {
+        return m && m.id ? {
+          transportUrl: u,
+          manifest: m
+        } : null;
+      }, function () {
+        return null;
+      });
+    })).then(function (list2) {
+      tubes = normalize(list2.filter(Boolean));
+      if (tubes.length && addons) changed(withTubes(addons));
+    });
+  }
   function load(force) {
+    attachTubes();
     if (addons && !force) return Promise.resolve(addons);
     if (isLoggedIn()) {
       var cached = cachedAddons();
       var fresh = getAddonCollection().then(function (list2) {
-        return changed(normalize(list2));
+        return changed(withTubes(normalize(list2)));
       });
       if (cached && cached.length && !force) {
-        addons = normalize(cached);
+        addons = withTubes(normalize(cached));
         fresh.catch(function (e) {
           return log.warn("Addons: usando cache", e.message);
         });
         return Promise.resolve(addons);
       }
       return fresh.catch(function () {
-        addons = normalize(cached || []);
+        addons = withTubes(normalize(cached || []));
         return addons;
       });
     }
     return defaultAddons().then(function (list2) {
-      return changed(normalize(list2));
+      return changed(withTubes(normalize(list2)));
     });
   }
   function list() {
@@ -6772,6 +6803,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // src/js/views/pin.js
   var DEFAULT_PIN = "7789";
+  var LOCK_SVG = '<svg viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/><circle cx="12" cy="15.5" r="1.3"/></svg>';
+  var ERASE_SVG = '<svg viewBox="0 0 24 24"><path d="M9 5h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9l-6-7z"/><path d="m12.5 9.5 5 5m0-5-5 5"/></svg>';
   var MAX_TRIES = 3;
   var LOCK_MS = 6e4;
   var unlocked = false;
@@ -6798,7 +6831,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
   function requirePin(onOk) {
     if (unlocked) return onOk();
-    askPin(t("Aba protegida"), function (ok) {
+    askPin(t("Área adulta"), function (ok) {
       if (!ok) return;
       unlocked = true;
       onOk();
@@ -6810,10 +6843,16 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var pad = h("div.pin-pad", {
       "data-group": ""
     });
-    var box = h("div.modal-box.center.pin-box", null, [h("h3", {
+    var box = h("div.pin-box", null, [h("div.pin-lock", {
+      html: LOCK_SVG
+    }), h("h2.pin-title", {
       text: title
-    }), dots, pad, msg]);
-    var modal = h("div.modal", null, box);
+    }), h("div.pin-sub", {
+      text: t("Digite o PIN")
+    }), dots, pad, msg, h("div.pin-hint", {
+      text: t("Os números do controle também funcionam")
+    })]);
+    var modal = h("div.modal.pin-screen", null, box);
     var want = pin();
     var entered = [];
     function renderDots() {
@@ -6827,20 +6866,23 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var digits = shuffle(["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]);
       var _loop3 = function _loop3() {
         var pair = [digits[i], digits[i + 1]];
-        pad.appendChild(h("div.btn.pin-key", {
+        pad.appendChild(h("div.pin-key", {
           focusable: true,
-          text: pair[0] + " " + t("ou") + " " + pair[1],
           onSelect: function onSelect() {
             return press(pair);
           }
-        }));
+        }, [h("b", {
+          text: pair[0]
+        }), h("i"), h("b", {
+          text: pair[1]
+        })]));
       };
       for (var i = 0; i < 10; i += 2) {
         _loop3();
       }
-      pad.appendChild(h("div.btn.pin-key", {
+      pad.appendChild(h("div.pin-key.erase", {
         focusable: true,
-        text: "⌫",
+        html: ERASE_SVG,
         onSelect: function onSelect() {
           return erase();
         }
@@ -7660,8 +7702,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return m ? m[0] : null;
   }
   var BUILTIN_KEYS = {
-    tmdbKey: true ? "9c57ed7ea044b2f01eea2fcc2e954c2e" : "",
-    mdblistKey: true ? "t9e4f1z29b3c36i1j25rul1wx" : ""
+    tmdbKey: true ? "" : "",
+    mdblistKey: true ? "" : ""
   };
   function keyOf(name) {
     return (settings()[name] || "").trim() || BUILTIN_KEYS[name];
@@ -9149,30 +9191,32 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       clearTimeout(slowTimer);
       closeSlow();
       showSpinner(false);
-      var box = h("div", null, [text2, h("small", {
-        text: t("Tente outra fonte (de preferência MP4/MKV com H.264 ou HEVC e áudio AAC/AC3).")
-      })]);
       clear(msgEl);
-      msgEl.appendChild(box);
-      var opts2 = [{
-        label: t("Escolher outra fonte"),
-        value: "src"
+      var reason = String(text2 || "").replace(/[.!\s]+$/, "").replace(/https?:\/\/\S+/g, function (u) {
+        return /:11470\b/.test(u) ? t("o servidor do PC") : t("o servidor");
+      });
+      var torrent = stream && _needsServer(stream);
+      var tip = torrent ? t("Esse torrent pode estar sem seeders ou o PC está lento para começar. Tente outra fonte.") : t("Tente outra fonte (de preferência MP4/MKV com H.264 ou HEVC e áudio AAC/AC3).");
+      var buttons2 = [{
+        label: '<span class="ico">⇄</span>' + t("Escolher outra fonte"),
+        primary: true,
+        onSelect: function onSelect() {
+          return sourcesMenu();
+        }
       }];
-      if (offerTranscode) opts2.unshift({
-        label: t("Converter no PC (experimental)"),
-        sub: t("O servidor converte para HLS que a TV aceita"),
-        value: "hls"
-      });
-      opts2.push({
-        label: t("Voltar"),
-        value: "back"
-      });
-      menu(t("Problema na reprodução"), opts2, {
-        center: true,
-        onPick: function onPick(v) {
-          if (v === "hls") transcode();else if (v === "src") sourcesMenu();else pop();
+      if (offerTranscode) buttons2.push({
+        label: t("Converter no PC"),
+        onSelect: function onSelect() {
+          return transcode();
         }
       });
+      buttons2.push({
+        label: t("Voltar"),
+        onSelect: function onSelect() {
+          return pop();
+        }
+      });
+      choiceDialog(t("Problema na reprodução"), reason.charAt(0).toUpperCase() + reason.slice(1) + ". " + tip, buttons2);
     }
     function transcode() {
       triedTranscode = true;
@@ -13345,9 +13389,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "45156f5c9a91848dbe3116f43b6978819a7b173a",
-    date: "2026-10-27T03:52:13-03:00",
-    message: "NSFW mais leve e tocando, abertura anterior de volta, teste de torrent na TV"
+    commit: "aa02ae55c20c292c54b226dc4e2711cb5097759c",
+    date: "2026-10-27T06:52:30+00:00",
+    message: "Build da dist/ para a TV"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {

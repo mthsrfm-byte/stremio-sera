@@ -191,6 +191,213 @@ function json(res, code, obj) {
 
 var FILES = ['index.html', 'icon.svg', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png', 'manifest.webmanifest'];
 
+// ---------- Addons "Seraflix Tube": XVideos e Pornhub servidos daqui da TV ----------
+// Os links de vídeo desses sites saem assinados para o IP de quem pediu a página. Pedindo daqui,
+// a TV que toca é a mesma que pediu: funciona sem servidor na internet e sem o PC.
+// Rotas no protocolo de addons do Stremio: /xv/manifest.json, /ph/manifest.json, catalog, meta, stream.
+var UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
+
+function fetchText(url, cb, hops) {
+  var done = false;
+  function end(err, text) { if (!done) { done = true; cb(err, text); } }
+  var req = https.get(url, { headers: { 'User-Agent': UA, 'Accept-Language': 'en-US,en;q=0.8', Cookie: 'platform=pc; age_verified=1; accessAgeDisclaimerPH=1' } }, function (r) {
+    if (r.statusCode >= 300 && r.statusCode < 400 && r.headers.location && (hops || 0) < 4) {
+      r.resume();
+      var next = r.headers.location.indexOf('http') === 0 ? r.headers.location : url.split('/').slice(0, 3).join('/') + r.headers.location;
+      return fetchText(next, cb, (hops || 0) + 1);
+    }
+    if (r.statusCode !== 200) { r.resume(); return end(new Error('HTTP ' + r.statusCode)); }
+    var chunks = [];
+    r.on('data', function (c) { chunks.push(c); });
+    r.on('end', function () { end(null, Buffer.concat(chunks).toString('utf8')); });
+  });
+  req.on('error', function (e) { end(e); });
+  req.setTimeout(15000, function () { req.abort(); end(new Error('tempo esgotado')); });
+}
+
+var ENTITIES = { amp: '&', quot: '"', apos: "'", lt: '<', gt: '>', nbsp: ' ', period: '.', comma: ',', excl: '!', quest: '?', colon: ':', semi: ';', lpar: '(', rpar: ')', num: '#', percnt: '%', plus: '+', equals: '=', sol: '/', hyphen: '-', lowbar: '_', ast: '*', commat: '@', mdash: '—', ndash: '–', hellip: '…', rsquo: '’', lsquo: '‘', ldquo: '“', rdquo: '”', laquo: '«', raquo: '»', trade: '™', copy: '©', reg: '®', deg: '°', times: '×', bull: '•', middot: '·', eacute: 'é', aacute: 'á', iacute: 'í', oacute: 'ó', uacute: 'ú', atilde: 'ã', otilde: 'õ', ccedil: 'ç', ecirc: 'ê', acirc: 'â', ocirc: 'ô', agrave: 'à', ntilde: 'ñ', uuml: 'ü' };
+
+function unhtml(s) {
+  return String(s || '')
+    .replace(/&#x([0-9a-f]+);/gi, function (m, h) { return String.fromCharCode(parseInt(h, 16)); })
+    .replace(/&#(\d+);/g, function (m, d) { return String.fromCharCode(parseInt(d, 10)); })
+    .replace(/&([a-z]+);/gi, function (m, n) { return ENTITIES[n.toLowerCase()] !== undefined ? ENTITIES[n.toLowerCase()] : m; })
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// Lê o array JSON que vem depois de "chave": no HTML, contando colchetes (e ignorando os que estão dentro de textos).
+function jsonArrayAfter(html, key) {
+  var i = html.indexOf('"' + key + '":[');
+  if (i < 0) return [];
+  var start = html.indexOf('[', i);
+  var depth = 0;
+  var inStr = false;
+  for (var j = start; j < html.length; j++) {
+    var ch = html[j];
+    if (inStr) {
+      if (ch === '\\') j++;
+      else if (ch === '"') inStr = false;
+    } else if (ch === '"') inStr = true;
+    else if (ch === '[' || ch === '{') depth++;
+    else if (ch === ']' || ch === '}') {
+      depth--;
+      if (depth === 0) {
+        try { return JSON.parse(html.slice(start, j + 1)); } catch (e) { return []; }
+      }
+    }
+  }
+  return [];
+}
+
+function attr(chunk, name) {
+  var m = chunk.match(new RegExp(name + '="([^"]*)"'));
+  return m ? unhtml(m[1]) : '';
+}
+
+function ogTag(html, prop) {
+  var m = html.match(new RegExp('<meta property="og:' + prop + '" content="([^"]*)"'));
+  return m ? unhtml(m[1]) : '';
+}
+
+var TUBES = {
+  xv: {
+    manifest: {
+      id: 'seraflix.xvideos',
+      version: '1.0.0',
+      name: 'XVideos',
+      description: 'XVideos pela própria TV (Seraflix). Conteúdo adulto.',
+      resources: ['catalog', 'meta', 'stream'],
+      types: ['movie'],
+      idPrefixes: ['xv:'],
+      behaviorHints: { adult: true },
+      catalogs: [
+        { type: 'movie', id: 'xv-new', name: 'Novidades', extra: [{ name: 'skip' }] },
+        { type: 'movie', id: 'xv-top', name: 'Mais vistos em HD', extra: [{ name: 'skip' }] },
+        { type: 'movie', id: 'xv-4k', name: '4K mais bem avaliados', extra: [{ name: 'skip' }] },
+        { type: 'movie', id: 'xv-search', name: 'Busca', extra: [{ name: 'search', isRequired: true }, { name: 'skip' }] }
+      ]
+    },
+    PAGE: 27,
+    listUrl: function (cat, page, extra) {
+      var p = page ? '&p=' + page : '';
+      if (cat === 'xv-search') return 'https://www.xvideos.com/?k=' + encodeURIComponent(extra.search || '') + p;
+      if (cat === 'xv-top') return 'https://www.xvideos.com/?k=hd&sort=views' + p;
+      if (cat === 'xv-4k') return 'https://www.xvideos.com/?k=4k&sort=rating' + p;
+      // Novidades: a primeira página é a inicial; as seguintes, /new/1, /new/2...
+      return page ? 'https://www.xvideos.com/new/' + page : 'https://www.xvideos.com/';
+    },
+    parseList: function (html) {
+      var out = [];
+      html.split('id="video_').slice(1).forEach(function (chunk) {
+        var href = attr(chunk, 'href');
+        if (href.indexOf('/video') !== 0) return;
+        var title = (chunk.match(/<p class="title"><a href="[^"]*" title="([^"]*)"/) || [])[1];
+        var thumb = attr(chunk, 'data-src');
+        if (!title) return;
+        out.push({ id: 'xv:' + href, type: 'movie', name: unhtml(title), poster: thumb, posterShape: 'landscape' });
+      });
+      return out;
+    },
+    pageUrl: function (id) { return 'https://www.xvideos.com' + id.slice(3); },
+    parseMeta: function (id, html) {
+      return { id: id, type: 'movie', name: ogTag(html, 'title') || 'XVideos', poster: ogTag(html, 'image'), background: ogTag(html, 'image'), posterShape: 'landscape', description: ogTag(html, 'description') };
+    },
+    parseStreams: function (html) {
+      var out = [];
+      var hls = (html.match(/setVideoHLS\('([^']+)'\)/) || [])[1];
+      var high = (html.match(/setVideoUrlHigh\('([^']+)'\)/) || [])[1];
+      if (hls) out.push({ name: 'XVideos\nHLS até 1080p', title: 'Melhor qualidade disponível (1080p HD)', url: hls });
+      if (high) out.push({ name: 'XVideos\n360p', title: 'MP4 360p (mais leve)', url: high });
+      return out;
+    }
+  },
+  ph: {
+    manifest: {
+      id: 'seraflix.pornhub',
+      version: '1.0.0',
+      name: 'Pornhub',
+      description: 'Pornhub pela própria TV (Seraflix). Conteúdo adulto.',
+      resources: ['catalog', 'meta', 'stream'],
+      types: ['movie'],
+      idPrefixes: ['ph:'],
+      behaviorHints: { adult: true },
+      catalogs: [
+        { type: 'movie', id: 'ph-hot', name: 'Em alta', extra: [{ name: 'skip' }] },
+        { type: 'movie', id: 'ph-top', name: 'Mais vistos', extra: [{ name: 'skip' }] },
+        { type: 'movie', id: 'ph-search', name: 'Busca', extra: [{ name: 'search', isRequired: true }, { name: 'skip' }] }
+      ]
+    },
+    PAGE: 32,
+    listUrl: function (cat, page, extra) {
+      var p = '&page=' + ((page || 0) + 1);
+      if (cat === 'ph-search') return 'https://www.pornhub.com/video/search?search=' + encodeURIComponent(extra.search || '') + p;
+      return 'https://www.pornhub.com/video?o=' + (cat === 'ph-top' ? 'mv' : 'ht') + p;
+    },
+    parseList: function (html) {
+      var out = [];
+      var seen = {};
+      html.split('data-video-vkey="').slice(1).forEach(function (chunk) {
+        var key = chunk.slice(0, chunk.indexOf('"'));
+        if (!/^[\w]+$/.test(key) || seen[key]) return;
+        var title = attr(chunk, 'title');
+        var img = chunk.match(/<img[^>]*\ssrc="([^"]+)"/);
+        if (!title) return;
+        seen[key] = true;
+        out.push({ id: 'ph:' + key, type: 'movie', name: title, poster: img ? unhtml(img[1]) : '', posterShape: 'landscape' });
+      });
+      return out;
+    },
+    pageUrl: function (id) { return 'https://www.pornhub.com/view_video.php?viewkey=' + id.slice(3); },
+    parseMeta: function (id, html) {
+      return { id: id, type: 'movie', name: ogTag(html, 'title') || 'Pornhub', poster: ogTag(html, 'image'), background: ogTag(html, 'image'), posterShape: 'landscape', description: ogTag(html, 'description') };
+    },
+    parseStreams: function (html) {
+      return jsonArrayAfter(html, 'mediaDefinitions')
+        .filter(function (d) { return d.format === 'hls' && d.videoUrl && /^\d+$/.test(String(d.quality)); })
+        .sort(function (a, b) { return Number(b.quality) - Number(a.quality); })
+        .map(function (d) { return { name: 'Pornhub\n' + d.quality + 'p', title: 'HLS ' + d.quality + 'p', url: d.videoUrl }; });
+    }
+  }
+};
+
+// /xv/catalog/movie/xv-new/skip=27.json → { tube: 'xv', resource: 'catalog', id: 'xv-new', extra: { skip: '27' } }
+function parseAddonUrl(url) {
+  var m = url.match(/^\/(xv|ph)\/(manifest\.json|(catalog|meta|stream)\/movie\/([^/]+?)(?:\/([^/]+))?\.json)$/);
+  if (!m) return null;
+  var extra = {};
+  if (m[5]) m[5].split('&').forEach(function (kv) { var p = kv.split('='); extra[decodeURIComponent(p[0])] = decodeURIComponent(p[1] || ''); });
+  return { tube: m[1], resource: m[3] || 'manifest', id: m[4] ? decodeURIComponent(m[4]) : '', extra: extra };
+}
+
+// Erro ao ler uma página (o site mudou o HTML) não pode derrubar o serviço: vira resposta vazia.
+function safe(res, empty, fn) {
+  return function (err, html) {
+    try { fn(err, html); } catch (e) { json(res, 200, empty); }
+  };
+}
+
+function addonRoute(url, res) {
+  var r = parseAddonUrl(url);
+  if (!r) return false;
+  var tube = TUBES[r.tube];
+  if (r.resource === 'manifest') { json(res, 200, tube.manifest); return true; }
+  if (r.resource === 'catalog') {
+    var page = Math.floor((parseInt(r.extra.skip, 10) || 0) / tube.PAGE);
+    fetchText(tube.listUrl(r.id, page, r.extra), safe(res, { metas: [] }, function (err, html) {
+      json(res, 200, { metas: err ? [] : tube.parseList(html) });
+    }));
+    return true;
+  }
+  var empty = r.resource === 'meta' ? { meta: null } : { streams: [] };
+  fetchText(tube.pageUrl(r.id), safe(res, empty, function (err, html) {
+    if (err) return json(res, 200, empty);
+    if (r.resource === 'meta') return json(res, 200, { meta: tube.parseMeta(r.id, html) });
+    json(res, 200, { streams: tube.parseStreams(html) });
+  }));
+  return true;
+}
+
 // ---------- Teste: dá para rodar torrent aqui na TV, sem o PC? ----------
 // Mede o que um motor de torrent precisa: Node, memória livre, UDP (trackers/DHT), TCP de saída
 // (troca com os peers), velocidade de download e onde dá para gravar. Cada parte tem tempo-limite.
@@ -324,6 +531,7 @@ var server = http.createServer(function (req, res) {
       uptimeMin: Math.round(os.uptime() / 60)
     });
   }
+  if (addonRoute(url, res)) return;
   if (url === '/api/torrent-test') {
     return torrentTest(function (r) { json(res, 200, r); });
   }
