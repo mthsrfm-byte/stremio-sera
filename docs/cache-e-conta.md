@@ -1,0 +1,14 @@
+# Cache da UI e permanência da conta
+
+O app usa `WKWebsiteDataStore.default()` (também é o padrão de `WKWebViewConfiguration`) e mantém o identificador `com.mthsrfm.seraflix` entre versões. Atualizar a UI troca o caminho do documento de `Contents/Resources/fallback/index.html` para `Application Support/Seraflix/ui/<commit>/index.html`; a conta/perfis ficam no `localStorage` que o Seraflix original já utiliza.
+
+O código do WebKit não inclui o caminho do arquivo na chave do armazenamento. Fontes consultadas em 27/10/2026, commit [`69572d36a75faf27cbc070f1188a606ebfe543ff`](https://github.com/WebKit/WebKit/tree/69572d36a75faf27cbc070f1188a606ebfe543ff):
+
+- [`SecurityOriginData::fromURLWithoutStrictOpaqueness`](https://github.com/WebKit/WebKit/blob/69572d36a75faf27cbc070f1188a606ebfe543ff/Source/WebCore/page/SecurityOriginData.cpp#L90) conserva protocolo, host e porta; o path não participa.
+- [`SecurityOriginData::databaseIdentifier`](https://github.com/WebKit/WebKit/blob/69572d36a75faf27cbc070f1188a606ebfe543ff/Source/WebCore/page/SecurityOriginData.cpp#L110) retorna `file__0` para arquivos locais, por compatibilidade com estado persistido.
+- [`StorageAreaMap::clientOrigin`](https://github.com/WebKit/WebKit/blob/69572d36a75faf27cbc070f1188a606ebfe543ff/Source/WebKit/WebProcess/WebStorage/StorageAreaMap.cpp#L280) usa os dados da origem, sem o caminho do arquivo.
+- [`APIPageConfiguration`](https://github.com/WebKit/WebKit/blob/69572d36a75faf27cbc070f1188a606ebfe543ff/Source/WebKit/UIProcess/API/APIPageConfiguration.h#L661) habilita por padrão a compatibilidade de acesso ao armazenamento para `file://`. Não precisamos conceder acesso universal a arquivos ou usar preferências privadas para isso.
+
+A identificação `file__0` e o uso de `SecurityOriginData` pelo armazenamento também constam do snapshot de 2022 [`dd956d5e74249681ddf904e0bbe401f308b65e0f`](https://github.com/WebKit/WebKit/blob/dd956d5e74249681ddf904e0bbe401f308b65e0f/Source/WebCore/page/SecurityOriginData.cpp#L76), contemporâneo do macOS 13. Isso sustenta a expectativa de que trocar o path do bundle preserve a conta. Não substitui executar o teste no runtime utilizado.
+
+`./scripts/test-web-storage.sh` compila um harness Swift independente com AppKit/WKWebView. Ele grava uma chave aleatória em um documento local, navega para outro diretório, recria a WKWebView com o armazenamento persistente padrão e volta ao documento original. A chave precisa permanecer nas quatro verificações. O teste remove apenas a própria chave e os arquivos temporários; não apaga cookies, conta ou histórico existentes. Esse teste certifica o compartilhamento da origem entre paths e instâncias da view; login real na conta Stremio e persistência entre encerramentos completos devem ser verificados separadamente no Mac do usuário.

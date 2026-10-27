@@ -60,4 +60,6 @@ O servidor fica em `~/Library/Application Support/Seraflix/Server`, a UI em `~/L
 
 libmpv/FFmpeg e bibliotecas têm licenças próprias, incluídas no bundle quando disponíveis e relacionadas em [docs/dependencies.md](docs/dependencies.md). O perfil de dependências binárias do IINA é para validação técnica, com ressalva sobre correspondência exata de fontes. Não publicar release pública com esse perfil sem resolver essa correspondência; o caminho de build a partir das fontes registra receitas/fontes para distribuição.
 
+A persistência da conta entre caminhos de UI está descrita e testada em [docs/cache-e-conta.md](docs/cache-e-conta.md).
+
 Contrato único da ponte: [docs/bridge.md](docs/bridge.md). Resultados e pendências: [docs/validacao.md](docs/validacao.md).

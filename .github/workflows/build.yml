@@ -60,6 +60,7 @@ jobs:
       - name: Testar validador real de cache e bootstrap
         run: |
           scripts/test-ui-cache.sh
+          scripts/test-web-storage.sh
           node --test tests/server-bootstrap.test.mjs
       - name: Compilar .app e DMG assinado ad hoc
         run: |

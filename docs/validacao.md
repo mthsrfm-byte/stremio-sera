@@ -7,15 +7,17 @@ Registro em 27/10/2026; atualizado com o resultado do build macOS ao final da ta
 - Estudo de fontes/licenças antes de implementação, commit `435fa66`.
 - Builds TV e web do stremio-sera comparados byte a byte com referência anterior às alterações, fixando metadados de commit/data/mensagem e senha local de teste: nenhuma diferença.
 - Build Mac da mesma UI, sem gate de senha, manifesto SHA-256: aprovado (63 arquivos no snapshot inicial).
-- Três testes do adaptador JS Mac: aprovados.
+- Quatro testes do adaptador JS Mac: aprovados.
 - Teste de lifecycle do bootstrap: aprovado; loopback, porta fixa11470, recusa alternativa, flags de isolamento e encerramento de subprocessos.
 - Execução exploratória do `server.js` oficial com Node Linux: `/settings`, versão e escuta loopback confirmados. Isso não certifica torrent no macOS.
 
 ## Verificação macOS automatizada
 
-O workflow compila arm64 em `macos-latest` e Intel em `macos-15-intel`, valida minOS/arquitetura de todos os Mach-O e dependências locais, assina ad hoc, gera DMG e ZIP. O smoke test lança o .app real, espera a home do WKWebView, abre vídeo MPEG4 gerado localmente via HTTP e exige evento loaded e avanço >0,3s vindo do libmpv. Grava JSON com tempo observado até home; o runner não é equivalente ao M1/M3 do usuário.
+O workflow compila arm64 em `macos-latest` e Intel em `macos-15-intel`, valida minOS/arquitetura de todos os Mach-O e dependências locais, assina ad hoc, gera DMG e ZIP. O smoke test lança o .app real, espera a home do WKWebView, abre vídeo MPEG4 gerado localmente via HTTP e exige evento loaded e avanço >0,3s vindo do libmpv. Também testa MKV HEVC Main10 3840×2160 SDR (upscale), dois áudios e SRT embutida, com seleção de faixas. Só passa o render se houver pixels não pretos no FBO do mpv. A atribuição/receita da fixture CC BY3.0 está em `tests/fixtures/ATTRIBUTION.md`. Grava JSON com tempo observado até home; o runner não é equivalente ao M1/M3 do usuário.
 
 Resultado desta execução: pendente do workflow; não interpretar a existência de código/testes como execução bem-sucedida. Consulte o resultado e JSON do job.
+
+Verificação binária arm64 já executada no runner: Swift e FFmpeg compilaram, Node SHA-256 passou, todos os Mach-O foram checados para arm64 e minOS≤13.0. A primeira falha pós-build foi na ordem de assinatura, corrigida antes de nova rodada. Essa checagem de minOS não substitui execução física no macOS 13.
 
 ## Dependem de teste no Mac do usuário
 
