@@ -716,19 +716,6 @@ body.light .soon-tag { background: rgba(51,71,255,0.12); color: #2236E0; }
 .cast { border-radius: 14px; padding: 6px 0; border: 3px solid transparent; }
 .cast.focused { background: rgba(51,71,255,0.22); border-color: #3347FF; }
 
-/* Filmografia */
-.filmo { background: #111110; }
-.filmo-side { position: absolute; left: 96px; top: 120px; width: 860px; }
-.filmo-photo { width: 300px; height: 450px; border-radius: 20px; overflow: hidden; background: rgba(255,255,255,0.06); }
-.filmo-photo img { width: 100%; height: 100%; object-fit: cover; }
-.filmo-name { font-size: 54px; font-weight: 800; margin-top: 30px; line-height: 1.1; }
-.filmo-count { font-size: 24px; color: rgba(255,255,255,0.55); margin-top: 10px; }
-.filmo-item .thumb.poster { width: 84px; height: 124px; }
-body.light .filmo { background: #F5F4EF; }
-body.light .filmo-count { color: rgba(17,17,16,0.55); }
-
-.slow-box .modal-actions .btn { margin-right: 16px; }
-
 /* Aba NSFW: brilho discreto no topo, seções com marcador e categorias em destaque */
 .nsfw-view .scroll-y { background: radial-gradient(1200px 420px at 15% 0, rgba(229,80,140,0.16), rgba(229,80,140,0) 70%), radial-gradient(900px 380px at 85% 0, rgba(123,91,245,0.14), rgba(123,91,245,0) 70%); }
 .nsfw-section { position: relative; padding-left: 116px; }
@@ -773,3 +760,55 @@ body.light .nsfw-genres .chip { background: rgba(229,80,140,0.12); }
 /* Streamings: fade + leve subida ao trocar de serviço */
 .streamings .reco-rows { -webkit-transition: opacity 0.45s ease, -webkit-transform 0.45s ease; transition: opacity 0.45s ease, transform 0.45s ease; }
 .streamings .reco-rows.sw { opacity: 0; -webkit-transform: translateY(40px); transform: translateY(40px); -webkit-transition: none; transition: none; }
+
+/* Perfil do ator/atriz + filmografia em capas */
+.filmo { background: #0e0e0d; overflow: hidden; }
+.fp-ambient { position: absolute; left: -40px; top: -40px; right: -40px; bottom: -40px; background-size: cover; background-position: center 30%; opacity: 0.28; }
+.filmo:before { content: ''; position: absolute; left: 0; top: 0; right: 0; bottom: 0; background: linear-gradient(to right, rgba(14,14,13,0.55), rgba(14,14,13,0.92) 55%); }
+.fp-side { position: absolute; left: 96px; top: 84px; width: 800px; }
+.fp-head { display: -webkit-flex; display: flex; }
+.fp-photo { width: 250px; height: 375px; border-radius: 22px; overflow: hidden; -webkit-flex-shrink: 0; flex-shrink: 0; background: rgba(255,255,255,0.06); box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
+.fp-photo img { width: 100%; height: 100%; object-fit: cover; opacity: 0; -webkit-transition: opacity 0.4s; transition: opacity 0.4s; }
+.fp-photo img.ready { opacity: 1; }
+.fp-id { padding: 6px 0 0 40px; min-width: 0; }
+.fp-name { font-size: 58px; font-weight: 800; line-height: 1.02; letter-spacing: -0.5px; margin-bottom: 14px; }
+.fp-life { font-size: 24px; font-weight: 600; color: rgba(245,244,239,0.85); }
+.fp-place { font-size: 20px; color: rgba(245,244,239,0.55); margin-top: 6px; }
+.fp-social { margin-top: 26px; }
+.fp-insta { display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; padding: 10px 22px 10px 10px; border-radius: 18px; background: rgba(255,255,255,0.07); border: 3px solid transparent; margin-bottom: 12px; }
+.fp-insta.focused { border-color: #3347FF; background: rgba(51,71,255,0.22); }
+.fp-qr { width: 112px; height: 112px; border-radius: 10px; background: #fff; padding: 6px; margin-right: 20px; image-rendering: pixelated; }
+.fp-insta b { display: block; font-size: 26px; font-weight: 800; background: linear-gradient(90deg, #f9ce34, #ee2a7b 55%, #8a5cff); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.fp-insta small { display: block; font-size: 18px; color: rgba(245,244,239,0.6); margin-top: 6px; }
+.fp-net { display: inline-block; margin: 0 12px 0 0; font-size: 18px; }
+.fp-bio { margin-top: 38px; padding: 16px 20px; margin-left: -20px; border-radius: 16px; border: 3px solid transparent; }
+.fp-bio.focused { border-color: #3347FF; background: rgba(51,71,255,0.14); }
+.fp-bio-text { font-size: 22px; line-height: 1.55; color: rgba(245,244,239,0.82); display: -webkit-box; -webkit-line-clamp: 9; -webkit-box-orient: vertical; overflow: hidden; max-height: 307px; }
+.fp-bio-text.none { color: rgba(245,244,239,0.45); }
+.fp-bio-note { font-size: 16px; color: rgba(245,244,239,0.4); margin-top: 10px; }
+.fp-bio-box { width: 1100px; padding: 36px 44px 30px; }
+.fp-bio-box h3 { padding: 0 0 18px; }
+.fp-bio-full { font-size: 24px; line-height: 1.6; color: rgba(245,244,239,0.85); max-height: 700px; overflow: hidden; white-space: pre-line; }
+.fp-panel { position: absolute; right: 0; top: 0; width: 900px; height: 1080px; padding: 64px 0 0; background: rgba(10,10,9,0.45); }
+.fp-title { padding: 0 48px; font-size: 34px; font-weight: 800; }
+.fp-count { font-size: 20px; font-weight: 600; color: rgba(245,244,239,0.5); margin-left: 16px; }
+.fp-chips { padding: 18px 48px 0; display: -webkit-flex; display: flex; }
+.fp-chips .chip { font-size: 20px; padding: 6px 20px; }
+.fp-order { margin-left: auto; margin-right: 0 !important; }
+.fp-scroll { position: absolute; left: 0; right: 0; top: 196px; bottom: 0; overflow: hidden; padding: 6px 0 0 44px; }
+.fp-grid { display: -webkit-flex; display: flex; -webkit-flex-wrap: wrap; flex-wrap: wrap; padding-bottom: 120px; }
+.fp-item { width: 186px; margin: 0 20px 30px 0; border-radius: 14px; }
+.fp-poster { position: relative; width: 186px; height: 279px; border-radius: 14px; overflow: hidden; background: rgba(255,255,255,0.06); border: 3px solid transparent; -webkit-transition: -webkit-transform 0.2s, border-color 0.2s; transition: transform 0.2s, border-color 0.2s; }
+.fp-poster img { width: 100%; height: 100%; object-fit: cover; }
+.fp-poster .ph { position: absolute; left: 10px; right: 10px; top: 40%; text-align: center; font-size: 17px; font-weight: 700; color: rgba(245,244,239,0.6); }
+.fp-item.focused .fp-poster { border-color: #3347FF; -webkit-transform: scale(1.05); transform: scale(1.05); }
+.fp-year { position: absolute; left: 8px; bottom: 8px; padding: 2px 9px; border-radius: 7px; background: rgba(0,0,0,0.72); font-size: 16px; font-weight: 800; }
+.fp-kind { position: absolute; right: 8px; top: 8px; padding: 1px 8px; border-radius: 6px; background: rgba(51,71,255,0.85); font-size: 13px; font-weight: 800; }
+.fp-item-name { margin-top: 10px; font-size: 18px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fp-item-role { font-size: 15px; color: rgba(245,244,239,0.5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+body.light .filmo { background: #F5F4EF; }
+body.light .filmo:before { background: linear-gradient(to right, rgba(245,244,239,0.6), rgba(245,244,239,0.94) 55%); }
+body.light .fp-life, body.light .fp-bio-text, body.light .fp-bio-full { color: rgba(17,17,16,0.82); }
+body.light .fp-place, body.light .fp-count, body.light .fp-item-role, body.light .fp-insta small { color: rgba(17,17,16,0.55); }
+body.light .fp-panel { background: rgba(255,255,255,0.5); }
+.slow-box .modal-actions .btn { margin-right: 16px; }

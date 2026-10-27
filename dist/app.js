@@ -4714,8 +4714,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var remoteUrl = "";
   var buffer = [];
   var flushing = false;
-  function redact(text) {
-    return text.replace(/((?:realdebrid|alldebrid|premiumize|debridlink|easydebrid|offcloud|torbox|putio|apikey|api_key|token|authKey)(?:=|%3D|:))[A-Za-z0-9._-]{8,}/gi, "$1***");
+  function redact(text2) {
+    return text2.replace(/((?:realdebrid|alldebrid|premiumize|debridlink|easydebrid|offcloud|torbox|putio|apikey|api_key|token|authKey)(?:=|%3D|:))[A-Za-z0-9._-]{8,}/gi, "$1***");
   }
   function send(level, args) {
     var raw = Array.prototype.map.call(args, function (a) {
@@ -4729,15 +4729,15 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }
       return String(a);
     }).join(" ");
-    var text = redact(raw);
+    var text2 = redact(raw);
     try {
-      (console[level] || console.log).call(console, "[kai] " + text);
+      (console[level] || console.log).call(console, "[kai] " + text2);
     } catch (e) {}
     if (!remoteUrl) return;
     buffer.push({
       t: Date.now(),
       level: level,
-      text: text
+      text: text2
     });
     if (buffer.length > 200) buffer.shift();
     flush();
@@ -4890,8 +4890,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   function apiLang() {
     return "pt-BR";
   }
-  function t(text, params) {
-    var out = FUN[text] !== void 0 ? FUN[text] : text;
+  function t(text2, params) {
+    var out = FUN[text2] !== void 0 ? FUN[text2] : text2;
     if (params) {
       Object.keys(params).forEach(function (k) {
         out = out.split("{" + k + "}").join(String(params[k]));
@@ -7006,9 +7006,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
     focus(btns[0]);
   }
-  function confirmDialog(text, okLabel, onOk) {
+  function confirmDialog(text2, okLabel, onOk) {
     var box = h("div.modal-box.center", null, [h("h3", {
-      text: text
+      text: text2
     }), h("div.modal-actions", null, [h("div.btn.primary", {
       focusable: true,
       "data-autofocus": "",
@@ -7244,8 +7244,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       onFocus: onFocus
     })]);
   }
-  function spinnerLine(text) {
-    return h("div.loading-line", null, [h("div.spinner.small"), text]);
+  function spinnerLine(text2) {
+    return h("div.loading-line", null, [h("div.spinner.small"), text2]);
   }
 
   // src/js/router.js
@@ -7354,6 +7354,259 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     if (v.layer) popLayer(v.layer);
   }
 
+  // src/js/lib/genres.js
+  var PT = {
+    action: "Ação",
+    adventure: "Aventura",
+    animation: "Animação",
+    biography: "Biografia",
+    comedy: "Comédia",
+    crime: "Crime",
+    documentary: "Documentário",
+    drama: "Drama",
+    family: "Família",
+    fantasy: "Fantasia",
+    "film-noir": "Film noir",
+    "film noir": "Film noir",
+    "game-show": "Game show",
+    "game show": "Game show",
+    history: "História",
+    horror: "Terror",
+    music: "Música",
+    musical: "Musical",
+    mystery: "Mistério",
+    news: "Notícias",
+    "reality-tv": "Reality show",
+    "reality tv": "Reality show",
+    reality: "Reality show",
+    romance: "Romance",
+    "sci-fi": "Ficção científica",
+    "science fiction": "Ficção científica",
+    "science-fiction": "Ficção científica",
+    short: "Curta",
+    sport: "Esporte",
+    sports: "Esporte",
+    "talk-show": "Talk show",
+    "talk show": "Talk show",
+    thriller: "Suspense",
+    war: "Guerra",
+    western: "Faroeste",
+    anime: "Anime",
+    kids: "Infantil",
+    soap: "Novela",
+    "action & adventure": "Ação e aventura",
+    "sci-fi & fantasy": "Ficção e fantasia",
+    "war & politics": "Guerra e política",
+    "tv movie": "Filme para TV",
+    children: "Infantil",
+    suspense: "Suspense",
+    superhero: "Super-herói"
+  };
+  function genreName(g) {
+    var key = String(g || "").trim().toLowerCase();
+    return PT[key] || g;
+  }
+
+  // src/js/lib/translate.js
+  var GENRES = {
+    amateur: "Amador",
+    anal: "Anal",
+    asian: "Asiáticas",
+    babe: "Gatas",
+    babes: "Gatas",
+    bbw: "Gordinhas",
+    bdsm: "BDSM",
+    big_ass: "Bundudas",
+    "big ass": "Bundudas",
+    "big tits": "Peitudas",
+    big_tits: "Peitudas",
+    blonde: "Loiras",
+    blondes: "Loiras",
+    blowjob: "Oral",
+    brunette: "Morenas",
+    brunettes: "Morenas",
+    casting: "Teste de elenco",
+    college: "Universitárias",
+    compilation: "Compilação",
+    couple: "Casal",
+    couples: "Casais",
+    creampie: "Creampie",
+    cuckold: "Corno",
+    cumshot: "Gozada",
+    ebony: "Negras",
+    european: "Europeias",
+    fetish: "Fetiche",
+    fisting: "Fisting",
+    gangbang: "Gangbang",
+    gay: "Gay",
+    german: "Alemãs",
+    group: "Grupo",
+    "group sex": "Sexo em grupo",
+    hardcore: "Hardcore",
+    hentai: "Hentai",
+    homemade: "Caseiro",
+    interracial: "Inter-racial",
+    japanese: "Japonesas",
+    latina: "Latinas",
+    latinas: "Latinas",
+    lesbian: "Lésbicas",
+    lesbians: "Lésbicas",
+    massage: "Massagem",
+    masturbation: "Masturbação",
+    mature: "Maduras",
+    milf: "MILF",
+    "most viewed": "Mais vistos",
+    "most popular": "Mais populares",
+    popular: "Populares",
+    new: "Novidades",
+    newest: "Mais recentes",
+    latest: "Mais recentes",
+    "top rated": "Mais bem avaliados",
+    trending: "Em alta",
+    featured: "Destaques",
+    "hot": "Em alta",
+    outdoor: "Ao ar livre",
+    pov: "POV",
+    public: "Em público",
+    redhead: "Ruivas",
+    redheads: "Ruivas",
+    russian: "Russas",
+    solo: "Solo",
+    squirt: "Squirt",
+    stepmom: "Madrasta",
+    "step mom": "Madrasta",
+    stepsister: "Meia-irmã",
+    "step sister": "Meia-irmã",
+    teen: "Novinhas (18+)",
+    teens: "Novinhas (18+)",
+    threesome: "Ménage",
+    toys: "Brinquedos",
+    vintage: "Clássicos",
+    webcam: "Webcam",
+    wife: "Esposa",
+    "big dick": "Dotados",
+    black: "Negros",
+    brazilian: "Brasileiras",
+    petite: "Mignon",
+    orgy: "Orgia",
+    "female friendly": "Para elas",
+    romantic: "Romântico",
+    cosplay: "Cosplay",
+    "reality": "Reality",
+    movies: "Filmes",
+    videos: "Vídeos",
+    channels: "Canais",
+    pornstars: "Atrizes",
+    categories: "Categorias",
+    all: "Todos",
+    trans: "Trans",
+    transgender: "Trans",
+    shemale: "Trans",
+    bisexual: "Bissexual",
+    "full movie": "Filme completo"
+  };
+  var HIDDEN = /\b(indian|india|indians|desi|indian[oa]s?|hindi|bollywood|tamil|telugu)\b/i;
+  function isHiddenCategory(name) {
+    return HIDDEN.test(String(name || ""));
+  }
+  function genre(name) {
+    var key = String(name || "").trim().toLowerCase();
+    return GENRES[key] || GENRES[key.replace(/[-_]+/g, " ")] || genreName(name);
+  }
+  var CACHE_KEY = "nsfwTitles";
+  var CACHE_MAX = 3e3;
+  var cache2 = null;
+  function mem() {
+    if (!cache2) cache2 = get(CACHE_KEY, {}) || {};
+    return cache2;
+  }
+  var saveTimer = null;
+  function save() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(function () {
+      var c = mem();
+      var keys = Object.keys(c);
+      if (keys.length > CACHE_MAX) keys.slice(0, keys.length - CACHE_MAX).forEach(function (k) {
+        return delete c[k];
+      });
+      set(CACHE_KEY, c);
+    }, 1500);
+  }
+  function enabled() {
+    return settings().nsfwTranslate !== false;
+  }
+  function looksPt(s) {
+    return /[ãõçáéíóúâêô]/i.test(s) || /\b(com|uma|para|gostosa|novinha|esposa|não)\b/i.test(s);
+  }
+  function translateBatch(lines) {
+    var u = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=pt&dt=t&q=" + encodeURIComponent(lines.join("\n"));
+    return getJSON(u, {
+      timeout: 8e3
+    }).then(function (r) {
+      var text2 = (r && r[0] || []).map(function (p) {
+        return p[0] || "";
+      }).join("");
+      var out = text2.split("\n");
+      return out.length === lines.length ? out : null;
+    });
+  }
+  function titles(items) {
+    if (!enabled() || !items.length) return Promise.resolve(items);
+    var c = mem();
+    var todo = [];
+    items.forEach(function (it) {
+      var n = it && it.name;
+      if (!n || looksPt(n) || c[n] !== void 0 || todo.indexOf(n) >= 0) return;
+      todo.push(n.replace(/\n/g, " "));
+    });
+    var batches = [];
+    for (var i = 0; i < todo.length; i += 25) batches.push(todo.slice(i, i + 25));
+    return Promise.all(batches.map(function (b) {
+      return translateBatch(b).then(function (out) {
+        if (!out) return;
+        b.forEach(function (n, i) {
+          return c[n] = out[i].trim() || n;
+        });
+        save();
+      }).catch(function () {});
+    })).then(function () {
+      return items.map(function (it) {
+        return it && c[it.name] && c[it.name] !== it.name ? Object.assign({}, it, {
+          name: c[it.name],
+          originalName: it.name
+        }) : it;
+      });
+    });
+  }
+  function text(str) {
+    var src = String(str || "").trim();
+    if (!src) return Promise.resolve(null);
+    var parts = [];
+    var cur = "";
+    (src.match(/[^.!?]+[.!?]*\s*/g) || [src]).map(function (x) {
+      return x.trim();
+    }).forEach(function (sentence) {
+      if ((cur + " " + sentence).length > 1500 && cur) {
+        parts.push(cur);
+        cur = sentence;
+      } else cur = cur ? cur + " " + sentence : sentence;
+    });
+    if (cur) parts.push(cur);
+    return Promise.all(parts.map(function (q) {
+      return getJSON("https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=pt&dt=t&q=" + encodeURIComponent(q), {
+        timeout: 1e4
+      }).then(function (r) {
+        return (r && r[0] || []).map(function (p) {
+          return p[0] || "";
+        }).join("");
+      });
+    })).then(function (out) {
+      return out.join(" ").trim() || null;
+    }, function () {
+      return null;
+    });
+  }
+
   // src/js/api/extras.js
   var TMDB = "https://api.themoviedb.org/3/";
   var TMDB_IMG = "https://image.tmdb.org/t/p/";
@@ -7449,6 +7702,37 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             };
           })
         };
+      });
+    });
+  }
+  function personInfo(personId) {
+    return tmdb("person/" + personId, {
+      language: apiLang(),
+      append_to_response: "external_ids"
+    }).then(function (p) {
+      var ids = p.external_ids || {};
+      var info = {
+        name: p.name,
+        photo: p.profile_path ? TMDB_IMG + "h632" + p.profile_path : null,
+        birthday: p.birthday || null,
+        deathday: p.deathday || null,
+        place: p.place_of_birth || "",
+        bio: (p.biography || "").trim(),
+        bioTranslated: false,
+        instagram: ids.instagram_id || null,
+        tiktok: ids.tiktok_id || null,
+        twitter: ids.twitter_id || null,
+        imdb: ids.imdb_id || null
+      };
+      if (info.bio) return info;
+      return tmdb("person/" + personId, {
+        language: "en-US"
+      }).then(function (en) {
+        return en && en.biography ? text(en.biography).then(function (pt) {
+          return info.bio = pt || en.biography, info.bioTranslated = !!pt, info;
+        }) : info;
+      }).catch(function () {
+        return info;
       });
     });
   }
@@ -7647,9 +7931,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     if (!m) return NaN;
     return parseInt(m[1] || "0", 10) * 3600 + parseInt(m[2], 10) * 60 + parseFloat(m[3]);
   }
-  function parse(text) {
+  function parse(text2) {
     var cues = [];
-    var blocks = String(text).replace(/^﻿/, "").replace(/\r\n?/g, "\n").split(/\n{2,}/);
+    var blocks = String(text2).replace(/^﻿/, "").replace(/\r\n?/g, "\n").split(/\n{2,}/);
     for (var i = 0; i < blocks.length; i++) {
       var lines = blocks[i].split("\n");
       var j = 0;
@@ -7775,8 +8059,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   function subText(s) {
     return [s.title, s.name, s.release, s.label, s.id, s.url].filter(Boolean).join(" ");
   }
-  function episodeOf(text) {
-    var m = String(text).match(/s(\d{1,2})[ ._-]?e(\d{1,3})/i) || String(text).match(/\b(\d{1,2})x(\d{2,3})\b/);
+  function episodeOf(text2) {
+    var m = String(text2).match(/s(\d{1,2})[ ._-]?e(\d{1,3})/i) || String(text2).match(/\b(\d{1,2})x(\d{2,3})\b/);
     return m ? {
       season: parseInt(m[1], 10),
       episode: parseInt(m[2], 10)
@@ -7796,12 +8080,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     (list2 || []).forEach(function (s, order) {
       var li = prefLangs.indexOf(String(s.lang).toLowerCase());
       if (li < 0 || !s.url) return;
-      var text = subText(s);
+      var text2 = subText(s);
       if (ep) {
-        var se = episodeOf(text);
+        var se = episodeOf(text2);
         if (se && (se.season !== ep.season || se.episode !== ep.episode)) return;
       }
-      var st = tokens(text);
+      var st = tokens(text2);
       var score2 = 0;
       var seen = {};
       st.forEach(function (x) {
@@ -7814,7 +8098,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         return st.indexOf(x) >= 0;
       })[0];
       if (fileSource && subSource && subSource !== fileSource) score2 -= 3;
-      if (/\bforced\b|forçad/i.test(text)) score2 -= 10;
+      if (/\bforced\b|forçad/i.test(text2)) score2 -= 10;
       out.push({
         sub: s,
         lang: li,
@@ -7992,42 +8276,42 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   // src/js/lib/streaminfo.js
   var FLAG_RE = /\uD83C[\uDDE6-\uDDFF]\uD83C[\uDDE6-\uDDFF]/g;
   var BR = "🇧🇷";
-  var PT = "🇵🇹";
+  var PT2 = "🇵🇹";
   var ICONS_RE = /[☀-➿️]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|\uD83E[\uDD00-\uDFFF]/g;
   function textOf(s) {
     return (s.name || "") + "\n" + (s.title || s.description || "") + "\n" + (s.behaviorHints && s.behaviorHints.filename || "");
   }
-  function resolution(text) {
-    if (/2160p|\b4k\b|\buhd\b/i.test(text)) return "4K";
-    if (/1080p|\bfhd\b|\b1080\b/i.test(text)) return "1080p";
-    if (/720p|\bhd\b/i.test(text)) return "720p";
-    if (/480p|\bsd\b|dvdrip|\bcam\b|\bts\b/i.test(text)) return "SD";
+  function resolution(text2) {
+    if (/2160p|\b4k\b|\buhd\b/i.test(text2)) return "4K";
+    if (/1080p|\bfhd\b|\b1080\b/i.test(text2)) return "1080p";
+    if (/720p|\bhd\b/i.test(text2)) return "720p";
+    if (/480p|\bsd\b|dvdrip|\bcam\b|\bts\b/i.test(text2)) return "SD";
     return "";
   }
-  function dubbed(text, flags) {
-    if (flags.indexOf(BR) >= 0 || flags.indexOf(PT) >= 0) return true;
-    return /dublad[oa]|\bdub(?:lagem)?[ ._-]?(?:pt|br)\b|\bpt[ ._-]?br\b|\bnacional\b|portugu[eê]s|\bdual\b[^\n]*\b(?:pt|br|por)\b|\b(?:pt|br|por)\b[^\n]*\bdual\b/i.test(text);
+  function dubbed(text2, flags) {
+    if (flags.indexOf(BR) >= 0 || flags.indexOf(PT2) >= 0) return true;
+    return /dublad[oa]|\bdub(?:lagem)?[ ._-]?(?:pt|br)\b|\bpt[ ._-]?br\b|\bnacional\b|portugu[eê]s|\bdual\b[^\n]*\b(?:pt|br|por)\b|\b(?:pt|br|por)\b[^\n]*\bdual\b/i.test(text2);
   }
   function parse2(s) {
     if (s.__info) return s.__info;
-    var text = textOf(s);
-    var flags = text.match(FLAG_RE) || [];
-    var dub = dubbed(text, flags);
+    var text2 = textOf(s);
+    var flags = text2.match(FLAG_RE) || [];
+    var dub = dubbed(text2, flags);
     var others = flags.filter(function (f) {
-      return f !== BR && f !== PT;
+      return f !== BR && f !== PT2;
     });
-    var seedM = text.match(/👤\s*(\d+)/) || text.match(/\bseed(?:er)?s?\b[:\s]*(\d+)/i) || text.match(/\bS:\s*(\d+)/);
-    var sizeM = text.match(/(\d+(?:[.,]\d+)?)\s*(GB|MB|GiB|MiB)\b/i);
+    var seedM = text2.match(/👤\s*(\d+)/) || text2.match(/\bseed(?:er)?s?\b[:\s]*(\d+)/i) || text2.match(/\bS:\s*(\d+)/);
+    var sizeM = text2.match(/(\d+(?:[.,]\d+)?)\s*(GB|MB|GiB|MiB)\b/i);
     var name = String(s.name || s.addon || "");
     var titleLine = String(s.title || s.description || "").split("\n")[0];
     var info = {
-      res: resolution(text),
-      dv: /dolby.?vision|\bdovi\b|\bdv\b/i.test(text),
-      hdr: /hdr/i.test(text),
-      remux: /remux/i.test(text),
+      res: resolution(text2),
+      dv: /dolby.?vision|\bdovi\b|\bdv\b/i.test(text2),
+      hdr: /hdr/i.test(text2),
+      remux: /remux/i.test(text2),
       dub: dub,
       // Original junto: "dual"/"multi", ou outras línguas além do português na lista de bandeiras.
-      original: !dub || /\bdual\b|\bmulti\b|dual.?[aá]udio/i.test(text) || others.length > 0,
+      original: !dub || /\bdual\b|\bmulti\b|dual.?[aá]udio/i.test(text2) || others.length > 0,
       seeders: seedM ? parseInt(seedM[1], 10) : null,
       sizeMb: sizeM ? parseFloat(sizeM[1].replace(",", ".")) * (/^g/i.test(sizeM[2]) ? 1024 : 1) : 0,
       // Debrid com o arquivo em cache ([RD+], [AD+]...) abre na hora, sem depender de seeders.
@@ -8815,12 +9099,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         videoEl.src = src;
       }, 300);
     }
-    function fail(text, offerTranscode) {
+    function fail(text2, offerTranscode) {
       hideIntro();
       clearTimeout(slowTimer);
       closeSlow();
       showSpinner(false);
-      var box = h("div", null, [text, h("small", {
+      var box = h("div", null, [text2, h("small", {
         text: t("Tente outra fonte (de preferência MP4/MKV com H.264 ou HEVC e áudio AAC/AC3).")
       })]);
       clear(msgEl);
@@ -8963,9 +9247,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     function showSpinner(on) {
       spinner.style.display = on ? "" : "none";
     }
-    function message(text) {
-      msgEl.textContent = introOn ? "" : text;
-      if (introOn && text) introStatus.textContent = text;
+    function message(text2) {
+      msgEl.textContent = introOn ? "" : text2;
+      if (introOn && text2) introStatus.textContent = text2;
     }
     function seekBy(dir) {
       var d = videoEl.duration;
@@ -9562,57 +9846,28 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
   }
 
-  // src/js/lib/genres.js
-  var PT2 = {
-    action: "Ação",
-    adventure: "Aventura",
-    animation: "Animação",
-    biography: "Biografia",
-    comedy: "Comédia",
-    crime: "Crime",
-    documentary: "Documentário",
-    drama: "Drama",
-    family: "Família",
-    fantasy: "Fantasia",
-    "film-noir": "Film noir",
-    "film noir": "Film noir",
-    "game-show": "Game show",
-    "game show": "Game show",
-    history: "História",
-    horror: "Terror",
-    music: "Música",
-    musical: "Musical",
-    mystery: "Mistério",
-    news: "Notícias",
-    "reality-tv": "Reality show",
-    "reality tv": "Reality show",
-    reality: "Reality show",
-    romance: "Romance",
-    "sci-fi": "Ficção científica",
-    "science fiction": "Ficção científica",
-    "science-fiction": "Ficção científica",
-    short: "Curta",
-    sport: "Esporte",
-    sports: "Esporte",
-    "talk-show": "Talk show",
-    "talk show": "Talk show",
-    thriller: "Suspense",
-    war: "Guerra",
-    western: "Faroeste",
-    anime: "Anime",
-    kids: "Infantil",
-    soap: "Novela",
-    "action & adventure": "Ação e aventura",
-    "sci-fi & fantasy": "Ficção e fantasia",
-    "war & politics": "Guerra e política",
-    "tv movie": "Filme para TV",
-    children: "Infantil",
-    suspense: "Suspense",
-    superhero: "Super-herói"
-  };
-  function genreName(g) {
-    var key = String(g || "").trim().toLowerCase();
-    return PT2[key] || g;
+  // src/js/api/phoneRemote.js
+  var import_qrcode_generator = __toESM(require_qrcode(), 1);
+  var PORT = 8090;
+  function remoteUrl2() {
+    return getJSON("http://127.0.0.1:" + PORT + "/api/ip", {
+      timeout: 3e3,
+      quiet: true
+    }).then(function (r) {
+      return r.ip;
+    }).catch(function () {
+      return null;
+    }).then(function (ip) {
+      return ip || getTvIp();
+    }).then(function (ip) {
+      return "http://" + ip + ":" + PORT + "/";
+    });
+  }
+  function qrDataUrl(text2, cellSize) {
+    var qr = (0, import_qrcode_generator.default)(0, "M");
+    qr.addData(text2);
+    qr.make();
+    return qr.createDataURL(cellSize || 8, 2);
   }
 
   // src/js/api/recommend.js
@@ -10041,8 +10296,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
   }
   var trailerReport = "";
-  function setTrailerReport(text) {
-    trailerReport = text;
+  function setTrailerReport(text2) {
+    trailerReport = text2;
   }
   function getTrailerReport() {
     return trailerReport;
@@ -10795,124 +11050,320 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     id: "tv",
     label: "Séries"
   }];
+  var MONTHS = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+  function parseDate(iso) {
+    var m = String(iso || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
+    return m ? {
+      y: +m[1],
+      m: +m[2],
+      d: +m[3]
+    } : null;
+  }
+  function longDate(p) {
+    return p.d + " de " + MONTHS[p.m - 1] + " de " + p.y;
+  }
+  function ageAt(b, until) {
+    var age = until.y - b.y;
+    if (until.m < b.m || until.m === b.m && until.d < b.d) age--;
+    return age;
+  }
+  function lifeLine(info) {
+    var b = parseDate(info.birthday);
+    if (!b) return "";
+    var dd = parseDate(info.deathday);
+    if (dd) return t("Nasceu em {born} · morreu em {died}, aos {n} anos", {
+      born: longDate(b),
+      died: longDate(dd),
+      n: ageAt(b, dd)
+    });
+    var now = /* @__PURE__ */new Date();
+    var age = ageAt(b, {
+      y: now.getFullYear(),
+      m: now.getMonth() + 1,
+      d: now.getDate()
+    });
+    return t("{n} anos · nasceu em {born}", {
+      n: age,
+      born: longDate(b)
+    });
+  }
+  function role(character) {
+    return String(character || "").replace(/\(uncredited\)/i, "(não creditado)").replace(/\(voice\)/i, "(voz)").replace(/\bHimself\b|\bHerself\b/, "Si mesmo").trim();
+  }
   function FilmographyView(person) {
     var el = h("div.view.filmo");
-    var photo = h("div.filmo-photo");
-    if (person.photo) {
+    var ambient = h("div.fp-ambient");
+    var photo = h("div.fp-photo");
+    var nameEl = h("h1.fp-name", {
+      text: person.name
+    });
+    var lifeEl = h("div.fp-life");
+    var placeEl = h("div.fp-place");
+    var socialEl = h("div.fp-social", {
+      "data-group": ""
+    });
+    var bioEl = h("div.fp-bio", {
+      focusable: true,
+      onSelect: function onSelect() {
+        return showBio();
+      }
+    });
+    var side = h("div.fp-side", null, [h("div.fp-head", null, [photo, h("div.fp-id", null, [nameEl, lifeEl, placeEl, socialEl])]), bioEl]);
+    var countEl = h("span.fp-count");
+    var chips = h("div.fp-chips", {
+      "data-group": ""
+    });
+    var grid = h("div.fp-grid");
+    var scroller = h("div.fp-scroll", {
+      "data-scroll-y": "",
+      "data-pad-y": "60"
+    }, grid);
+    var panel = h("div.fp-panel", null, [h("div.fp-title", null, [t("Filmografia"), countEl]), chips, scroller]);
+    el.appendChild(ambient);
+    el.appendChild(side);
+    el.appendChild(panel);
+    var items = null;
+    var info = null;
+    var filter = "all";
+    var newestFirst = true;
+    setPhoto(person.photo ? person.photo.replace("/w185/", "/h632/") : null);
+    bioEl.appendChild(spinnerLine(t("Carregando bio...")));
+    function setPhoto(url2) {
+      clear(photo);
+      if (!url2) {
+        photo.classList.add("img-loaded");
+        return;
+      }
       var im = h("img", {
         alt: ""
       });
       im.onload = function () {
-        return photo.classList.add("img-loaded");
+        photo.classList.add("img-loaded");
+        im.classList.add("ready");
       };
       im.onerror = function () {
         return im.style.display = "none";
       };
-      im.src = person.photo.replace("/w185/", "/h632/");
+      im.src = url2;
       photo.appendChild(im);
+      ambient.style.backgroundImage = 'url("' + url2.replace(/\/(h632|w185)\//, "/w45/") + '")';
     }
-    var countEl = h("div.filmo-count");
-    el.appendChild(h("div.filmo-side", null, [photo, h("div.filmo-name", {
-      text: person.name
-    }), countEl]));
-    var panel = h("div.details-panel");
-    var chips = h("div.seasons", {
-      "data-group": ""
-    });
-    var list2 = h("div.list", {
-      "data-scroll-y": "",
-      "data-pad-y": "120",
-      "data-group": "",
-      "data-vertical": ""
-    });
-    list2.style.top = "190px";
-    panel.appendChild(h("div.panel-head", null, h("h2", {
-      text: t("Filmografia")
-    })));
-    panel.appendChild(chips);
-    panel.appendChild(list2);
-    el.appendChild(panel);
-    var items = null;
-    var filter = "all";
+    function renderInfo() {
+      lifeEl.textContent = lifeLine(info);
+      placeEl.textContent = info.place ? t("De {place}", {
+        place: info.place
+      }) : "";
+      clear(socialEl);
+      if (info.instagram) {
+        var handle = String(info.instagram).replace(/^@/, "");
+        var url2 = "https://instagram.com/" + handle;
+        socialEl.appendChild(h("div.fp-insta", {
+          focusable: true,
+          onSelect: function onSelect() {
+            return showQr("@" + handle, url2);
+          }
+        }, [h("img.fp-qr", {
+          src: qrDataUrl(url2, 4),
+          alt: ""
+        }), h("div", null, [h("b", {
+          text: "@" + handle
+        }), h("small", {
+          text: t("Aponte a câmera do celular")
+        })])]));
+      }
+      var others = [];
+      if (info.tiktok) others.push({
+        label: "TikTok @" + info.tiktok,
+        url: "https://tiktok.com/@" + info.tiktok
+      });
+      if (info.twitter) others.push({
+        label: "X @" + info.twitter,
+        url: "https://x.com/" + info.twitter
+      });
+      others.forEach(function (o) {
+        return socialEl.appendChild(h("div.chip.fp-net", {
+          focusable: true,
+          text: o.label,
+          onSelect: function onSelect() {
+            return showQr(o.label, o.url);
+          }
+        }));
+      });
+      clear(bioEl);
+      if (info.bio) {
+        bioEl.appendChild(h("div.fp-bio-text", {
+          text: info.bio
+        }));
+        if (info.bioTranslated) bioEl.appendChild(h("div.fp-bio-note", {
+          text: t("Traduzido automaticamente do inglês")
+        }));
+      } else {
+        bioEl.appendChild(h("div.fp-bio-text.none", {
+          text: t("Sem biografia no TMDB.")
+        }));
+      }
+    }
+    function showQr(title, url2) {
+      var box = h("div.modal-box.center.qr-box", null, [h("h3", {
+        text: title
+      }), h("p.modal-text", {
+        text: t("Aponte a câmera do celular para abrir o perfil.")
+      }), h("img.qr-big", {
+        src: qrDataUrl(url2, 10),
+        alt: url2
+      }), h("p.qr-url", {
+        text: url2.replace(/^https:\/\//, "")
+      })]);
+      modal(box);
+    }
+    function showBio() {
+      if (!info || !info.bio) return;
+      var text2 = h("div.fp-bio-full", {
+        text: info.bio
+      });
+      var box = h("div.modal-box.center.fp-bio-box", null, [h("h3", {
+        text: person.name
+      }), text2]);
+      modal(box, function (e) {
+        if (e.keyCode === KEY.DOWN) text2.scrollTop += 160;else if (e.keyCode === KEY.UP) text2.scrollTop -= 160;else return false;
+        return true;
+      });
+    }
+    function modal(box, _onKey) {
+      var m = h("div.modal", null, box);
+      document.getElementById("app").appendChild(m);
+      var close = function close() {
+        popLayer(layer);
+        if (m.parentNode) m.parentNode.removeChild(m);
+      };
+      var layer = pushLayer(m, {
+        onBack: close,
+        onKey: function onKey(e) {
+          if (_onKey && _onKey(e)) return true;
+          if (e.keyCode === KEY.ENTER) {
+            close();
+            return true;
+          }
+          return false;
+        }
+      });
+    }
     function renderChips() {
       clear(chips);
-      FILTERS.forEach(function (f, i) {
+      FILTERS.forEach(function (f) {
         return chips.appendChild(h("div.chip", {
           focusable: true,
           cls: f.id === filter ? "active" : "",
           text: t(f.label),
           onSelect: function onSelect() {
             filter = f.id;
-            renderChips();
-            renderList();
-            focus(chips.children[i]);
+            refresh();
           }
         }));
       });
+      chips.appendChild(h("div.chip.fp-order", {
+        focusable: true,
+        text: newestFirst ? t("↓ Mais recentes") : t("↑ Mais antigos"),
+        onSelect: function onSelect() {
+          newestFirst = !newestFirst;
+          refresh();
+        }
+      }));
     }
-    function renderList() {
-      clear(list2);
+    function refresh() {
+      var idx = Array.prototype.indexOf.call(chips.children, current2());
+      renderChips();
+      renderGrid();
+      if (idx >= 0) focus(chips.children[idx]);
+    }
+    function renderGrid() {
+      clear(grid);
+      scroller.scrollTop = 0;
       var shown = items.filter(function (it) {
         return filter === "all" || it.mediaType === filter;
       });
+      if (newestFirst) shown.reverse();
       countEl.textContent = t("{n} títulos", {
-        n: items.length
+        n: shown.length
       });
       if (!shown.length) {
-        list2.appendChild(h("div.loading-line", {
+        grid.appendChild(h("div.hint", {
           text: t("Nada por aqui.")
         }));
         return;
       }
       shown.forEach(function (it) {
-        var thumb = h("div.thumb.poster");
+        var poster = h("div.fp-poster");
         var im = h("img", {
           alt: ""
         });
         im.setAttribute("data-lazy", it.poster);
         im.onerror = function () {
           im.style.display = "none";
-          thumb.classList.add("img-loaded");
+          poster.classList.add("img-loaded");
+          poster.appendChild(h("div.ph", {
+            text: it.name
+          }));
         };
-        thumb.appendChild(im);
-        var sub = [it.year, it.mediaType === "tv" ? t("Série") : t("Filme")];
-        if (it.mediaType === "tv" && it.episodes) sub.push(t("{n} ep.", {
-          n: it.episodes
+        poster.appendChild(im);
+        poster.appendChild(h("span.fp-year", {
+          text: it.year
         }));
-        list2.appendChild(h("div.episode.filmo-item", {
+        if (it.mediaType === "tv") poster.appendChild(h("span.fp-kind", {
+          text: t("Série")
+        }));
+        grid.appendChild(h("div.fp-item", {
           focusable: true,
           onSelect: function onSelect() {
             return openItem(it);
           }
-        }, [thumb, h("div.ep-info", null, [h("div.ep-title", {
+        }, [poster, h("div.fp-item-name", {
           text: it.name
-        }), h("div.ep-sub", {
-          text: sub.join(" · ")
-        }), h("div.ep-desc", {
-          text: it.character ? t("como {who}", {
-            who: it.character
-          }) : ""
-        })])]));
+        }), h("div.fp-item-role", {
+          text: role(it.character)
+        })]));
       });
-      loadVisibleImages(panel, 300);
+      loadVisibleImages(panel, 600);
     }
-    list2.appendChild(spinnerLine(t("Carregando filmografia...")));
-    personCredits(person.id).then(function (list22) {
-      items = list22;
+    grid.appendChild(spinnerLine(t("Carregando filmografia...")));
+    personCredits(person.id).then(function (list2) {
+      items = list2;
       renderChips();
-      renderList();
-      var first = list2.querySelector(".episode");
-      if (first && currentView() === view) focus(first);
+      renderGrid();
+      var first = grid.querySelector(".fp-item");
+      if (first && currentView() === view) {
+        entered = true;
+        focus(first);
+      }
     }).catch(function () {
-      clear(list2);
-      list2.appendChild(h("div.loading-line", {
+      clear(grid);
+      grid.appendChild(h("div.hint", {
         text: t("Não foi possível carregar a filmografia.")
       }));
     });
+    personInfo(person.id).then(function (i) {
+      info = i;
+      if (i.photo && !person.photo) setPhoto(i.photo);
+      renderInfo();
+    }).catch(function () {
+      clear(bioEl);
+      bioEl.appendChild(h("div.fp-bio-text.none", {
+        text: t("Não foi possível carregar a bio.")
+      }));
+    });
+    var entered = false;
     var view = {
       el: el,
       onShow: function onShow() {
-        return loadVisibleImages(panel, 300);
+        loadVisibleImages(panel, 600);
+        var first = grid.querySelector(".fp-item");
+        if (!entered && first) {
+          entered = true;
+          focus(first);
+        }
+      },
+      onScroll: function onScroll() {
+        return loadVisibleImages(panel, 600);
       }
     };
     return view;
@@ -12137,178 +12588,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
   }
 
-  // src/js/lib/translate.js
-  var GENRES = {
-    amateur: "Amador",
-    anal: "Anal",
-    asian: "Asiáticas",
-    babe: "Gatas",
-    babes: "Gatas",
-    bbw: "Gordinhas",
-    bdsm: "BDSM",
-    big_ass: "Bundudas",
-    "big ass": "Bundudas",
-    "big tits": "Peitudas",
-    big_tits: "Peitudas",
-    blonde: "Loiras",
-    blondes: "Loiras",
-    blowjob: "Oral",
-    brunette: "Morenas",
-    brunettes: "Morenas",
-    casting: "Teste de elenco",
-    college: "Universitárias",
-    compilation: "Compilação",
-    couple: "Casal",
-    couples: "Casais",
-    creampie: "Creampie",
-    cuckold: "Corno",
-    cumshot: "Gozada",
-    ebony: "Negras",
-    european: "Europeias",
-    fetish: "Fetiche",
-    fisting: "Fisting",
-    gangbang: "Gangbang",
-    gay: "Gay",
-    german: "Alemãs",
-    group: "Grupo",
-    "group sex": "Sexo em grupo",
-    hardcore: "Hardcore",
-    hentai: "Hentai",
-    homemade: "Caseiro",
-    interracial: "Inter-racial",
-    japanese: "Japonesas",
-    latina: "Latinas",
-    latinas: "Latinas",
-    lesbian: "Lésbicas",
-    lesbians: "Lésbicas",
-    massage: "Massagem",
-    masturbation: "Masturbação",
-    mature: "Maduras",
-    milf: "MILF",
-    "most viewed": "Mais vistos",
-    "most popular": "Mais populares",
-    popular: "Populares",
-    new: "Novidades",
-    newest: "Mais recentes",
-    latest: "Mais recentes",
-    "top rated": "Mais bem avaliados",
-    trending: "Em alta",
-    featured: "Destaques",
-    "hot": "Em alta",
-    outdoor: "Ao ar livre",
-    pov: "POV",
-    public: "Em público",
-    redhead: "Ruivas",
-    redheads: "Ruivas",
-    russian: "Russas",
-    solo: "Solo",
-    squirt: "Squirt",
-    stepmom: "Madrasta",
-    "step mom": "Madrasta",
-    stepsister: "Meia-irmã",
-    "step sister": "Meia-irmã",
-    teen: "Novinhas (18+)",
-    teens: "Novinhas (18+)",
-    threesome: "Ménage",
-    toys: "Brinquedos",
-    vintage: "Clássicos",
-    webcam: "Webcam",
-    wife: "Esposa",
-    "big dick": "Dotados",
-    black: "Negros",
-    brazilian: "Brasileiras",
-    petite: "Mignon",
-    orgy: "Orgia",
-    "female friendly": "Para elas",
-    romantic: "Romântico",
-    cosplay: "Cosplay",
-    "reality": "Reality",
-    movies: "Filmes",
-    videos: "Vídeos",
-    channels: "Canais",
-    pornstars: "Atrizes",
-    categories: "Categorias",
-    all: "Todos",
-    trans: "Trans",
-    transgender: "Trans",
-    shemale: "Trans",
-    bisexual: "Bissexual",
-    "full movie": "Filme completo"
-  };
-  var HIDDEN = /\b(indian|india|indians|desi|indian[oa]s?|hindi|bollywood|tamil|telugu)\b/i;
-  function isHiddenCategory(name) {
-    return HIDDEN.test(String(name || ""));
-  }
-  function genre(name) {
-    var key = String(name || "").trim().toLowerCase();
-    return GENRES[key] || GENRES[key.replace(/[-_]+/g, " ")] || genreName(name);
-  }
-  var CACHE_KEY = "nsfwTitles";
-  var CACHE_MAX = 3e3;
-  var cache2 = null;
-  function mem() {
-    if (!cache2) cache2 = get(CACHE_KEY, {}) || {};
-    return cache2;
-  }
-  var saveTimer = null;
-  function save() {
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(function () {
-      var c = mem();
-      var keys = Object.keys(c);
-      if (keys.length > CACHE_MAX) keys.slice(0, keys.length - CACHE_MAX).forEach(function (k) {
-        return delete c[k];
-      });
-      set(CACHE_KEY, c);
-    }, 1500);
-  }
-  function enabled() {
-    return settings().nsfwTranslate !== false;
-  }
-  function looksPt(s) {
-    return /[ãõçáéíóúâêô]/i.test(s) || /\b(com|uma|para|gostosa|novinha|esposa|não)\b/i.test(s);
-  }
-  function translateBatch(lines) {
-    var u = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=pt&dt=t&q=" + encodeURIComponent(lines.join("\n"));
-    return getJSON(u, {
-      timeout: 8e3
-    }).then(function (r) {
-      var text = (r && r[0] || []).map(function (p) {
-        return p[0] || "";
-      }).join("");
-      var out = text.split("\n");
-      return out.length === lines.length ? out : null;
-    });
-  }
-  function titles(items) {
-    if (!enabled() || !items.length) return Promise.resolve(items);
-    var c = mem();
-    var todo = [];
-    items.forEach(function (it) {
-      var n = it && it.name;
-      if (!n || looksPt(n) || c[n] !== void 0 || todo.indexOf(n) >= 0) return;
-      todo.push(n.replace(/\n/g, " "));
-    });
-    var batches = [];
-    for (var i = 0; i < todo.length; i += 25) batches.push(todo.slice(i, i + 25));
-    return Promise.all(batches.map(function (b) {
-      return translateBatch(b).then(function (out) {
-        if (!out) return;
-        b.forEach(function (n, i) {
-          return c[n] = out[i].trim() || n;
-        });
-        save();
-      }).catch(function () {});
-    })).then(function () {
-      return items.map(function (it) {
-        return it && c[it.name] && c[it.name] !== it.name ? Object.assign({}, it, {
-          name: c[it.name],
-          originalName: it.name
-        }) : it;
-      });
-    });
-  }
-
   // src/js/views/nsfw.js
   var ROW_LIMIT3 = 20;
   function openDetails2(type, id, opts) {
@@ -12938,9 +13217,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "22d3ebcdc9a49fb1389664af22c7bce576050979",
-    date: "2026-10-27T05:58:00+00:00",
-    message: "Smart Choice goes straight to the player with an intro transition; no sources list in the way; Streamings switch fade; remove quality toggle"
+    commit: "8c571ececc30adcbb61f9746fdae58736232c07f",
+    date: "2026-10-27T05:59:20+00:00",
+    message: "Player intro: centered loading hierarchy (spinner, main status, Smart Choice caption)"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -12995,30 +13274,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         loc.reload();
       }
     }, 1500);
-  }
-
-  // src/js/api/phoneRemote.js
-  var import_qrcode_generator = __toESM(require_qrcode(), 1);
-  var PORT = 8090;
-  function remoteUrl2() {
-    return getJSON("http://127.0.0.1:" + PORT + "/api/ip", {
-      timeout: 3e3,
-      quiet: true
-    }).then(function (r) {
-      return r.ip;
-    }).catch(function () {
-      return null;
-    }).then(function (ip) {
-      return ip || getTvIp();
-    }).then(function (ip) {
-      return "http://" + ip + ":" + PORT + "/";
-    });
-  }
-  function qrDataUrl(text, cellSize) {
-    var qr = (0, import_qrcode_generator.default)(0, "M");
-    qr.addData(text);
-    qr.make();
-    return qr.createDataURL(cellSize || 8, 2);
   }
 
   // src/js/lib/intro.js

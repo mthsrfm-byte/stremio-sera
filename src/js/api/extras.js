@@ -5,6 +5,7 @@ import { cachedJSON, getJSON } from '../lib/http.js';
 import * as store from '../lib/store.js';
 import { getJSONViaProxy } from './server.js';
 import { apiLang } from '../lib/i18n.js';
+import * as translate from '../lib/translate.js';
 
 const TMDB = 'https://api.themoviedb.org/3/';
 const TMDB_IMG = 'https://image.tmdb.org/t/p/';
@@ -85,6 +86,31 @@ export function localized(meta) {
         photo: c.profile_path ? TMDB_IMG + 'w185' + c.profile_path : null,
       })),
     }));
+  });
+}
+
+// Perfil de uma pessoa: bio em PT-BR (traduzida do inglês quando o TMDB não tem), idade,
+// nascimento e redes sociais.
+export function personInfo(personId) {
+  return tmdb('person/' + personId, { language: apiLang(), append_to_response: 'external_ids' }).then((p) => {
+    const ids = p.external_ids || {};
+    const info = {
+      name: p.name,
+      photo: p.profile_path ? TMDB_IMG + 'h632' + p.profile_path : null,
+      birthday: p.birthday || null,
+      deathday: p.deathday || null,
+      place: p.place_of_birth || '',
+      bio: (p.biography || '').trim(),
+      bioTranslated: false,
+      instagram: ids.instagram_id || null,
+      tiktok: ids.tiktok_id || null,
+      twitter: ids.twitter_id || null,
+      imdb: ids.imdb_id || null,
+    };
+    if (info.bio) return info;
+    return tmdb('person/' + personId, { language: 'en-US' })
+      .then((en) => (en && en.biography ? translate.text(en.biography).then((pt) => ((info.bio = pt || en.biography), (info.bioTranslated = !!pt), info)) : info))
+      .catch(() => info);
   });
 }
 
