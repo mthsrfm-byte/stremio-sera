@@ -5276,12 +5276,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   function overlap(a1, a2, b1, b2) {
     return Math.min(a2, b2) - Math.max(a1, b1) > 4;
   }
-  function animateScroll(node, prop, target) {
+  function animateScroll(node, prop2, target) {
     if (node.__anim) cancelAnimationFrame(node.__anim);
-    var start3 = node[prop];
-    var delta = target - start3;
+    var start4 = node[prop2];
+    var delta = target - start4;
     if (!smooth || Math.abs(delta) < 2) {
-      node[prop] = target;
+      node[prop2] = target;
       if (scrollHook) scrollHook(node);
       return;
     }
@@ -5289,7 +5289,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var t0 = Date.now();
     var _step2 = function step() {
       var k = Math.min(1, (Date.now() - t0) / dur);
-      node[prop] = start3 + delta * (1 - Math.pow(1 - k, 3));
+      node[prop2] = start4 + delta * (1 - Math.pow(1 - k, 3));
       if (k < 1) node.__anim = requestAnimationFrame(_step2);else {
         node.__anim = null;
         if (scrollHook) scrollHook(node);
@@ -6016,13 +6016,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         } catch (e) {}
         fn(v);
       };
-      var timer2 = setTimeout(function () {
+      var timer3 = setTimeout(function () {
         return done(reject, new Error("Sem IP"));
       }, 3e3);
       pc.onicecandidate = function (e) {
         var m = e && e.candidate && /(\d+\.\d+\.\d+\.\d+)/.exec(e.candidate.candidate);
         if (m && !/^(0\.|127\.)/.test(m[1])) {
-          clearTimeout(timer2);
+          clearTimeout(timer3);
           done(resolve, m[1]);
         }
       };
@@ -6090,9 +6090,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var found = null;
       var done = 0;
       var batch2 = 24;
-      var _runBatch = function runBatch(start3) {
-        if (found || start3 >= hosts.length) return Promise.resolve(found);
-        var slice = hosts.slice(start3, start3 + batch2);
+      var _runBatch = function runBatch(start4) {
+        if (found || start4 >= hosts.length) return Promise.resolve(found);
+        var slice = hosts.slice(start4, start4 + batch2);
         return Promise.all(slice.map(function (h2) {
           return getJSON("http://" + h2 + ":11470/settings", {
             timeout: 1500,
@@ -6104,7 +6104,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             if (onProgress) onProgress(done, hosts.length);
           });
         })).then(function () {
-          return _runBatch(start3 + batch2);
+          return _runBatch(start4 + batch2);
         });
       };
       return _runBatch(0);
@@ -6303,9 +6303,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "b653693d3ed8457bdb4737988389a91583bcd78c",
-    date: "2026-10-27T06:32:04-03:00",
-    message: "NSFW: Pornhub com sessão, hls.js de endereço fixo, ordem das abas, sem RT e sem vídeo sem prévia"
+    commit: "1e42068b9ba745e1667be0726ac04bf956602120",
+    date: "2026-10-27T07:12:12-03:00",
+    message: "Google Agenda na TV: fileira na home, ícone com o dia e aviso no vídeo"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -6440,8 +6440,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
   }
   function defaultAddons() {
-    var urls = [CINEMETA, OPENSUBTITLES].concat(settings().localAddons || []);
-    return Promise.all(urls.map(function (u) {
+    var urls2 = [CINEMETA, OPENSUBTITLES].concat(settings().localAddons || []);
+    return Promise.all(urls2.map(function (u) {
       return getJSON(u).then(function (m) {
         return {
           transportUrl: u,
@@ -6456,7 +6456,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
   var TUBES = ["xv", "ph"];
   var TUBE_PORT = 8092;
-  var SERVICE_MIN = 7;
+  var SERVICE_MIN = 8;
   var tubes = null;
   var tubeTries = 0;
   var tubeState = "searching";
@@ -7133,6 +7133,299 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     focusFirst(pad);
   }
 
+  // src/js/api/calendar.js
+  var SERVICE = "http://127.0.0.1:8092/api/cal?u=";
+  var REFRESH_MS = 5 * 60 * 1e3;
+  var COLORS2 = ["#3347FF", "#F2A33A", "#3FB68B", "#E0559B"];
+  var events = [];
+  var loadedAt = 0;
+  var timer = null;
+  var loading = null;
+  var listeners2 = [];
+  function urls() {
+    return String(settings().calendarUrl || "").split(/[\s,]+/).filter(function (u) {
+      return /^(https?|webcal):\/\//i.test(u);
+    }).map(function (u) {
+      return u.replace(/^webcal:/i, "https:");
+    });
+  }
+  function enabled() {
+    return !IS_WEB && urls().length > 0;
+  }
+  function onChange2(fn) {
+    listeners2.push(fn);
+    return function () {
+      var i = listeners2.indexOf(fn);
+      if (i >= 0) listeners2.splice(i, 1);
+    };
+  }
+  function changed2() {
+    listeners2.slice().forEach(function (fn) {
+      try {
+        fn();
+      } catch (e) {}
+    });
+  }
+  function start() {
+    clearInterval(timer);
+    timer = null;
+    if (!enabled()) {
+      if (events.length) {
+        events = [];
+        changed2();
+      }
+      return;
+    }
+    refresh();
+    timer = setInterval(refresh, REFRESH_MS);
+  }
+  function refresh() {
+    if (!enabled()) return Promise.resolve([]);
+    if (loading) return loading;
+    var list3 = urls();
+    loading = Promise.all(list3.map(function (u, i) {
+      return getText(SERVICE + encodeURIComponent(u), {
+        timeout: 3e4,
+        quiet: true
+      }).then(function (text2) {
+        return parse(text2, COLORS2[i % COLORS2.length]);
+      }, function (e) {
+        log.warn("Agenda: não baixou", e.message);
+        return null;
+      });
+    })).then(function (all) {
+      loading = null;
+      if (all.every(function (x) {
+        return x === null;
+      }) && loadedAt) return events;
+      events = all.filter(Boolean).reduce(function (acc, x) {
+        return acc.concat(x);
+      }, []).sort(function (a, b) {
+        return a.start - b.start || (b.allDay ? 1 : 0) - (a.allDay ? 1 : 0);
+      });
+      loadedAt = Date.now();
+      changed2();
+      return events;
+    });
+    return loading;
+  }
+  function lastUpdate() {
+    return loadedAt;
+  }
+  function days() {
+    var t0 = dayStart(/* @__PURE__ */new Date());
+    var t1 = addDays(t0, 1);
+    var t2 = addDays(t0, 2);
+    var on = function on(a, b) {
+      return events.filter(function (e) {
+        return e.start < b && e.end > a;
+      }).sort(function (x, y) {
+        return (y.allDay ? 1 : 0) - (x.allDay ? 1 : 0) || x.start - y.start;
+      });
+    };
+    return {
+      today: on(t0, t1),
+      tomorrow: on(t1, t2)
+    };
+  }
+  function startingWithin(ms) {
+    var now = Date.now();
+    return events.filter(function (e) {
+      return !e.allDay && e.start.getTime() > now && e.start.getTime() - now <= ms;
+    });
+  }
+  function unfold(text2) {
+    return String(text2 || "").replace(/\r\n/g, "\n").replace(/\n[ \t]/g, "").split("\n");
+  }
+  function unescape(v) {
+    return String(v || "").replace(/\\n/gi, " ").replace(/\\([,;\\])/g, "$1").trim();
+  }
+  function prop(line) {
+    var i = line.indexOf(":");
+    if (i < 0) return null;
+    var head = line.slice(0, i).split(";");
+    var params = {};
+    head.slice(1).forEach(function (p) {
+      var j = p.indexOf("=");
+      if (j > 0) params[p.slice(0, j).toUpperCase()] = p.slice(j + 1);
+    });
+    return {
+      name: head[0].toUpperCase(),
+      params: params,
+      value: line.slice(i + 1)
+    };
+  }
+  function icsDate(p) {
+    var v = p.value.trim();
+    var m = v.match(/^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})?(Z)?)?$/);
+    if (!m) return null;
+    var allDay = p.params.VALUE === "DATE" || !m[4];
+    if (allDay) return {
+      date: new Date(+m[1], +m[2] - 1, +m[3]),
+      allDay: true
+    };
+    if (m[7]) return {
+      date: new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0))),
+      allDay: false
+    };
+    return {
+      date: new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0)),
+      allDay: false
+    };
+  }
+  function duration(v) {
+    var m = String(v || "").match(/^([+-])?P(?:(\d+)W)?(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$/);
+    if (!m) return 0;
+    return ((+m[2] || 0) * 7 * 86400 + (+m[3] || 0) * 86400 + (+m[4] || 0) * 3600 + (+m[5] || 0) * 60 + (+m[6] || 0)) * 1e3;
+  }
+  function parse(text2, color) {
+    var lines = unfold(text2);
+    var calName = "";
+    var raw = [];
+    var cur = null;
+    lines.forEach(function (line) {
+      if (line === "BEGIN:VEVENT") cur = {
+        exdates: []
+      };else if (line === "END:VEVENT") {
+        if (cur) raw.push(cur);
+        cur = null;
+      } else {
+        var p = prop(line);
+        if (!p) return;
+        if (!cur) {
+          if (p.name === "X-WR-CALNAME") calName = unescape(p.value);
+          return;
+        }
+        if (p.name === "SUMMARY") cur.title = unescape(p.value);else if (p.name === "LOCATION") cur.location = unescape(p.value);else if (p.name === "UID") cur.uid = p.value;else if (p.name === "STATUS") cur.status = p.value.toUpperCase();else if (p.name === "DTSTART") cur.start = icsDate(p);else if (p.name === "DTEND") cur.end = icsDate(p);else if (p.name === "DURATION") cur.duration = duration(p.value);else if (p.name === "RRULE") cur.rrule = p.value;else if (p.name === "RECURRENCE-ID") cur.recurrenceId = icsDate(p);else if (p.name === "EXDATE") p.value.split(",").forEach(function (v) {
+          var d = icsDate({
+            value: v,
+            params: p.params
+          });
+          if (d) cur.exdates.push(d.date.getTime());
+        });
+      }
+    });
+    var from = dayStart(/* @__PURE__ */new Date());
+    var to = addDays(from, 2);
+    var moved = {};
+    raw.forEach(function (e) {
+      if (e.uid && e.recurrenceId) (moved[e.uid] = moved[e.uid] || []).push(e.recurrenceId.date.getTime());
+    });
+    var out = [];
+    raw.forEach(function (e) {
+      if (!e.start || e.status === "CANCELLED") return;
+      var len = e.end ? e.end.date - e.start.date : e.duration || (e.start.allDay ? 864e5 : 0);
+      var skip = e.exdates.concat(!e.recurrenceId && e.uid && moved[e.uid] || []);
+      var starts = e.rrule && !e.recurrenceId ? expand(e.start.date, e.rrule, from, to, len) : [e.start.date];
+      starts.forEach(function (s) {
+        if (skip.indexOf(s.getTime()) >= 0) return;
+        var end = new Date(s.getTime() + Math.max(len, 0));
+        if (s >= to || end <= from && !(len === 0 && s >= from)) return;
+        out.push({
+          title: e.title || "(sem título)",
+          location: e.location || "",
+          start: s,
+          end: len > 0 ? end : new Date(s.getTime() + 1),
+          allDay: e.start.allDay,
+          calendar: calName,
+          color: color
+        });
+      });
+    });
+    return out;
+  }
+  var WEEKDAYS = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
+  function dayStart(d) {
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  }
+  function addDays(d, n) {
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n, d.getHours(), d.getMinutes(), d.getSeconds());
+  }
+  function daysBetween(a, b) {
+    return Math.round((dayStart(b) - dayStart(a)) / 864e5);
+  }
+  function nthWeekday(year, month, wd, n) {
+    if (n > 0) {
+      var first = new Date(year, month, 1).getDay();
+      return 1 + (wd - first + 7) % 7 + (n - 1) * 7;
+    }
+    var lastDay = new Date(year, month + 1, 0);
+    return lastDay.getDate() - (lastDay.getDay() - wd + 7) % 7 + (n + 1) * 7;
+  }
+  function expand(start4, rrule, from, to, len) {
+    var r = {};
+    rrule.split(";").forEach(function (kv) {
+      var p = kv.split("=");
+      r[p[0].toUpperCase()] = p[1] || "";
+    });
+    var freq = r.FREQ;
+    var interval = Math.max(1, parseInt(r.INTERVAL, 10) || 1);
+    var count = parseInt(r.COUNT, 10) || 0;
+    var until = r.UNTIL ? icsDate({
+      value: r.UNTIL,
+      params: {}
+    }) : null;
+    var byDay = (r.BYDAY || "").split(",").filter(Boolean).map(function (x) {
+      var m = x.match(/^([+-]?\d+)?([A-Z]{2})$/);
+      return m ? {
+        n: m[1] ? parseInt(m[1], 10) : 0,
+        wd: WEEKDAYS.indexOf(m[2])
+      } : null;
+    }).filter(function (x) {
+      return x && x.wd >= 0;
+    });
+    var byMonthDay = (r.BYMONTHDAY || "").split(",").filter(Boolean).map(function (x) {
+      return parseInt(x, 10);
+    });
+    function matches(d) {
+      var dd = daysBetween(start4, d);
+      if (dd < 0) return false;
+      if (freq === "DAILY") return dd % interval === 0 && (!byDay.length || byDay.some(function (b) {
+        return b.wd === d.getDay();
+      }));
+      if (freq === "WEEKLY") {
+        var weekOf = function weekOf(x) {
+          return addDays(dayStart(x), -((x.getDay() + 6) % 7));
+        };
+        var weeks = Math.round(daysBetween(weekOf(start4), weekOf(d)) / 7);
+        var days2 = byDay.length ? byDay.map(function (b) {
+          return b.wd;
+        }) : [start4.getDay()];
+        return weeks % interval === 0 && days2.indexOf(d.getDay()) >= 0;
+      }
+      if (freq === "MONTHLY") {
+        var months = (d.getFullYear() - start4.getFullYear()) * 12 + d.getMonth() - start4.getMonth();
+        if (months % interval !== 0) return false;
+        if (byDay.length) return byDay.some(function (b) {
+          return b.wd === d.getDay() && (b.n === 0 || nthWeekday(d.getFullYear(), d.getMonth(), b.wd, b.n) === d.getDate());
+        });
+        var monthDays = byMonthDay.length ? byMonthDay : [start4.getDate()];
+        var last = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+        return monthDays.some(function (md) {
+          return (md > 0 ? md : last + md + 1) === d.getDate();
+        });
+      }
+      if (freq === "YEARLY") {
+        var years = d.getFullYear() - start4.getFullYear();
+        return years % interval === 0 && d.getMonth() === start4.getMonth() && d.getDate() === start4.getDate();
+      }
+      return false;
+    }
+    var out = [];
+    var spanDays = Math.ceil(Math.max(len, 0) / 864e5) + 1;
+    var day = count ? dayStart(start4) : dayStart(addDays(from, -spanDays) > start4 ? addDays(from, -spanDays) : start4);
+    var n = 0;
+    for (var guard = 0; guard < 2e4 && day < to; guard++, day = addDays(day, 1)) {
+      if (!matches(day)) continue;
+      var s = new Date(day.getFullYear(), day.getMonth(), day.getDate(), start4.getHours(), start4.getMinutes(), start4.getSeconds());
+      if (until && s > until.date) break;
+      n++;
+      if (count && n > count) break;
+      if (s.getTime() + Math.max(len, 1) > from.getTime()) out.push(s);
+    }
+    return out;
+  }
+
   // src/js/ui.js
   var toastTimer = null;
   function toast(msg, ms) {
@@ -7258,6 +7551,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var ICONS = {
     home: '<svg viewBox="0 0 24 24"><path d="M3.5 10.5 12 3.5l8.5 7"/><path d="M5.5 9v11h4.5v-6h4v6h4.5V9"/></svg>',
     search: '<svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg>',
+    calendar: '<svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17"/><path d="M8 3v4"/><path d="M16 3v4"/></svg>',
     // Engrenagem no estilo do Feather Icons (licença MIT).
     settings: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>'
   };
@@ -7314,7 +7608,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return clock.textContent = timeHM(/* @__PURE__ */new Date());
     };
     tick();
-    var timer2 = setInterval(tick, 2e4);
+    var timer3 = setInterval(tick, 2e4);
     var bar = h("div.topbar", {
       "data-group": ""
     }, [h("div.brand", {
@@ -7327,9 +7621,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return tab.right;
     }).map(function (tab) {
       return tabEl(tab, activeId, onTab);
-    }), profileButton(onTab), clock]);
+    }), calendarButton(), profileButton(onTab), clock]);
+    var offCal = onChange2(refreshCalendarButtons);
     bar.__destroy = function () {
-      return clearInterval(timer2);
+      return clearInterval(timer3), offCal();
     };
     load().then(refreshTabs).catch(function () {});
     if (!tabsHooked) {
@@ -7348,6 +7643,140 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         return el.style.display = show2 ? "" : "none";
       });
     });
+  }
+  function calendarButton() {
+    var btn = h("div.tab.icon.cal-btn", {
+      focusable: true,
+      title: t("Agenda"),
+      html: ICONS.calendar + '<i class="cal-dot"></i>',
+      onSelect: function onSelect() {
+        return agendaPanel();
+      }
+    });
+    paintCalendarButton(btn);
+    return btn;
+  }
+  function paintCalendarButton(btn) {
+    btn.style.display = enabled() ? "" : "none";
+    btn.classList.toggle("soon", startingWithin(60 * 6e4).length > 0);
+  }
+  function refreshCalendarButtons() {
+    Array.prototype.forEach.call(document.querySelectorAll(".topbar .cal-btn"), paintCalendarButton);
+  }
+  setInterval(refreshCalendarButtons, 6e4);
+  var WEEKDAY = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
+  var MONTH = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+  function dayLabel(d, short) {
+    return WEEKDAY[d.getDay()] + ", " + d.getDate() + (short ? " " + MONTH[d.getMonth()].slice(0, 3) : " de " + MONTH[d.getMonth()]);
+  }
+  function eventTime(e, withEnd) {
+    if (e.allDay) return t("Dia todo");
+    return timeHM(e.start) + (withEnd && e.end - e.start > 6e4 ? " – " + timeHM(e.end) : "");
+  }
+  function eventSoon(e) {
+    var now = Date.now();
+    if (e.allDay) return "";
+    if (e.start.getTime() <= now && e.end.getTime() > now) return t("agora");
+    var min = Math.round((e.start.getTime() - now) / 6e4);
+    if (min <= 0 || min > 180) return "";
+    return min < 60 ? t("em {n} min", {
+      n: min
+    }) : t("em {n} h", {
+      n: Math.round(min / 60)
+    });
+  }
+  function minutesLabel(ms) {
+    var m = Math.round(ms / 6e4);
+    return m >= 60 ? Math.floor(m / 60) + " h" + (m % 60 ? " " + m % 60 + " min" : "") : m + " min";
+  }
+  function agendaPanel() {
+    var d = days();
+    var now = Date.now();
+    var today = /* @__PURE__ */new Date();
+    var tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+    var list3 = h("div.agenda-list", {
+      "data-scroll-y": "",
+      "data-group": ""
+    });
+    var section = function section(label, date, events2, cls) {
+      list3.appendChild(h("div.agenda-day", {
+        cls: cls
+      }, [h("span.agenda-tag", {
+        text: label
+      }), h("span", {
+        text: dayLabel(date)
+      })]));
+      if (!events2.length) list3.appendChild(h("div.agenda-empty", {
+        text: t("Nada na agenda.")
+      }));
+      var nowShown = cls !== "today";
+      events2.forEach(function (e) {
+        if (!nowShown && !e.allDay && e.start.getTime() > now) {
+          nowShown = true;
+          list3.appendChild(h("div.agenda-now", null, [h("span", {
+            text: t("Agora") + " " + timeHM(/* @__PURE__ */new Date())
+          }), h("i")]));
+        }
+        var soon = eventSoon(e);
+        var sub = [e.allDay ? "" : minutesLabel(e.end - e.start), e.location, soon].filter(Boolean).join(" · ");
+        list3.appendChild(h("div.agenda-ev", {
+          focusable: true,
+          cls: (e.end.getTime() <= now ? "past" : "") + (soon ? " soon" : "")
+        }, [h("span.agenda-time", {
+          text: eventTime(e)
+        }), h("div.agenda-info", null, [h("div.agenda-title", {
+          text: e.title
+        }), sub ? h("div.agenda-sub", {
+          text: sub
+        }) : null]), h("i.agenda-color", {
+          style: {
+            background: e.color
+          }
+        })]));
+      });
+      if (!nowShown) list3.appendChild(h("div.agenda-now", null, [h("span", {
+        text: t("Agora") + " " + timeHM(/* @__PURE__ */new Date())
+      }), h("i")]));
+    };
+    section(t("HOJE"), today, d.today, "today");
+    list3.appendChild(h("div.agenda-sep"));
+    section(t("AMANHÃ"), tomorrow, d.tomorrow, "tomorrow");
+    var updated = lastUpdate();
+    var box = h("div.modal-box.agenda-box", null, [h("h3", {
+      text: t("Sua agenda")
+    }), h("p.agenda-head", {
+      text: t("Hoje e amanhã")
+    }), list3, h("div.agenda-foot", null, [h("span", {
+      text: updated ? t("Atualizado às {h}", {
+        h: timeHM(new Date(updated))
+      }) : t("Atualizando...")
+    }), h("span", {
+      text: t("Voltar fecha")
+    })])]);
+    var modal = h("div.modal", null, box);
+    document.getElementById("app").appendChild(modal);
+    var close = function close() {
+      popLayer(layer);
+      if (modal.parentNode) modal.parentNode.removeChild(modal);
+    };
+    var layer = pushLayer(modal, {
+      onBack: function onBack() {
+        return close();
+      }
+    });
+    var first = list3.querySelector(".agenda-ev.soon") || list3.querySelector(".agenda-ev:not(.past)") || list3.querySelector(".agenda-ev");
+    if (first) focus(first);else {
+      var ok = h("div.btn", {
+        focusable: true,
+        text: t("Fechar"),
+        onSelect: function onSelect() {
+          return close();
+        }
+      });
+      box.appendChild(ok);
+      focus(ok);
+    }
+    refresh();
   }
   function profileButton(onTab) {
     var chip = h("div.profile-chip", {
@@ -8209,7 +8638,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     if (!m) return NaN;
     return parseInt(m[1] || "0", 10) * 3600 + parseInt(m[2], 10) * 60 + parseFloat(m[3]);
   }
-  function parse(text2) {
+  function parse2(text2) {
     var cues = [];
     var blocks = String(text2).replace(/^﻿/, "").replace(/\r\n?/g, "\n").split(/\n{2,}/);
     for (var i = 0; i < blocks.length; i++) {
@@ -8218,12 +8647,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       while (j < lines.length && lines[j].indexOf("-->") < 0) j++;
       if (j >= lines.length) continue;
       var parts = lines[j].split("-->");
-      var start3 = toSec(parts[0]);
+      var start4 = toSec(parts[0]);
       var end = toSec(parts[1].trim().split(/\s+/)[0]);
-      if (!isFinite(start3) || !isFinite(end)) continue;
+      if (!isFinite(start4) || !isFinite(end)) continue;
       var body = lines.slice(j + 1).join("\n").replace(/\{\\[^}]*\}/g, "").trim();
       if (body) cues.push({
-        start: start3,
+        start: start4,
         end: end,
         text: sanitize(body)
       });
@@ -8245,7 +8674,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         timeout: 2e4
       });
       throw e;
-    }).then(parse);
+    }).then(parse2);
   }
   function Renderer(el) {
     var cues = [];
@@ -8391,14 +8820,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return x.sub;
     });
   }
-  function plausible(cues, duration) {
+  function plausible(cues, duration2) {
     if (!cues || !cues.length) return {
       ok: false,
       why: "vazia"
     };
     var last = cues[cues.length - 1].end;
     var first = cues[0].start;
-    if (!isFinite(duration) || duration <= 0) {
+    if (!isFinite(duration2) || duration2 <= 0) {
       return cues.length >= 20 ? {
         ok: true
       } : {
@@ -8406,20 +8835,20 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         why: "poucas falas"
       };
     }
-    var minutes = duration / 60;
+    var minutes = duration2 / 60;
     if (cues.length < Math.max(20, minutes)) return {
       ok: false,
       why: "poucas falas (" + cues.length + ")"
     };
-    if (last > duration + 90) return {
+    if (last > duration2 + 90) return {
       ok: false,
-      why: "termina depois do vídeo (" + Math.round(last) + "s > " + Math.round(duration) + "s)"
+      why: "termina depois do vídeo (" + Math.round(last) + "s > " + Math.round(duration2) + "s)"
     };
-    if (last < duration * 0.6) return {
+    if (last < duration2 * 0.6) return {
       ok: false,
-      why: "termina cedo demais (" + Math.round(last) + "s de " + Math.round(duration) + "s)"
+      why: "termina cedo demais (" + Math.round(last) + "s de " + Math.round(duration2) + "s)"
     };
-    if (first > duration * 0.25) return {
+    if (first > duration2 * 0.25) return {
       ok: false,
       why: "começa tarde demais"
     };
@@ -8482,7 +8911,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     id: "box",
     label: "Caixa de fundo"
   }];
-  var COLORS2 = [{
+  var COLORS3 = [{
     id: "#ffffff",
     label: "Branco"
   }, {
@@ -8546,7 +8975,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return {
       font: find(FONTS, s.subtitleFont).label,
       style: find(STYLES, s.subtitleStyle).label,
-      color: find(COLORS2, s.subtitleColor).label,
+      color: find(COLORS3, s.subtitleColor).label,
       position: find(POSITIONS, s.subtitlePosition).label
     };
   }
@@ -8570,7 +8999,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     if (flags.indexOf(BR) >= 0 || flags.indexOf(PT2) >= 0) return true;
     return /dublad[oa]|\bdub(?:lagem)?[ ._-]?(?:pt|br)\b|\bpt[ ._-]?br\b|\bnacional\b|portugu[eê]s|\bdual\b[^\n]*\b(?:pt|br|por)\b|\b(?:pt|br|por)\b[^\n]*\bdual\b/i.test(text2);
   }
-  function parse2(s) {
+  function parse3(s) {
     if (s.__info) return s.__info;
     var text2 = textOf(s);
     var flags = text2.match(FLAG_RE) || [];
@@ -8639,7 +9068,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
     if (!playable.length) return null;
     for (var i = 0; i < playable.length; i++) {
-      var info = parse2(playable[i]);
+      var info = parse3(playable[i]);
       if (info.dub && info.original && good(info)) return {
         stream: playable[i],
         ideal: true
@@ -8656,7 +9085,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // src/js/lib/hlsplay.js
   var SOURCES3 = ["https://cdn.jsdelivr.net/npm/hls.js@1.5.20/dist/hls.min.js", "hls.js"];
-  var loading = null;
+  var loading2 = null;
   var unavailable = "";
   function loadScript(src) {
     return new Promise(function (ok, fail) {
@@ -8673,15 +9102,15 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
   function loadHls() {
     if (window.Hls) return Promise.resolve(window.Hls);
-    if (!loading) {
-      loading = loadScript(SOURCES3[0]).catch(function () {
+    if (!loading2) {
+      loading2 = loadScript(SOURCES3[0]).catch(function () {
         return loadScript(SOURCES3[1]);
       }).catch(function (e) {
-        loading = null;
+        loading2 = null;
         throw e;
       });
     }
-    return loading;
+    return loading2;
   }
   function isHls(url2) {
     return /\.m3u8$/i.test(String(url2 || "").split(/[?#]/)[0]);
@@ -8890,6 +9319,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var name = LANG_NAMES[String(code).toLowerCase()];
     return name ? t(name) : code;
   }
+  var calendarSeen = {};
   function openPlayer(opts) {
     push(PlayerView(opts));
   }
@@ -9033,7 +9463,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       });
       return i >= 0 && i + 1 < vids.length ? vids[i + 1] : null;
     }
-    function start3() {
+    function start4() {
       setTitle();
       if (!stream) return waitForPick();
       armSlow();
@@ -9086,6 +9516,72 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       if (hlsCtl) hlsCtl.destroy();
       hlsCtl = null;
     }
+    var NOTICE_MS = 15e3;
+    var calTimer = null;
+    var calNotice = null;
+    function checkCalendar() {
+      if (!alive || calNotice) return;
+      var e = startingWithin(5 * 6e4).filter(function (x) {
+        return !calendarSeen[x.title + "|" + x.start.getTime()];
+      })[0];
+      if (!e) return;
+      calendarSeen[e.title + "|" + e.start.getTime()] = true;
+      var min = Math.max(1, Math.round((e.start.getTime() - Date.now()) / 6e4));
+      var fill = h("i");
+      var closeBtn = h("div.cal-close", {
+        focusable: true,
+        title: t("Fechar aviso"),
+        html: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12"/><path d="M18 6 6 18"/></svg>',
+        onSelect: function onSelect() {
+          return closeNotice();
+        }
+      });
+      var box = h("div.cal-notice", null, [h("div.cal-notice-top", null, [h("span.cal-notice-ico", {
+        html: '<svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17"/><path d="M8 3v4"/><path d="M16 3v4"/></svg>'
+      }), h("span.cal-notice-when", {
+        text: t("Começa em {n} min", {
+          n: min
+        })
+      }), closeBtn]), h("div.cal-notice-title", {
+        text: e.title
+      }), h("div.cal-notice-sub", null, [h("i", {
+        style: {
+          background: e.color
+        }
+      }), [eventTime(e, true), e.location].filter(Boolean).join(" · ")]), h("div.cal-notice-hint", {
+        text: t("OK fecha · some sozinho em 15 s")
+      }), h("div.cal-notice-bar", null, fill)]);
+      el.appendChild(box);
+      var layer = pushLayer(box, {
+        onBack: function onBack() {
+          return closeNotice();
+        },
+        onKey: function onKey(ev) {
+          if (ev.keyCode === KEY.ENTER || ev.keyCode === KEY.BACK || ev.keyCode === KEY.ESC || ev.keyCode === KEY.BACKSPACE) return false;
+          closeNotice();
+          return true;
+        }
+      });
+      focus(closeBtn);
+      var timer3 = setTimeout(function () {
+        return closeNotice();
+      }, NOTICE_MS);
+      setTimeout(function () {
+        return fill.style.width = "0%";
+      }, 50);
+      calNotice = {
+        box: box,
+        layer: layer,
+        timer: timer3
+      };
+    }
+    function closeNotice() {
+      if (!calNotice) return;
+      clearTimeout(calNotice.timer);
+      popLayer(calNotice.layer);
+      if (calNotice.box.parentNode) calNotice.box.parentNode.removeChild(calNotice.box);
+      calNotice = null;
+    }
     function restart() {
       restartBtn.style.display = "none";
       try {
@@ -9106,10 +9602,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         }
         stream = s;
         tried.push(s);
-        var info = parse2(s);
+        var info = parse3(s);
         introStatus.textContent = t("Preparando o vídeo");
         introCaption.innerHTML = "<b>✦</b>" + t("Smart Choice") + " · " + escapeHtml(summary(info) || info.addon);
-        start3();
+        start4();
       });
     }
     var tracksPromise = null;
@@ -9158,10 +9654,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return new Promise(function (ok) {
         var _done = function done() {
           videoEl.removeEventListener("playing", _done);
-          clearTimeout(timer2);
+          clearTimeout(timer3);
           ok();
         };
-        var timer2 = setTimeout(_done, maxMs);
+        var timer3 = setTimeout(_done, maxMs);
         videoEl.addEventListener("playing", _done);
       });
     }
@@ -9768,7 +10264,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         cs.cues.forEach(function (c) {
           return seen[c.start + "|" + c.text] = true;
         });
-        parse(txt).forEach(function (c) {
+        parse2(txt).forEach(function (c) {
           if (!seen[c.start + "|" + c.text]) cs.cues.push(c);
         });
         cs.cues.sort(function (a, b) {
@@ -9974,7 +10470,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         sub: false,
         audio: false
       };
-      start3();
+      start4();
     }
     function armSlow() {
       clearTimeout(slowTimer);
@@ -10048,7 +10544,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         }
       });
       focus(goBtn);
-      var timer2 = setInterval(function () {
+      var timer3 = setInterval(function () {
         left--;
         if (left > 0) return label();
         closeSlow();
@@ -10057,7 +10553,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       slowModal = {
         el: modal,
         layer: layer,
-        timer: timer2
+        timer: timer3
       };
     }
     function connectionOk() {
@@ -10110,9 +10606,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         var rest = (opts.streams || []).filter(function (x) {
           return tried.indexOf(x) < 0;
         });
-        var res = parse2(stream).res;
+        var res = parse3(stream).res;
         var same = rest.filter(function (x) {
-          return parse2(x).res === res;
+          return parse3(x).res === res;
         });
         var pick2 = smartPick(same, _isAvailable()) || smartPick(rest, _isAvailable());
         if (!pick2) {
@@ -10120,7 +10616,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           fail(t("Nenhuma outra fonte disponível para tentar."));
           return;
         }
-        var info = parse2(pick2.stream);
+        var info = parse3(pick2.stream);
         toast(t("Tentando: {what}", {
           what: summary(info) || info.addon
         }), 3500);
@@ -10149,7 +10645,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             sub: false,
             audio: false
           };
-          start3();
+          start4();
         } else {
           pop();
           openDetails(meta.type, meta.id, {
@@ -10233,7 +10729,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       onShow: function onShow() {
         if (!ticker) {
           setupIntro();
-          start3();
+          start4();
           ticker = setInterval(function () {
             if (controlsOn) updateTimes();
             renderer.update(videoEl.currentTime);
@@ -10244,6 +10740,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             if (!videoEl.paused) saveProgress2();
           }, SAVE_MS);
           watchTimer = setInterval(watchdog, 2e3);
+          calTimer = setInterval(checkCalendar, 2e4);
+          setTimeout(checkCalendar, 3e3);
           if ("") statusTimer = setInterval(function () {
             return !videoEl.paused && diag("status");
           }, 1e4);
@@ -10259,6 +10757,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         clearInterval(ticker);
         clearInterval(saveTimer);
         clearInterval(watchTimer);
+        clearInterval(calTimer);
+        closeNotice();
         clearInterval(statusTimer);
         clearTimeout(hideTimer);
         clearTimeout(seekCommitTimer);
@@ -10342,8 +10842,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var DOCUMENTARY = 99;
   var THRILLER = 53;
   var HORROR = 27;
-  function isoDaysAgo(days) {
-    var d = new Date(Date.now() - days * 864e5);
+  function isoDaysAgo(days2) {
+    var d = new Date(Date.now() - days2 * 864e5);
     return d.toISOString().slice(0, 10);
   }
   function toItem(r, mediaType) {
@@ -10797,11 +11297,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var bgA = h("div.reco-bg");
     var bgB = h("div.reco-bg");
     var frameBox = h("div.reco-trailer");
-    var loading2 = h("div.reco-loading", null, h("div.spinner.small"));
+    var loading3 = h("div.reco-loading", null, h("div.spinner.small"));
     var title = h("div.reco-title");
     var meta = h("div.reco-meta");
     var desc = h("div.reco-desc");
-    var el = h("div.reco-bill", null, [h("div.aurora", null, [h("i.a1"), h("i.a2"), h("i.a3")]), bgA, bgB, frameBox, h("div.reco-shade-left"), h("div.reco-shade-bottom"), loading2, h("div.reco-info", null, [title, meta, desc])]);
+    var el = h("div.reco-bill", null, [h("div.aurora", null, [h("i.a1"), h("i.a2"), h("i.a3")]), bgA, bgB, frameBox, h("div.reco-shade-left"), h("div.reco-shade-bottom"), loading3, h("div.reco-info", null, [title, meta, desc])]);
     var front = bgA;
     var current3 = null;
     var previewTimer = null;
@@ -11699,7 +12199,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           text: t(f.label),
           onSelect: function onSelect() {
             filter = f.id;
-            refresh();
+            refresh2();
           }
         }));
       });
@@ -11708,11 +12208,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         text: newestFirst ? t("↓ Mais recentes") : t("↑ Mais antigos"),
         onSelect: function onSelect() {
           newestFirst = !newestFirst;
-          refresh();
+          refresh2();
         }
       }));
     }
-    function refresh() {
+    function refresh2() {
       var idx = Array.prototype.indexOf.call(chips.children, current2());
       renderChips();
       renderGrid();
@@ -11973,7 +12473,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         ratingsEl: ratingsEl
       });
     }
-    function renderRatings(el2, r, loading2) {
+    function renderRatings(el2, r, loading3) {
       clear(el2);
       if (r.imdb) el2.appendChild(h("span.rating.imdb", {
         html: IMDB_SVG
@@ -11982,7 +12482,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       })));
       if (isAdult2()) return;
       var pct = function pct(v) {
-        return v === null || v === void 0 ? loading2 ? "··" : "--" : v + "%";
+        return v === null || v === void 0 ? loading3 ? "··" : "--" : v + "%";
       };
       el2.appendChild(h("span.rating.rt", {
         title: t("Rotten Tomatoes: crítica e público")
@@ -12253,13 +12753,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var finish2 = function finish2() {
         if (done) return;
         done = true;
-        clearTimeout(timer2);
+        clearTimeout(timer3);
         serverReady.then(function (ok) {
           var p = smartPick(all, ok);
           resolve(p ? p.stream : null);
         });
       };
-      var timer2 = setTimeout(finish2, 12e3);
+      var timer3 = setTimeout(finish2, 12e3);
       serverReady.then(function () {
         return fetchStreams(meta.type, video.id, function (addon, streams) {
           per[srcs.indexOf(addon)] = streams;
@@ -12389,7 +12889,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }
       function filterMenu() {
         var dubs = all.filter(function (x) {
-          return parse2(x).dub;
+          return parse3(x).dub;
         }).length;
         var opts2 = [{
           label: t("Todos"),
@@ -12468,7 +12968,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var playableType = _isPlayableType(s);
       var needs = _needsServer(s);
       var disabled = !playableType || needs && !serverOk;
-      var info2 = parse2(s);
+      var info2 = parse3(s);
       var tags = [];
       if (info2.res) tags.push(h("span.s-tag.res", {
         cls: info2.res === "4K" ? "uhd" : "",
@@ -12521,7 +13021,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     function play2(video, stream, all, pick2) {
       var li = libraryItem(meta.id);
       var resumeMs = li && li.state && li.state.video_id === video.id ? li.state.timeOffset : 0;
-      var start3 = function start3(ms) {
+      var start4 = function start4(ms) {
         return openPlayer({
           meta: meta,
           video: video,
@@ -12533,7 +13033,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         });
       };
       if (resumeMs > 3e4 && pick2) {
-        start3(resumeMs);
+        start4(resumeMs);
       } else if (resumeMs > 3e4) {
         choiceDialog(t("Continuar de onde parou?"), isSeries() ? "T" + video.season + "E" + video.episode + " · " + (video.namePt || video.name || "") : meta.name, [{
           label: '<span class="ico">▶</span>' + t("Continuar de {time}", {
@@ -12541,15 +13041,15 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           }),
           primary: true,
           onSelect: function onSelect() {
-            return start3(resumeMs);
+            return start4(resumeMs);
           }
         }, {
           label: '<span class="ico">↺</span>' + t("Do início"),
           onSelect: function onSelect() {
-            return start3(0);
+            return start4(0);
           }
         }]);
-      } else start3(0);
+      } else start4(0);
     }
     function isUpcoming(v) {
       var d = v && v.released ? new Date(v.released).getTime() : NaN;
@@ -12671,12 +13171,16 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
     var bar = topbar("home", goTab);
     var heroUi = buildHero();
+    var calRow = h("div.row.cal-row", {
+      "data-anchor": "30"
+    });
     var cwRow = h("div.row", {
       "data-anchor": "30"
     });
     var rows = h("div.rows");
     scroller.appendChild(bar);
     scroller.appendChild(heroUi.el);
+    scroller.appendChild(calRow);
     scroller.appendChild(cwRow);
     scroller.appendChild(rows);
     el.appendChild(scroller);
@@ -12722,6 +13226,65 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       cwRow.appendChild(track);
       loadVisibleImages(cwRow);
     }
+    function renderAgenda() {
+      clear(calRow);
+      if (!enabled()) {
+        calRow.style.display = "none";
+        return;
+      }
+      calRow.style.display = "";
+      calRow.appendChild(h("div.row-title", null, [t("Sua agenda"), h("small", {
+        text: t("Google Agenda")
+      })]));
+      var d = days();
+      var today = /* @__PURE__ */new Date();
+      var track = h("div.row-track.cal-track", {
+        "data-scroll-x": "",
+        "data-group": "",
+        "data-trap": ""
+      });
+      var now = Date.now();
+      var group = function group(label, date, events2) {
+        var cards = events2.map(function (e) {
+          var soon = eventSoon(e);
+          var sub = e.location || e.calendar || "";
+          return h("div.cal-card", {
+            focusable: true,
+            cls: (e.end.getTime() <= now ? "past" : "") + (soon ? " soon" : ""),
+            onSelect: function onSelect() {
+              return agendaPanel();
+            }
+          }, [h("div.cal-card-top", null, [h("span.cal-card-time", null, [h("i", {
+            style: {
+              background: e.color
+            }
+          }), eventTime(e)]), soon ? h("span.cal-badge", {
+            text: soon
+          }) : null]), h("div.cal-card-title", {
+            text: e.title
+          }), h("div.cal-card-sub", {
+            text: e.end.getTime() <= now ? t("Terminou") + (sub ? " · " + sub : "") : sub
+          })]);
+        });
+        if (!cards.length) cards.push(h("div.cal-card.empty", {
+          focusable: true,
+          onSelect: function onSelect() {
+            return agendaPanel();
+          },
+          text: t("Nada na agenda")
+        }));
+        return h("div.cal-group", null, [h("div.cal-day", null, [h("b", {
+          text: label
+        }), dayLabel(date, true)]), h("div.cal-cards", null, cards)]);
+      };
+      track.appendChild(group(t("HOJE"), today, d.today));
+      track.appendChild(h("div.cal-sep"));
+      track.appendChild(group(t("AMANHÃ"), new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1), d.tomorrow));
+      calRow.appendChild(track);
+    }
+    var offCalendar = onChange2(function () {
+      if (!calRow.contains(current2())) renderAgenda();
+    });
     var pending = [];
     var active = 0;
     function loadNearby() {
@@ -12796,6 +13359,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var view = {
       el: el,
       onShow: function onShow() {
+        renderAgenda();
         renderContinue();
         if (!loadedBoard) renderBoard();else loadNearby();
         heroUi.resume();
@@ -12821,6 +13385,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         renderBoard();
       },
       destroy: function destroy() {
+        offCalendar();
         heroUi.pause();
         if (bar.__destroy) bar.__destroy();
       }
@@ -12929,7 +13494,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     bgA, bgB, h("div.hero-shade-left"), h("div.hero-shade-bottom"), h("div.hero-info", null, [logo2, title, meta, desc, buttons, dots])]);
     var items = [];
     var index = 0;
-    var timer2 = null;
+    var timer3 = null;
     var front = bgA;
     var paused = true;
     var bgToken = 0;
@@ -12985,9 +13550,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       if (nx) new Image().src = nx.background;
     }
     function schedule() {
-      clearTimeout(timer2);
+      clearTimeout(timer3);
       if (paused || items.length < 2) return;
-      timer2 = setTimeout(function () {
+      timer3 = setTimeout(function () {
         index = (index + 1) % items.length;
         render();
         schedule();
@@ -13015,7 +13580,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       // Fora de vista, o banner solta os fundos (2 imagens 1920x1080 ≈ 16 MB na memória).
       pause: function pause() {
         paused = true;
-        clearTimeout(timer2);
+        clearTimeout(timer3);
         bgToken++;
         bgA.style.backgroundImage = "";
         bgB.style.backgroundImage = "";
@@ -14785,7 +15350,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       };
       choose(t("Fonte"), t("Vale para legendas de addons (OpenSubtitles etc.)"), FONTS, "subtitleFont", s.subtitleFont, lb.font);
       choose(t("Estilo"), t("Contorno, sombra ou caixa de fundo"), STYLES, "subtitleStyle", s.subtitleStyle, lb.style);
-      choose(t("Cor do texto"), "", COLORS2, "subtitleColor", s.subtitleColor, lb.color);
+      choose(t("Cor do texto"), "", COLORS3, "subtitleColor", s.subtitleColor, lb.color);
       choose(t("Tamanho"), "", SIZES.map(function (v) {
         return {
           id: v,
@@ -14851,6 +15416,32 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       };
       keyRow(t("Chave TMDB"), t("Sinopses e títulos em PT-BR, logos e elenco com fotos (grátis em themoviedb.org)"), "tmdbKey", "API key (v3)");
       keyRow(t("Chave MDBList"), t("Notas do Rotten Tomatoes, Metacritic, Trakt e Letterboxd (grátis em mdblist.com)"), "mdblistKey", "API key");
+      if (!IS_WEB) {
+        body.appendChild(h("div.set-section", {
+          text: t("Google Agenda")
+        }));
+        var calInput = h("input.input", {
+          type: "text",
+          value: s.calendarUrl || "",
+          placeholder: "https://calendar.google.com/calendar/ical/…/basic.ics"
+        });
+        calInput.__submit = function (v) {
+          saveSettings({
+            calendarUrl: v.trim()
+          });
+          start();
+          toast(v.trim() ? t("Agenda ligada") : t("Agenda desligada"));
+          render();
+        };
+        body.appendChild(h("div.set-row", {
+          focusable: true,
+          onSelect: function onSelect() {
+            return select(calInput);
+          }
+        }, [h("div.label", null, [t("Link da agenda (iCal)"), h("small", {
+          text: t('Google Agenda › Configurações › sua agenda › "Endereço secreto no formato iCal". Fica só nesta TV. Dá para colar pelo controle no celular. Vários links: separe com espaço.')
+        })]), calInput]));
+      }
       body.appendChild(h("div.set-section", {
         text: t("Addons")
       }));
@@ -15152,12 +15743,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var URL = "http://127.0.0.1:8090/api/pending";
   var FAST = 2500;
   var SLOW = 15e3;
-  var timer = null;
-  function start(onOpen) {
-    if (timer) return;
+  var timer2 = null;
+  function start2(onOpen) {
+    if (timer2) return;
     var _tick = function tick() {
       if (document.hidden) {
-        timer = setTimeout(_tick, FAST);
+        timer2 = setTimeout(_tick, FAST);
         return;
       }
       getJSON(URL, {
@@ -15165,12 +15756,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         quiet: true
       }).then(function (r) {
         if (r && r.open) onOpen(r.open);
-        timer = setTimeout(_tick, FAST);
+        timer2 = setTimeout(_tick, FAST);
       }).catch(function () {
-        return timer = setTimeout(_tick, SLOW);
+        return timer2 = setTimeout(_tick, SLOW);
       });
     };
-    timer = setTimeout(_tick, FAST);
+    timer2 = setTimeout(_tick, FAST);
   }
 
   // src/js/main.js
@@ -15207,15 +15798,15 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         if (bootEl) bootEl.style.display = "none";
         showPicker(function () {
           showStatic();
-          start2();
+          start3();
         });
       });
-    } else start2();
+    } else start3();
     document.addEventListener("visibilitychange", function () {
       if (!document.hidden) _check();
     });
   }
-  function start2() {
+  function start3() {
     reloadProfile();
     var s = settings();
     applyTheme(s);
@@ -15229,7 +15820,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }), introDone]).then(function () {
       goTab("home");
       finish();
-      if (!IS_WEB) start(openFromPhone);
+      if (!IS_WEB) start2(openFromPhone);
+      start();
       if (isNewProfilePendingLogin() && !isLoggedIn()) {
         clearNewProfileFlag();
         openLogin(function () {
