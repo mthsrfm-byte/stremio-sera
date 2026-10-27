@@ -65,7 +65,7 @@ function defaultAddons() {
 // SERVICE_MIN: versão do serviço que este app espera (o /api/version dele); mais velha, pede a nova.
 const TUBES = ['xv', 'ph'];
 const TUBE_PORT = 8092;
-const SERVICE_MIN = 5;
+const SERVICE_MIN = 6;
 let tubes = null; // null: ainda procurando; [] ou lista: já respondeu
 let tubeTries = 0;
 // 'searching' | 'ok' | 'old' (serviço antigo, sem os addons) | 'off' (serviço não responde)
@@ -73,6 +73,12 @@ let tubeState = 'searching';
 
 export function tubeStatus() {
   return tubeState;
+}
+
+// Fonte de um dos addons do serviço da TV (XVideos/Pornhub): cada vídeo vem com opções de
+// reserva (direto e pelo serviço), e o player tenta a próxima sozinho quando uma não abre.
+export function isTubeStream(s) {
+  return !!(s && tubes && tubes.some((a) => a.manifest && a.manifest.name === s.addon));
 }
 
 function withTubes(list) {

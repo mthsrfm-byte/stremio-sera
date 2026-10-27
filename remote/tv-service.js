@@ -14,7 +14,7 @@ var urlLib = require('url');
 
 var PORT = 8090;
 var ADDON_PORT = 8092; // addons XVideos/Pornhub e vídeo (porta nova a cada mudança que versões antigas não sabem largar)
-var SERVICE_VERSION = 5;
+var SERVICE_VERSION = 6;
 var PAGE_BASE = 'https://cdn.jsdelivr.net/gh/mthsrfm-byte/stremio-sera/remote/';
 var APP_NAME = 'Seraflix Controle';
 var TOKEN_FILE = '/home/owner/share/seraflixRemote.json';
@@ -402,9 +402,12 @@ var TUBES = {
       var out = [];
       var hls = (html.match(/setVideoHLS\('([^']+)'\)/) || [])[1];
       var high = (html.match(/setVideoUrlHigh\('([^']+)'\)/) || [])[1];
-      if (hls) out.push({ name: 'XVideos\nHLS até 1080p', title: 'Melhor qualidade disponível (1080p HD)', url: proxied(hls, 'hls.m3u8') });
-      if (high) out.push({ name: 'XVideos\n360p', title: 'MP4 360p (mais leve)', url: proxied(high, 'video.mp4') });
-      if (hls) out.push({ name: 'XVideos\nDireto', title: 'Link do site sem passar pela TV (se os outros falharem)', url: hls });
+      // Direto primeiro: a página foi aberta daqui da TV, então o link já vale para ela, e o vídeo
+      // não depende do serviço ficar de pé enquanto toca. Pelo serviço fica de reserva.
+      if (hls) out.push({ name: 'XVideos\nHLS até 1080p', title: 'Melhor qualidade disponível (1080p HD)', url: hls });
+      if (hls) out.push({ name: 'XVideos\nHLS pela TV', title: 'Mesmo vídeo passando pelo serviço da TV', url: proxied(hls, 'hls.m3u8') });
+      if (high) out.push({ name: 'XVideos\n360p', title: 'MP4 360p (mais leve)', url: high });
+      if (high) out.push({ name: 'XVideos\n360p pela TV', title: 'MP4 360p passando pelo serviço da TV', url: proxied(high, 'video.mp4') });
       return out;
     }
   },
@@ -453,11 +456,15 @@ var TUBES = {
     parseMeta: function (id, html) {
       return { id: id, type: 'movie', name: ogTag(html, 'title') || 'Pornhub', poster: ogTag(html, 'image'), background: ogTag(html, 'image'), posterShape: 'landscape', description: ogTag(html, 'description') };
     },
+    // Direto primeiro (o link vale para o IP da TV, que abriu a página); a melhor qualidade pelo
+    // serviço fica no fim, de reserva.
     parseStreams: function (html) {
-      return jsonArrayAfter(html, 'mediaDefinitions')
+      var list = jsonArrayAfter(html, 'mediaDefinitions')
         .filter(function (d) { return d.format === 'hls' && d.videoUrl && /^\d+$/.test(String(d.quality)); })
-        .sort(function (a, b) { return Number(b.quality) - Number(a.quality); })
-        .map(function (d) { return { name: 'Pornhub\n' + d.quality + 'p', title: 'HLS ' + d.quality + 'p', url: proxied(d.videoUrl, 'hls.m3u8') }; });
+        .sort(function (a, b) { return Number(b.quality) - Number(a.quality); });
+      var out = list.map(function (d) { return { name: 'Pornhub\n' + d.quality + 'p', title: 'HLS ' + d.quality + 'p', url: d.videoUrl }; });
+      if (list.length) out.push({ name: 'Pornhub\n' + list[0].quality + 'p pela TV', title: 'HLS ' + list[0].quality + 'p passando pelo serviço da TV', url: proxied(list[0].videoUrl, 'hls.m3u8') });
+      return out;
     }
   }
 };
@@ -552,7 +559,7 @@ function proxyRoute(req, res, query) {
             if (done) return;
             done = true;
             var body = rewritePlaylist(Buffer.concat(parts).toString('utf8'), addr);
-            res.writeHead(200, { 'Content-Type': 'application/vnd.apple.mpegurl', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' });
+            res.writeHead(200, { 'Content-Type': 'application/vnd.apple.mpegurl', 'Content-Length': Buffer.byteLength(body), 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' });
             res.end(body);
           });
           r.on('error', function () { fail(); });
@@ -712,6 +719,17 @@ function quit(res) {
     try { addonServer.close(); } catch (e) {}
     if (tv.socket) tv.socket.destroy();
   }, 100);
+}
+
+// Erro solto num retorno assíncrono derrubaria o processo inteiro do TizenBrew (e com ele este
+// serviço e o vídeo que passa por aqui). Fica anotado no /api/pxlog e o serviço segue de pé.
+// Um handler só por processo, mesmo com versões novas assumindo: ele anota na versão da vez.
+process.__seraflixNote = function (e) { pxNote('http://tv/servico', 'erro', e); };
+if (!process.__seraflixGuard) {
+  process.__seraflixGuard = true;
+  process.on('uncaughtException', function (e) {
+    try { process.__seraflixNote(e); } catch (e2) {}
+  });
 }
 
 // Um erro num pedido nunca pode derrubar o serviço: ele roda dentro do processo do TizenBrew.
