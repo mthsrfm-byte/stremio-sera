@@ -96,6 +96,9 @@ final class UIBundle {
               manifest.files.count <= 300, manifest.files["index.html"] != nil, manifest.files["app.js"] != nil else {
             throw UIError.invalid("UI nova exige outra versão do app")
         }
+        // Um commit de build da TV pode avançar main sem mudar o snapshot Mac.
+        if let current = try? readManifest(initial()), current.commit == manifest.commit,
+           current.files == manifest.files, current.bridgeVersion == manifest.bridgeVersion { return nil }
         let fm = FileManager.default
         try fm.createDirectory(at: cache, withIntermediateDirectories: true)
         let temporary = cache.appendingPathComponent("download-" + UUID().uuidString)

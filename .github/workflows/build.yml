@@ -1,0 +1,80 @@
+name: Compilar Seraflix para macOS
+
+on:
+  push:
+    paths-ignore: ['Resources/fallback/**', 'Resources/ui-source-commit.txt', 'docs/**', '*.md']
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      ui_ref:
+        description: Commit ou branch da UI (main após merge do PR mac)
+        default: main
+        type: string
+      source_dependencies:
+        description: Compilar dependências das fontes, preservando corresponding source
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mac-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-latest
+          - arch: x86_64
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
+    env:
+      ARCH: ${{ matrix.arch }}
+      # Durante o PR inicial usa branch isolada. Depois do merge, o default é main.
+      UI_REF: ${{ inputs.ui_ref || vars.UI_REF || (github.repository == 'mthsrfm-byte/stremio-sera' && startsWith(github.ref, 'refs/heads/build/') && 'feat/mac-platform') || 'main' }}
+      VERSION: 0.1.0
+      BUILD_NUMBER: ${{ github.run_number }}
+      DEPS_MODE: ${{ (inputs.source_dependencies || startsWith(github.ref, 'refs/tags/')) && 'source' || 'binary' }}
+      SPARKLE_PUBLIC_KEY: ${{ vars.SPARKLE_PUBLIC_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Ferramentas de compilação
+        run: brew install pkgconf meson ninja cmake automake nasm
+      - uses: actions/cache@v4
+        with:
+          path: |
+            .build/downloads
+            .build/native-deps
+          key: native-${{ runner.os }}-${{ matrix.arch }}-${{ env.DEPS_MODE }}-${{ hashFiles('scripts/dependency-lock.json', 'scripts/build-ffmpeg.sh', 'scripts/build-dependencies-source.sh') }}
+      - name: Compilar .app e DMG assinado ad hoc
+        run: scripts/build.sh
+      - name: Smoke test nativo (WKWebView, libmpv e mídia HTTP local)
+        run: scripts/smoke-test.sh
+      - name: Guardar artefatos e evidência
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Seraflix-${{ matrix.arch }}
+          path: |
+            artifacts/
+            build/smoke-*.json
+          if-no-files-found: warn
+          retention-days: 30
+      # Não publicar binários GPL obtidos de snapshots sem corresponding source exata.
+      # Releases públicas exigem DEPS_MODE=source e os arquivos de fontes associados.
+      - name: Publicar release com fontes correspondentes
+        if: startsWith(github.ref, 'refs/tags/') && env.DEPS_MODE == 'source'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" || gh release create "$GITHUB_REF_NAME" --draft --title "Seraflix $GITHUB_REF_NAME" --notes-file docs/release.md
+          gh release upload "$GITHUB_REF_NAME" artifacts/* --clobber

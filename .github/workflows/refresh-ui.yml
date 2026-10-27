@@ -1,0 +1,42 @@
+name: Atualizar somente o fallback da UI
+
+on:
+  repository_dispatch:
+    types: [ui-updated]
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: Commit da main do stremio-sera (vazio usa main)
+        type: string
+        required: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fallback-ui
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Gerar e verificar snapshot do repositório UI
+        env:
+          UI_REF: ${{ inputs.commit || github.event.client_payload.commit || 'main' }}
+        run: scripts/prepare-ui.sh
+      - name: Commit somente dos assets de fallback
+        run: |
+          git add Resources/fallback Resources/ui-source-commit.txt
+          if git diff --cached --quiet; then exit 0; fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'build: atualizar fallback da UI compartilhada'
+          git pull --rebase origin main
+          git push origin HEAD:main

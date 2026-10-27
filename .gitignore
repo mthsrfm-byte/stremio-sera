@@ -1,5 +1,12 @@
 .build/
+.swiftpm/
+build/
+artifacts/
+.DS_Store
+*.dmg
+*.app
+*.zip
 .build-ui/
 output/
-.DS_Store
-.swiftpm/
+__pycache__/
+*.pyc

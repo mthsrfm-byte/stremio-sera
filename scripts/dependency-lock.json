@@ -1,0 +1,801 @@
+{
+  "schema": 1,
+  "date": "2026-10-27",
+  "origin": "IINA official dependency distribution",
+  "buildScripts": {
+    "repository": "https://github.com/iina/deps-buildscripts",
+    "commit": "ee35579ded3ea95d839d85c2686d96dc505ee344",
+    "note": "Refer\u00eancia de reprodu\u00e7\u00e3o e fontes; n\u00e3o comprova associa\u00e7\u00e3o exata de cada artefato publicado ao commit."
+  },
+  "libraries": [
+    {
+      "name": "libarchive.13.dylib",
+      "url": "https://iina.io/dylibs/universal/libarchive.13.dylib",
+      "sha256": "98dd6860fb8537082fff9d2821ff6dafe8882ee2b1d849ad468922cf5938190b",
+      "minOS": {
+        "x86_64": "11.0.0",
+        "arm64": "11.0.0"
+      },
+      "dependencies": [
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libcharset.1.dylib",
+        "/usr/lib/libiconv.2.dylib",
+        "/usr/lib/libz.1.dylib",
+        "@rpath/liblz4.1.dylib",
+        "@rpath/libzstd.1.dylib"
+      ]
+    },
+    {
+      "name": "libass.9.dylib",
+      "url": "https://iina.io/dylibs/universal/libass.9.dylib",
+      "sha256": "d6d41c6650305637595a25c2a3d8e1d535d660d87b172dd6b0179d6e5da99a10",
+      "minOS": {
+        "x86_64": "11.0.0",
+        "arm64": "11.0.0"
+      },
+      "dependencies": [
+        "/System/Library/Frameworks/ApplicationServices.framework/Versions/A/ApplicationServices",
+        "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
+        "/System/Library/Frameworks/CoreText.framework/Versions/A/CoreText",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libiconv.2.dylib",
+        "/usr/lib/libz.1.dylib",
+        "@rpath/libfontconfig.1.dylib",
+        "@rpath/libfreetype.6.dylib",
+        "@rpath/libfribidi.0.dylib",
+        "@rpath/libharfbuzz.0.dylib",
+        "@rpath/libunibreak.7.dylib"
+      ]
+    },
+    {
+      "name": "libavcodec.63.dylib",
+      "url": "https://iina.io/dylibs/universal/libavcodec.63.dylib",
+      "sha256": "46e9a90d8cd07039f2f306fc31065d2723c5cd235e0afd50d0f566f4ae91a6a3",
+      "minOS": {
+        "x86_64": "11.0.0",
+        "arm64": "11.0.0"
+      },
+      "dependencies": [
+        "/System/Library/Frameworks/AudioToolbox.framework/Versions/A/AudioToolbox",
+        "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
+        "/System/Library/Frameworks/CoreMedia.framework/Versions/A/CoreMedia",
+        "/System/Library/Frameworks/CoreServices.framework/Versions/A/CoreServices",
+        "/System/Library/Frameworks/CoreVideo.framework/Versions/A/CoreVideo",
+        "/System/Library/Frameworks/VideoToolbox.framework/Versions/A/VideoToolbox",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libiconv.2.dylib",
+        "/usr/lib/libz.1.dylib",
+        "@rpath/libSvtAv1Enc.4.dylib",
+        "@rpath/libavutil.61.dylib",
+        "@rpath/libdav1d.7.dylib",
+        "@rpath/libjxl.0.11.dylib",
+        "@rpath/libjxl_threads.0.11.dylib",
+        "@rpath/libsoxr.0.dylib",
+        "@rpath/libspeex.1.dylib",
+        "@rpath/libswresample.7.dylib",
+        "@rpath/libvorbis.0.dylib",
+        "@rpath/libvorbisenc.2.dylib",
+        "@rpath/libwebp.7.dylib",
+        "@rpath/libwebpmux.3.dylib"
+      ]
+    },
+    {
+      "name": "libavdevice.63.dylib",
+      "url": "https://iina.io/dylibs/universal/libavdevice.63.dylib",
+      "sha256": "eb724ae5512f9f27f850f2771fd735cd41ceb0faceb6565fe039b953eb9eaae0",
+      "minOS": {
+        "x86_64": "11.0.0",
+        "arm64": "11.0.0"
+      },
+      "dependencies": [
+        "/System/Library/Frameworks/AVFoundation.framework/Versions/A/AVFoundation",
+        "/System/Library/Frameworks/Accelerate.framework/Versions/A/Accelerate",
+        "/System/Library/Frameworks/AppKit.framework/Versions/C/AppKit",
+        "/System/Library/Frameworks/AudioToolbox.framework/Versions/A/AudioToolbox",
+        "/System/Library/Frameworks/CoreAudio.framework/Versions/A/CoreAudio",
+        "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
+        "/System/Library/Frameworks/CoreGraphics.framework/Versions/A/CoreGraphics",
+        "/System/Library/Frameworks/CoreImage.framework/Versions/A/CoreImage",
+        "/System/Library/Frameworks/CoreMedia.framework/Versions/A/CoreMedia",
+        "/System/Library/Frameworks/CoreServices.framework/Versions/A/CoreServices",
+        "/System/Library/Frameworks/CoreVideo.framework/Versions/A/CoreVideo",
+        "/System/Library/Frameworks/Foundation.framework/Versions/C/Foundation",
+        "/System/Library/Frameworks/Metal.framework/Versions/A/Metal",
+        "/System/Library/Frameworks/OpenGL.framework/Versions/A/OpenGL",
+        "/System/Library/Frameworks/Security.framework/Versions/A/Security",
+        "/System/Library/Frameworks/VideoToolbox.framework/Versions/A/VideoToolbox",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libbz2.1.0.dylib",
+        "/usr/lib/libc++.1.dylib",
+        "/usr/lib/libiconv.2.dylib",
+        "/usr/lib/libobjc.A.dylib",
+        "/usr/lib/libz.1.dylib",
+        "@rpath/libSvtAv1Enc.4.dylib",
+        "@rpath/libass.9.dylib",
+        "@rpath/libavcodec.63.dylib",
+        "@rpath/libavfilter.12.dylib",
+        "@rpath/libavformat.63.dylib",
+        "@rpath/libavutil.61.dylib",
+        "@rpath/libbs2b.0.dylib",
+        "@rpath/libdav1d.7.dylib",
+        "@rpath/libfontconfig.1.dylib",
+        "@rpath/libfreetype.6.dylib",
+        "@rpath/libfribidi.0.dylib",
+        "@rpath/libharfbuzz.0.dylib",
+        "@rpath/libjxl.0.11.dylib",
+        "@rpath/libjxl_threads.0.11.dylib",
+        "@rpath/librubberband.3.dylib",
+        "@rpath/libsoxr.0.dylib",
+        "@rpath/libspeex.1.dylib",
+        "@rpath/libswresample.7.dylib",
+        "@rpath/libswscale.10.dylib",
+        "@rpath/libvorbis.0.dylib",
+        "@rpath/libvorbisenc.2.dylib",
+        "@rpath/libwebp.7.dylib",
+        "@rpath/libwebpmux.3.dylib",
+        "@rpath/libzimg.2.dylib"
+      ]
+    },
+    {
+      "name": "libavfilter.12.dylib",
+      "url": "https://iina.io/dylibs/universal/libavfilter.12.dylib",
+      "sha256": "d19f664a23c31eff34f718e3935018bafaf3562090774ed596bdf0d5ea12f7c5",
+      "minOS": {
+        "x86_64": "11.0.0",
+        "arm64": "11.0.0"
+      },
+      "dependencies": [
+        "/System/Library/Frameworks/Accelerate.framework/Versions/A/Accelerate",
+        "/System/Library/Frameworks/AppKit.framework/Versions/C/AppKit",
+        "/System/Library/Frameworks/AudioToolbox.framework/Versions/A/AudioToolbox",
+        "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
+        "/System/Library/Frameworks/CoreGraphics.framework/Versions/A/CoreGraphics",
+        "/System/Library/Frameworks/CoreImage.framework/Versions/A/CoreImage",
+        "/System/Library/Frameworks/CoreMedia.framework/Versions/A/CoreMedia",
+        "/System/Library/Frameworks/CoreServices.framework/Versions/A/CoreServices",
+        "/System/Library/Frameworks/CoreVideo.framework/Versions/A/CoreVideo",
+        "/System/Library/Frameworks/Foundation.framework/Versions/C/Foundation",
+        "/System/Library/Frameworks/Metal.framework/Versions/A/Metal",
+        "/System/Library/Frameworks/OpenGL.framework/Versions/A/OpenGL",
+        "/System/Library/Frameworks/Security.framework/Versions/A/Security",
+        "/System/Library/Frameworks/VideoToolbox.framework/Versions/A/VideoToolbox",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libbz2.1.0.dylib",
+        "/usr/lib/libc++.1.dylib",
+        "/usr/lib/libiconv.2.dylib",
+        "/usr/lib/libobjc.A.dylib",
+        "/usr/lib/libz.1.dylib",
+        "@rpath/libSvtAv1Enc.4.dylib",
+        "@rpath/libass.9.dylib",
+        "@rpath/libavcodec.63.dylib",
+        "@rpath/libavformat.63.dylib",
+        "@rpath/libavutil.61.dylib",
+        "@rpath/libbs2b.0.dylib",
+        "@rpath/libdav1d.7.dylib",
+        "@rpath/libfontconfig.1.dylib",
+        "@rpath/libfreetype.6.dylib",
+        "@rpath/libfribidi.0.dylib",
+        "@rpath/libharfbuzz.0.dylib",
+        "@rpath/libjxl.0.11.dylib",
+        "@rpath/libjxl_threads.0.11.dylib",
+        "@rpath/librubberband.3.dylib",
+        "@rpath/libsoxr.0.dylib",
+        "@rpath/libspeex.1.dylib",
+        "@rpath/libswresample.7.dylib",
+        "@rpath/libswscale.10.dylib",
+        "@rpath/libvorbis.0.dylib",
+        "@rpath/libvorbisenc.2.dylib",
+        "@rpath/libwebp.7.dylib",
+        "@rpath/libwebpmux.3.dylib",
+        "@rpath/libzimg.2.dylib"
+      ]
+    },
+    {
+      "name": "libavformat.63.dylib",
+      "url": "https://iina.io/dylibs/universal/libavformat.63.dylib",
+      "sha256": "ddcb4c2a969cbf41fc0bc499040b39a618228af598b3c87b3cd0aace837c4880",
+      "minOS": {
+        "x86_64": "11.0.0",
+        "arm64": "11.0.0"
+      },
+      "dependencies": [
+        "/System/Library/Frameworks/AudioToolbox.framework/Versions/A/AudioToolbox",
+        "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
+        "/System/Library/Frameworks/CoreMedia.framework/Versions/A/CoreMedia",
+        "/System/Library/Frameworks/CoreServices.framework/Versions/A/CoreServices",
+        "/System/Library/Frameworks/CoreVideo.framework/Versions/A/CoreVideo",
+        "/System/Library/Frameworks/Security.framework/Versions/A/Security",
+        "/System/Library/Frameworks/VideoToolbox.framework/Versions/A/VideoToolbox",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libbz2.1.0.dylib",
+        "/usr/lib/libiconv.2.dylib",
+        "/usr/lib/libz.1.dylib",
+        "@rpath/libSvtAv1Enc.4.dylib",
+        "@rpath/libavcodec.63.dylib",
+        "@rpath/libavutil.61.dylib",
+        "@rpath/libdav1d.7.dylib",
+        "@rpath/libjxl.0.11.dylib",
+        "@rpath/libjxl_threads.0.11.dylib",
+        "@rpath/libsoxr.0.dylib",
+        "@rpath/libspeex.1.dylib",
+        "@rpath/libswresample.7.dylib",
+        "@rpath/libvorbis.0.dylib",
+        "@rpath/libvorbisenc.2.dylib",
+        "@rpath/libwebp.7.dylib",
+        "@rpath/libwebpmux.3.dylib"
+      ]
+    },
+    {
+      "name": "libavutil.61.dylib",
+      "url": "https://iina.io/dylibs/universal/libavutil.61.dylib",
+      "sha256": "20db31a51e077e449d25d3e8d14f14f12c843c1dc5cede8301ca9d2a25fe1c80",
+      "minOS": {
+        "x86_64": "11.0.0",
+        "arm64": "11.0.0"
+      },
+      "dependencies": [
+        "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
+        "/System/Library/Frameworks/CoreMedia.framework/Versions/A/CoreMedia",
+        "/System/Library/Frameworks/CoreServices.framework/Versions/A/CoreServices",
+        "/System/Library/Frameworks/CoreVideo.framework/Versions/A/CoreVideo",
+        "/System/Library/Frameworks/VideoToolbox.framework/Versions/A/VideoToolbox",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libz.1.dylib"
+      ]
+    },
+    {
+      "name": "libbluray.3.dylib",
+      "url": "https://iina.io/dylibs/universal/libbluray.3.dylib",
+      "sha256": "9f6acc4b1cc151cf60820649bd72909072bb2cc8147395f0bb17a5189fbbad23",
+      "minOS": {
+        "x86_64": "11.0.0",
+        "arm64": "11.0.0"
+      },
+      "dependencies": [
+        "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
+        "/System/Library/Frameworks/DiskArbitration.framework/Versions/A/DiskArbitration",
+        "/usr/lib/libSystem.B.dylib",
+        "@rpath/libfontconfig.1.dylib",
+        "@rpath/libfreetype.6.dylib",
+        "@rpath/libudfread.3.dylib"
+      ]
+    },
+    {
+      "name": "libbrotlicommon.1.dylib",
+      "url": "https://iina.io/dylibs/universal/libbrotlicommon.1.dylib",
+      "sha256": "d214b1da9336ca98dcb1dff9e36ae2f0668f3da9f579b46850061cd588b6e491",
+      "minOS": {
+        "x86_64": "11.0.0",
+        "arm64": "11.0.0"
+      },
+      "dependencies": [
+        "/usr/lib/libSystem.B.dylib"
+      ]
+    },
+    {
+      "name": "libbrotlidec.1.dylib",
+      "url": "https://iina.io/dylibs/universal/libbrotlidec.1.dylib",
+      "sha256": "51ef4af1dec4a2522f6e55d68b7f5de010c5e307e3f32e8522f7d3e2166e40dc",
+      "minOS": {
+        "x86_64": "11.0.0",
+        "arm64": "11.0.0"
+      },
+      "dependencies": [
+        "/usr/lib/libSystem.B.dylib",
+        "@rpath/libbrotlicommon.1.dylib"
+      ]
+    },
+    {
+      "name": "libbrotlienc.1.dylib",
+      "url": "https://iina.io/dylibs/universal/libbrotlienc.1.dylib",
+      "sha256": "bbadbefe6666b6a0091d3269077212255d242afaf9d7343c617f73f08a9f04fa",
+      "minOS": {
+        "x86_64": "11.0.0",
+        "arm64": "11.0.0"
+      },
+      "dependencies": [
+        "/usr/lib/libSystem.B.dylib",
+        "@rpath/libbrotlicommon.1.dylib"
+      ]
+    },
+    {
+      "name": "libbs2b.0.dylib",
+      "url": "https://iina.io/dylibs/universal/libbs2b.0.dylib",
+      "sha256": "070c2a02bfc06543d88b65e5670c29de6a7f23d0549cb637d9605f4f5f5223c6",
+      "minOS": {
+        "x86_64": "11.0.0",
+        "arm64": "11.0.0"
+      },
+      "dependencies": [
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libc++.1.dylib"
+      ]
+    },
+    {
+      "name": "libdav1d.7.dylib",
+      "url": "https://iina.io/dylibs/universal/libdav1d.7.dylib",
+      "sha256": "5c89a989a934a2d1d4f07bc61eaaf3426ad71705bc7e9e83f4558050ad3aca2e",
+      "minOS": {
+        "x86_64": "11.0.0",
+        "arm64": "11.0.0"
+      },
+      "dependencies": [
+        "/usr/lib/libSystem.B.dylib"
+      ]
+    },
+    {
+      "name": "libfontconfig.1.dylib",
+      "url": "https://iina.io/dylibs/universal/libfontconfig.1.dylib",
+      "sha256": "da54338371c7c98de206232361500c67c70504c47f8dbac879a30a03cece9283",
+      "minOS": {
+        "x86_64": "11.0.0",
+        "arm64": "11.0.0"
+      },
+      "dependencies": [
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libexpat.1.dylib",
+        "@rpath/libfreetype.6.dylib"
+      ]
+    },
+    {
+      "name": "libfreetype.6.dylib",
+      "url": "https://iina.io/dylibs/universal/libfreetype.6.dylib",
+      "sha256": "9f6a9a7d007779ce87e11482e99e9175934ffafa4ef96f1d668be2a4478ebc36",
+      "minOS": {
+        "x86_64": "11.0.0",
+        "arm64": "11.0.0"
+      },
+      "dependencies": [
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libz.1.dylib"
+      ]
+    },
+    {
+      "name": "libfribidi.0.dylib",
+      "url": "https://iina.io/dylibs/universal/libfribidi.0.dylib",
+      "sha256": "2af717db66ca5423fb8075e8af7511325aa638cf18a950a029c1aa17a55067e8",
+      "minOS": {
+        "x86_64": "11.0.0",
+        "arm64": "11.0.0"
+      },
+      "dependencies": [
+        "/usr/lib/libSystem.B.dylib"
+      ]
+    },
+    {
+      "name": "libharfbuzz.0.dylib",
+      "url": "https://iina.io/dylibs/universal/libharfbuzz.0.dylib",
+      "sha256": "836ae77534f0e19be097ff0dba81329a9126a60c91a8d1a8dd84b3626bd216cc",
+      "minOS": {
+        "x86_64": "11.0.0",
+        "arm64": "11.0.0"
+      },
+      "dependencies": [
+        "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
+        "/System/Library/Frameworks/CoreGraphics.framework/Versions/A/CoreGraphics",
+        "/System/Library/Frameworks/CoreText.framework/Versions/A/CoreText",
+        "/usr/lib/libSystem.B.dylib",
+        "@rpath/libfreetype.6.dylib"
+      ]
+    },
+    {
+      "name": "libjpeg.62.dylib",
+      "url": "https://iina.io/dylibs/universal/libjpeg.62.dylib",
+      "sha256": "9379e5c286ad821ba1ad165c596c4c975aaec7cb0b062f584e353d8e2e008108",
+      "minOS": {
+        "x86_64": "11.0.0",
+        "arm64": "11.0.0"
+      },
+      "dependencies": [
+        "/usr/lib/libSystem.B.dylib"
+      ]
+    },
+    {
+      "name": "libjxl.0.11.dylib",
+      "url": "https://iina.io/dylibs/universal/libjxl.0.11.dylib",
+      "sha256": "607712461b946a62cae640f6378f35178d88315915eaef35e5a8435fa9cd3c6a",
+      "minOS": {
+        "x86_64": "11.0.0",
+        "arm64": "11.0.0"
+      },
+      "dependencies": [
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libc++.1.dylib",
+        "@rpath/libbrotlicommon.1.dylib",
+        "@rpath/libbrotlidec.1.dylib",
+        "@rpath/libbrotlienc.1.dylib",
+        "@rpath/libjxl_cms.0.11.dylib"
+      ]
+    },
+    {
+      "name": "libjxl_cms.0.11.dylib",
+      "url": "https://iina.io/dylibs/universal/libjxl_cms.0.11.dylib",
+      "sha256": "72c305e32b9d1382d0fe5ffd6635ae9722ef67e1f486384183ee0d2ae4a1ef74",
+      "minOS": {
+        "x86_64": "11.0.0",
+        "arm64": "11.0.0"
+      },
+      "dependencies": [
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libc++.1.dylib"
+      ]
+    },
+    {
+      "name": "libjxl_threads.0.11.dylib",
+      "url": "https://iina.io/dylibs/universal/libjxl_threads.0.11.dylib",
+      "sha256": "ffca2750367f5cc6bc755f4f37061941dd054bb1e71250a01e140df6d8bbad1d",
+      "minOS": {
+        "x86_64": "11.0.0",
+        "arm64": "11.0.0"
+      },
+      "dependencies": [
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libc++.1.dylib"
+      ]
+    },
+    {
+      "name": "liblcms2.2.dylib",
+      "url": "https://iina.io/dylibs/universal/liblcms2.2.dylib",
+      "sha256": "0cb481e982c0e65d2643c6100b55027239ae6e460f364cbbd3188b69bf1c8379",
+      "minOS": {
+        "x86_64": "11.0.0",
+        "arm64": "11.0.0"
+      },
+      "dependencies": [
+        "/usr/lib/libSystem.B.dylib"
+      ]
+    },
+    {
+      "name": "libluajit-5.1.2.dylib",
+      "url": "https://iina.io/dylibs/universal/libluajit-5.1.2.dylib",
+      "sha256": "9da9440864306d834c219cbdf6e6c0d0254ee6ba1dd5056caf6f011aa6245251",
+      "minOS": {
+        "x86_64": "11.0.0",
+        "arm64": "11.0.0"
+      },
+      "dependencies": [
+        "/usr/lib/libSystem.B.dylib"
+      ]
+    },
+    {
+      "name": "liblz4.1.dylib",
+      "url": "https://iina.io/dylibs/universal/liblz4.1.dylib",
+      "sha256": "f13cb5c23e88d0624ad0b63b89e7e43787a1204255546596e6e767a831dbbf57",
+      "minOS": {
+        "x86_64": "11.0.0",
+        "arm64": "11.0.0"
+      },
+      "dependencies": [
+        "/usr/lib/libSystem.B.dylib"
+      ]
+    },
+    {
+      "name": "libmpv.2.dylib",
+      "url": "https://iina.io/dylibs/universal/libmpv.2.dylib",
+      "sha256": "1d225787bde2b9758e1c7fcce9721ac05732d2bd33ff7240f0ebf09ccf1d0b48",
+      "minOS": {
+        "x86_64": "11.0.0",
+        "arm64": "11.0.0"
+      },
+      "dependencies": [
+        "/System/Library/Frameworks/AVFoundation.framework/Versions/A/AVFoundation",
+        "/System/Library/Frameworks/AppKit.framework/Versions/C/AppKit",
+        "/System/Library/Frameworks/AudioToolbox.framework/Versions/A/AudioToolbox",
+        "/System/Library/Frameworks/AudioUnit.framework/Versions/A/AudioUnit",
+        "/System/Library/Frameworks/Carbon.framework/Versions/A/Carbon",
+        "/System/Library/Frameworks/CoreAudio.framework/Versions/A/CoreAudio",
+        "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
+        "/System/Library/Frameworks/CoreGraphics.framework/Versions/A/CoreGraphics",
+        "/System/Library/Frameworks/CoreMedia.framework/Versions/A/CoreMedia",
+        "/System/Library/Frameworks/CoreServices.framework/Versions/A/CoreServices",
+        "/System/Library/Frameworks/CoreVideo.framework/Versions/A/CoreVideo",
+        "/System/Library/Frameworks/Foundation.framework/Versions/C/Foundation",
+        "/System/Library/Frameworks/IOSurface.framework/Versions/A/IOSurface",
+        "/System/Library/Frameworks/OpenGL.framework/Versions/A/OpenGL",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libc++.1.dylib",
+        "/usr/lib/libiconv.2.dylib",
+        "/usr/lib/libobjc.A.dylib",
+        "/usr/lib/libz.1.dylib",
+        "/usr/lib/swift/libswiftCore.dylib",
+        "/usr/lib/swift/libswiftCoreFoundation.dylib",
+        "/usr/lib/swift/libswiftCoreImage.dylib",
+        "/usr/lib/swift/libswiftDarwin.dylib",
+        "/usr/lib/swift/libswiftDispatch.dylib",
+        "/usr/lib/swift/libswiftFoundation.dylib",
+        "/usr/lib/swift/libswiftIOKit.dylib",
+        "/usr/lib/swift/libswiftMetal.dylib",
+        "/usr/lib/swift/libswiftOSLog.dylib",
+        "/usr/lib/swift/libswiftObjectiveC.dylib",
+        "/usr/lib/swift/libswiftQuartzCore.dylib",
+        "/usr/lib/swift/libswiftSpatial.dylib",
+        "/usr/lib/swift/libswiftUniformTypeIdentifiers.dylib",
+        "/usr/lib/swift/libswiftXPC.dylib",
+        "/usr/lib/swift/libswiftos.dylib",
+        "/usr/lib/swift/libswiftsimd.dylib",
+        "@rpath/libarchive.13.dylib",
+        "@rpath/libass.9.dylib",
+        "@rpath/libavcodec.63.dylib",
+        "@rpath/libavdevice.63.dylib",
+        "@rpath/libavfilter.12.dylib",
+        "@rpath/libavformat.63.dylib",
+        "@rpath/libavutil.61.dylib",
+        "@rpath/libbluray.3.dylib",
+        "@rpath/libjpeg.62.dylib",
+        "@rpath/liblcms2.2.dylib",
+        "@rpath/libluajit-5.1.2.dylib",
+        "@rpath/libmujs.dylib",
+        "@rpath/libplacebo.360.dylib",
+        "@rpath/librubberband.3.dylib",
+        "@rpath/libswresample.7.dylib",
+        "@rpath/libswscale.10.dylib",
+        "@rpath/libuchardet.0.dylib",
+        "@rpath/libzimg.2.dylib"
+      ]
+    },
+    {
+      "name": "libmujs.dylib",
+      "url": "https://iina.io/dylibs/universal/libmujs.dylib",
+      "sha256": "5e7e0b90bd147c80e258e65c856be5a9eab6a0f7d8b9cd7116576c0f4a3a7458",
+      "minOS": {
+        "x86_64": "11.0.0",
+        "arm64": "11.0.0"
+      },
+      "dependencies": [
+        "/usr/lib/libSystem.B.dylib"
+      ]
+    },
+    {
+      "name": "libogg.0.dylib",
+      "url": "https://iina.io/dylibs/universal/libogg.0.dylib",
+      "sha256": "f1fee407df49c0cbcaad6ba94f74196bf43995fa355d2704483fbfb63a3922ef",
+      "minOS": {
+        "x86_64": "11.0.0",
+        "arm64": "11.0.0"
+      },
+      "dependencies": [
+        "/usr/lib/libSystem.B.dylib"
+      ]
+    },
+    {
+      "name": "libplacebo.360.dylib",
+      "url": "https://iina.io/dylibs/universal/libplacebo.360.dylib",
+      "sha256": "dc13c7ad9e859fb3dc083261235d44f6505adabea86c1f6579c3be4a20bf62d3",
+      "minOS": {
+        "x86_64": "11.0.0",
+        "arm64": "11.0.0"
+      },
+      "dependencies": [
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libc++.1.dylib",
+        "@rpath/liblcms2.2.dylib"
+      ]
+    },
+    {
+      "name": "librubberband.3.dylib",
+      "url": "https://iina.io/dylibs/universal/librubberband.3.dylib",
+      "sha256": "8d1162d9b1102307a72888d231f9244728d764ea1588a4f98bd0598727dd21e0",
+      "minOS": {
+        "x86_64": "11.0.0",
+        "arm64": "11.0.0"
+      },
+      "dependencies": [
+        "/System/Library/Frameworks/Accelerate.framework/Versions/A/Accelerate",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libc++.1.dylib"
+      ]
+    },
+    {
+      "name": "libsharpyuv.0.dylib",
+      "url": "https://iina.io/dylibs/universal/libsharpyuv.0.dylib",
+      "sha256": "b7c19183577284511d55e6f891b182a28b06dceedb467ab8298d0da11dcc6dfe",
+      "minOS": {
+        "x86_64": "11.0.0",
+        "arm64": "11.0.0"
+      },
+      "dependencies": [
+        "/usr/lib/libSystem.B.dylib"
+      ]
+    },
+    {
+      "name": "libsoxr.0.dylib",
+      "url": "https://iina.io/dylibs/universal/libsoxr.0.dylib",
+      "sha256": "0ae0b8aefd31d59fa39751a5ee4e5b7dc7d8a2827e48d9b02125ef1e37984192",
+      "minOS": {
+        "x86_64": "11.0.0",
+        "arm64": "11.0.0"
+      },
+      "dependencies": [
+        "/usr/lib/libSystem.B.dylib"
+      ]
+    },
+    {
+      "name": "libspeex.1.dylib",
+      "url": "https://iina.io/dylibs/universal/libspeex.1.dylib",
+      "sha256": "9ad1e0202967388169b307b29200800a577c9c34fd13620e4c98435e0d07c2a5",
+      "minOS": {
+        "x86_64": "11.0.0",
+        "arm64": "11.0.0"
+      },
+      "dependencies": [
+        "/usr/lib/libSystem.B.dylib"
+      ]
+    },
+    {
+      "name": "libSvtAv1Enc.4.dylib",
+      "url": "https://iina.io/dylibs/universal/libSvtAv1Enc.4.dylib",
+      "sha256": "cc8b3b2b20518e47a48289fa37ed0ff6892a6194dee839c9d63a3b9312ac2d3e",
+      "minOS": {
+        "x86_64": "11.0.0",
+        "arm64": "11.0.0"
+      },
+      "dependencies": [
+        "/usr/lib/libSystem.B.dylib"
+      ]
+    },
+    {
+      "name": "libswresample.7.dylib",
+      "url": "https://iina.io/dylibs/universal/libswresample.7.dylib",
+      "sha256": "415ba21f8a3ac51e43bfb603b9db0fb515546ca0c06d5de1d984631b937f36aa",
+      "minOS": {
+        "x86_64": "11.0.0",
+        "arm64": "11.0.0"
+      },
+      "dependencies": [
+        "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
+        "/System/Library/Frameworks/CoreMedia.framework/Versions/A/CoreMedia",
+        "/System/Library/Frameworks/CoreServices.framework/Versions/A/CoreServices",
+        "/System/Library/Frameworks/CoreVideo.framework/Versions/A/CoreVideo",
+        "/System/Library/Frameworks/VideoToolbox.framework/Versions/A/VideoToolbox",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libz.1.dylib",
+        "@rpath/libavutil.61.dylib",
+        "@rpath/libsoxr.0.dylib"
+      ]
+    },
+    {
+      "name": "libswscale.10.dylib",
+      "url": "https://iina.io/dylibs/universal/libswscale.10.dylib",
+      "sha256": "e0b7e8b0e8678cb5c2575feeea89f0964a8a4584be4afc470f82695004d11891",
+      "minOS": {
+        "x86_64": "11.0.0",
+        "arm64": "11.0.0"
+      },
+      "dependencies": [
+        "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
+        "/System/Library/Frameworks/CoreMedia.framework/Versions/A/CoreMedia",
+        "/System/Library/Frameworks/CoreServices.framework/Versions/A/CoreServices",
+        "/System/Library/Frameworks/CoreVideo.framework/Versions/A/CoreVideo",
+        "/System/Library/Frameworks/VideoToolbox.framework/Versions/A/VideoToolbox",
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libz.1.dylib",
+        "@rpath/libavutil.61.dylib"
+      ]
+    },
+    {
+      "name": "libuchardet.0.dylib",
+      "url": "https://iina.io/dylibs/universal/libuchardet.0.dylib",
+      "sha256": "2da28bd800ba39a2a663052040cb17c03786f80050cc93ebaf6c37cdc4f1d408",
+      "minOS": {
+        "x86_64": "11.0.0",
+        "arm64": "11.0.0"
+      },
+      "dependencies": [
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libc++.1.dylib"
+      ]
+    },
+    {
+      "name": "libudfread.3.dylib",
+      "url": "https://iina.io/dylibs/universal/libudfread.3.dylib",
+      "sha256": "3cfa38c117ad3384099713c33c6a51cbf3624ad422b5938546f0f92ebf442d9f",
+      "minOS": {
+        "x86_64": "11.0.0",
+        "arm64": "11.0.0"
+      },
+      "dependencies": [
+        "/usr/lib/libSystem.B.dylib"
+      ]
+    },
+    {
+      "name": "libunibreak.7.dylib",
+      "url": "https://iina.io/dylibs/universal/libunibreak.7.dylib",
+      "sha256": "70ed2a3ca548e49ae92e266027a3e142df772fa4419b1dc9b6d5da6767dc879a",
+      "minOS": {
+        "x86_64": "11.0.0",
+        "arm64": "11.0.0"
+      },
+      "dependencies": [
+        "/usr/lib/libSystem.B.dylib"
+      ]
+    },
+    {
+      "name": "libvorbis.0.dylib",
+      "url": "https://iina.io/dylibs/universal/libvorbis.0.dylib",
+      "sha256": "2dd44058c83952acbb05577fbff0732b20b45f089862c796c382bde19a883954",
+      "minOS": {
+        "x86_64": "11.0.0",
+        "arm64": "11.0.0"
+      },
+      "dependencies": [
+        "/usr/lib/libSystem.B.dylib",
+        "@rpath/libogg.0.dylib"
+      ]
+    },
+    {
+      "name": "libvorbisenc.2.dylib",
+      "url": "https://iina.io/dylibs/universal/libvorbisenc.2.dylib",
+      "sha256": "66a533628b045402a1da0eb64f57328577694cd3d9a78879934b1d2e0b3dcf9f",
+      "minOS": {
+        "x86_64": "11.0.0",
+        "arm64": "11.0.0"
+      },
+      "dependencies": [
+        "/usr/lib/libSystem.B.dylib",
+        "@rpath/libogg.0.dylib",
+        "@rpath/libvorbis.0.dylib"
+      ]
+    },
+    {
+      "name": "libwebp.7.dylib",
+      "url": "https://iina.io/dylibs/universal/libwebp.7.dylib",
+      "sha256": "9e27724d6be9a7c38d017654a1caf1eeec84554aa6c798ed99dd93c6bedc4fbc",
+      "minOS": {
+        "x86_64": "11.0.0",
+        "arm64": "11.0.0"
+      },
+      "dependencies": [
+        "/usr/lib/libSystem.B.dylib",
+        "@rpath/libsharpyuv.0.dylib"
+      ]
+    },
+    {
+      "name": "libwebpmux.3.dylib",
+      "url": "https://iina.io/dylibs/universal/libwebpmux.3.dylib",
+      "sha256": "19932677d8dd9f2d7bfd79db0771b3779aac42f33877ae98cb8469a6b7e6de01",
+      "minOS": {
+        "x86_64": "11.0.0",
+        "arm64": "11.0.0"
+      },
+      "dependencies": [
+        "/usr/lib/libSystem.B.dylib",
+        "@rpath/libsharpyuv.0.dylib",
+        "@rpath/libwebp.7.dylib"
+      ]
+    },
+    {
+      "name": "libzimg.2.dylib",
+      "url": "https://iina.io/dylibs/universal/libzimg.2.dylib",
+      "sha256": "fa214d54d2851a934f131e19940061cb849ff76e3679c876ee449f2cf7bb5158",
+      "minOS": {
+        "x86_64": "11.0.0",
+        "arm64": "11.0.0"
+      },
+      "dependencies": [
+        "/usr/lib/libSystem.B.dylib",
+        "/usr/lib/libc++.1.dylib"
+      ]
+    },
+    {
+      "name": "libzstd.1.dylib",
+      "url": "https://iina.io/dylibs/universal/libzstd.1.dylib",
+      "sha256": "5947ee456759d8731af51074da6138b1e69b89655d4d3b7d6bdcde88a8e14ec7",
+      "minOS": {
+        "x86_64": "11.0.0",
+        "arm64": "11.0.0"
+      },
+      "dependencies": [
+        "/usr/lib/libSystem.B.dylib"
+      ]
+    }
+  ],
+  "mpvHeaders": {
+    "url": "https://github.com/mpv-player/mpv/archive/refs/tags/v0.41.0.tar.gz",
+    "sha256": "ee21092a5ee427353392360929dc64645c54479aefdb5babc5cfbb5fad626209"
+  },
+  "ffmpegSource": {
+    "version": "9.0.2",
+    "url": "https://ffmpeg.org/releases/ffmpeg-9.0.2.tar.xz",
+    "sha256": "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e"
+  }
+}
