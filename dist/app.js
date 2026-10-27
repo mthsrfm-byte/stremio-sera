@@ -5242,8 +5242,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
   function animateScroll(node, prop, target) {
     if (node.__anim) cancelAnimationFrame(node.__anim);
-    var start2 = node[prop];
-    var delta = target - start2;
+    var start3 = node[prop];
+    var delta = target - start3;
     if (!smooth || Math.abs(delta) < 2) {
       node[prop] = target;
       if (scrollHook) scrollHook(node);
@@ -5253,7 +5253,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var t0 = Date.now();
     var _step2 = function step() {
       var k = Math.min(1, (Date.now() - t0) / dur);
-      node[prop] = start2 + delta * (1 - Math.pow(1 - k, 3));
+      node[prop] = start3 + delta * (1 - Math.pow(1 - k, 3));
       if (k < 1) node.__anim = requestAnimationFrame(_step2);else {
         node.__anim = null;
         if (scrollHook) scrollHook(node);
@@ -5931,13 +5931,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         } catch (e) {}
         fn(v);
       };
-      var timer = setTimeout(function () {
+      var timer2 = setTimeout(function () {
         return done(reject, new Error("Sem IP"));
       }, 3e3);
       pc.onicecandidate = function (e) {
         var m = e && e.candidate && /(\d+\.\d+\.\d+\.\d+)/.exec(e.candidate.candidate);
         if (m && !/^(0\.|127\.)/.test(m[1])) {
-          clearTimeout(timer);
+          clearTimeout(timer2);
           done(resolve2, m[1]);
         }
       };
@@ -6005,9 +6005,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var found = null;
       var done = 0;
       var batch2 = 24;
-      var _runBatch = function runBatch(start2) {
-        if (found || start2 >= hosts.length) return Promise.resolve(found);
-        var slice = hosts.slice(start2, start2 + batch2);
+      var _runBatch = function runBatch(start3) {
+        if (found || start3 >= hosts.length) return Promise.resolve(found);
+        var slice = hosts.slice(start3, start3 + batch2);
         return Promise.all(slice.map(function (h2) {
           return getJSON("http://" + h2 + ":11470/settings", {
             timeout: 1500,
@@ -6019,7 +6019,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             if (onProgress) onProgress(done, hosts.length);
           });
         })).then(function () {
-          return _runBatch(start2 + batch2);
+          return _runBatch(start3 + batch2);
         });
       };
       return _runBatch(0);
@@ -6675,7 +6675,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return clock.textContent = timeHM(/* @__PURE__ */new Date());
     };
     tick();
-    var timer = setInterval(tick, 2e4);
+    var timer2 = setInterval(tick, 2e4);
     var bar = h("div.topbar", {
       "data-group": ""
     }, [h("div.brand", {
@@ -6691,7 +6691,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       });
     }), h("div.spacer"), profileButton(onTab), clock]);
     bar.__destroy = function () {
-      return clearInterval(timer);
+      return clearInterval(timer2);
     };
     return bar;
   }
@@ -6904,8 +6904,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return m ? m[0] : null;
   }
   var BUILTIN_KEYS = {
-    tmdbKey: true ? "9c57ed7ea044b2f01eea2fcc2e954c2e" : "",
-    mdblistKey: true ? "t9e4f1z29b3c36i1j25rul1wx" : ""
+    tmdbKey: true ? "" : "",
+    mdblistKey: true ? "" : ""
   };
   function keyOf(name) {
     return (settings()[name] || "").trim() || BUILTIN_KEYS[name];
@@ -7214,12 +7214,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       while (j < lines.length && lines[j].indexOf("-->") < 0) j++;
       if (j >= lines.length) continue;
       var parts = lines[j].split("-->");
-      var start2 = toSec(parts[0]);
+      var start3 = toSec(parts[0]);
       var end = toSec(parts[1].trim().split(/\s+/)[0]);
-      if (!isFinite(start2) || !isFinite(end)) continue;
+      if (!isFinite(start3) || !isFinite(end)) continue;
       var body = lines.slice(j + 1).join("\n").replace(/\{\\[^}]*\}/g, "").trim();
       if (body) cues.push({
-        start: start2,
+        start: start3,
         end: end,
         text: sanitize(body)
       });
@@ -7652,7 +7652,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       });
       return i >= 0 && i + 1 < vids.length ? vids[i + 1] : null;
     }
-    function start2() {
+    function start3() {
       setTitle();
       showSpinner(true);
       message("");
@@ -8381,7 +8381,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             sub: false,
             audio: false
           };
-          start2();
+          start3();
         }
       });
     }
@@ -8407,7 +8407,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             sub: false,
             audio: false
           };
-          start2();
+          start3();
         } else {
           pop();
           openDetails(meta.type, meta.id, {
@@ -8490,7 +8490,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       onKey: onKey,
       onShow: function onShow() {
         if (!ticker) {
-          start2();
+          start3();
           ticker = setInterval(function () {
             if (controlsOn) updateTimes();
             renderer.update(videoEl.currentTime);
@@ -9061,7 +9061,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     function play(video, stream, all) {
       var li = libraryItem(meta.id);
       var resumeMs = li && li.state && li.state.video_id === video.id ? li.state.timeOffset : 0;
-      var start2 = function start2(ms) {
+      var start3 = function start3(ms) {
         return openPlayer({
           meta: meta,
           video: video,
@@ -9084,10 +9084,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         }], {
           center: true,
           onPick: function onPick(v) {
-            return start2(v);
+            return start3(v);
           }
         });
-      } else start2(0);
+      } else start3(0);
     }
     function formatDate2(iso) {
       var d = new Date(iso);
@@ -9401,7 +9401,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }, [bgA, bgB, h("div.hero-shade-left"), h("div.hero-shade-bottom"), h("div.hero-info", null, [logo2, title, meta, desc, buttons, dots])]);
     var items = [];
     var index = 0;
-    var timer = null;
+    var timer2 = null;
     var front = bgA;
     var paused = true;
     var bgToken = 0;
@@ -9457,9 +9457,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       if (nx) new Image().src = nx.background;
     }
     function schedule() {
-      clearTimeout(timer);
+      clearTimeout(timer2);
       if (paused || items.length < 2) return;
-      timer = setTimeout(function () {
+      timer2 = setTimeout(function () {
         index = (index + 1) % items.length;
         render();
         schedule();
@@ -9487,7 +9487,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       // Fora de vista, o banner solta os fundos (2 imagens 1920x1080 ≈ 16 MB na memória).
       pause: function pause() {
         paused = true;
-        clearTimeout(timer);
+        clearTimeout(timer2);
         bgToken++;
         bgA.style.backgroundImage = "";
         bgB.style.backgroundImage = "";
@@ -9710,8 +9710,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "c2bf10eddee32fe79cbdaea194b1e82ca5319062",
-    date: "2026-10-27T02:34:50Z",
+    commit: "1d81cdf74c3ed77876a2d10783b992ee34736b91",
+    date: "2026-10-27T02:47:29+00:00",
     message: "Build da dist/ para a TV"
   };
   var MODULE_PREFIX = "/module/";
@@ -10931,6 +10931,31 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     };
   }
 
+  // src/js/api/sendToTv.js
+  var URL = "http://127.0.0.1:8090/api/pending";
+  var FAST = 2500;
+  var SLOW = 15e3;
+  var timer = null;
+  function start(onOpen) {
+    if (timer) return;
+    var _tick = function tick() {
+      if (document.hidden) {
+        timer = setTimeout(_tick, FAST);
+        return;
+      }
+      getJSON(URL, {
+        timeout: 2e3,
+        quiet: true
+      }).then(function (r) {
+        if (r && r.open) onOpen(r.open);
+        timer = setTimeout(_tick, FAST);
+      }).catch(function () {
+        return timer = setTimeout(_tick, SLOW);
+      });
+    };
+    timer = setTimeout(_tick, FAST);
+  }
+
   // src/js/main.js
   function boot() {
     var s = settings();
@@ -10960,14 +10985,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       if (bootEl) bootEl.style.display = "none";
       showPicker(function () {
         if (bootEl) bootEl.style.display = "";
-        start();
+        start2();
       });
-    } else start();
+    } else start2();
     document.addEventListener("visibilitychange", function () {
       if (!document.hidden) check();
     });
   }
-  function start() {
+  function start2() {
     reloadProfile();
     var s = settings();
     applyTheme(s);
@@ -10982,6 +11007,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var bootEl = document.getElementById("boot");
       if (bootEl) bootEl.parentNode.removeChild(bootEl);
       goTab("home");
+      start(openFromPhone);
       if (isNewProfilePendingLogin() && !isLoggedIn()) {
         clearNewProfileFlag();
         openLogin(function () {
@@ -10997,6 +11023,18 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         }).catch(function () {});
       }, 8e3);
     });
+  }
+  function openFromPhone(req) {
+    var cur = currentView();
+    if (cur && cur.el && cur.el.classList.contains("player")) {
+      if (cur.onBack) cur.onBack();else pop();
+    }
+    toast(t("Pedido do celular: {name}", {
+      name: req.name || t("abrindo...")
+    }));
+    openDetails(req.type, req.id, req.play && req.type === "movie" ? {
+      autoStreams: true
+    } : {});
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);else boot();
 })();
