@@ -12,6 +12,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
     private let media = MediaIntegration()
     private var updater: SPUStandardUpdaterController?
     private let launchTime = Date()
+    private var smokeServerReadyCount = 0
+    private var smokeServerRestarted = false
     private var smokeHome = false
     private var smokeLoaded = false
     private var smokeAdvanced = false
@@ -63,7 +65,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
             self?.interacted = true
             return event
         }
-        server.onState = { [weak self] state in self?.emit("server", state) }
+        server.onState = { [weak self] state in
+            guard let self = self else { return }
+            self.emit("server", state)
+            guard self.smokeResult != nil, CommandLine.arguments.contains("--smoke-server") else { return }
+            if state["state"] as? String == "error" {
+                self.finishSmoke(error: state["message"] as? String ?? "Servidor indisponível")
+            } else if state["state"] as? String == "ready" {
+                self.smokeServerReadyCount += 1
+                if self.smokeServerReadyCount == 1 {
+                    self.server.crashForSmokeTest()
+                } else {
+                    self.smokeServerRestarted = true
+                    self.checkSmokeComplete()
+                }
+            }
+        }
         do {
             let player = try MPVPlayer()
             self.player = player
@@ -167,6 +184,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
 
     private func checkSmokeComplete() {
         guard smokeResult != nil, smokeHome, player != nil else { return }
+        guard !CommandLine.arguments.contains("--smoke-server") || smokeServerRestarted else { return }
         if smokeVideo == nil || (smokeLoaded && smokeAdvanced) { finishSmoke(error: nil) }
     }
 
@@ -176,7 +194,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         smokeFinished = true
         let result: [String: Any] = ["ok": error == nil, "home": smokeHome, "player": player != nil,
                                      "loaded": smokeLoaded, "advanced": smokeAdvanced,
-                                     "homeSeconds": smokeHomeSeconds, "error": error ?? ""]
+                                     "homeSeconds": smokeHomeSeconds, "serverRestarts": max(0, smokeServerReadyCount - 1),
+                                     "serverRestarted": smokeServerRestarted, "error": error ?? ""]
         if let bytes = try? JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys]) {
             try? bytes.write(to: URL(fileURLWithPath: path), options: .atomic)
         }

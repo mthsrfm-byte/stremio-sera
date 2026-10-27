@@ -83,6 +83,12 @@ final class ServerSupervisor {
         publish("stopped", "Servidor encerrado")
     }
 
+    // Apenas o harness do runner pode simular crash; este método não é exposto pela ponte.
+    func crashForSmokeTest() {
+        guard ProcessInfo.processInfo.arguments.contains("--smoke-server") else { return }
+        process?.terminate()
+    }
+
     private func publish(_ status: String, _ message: String) {
         state = ["state": status, "message": message,
                  "url": Self.endpoint.absoluteString, "version": Self.version]

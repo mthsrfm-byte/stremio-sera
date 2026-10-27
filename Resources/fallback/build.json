@@ -1,6 +1,6 @@
 {
   "version": "1.2.0",
-  "commit": "43c79e4fe883af634048659eac4eb5773095cbf8",
-  "date": "2026-10-27T22:34:37Z",
-  "message": "Integra controles Seraflix ao player nativo e publica bundle Mac verificável"
+  "commit": "290afac2a8985303b6e85650bf9b38783f6cbba5",
+  "date": "2026-10-27T22:37:20Z",
+  "message": "Restringe publicação à main e mostra falhas imediatas do load nativo"
 }

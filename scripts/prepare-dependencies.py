@@ -38,7 +38,7 @@ if __name__ == '__main__':
     # Extrai apenas headers conhecidos; nunca executa ou extrai caminhos do arquivo remoto.
     with tarfile.open(source) as archive:
         for name in ('client.h', 'render.h', 'render_gl.h', 'stream_cb.h'):
-            members = [m for m in archive.getmembers() if m.name.endswith('/libmpv/' + name)]
+            members = [m for m in archive.getmembers() if (m.name.endswith('/include/mpv/' + name) or m.name.endswith('/libmpv/' + name))]
             if len(members) != 1 or not members[0].isfile():
                 raise RuntimeError('Header ausente: ' + name)
             (deps / 'include/mpv' / name).write_bytes(archive.extractfile(members[0]).read())

@@ -6414,9 +6414,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "43c79e4fe883af634048659eac4eb5773095cbf8",
-    date: "2026-10-27T22:34:37Z",
-    message: "Integra controles Seraflix ao player nativo e publica bundle Mac verificável"
+    commit: "290afac2a8985303b6e85650bf9b38783f6cbba5",
+    date: "2026-10-27T22:37:20Z",
+    message: "Restringe publicação à main e mostra falhas imediatas do load nativo"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -9742,13 +9742,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var args = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
     var handler = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.seraflix;
     if (!handler) return false;
+    var id = String(Date.now()) + "-" + Math.random().toString(36).slice(2);
     handler.postMessage({
       version: 1,
-      id: String(Date.now()) + "-" + Math.random().toString(36).slice(2),
+      id: id,
       command: command,
       args: args
     });
-    return true;
+    return id;
   }
   function createMacVideo(title) {
     var el2 = document.createElement("div");
@@ -9769,6 +9770,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var subtitles = [];
     var bufferEnd = 0;
     var active = true;
+    var loadRequestId = null;
     var emit = function emit(name) {
       return el2.dispatchEvent(new Event(name));
     };
@@ -9779,7 +9781,18 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var packet = event.detail || {};
       var data = packet.data || {};
       if (!active || !state.src) return;
-      if (packet.event === "time") {
+      if (packet.event === "response") {
+        if (data.id === loadRequestId && data.ok === false) {
+          state.error = {
+            code: 4,
+            message: data.error || "Não foi possível abrir a mídia."
+          };
+          emit("error");
+        }
+      } else if (packet.event === "state") {
+        if (typeof data.volume === "number") state.volume = Math.max(0, Math.min(1, data.volume / 100));
+        if (typeof data.mute === "boolean") state.muted = data.mute;
+      } else if (packet.event === "time") {
         var wasPaused = state.paused;
         var wasBuffering = state.buffering;
         state.currentTime = Math.max(0, number(data.position, state.currentTime));
@@ -9857,11 +9870,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             state.paused = true;
             state.buffering = true;
             document.documentElement.classList.add("mac-playing");
-            if (!nativeCommand("load", {
+            loadRequestId = nativeCommand("load", {
               url: value,
               title: title || "Seraflix",
               startTime: 0
-            })) {
+            });
+            if (!loadRequestId) {
               state.error = {
                 code: 4,
                 message: "A ponte do Mac não está disponível."

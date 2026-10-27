@@ -11,7 +11,7 @@ HTTP_PID=$!
 trap 'kill "$HTTP_PID" 2>/dev/null || true' EXIT
 RESULT="$ROOT/build/smoke-$ARCH.json"
 rm -f "$RESULT"
-open -n "$APP" --args --smoke-test "$RESULT" --smoke-video http://127.0.0.1:18765/sample.mp4
+open -n "$APP" --args --smoke-test "$RESULT" --smoke-server --smoke-video http://127.0.0.1:18765/sample.mp4
 python3 - "$RESULT" <<'PY'
 import json, pathlib, sys, time
 p = pathlib.Path(sys.argv[1])
