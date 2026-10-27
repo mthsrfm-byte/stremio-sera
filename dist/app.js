@@ -6303,9 +6303,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "f3245f49ac18cb0da062fe0ddf5e98cb2f10fc0b",
-    date: "2026-10-27T07:13:36-03:00",
-    message: "Agenda: link iCal pelo segredo CALENDAR_ICAL_URL"
+    commit: "884e56fc50e6889cbb6bbbd2b43670f042e62f91",
+    date: "2026-10-27T07:23:49-03:00",
+    message: "Player: prévia do quadro ao avançar/voltar no XVideos e no Pornhub"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -6456,7 +6456,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
   var TUBES = ["xv", "ph"];
   var TUBE_PORT = 8092;
-  var SERVICE_MIN = 8;
+  var SERVICE_MIN = 9;
   var tubes = null;
   var tubeTries = 0;
   var tubeState = "searching";
@@ -7142,7 +7142,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var timer = null;
   var loading = null;
   var listeners2 = [];
-  var BUILTIN = true ? "" : "";
+  var BUILTIN = true ? "https://calendar.google.com/calendar/ical/matheus.serafim%40pagaleve.com.br/private-9d7111ae13c15982affb7c795403fcdd/basic.ics" : "";
   function urls() {
     return String(settings().calendarUrl || BUILTIN || "").split(/[\s,]+/).filter(function (u) {
       return /^(https?|webcal):\/\//i.test(u);
@@ -9339,12 +9339,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var bufEl = h("div.buf");
     var knobEl = h("div.knob");
     var seekLabel = h("div.seek-label");
+    var previewImg = h("div.seek-preview-img");
+    var preview = h("div.seek-preview", null, previewImg);
     var bar = h("div.p-bar", {
       focusable: true,
       onSelect: function onSelect() {
         return togglePlay();
       }
-    }, [bufEl, posEl, knobEl, seekLabel]);
+    }, [bufEl, posEl, knobEl, preview, seekLabel]);
     var curTimeEl = h("span");
     var durEl = h("span");
     var playBtn = h("div.btn", {
@@ -10199,8 +10201,43 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       seekLabel.textContent = fmtTime(seekTarget);
       showControls(bar);
       updateTimes();
+      var withPreview = showPreview(seekTarget, d);
       clearTimeout(seekCommitTimer);
-      seekCommitTimer = setTimeout(commitSeek, 700);
+      seekCommitTimer = setTimeout(commitSeek, withPreview ? 1400 : 700);
+    }
+    var PREVIEW_W = 320;
+    var PREVIEW_H = 180;
+    var sheetCache = {};
+    function showPreview(time, duration2) {
+      var th = stream && stream.thumbs;
+      if (!th || !th.urls || !th.urls.length || !(th.every > 0) || !(th.cols > 0) || !(th.rows > 0)) {
+        preview.classList.remove("on");
+        return false;
+      }
+      var per = th.cols * th.rows;
+      var i = Math.floor(time / th.every);
+      var sheet = Math.floor(i / per);
+      if (sheet >= th.urls.length) {
+        sheet = th.urls.length - 1;
+        i = sheet * per + per - 1;
+      }
+      var cell = i % per;
+      var url2 = th.urls[sheet];
+      [sheet - 1, sheet, sheet + 1].forEach(function (n) {
+        var u = th.urls[n];
+        if (!u || sheetCache[u]) return;
+        var img = new Image();
+        img.src = u;
+        sheetCache[u] = img;
+      });
+      previewImg.style.backgroundImage = 'url("' + url2.replace(/"/g, "%22") + '")';
+      previewImg.style.backgroundSize = th.cols * PREVIEW_W + "px " + th.rows * PREVIEW_H + "px";
+      previewImg.style.backgroundPosition = -(cell % th.cols) * PREVIEW_W + "px " + -Math.floor(cell / th.cols) * PREVIEW_H + "px";
+      var w = bar.offsetWidth || 1;
+      var x = Math.max(PREVIEW_W / 2, Math.min(w - PREVIEW_W / 2, time / duration2 * w));
+      preview.style.left = x + "px";
+      preview.classList.add("on");
+      return true;
     }
     function commitSeek() {
       if (seekTarget === null) return;
@@ -10209,6 +10246,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       } catch (e) {}
       seekTarget = null;
       bar.classList.remove("seeking");
+      preview.classList.remove("on");
       if (videoEl.paused) videoEl.play();
       scheduleHide();
     }
@@ -10216,6 +10254,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       clearTimeout(seekCommitTimer);
       seekTarget = null;
       bar.classList.remove("seeking");
+      preview.classList.remove("on");
       updateTimes();
     }
     function selectEmbeddedAudio(index) {
