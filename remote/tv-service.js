@@ -14,7 +14,7 @@ var urlLib = require('url');
 
 var PORT = 8090;
 var ADDON_PORT = 8092; // addons XVideos/Pornhub e vídeo (porta nova a cada mudança que versões antigas não sabem largar)
-var SERVICE_VERSION = 4;
+var SERVICE_VERSION = 5;
 var PAGE_BASE = 'https://cdn.jsdelivr.net/gh/mthsrfm-byte/stremio-sera/remote/';
 var APP_NAME = 'Seraflix Controle';
 var TOKEN_FILE = '/home/owner/share/seraflixRemote.json';
@@ -202,6 +202,64 @@ var FILES = ['index.html', 'icon.svg', 'icon-192.png', 'icon-512.png', 'apple-to
 // Rotas no protocolo de addons do Stremio: /xv/manifest.json, /ph/manifest.json, catalog, meta, stream.
 var UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
 
+// Certificados raiz que o Node 4.4.3 do TizenBrew (2016) não conhece: ISRG Root X1 e X2 (Let's
+// Encrypt). A CDN de vídeo do Pornhub (phncdn.com) usa essa cadeia e o Node recusava a conexão.
+// Só entram quando a verificação normal falha, e só para aquele site (nunca desligam a verificação).
+var EXTRA_CA = [
+  "-----BEGIN CERTIFICATE-----\n" +
+  "MIIFazCCA1OgAwIBAgIRAIIQz7DSQONZRGPgu2OCiwAwDQYJKoZIhvcNAQELBQAwTzELMAkG\n" +
+  "A1UEBhMCVVMxKTAnBgNVBAoTIEludGVybmV0IFNlY3VyaXR5IFJlc2VhcmNoIEdyb3VwMRUw\n" +
+  "EwYDVQQDEwxJU1JHIFJvb3QgWDEwHhcNMTUwNjA0MTEwNDM4WhcNMzUwNjA0MTEwNDM4WjBP\n" +
+  "MQswCQYDVQQGEwJVUzEpMCcGA1UEChMgSW50ZXJuZXQgU2VjdXJpdHkgUmVzZWFyY2ggR3Jv\n" +
+  "dXAxFTATBgNVBAMTDElTUkcgUm9vdCBYMTCCAiIwDQYJKoZIhvcNAQEBBQADggIPADCCAgoC\n" +
+  "ggIBAK3oJHP0FDfzm54rVygch77ct984kIxuPOZXoHj3dcKi/vVqbvYATyjb3miGbESTtrFj\n" +
+  "/RQSa78f0uoxmyF+0TM8ukj13Xnfs7j/EvEhmkvBioZxaUpmZmyPfjxwv60pIgbz5MDmgK7i\n" +
+  "S4+3mX6UA5/TR5d8mUgjU+g4rk8Kb4Mu0UlXjIB0ttov0DiNewNwIRt18jA8+o+u3dpjq+sW\n" +
+  "T8KOEUt+zwvo/7V3LvSye0rgTBIlDHCNAymg4VMk7BPZ7hm/ELNKjD+Jo2FR3qyHB5T0Y3Hs\n" +
+  "LuJvW5iB4YlcNHlsdu87kGJ55tukmi8mxdAQ4Q7e2RCOFvu396j3x+UCB5iPNgiV5+I3lg02\n" +
+  "dZ77DnKxHZu8A/lJBdiB3QW0KtZB6awBdpUKD9jf1b0SHzUvKBds0pjBqAlkd25HN7rOrFle\n" +
+  "aJ1/ctaJxQZBKT5ZPt0m9STJEadao0xAH0ahmbWnOlFuhjuefXKnEgV4We0+UXgVCwOPjdAv\n" +
+  "BbI+e0ocS3MFEvzG6uBQE3xDk3SzynTnjh8BCNAw1FtxNrQHusEwMFxIt4I7mKZ9YIqioymC\n" +
+  "zLq9gwQbooMDQaHWBfEbwrbwqHyGO0aoSCqI3Haadr8faqU9GY/rOPNk3sgrDQoo//fb4hVC\n" +
+  "1CLQJ13hef4Y53CIrU7m2Ys6xt0nUW7/vGT1M0NPAgMBAAGjQjBAMA4GA1UdDwEB/wQEAwIB\n" +
+  "BjAPBgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBR5tFnme7bl5AFzgAiIyBpY9umbbjANBgkq\n" +
+  "hkiG9w0BAQsFAAOCAgEAVR9YqbyyqFDQDLHYGmkgJykIrGF1XIpu+ILlaS/V9lZLubhzEFnT\n" +
+  "IZd+50xx+7LSYK05qAvqFyFWhfFQDlnrzuBZ6brJFe+GnY+EgPbk6ZGQ3BebYhtF8GaV0nxv\n" +
+  "wuo77x/Py9auJ/GpsMiu/X1+mvoiBOv/2X/qkSsisRcOj/KKNFtY2PwByVS5uCbMiogziUwt\n" +
+  "hDyC3+6WVwW6LLv3xLfHTjuCvjHIInNzktHCgKQ5ORAzI4JMPJ+GslWYHb4phowim57iaztX\n" +
+  "OoJwTdwJx4nLCgdNbOhdjsnvzqvHu7UrTkXWStAmzOVyyghqpZXjFaH3pO3JLF+l+/+sKAIu\n" +
+  "vtd7u+Nxe5AW0wdeRlN8NwdCjNPElpzVmbUq4JUagEiuTDkHzsxHpFKVK7q4+63SM1N95R1N\n" +
+  "bdWhscdCb+ZAJzVcoyi3B43njTOQ5yOf+1CceWxG1bQVs5ZufpsMljq4Ui0/1lvh+wjChP4k\n" +
+  "qKOJ2qxq4RgqsahDYVvTH9w7jXbyLeiNdd8XM2w9U/t7y0Ff/9yi0GE44Za4rF2LN9d11TPA\n" +
+  "mRGunUHBcnWEvgJBQl9nJEiU0Zsnvgc/ubhPgXRR4Xq37Z0j4r7g1SgEEzwxA57demyPxgcY\n" +
+  "xn/eR44/KJ4EBs+lVDR3veyJm+kXQ99b21/+jh5Xos1AnX5iItreGCc=\n" +
+  "-----END CERTIFICATE-----\n",
+  "-----BEGIN CERTIFICATE-----\n" +
+  "MIICGzCCAaGgAwIBAgIQQdKd0XLq7qeAwSxs6S+HUjAKBggqhkjOPQQDAzBPMQswCQYDVQQG\n" +
+  "EwJVUzEpMCcGA1UEChMgSW50ZXJuZXQgU2VjdXJpdHkgUmVzZWFyY2ggR3JvdXAxFTATBgNV\n" +
+  "BAMTDElTUkcgUm9vdCBYMjAeFw0yMDA5MDQwMDAwMDBaFw00MDA5MTcxNjAwMDBaME8xCzAJ\n" +
+  "BgNVBAYTAlVTMSkwJwYDVQQKEyBJbnRlcm5ldCBTZWN1cml0eSBSZXNlYXJjaCBHcm91cDEV\n" +
+  "MBMGA1UEAxMMSVNSRyBSb290IFgyMHYwEAYHKoZIzj0CAQYFK4EEACIDYgAEzZvVn4CDCuwJ\n" +
+  "SvMWSj5cz3es3mcFDR0HttwW+1qLFNvicWDEukWVEYmO6gbf9yoWHKS5xcUy4APgHoIYOIvX\n" +
+  "RdgKam7mAHf7AlF9ItgKbppbd9/w+kHsOdx1ymgHDB/qo0IwQDAOBgNVHQ8BAf8EBAMCAQYw\n" +
+  "DwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQUfEKWrt5LSDv6kviejM9ti6lyN5UwCgYIKoZI\n" +
+  "zj0EAwMDaAAwZQIwe3lORlCEwkSHRhtFcP9Ymd70/aTSVaYgLXTWNLxBo1BfASdWtL4ndQav\n" +
+  "Ei51mI38AjEAi/V3bNTIZargCyzuFJ0nN6T5U6VR5CmD1/iQMVtCnwr1/q4AaOeMSQ+2b1tb\n" +
+  "FfLn\n" +
+  "-----END CERTIFICATE-----\n"
+];
+var extraCaHosts = {};
+
+function isCertError(e) {
+  return !!e && /UNABLE_TO_GET_ISSUER|UNABLE_TO_VERIFY_LEAF_SIGNATURE|SELF_SIGNED_CERT_IN_CHAIN|CERT_UNTRUSTED|issuer certificate|leaf signature/i.test(String(e.code || '') + ' ' + String(e.message || ''));
+}
+
+// Opções do https.get com as raízes extras quando aquele site já precisou delas.
+function withCa(opts) {
+  if (opts.protocol !== 'http:' && extraCaHosts[opts.hostname]) opts.ca = EXTRA_CA;
+  return opts;
+}
+
 function fetchText(url, cb, hops) {
   var done = false;
   function end(err, text) { if (!done) { done = true; cb(err, text); } }
@@ -210,7 +268,7 @@ function fetchText(url, cb, hops) {
   opts.headers = { 'User-Agent': UA, 'Accept-Language': 'en-US,en;q=0.8', Cookie: 'platform=pc; age_verified=1; accessAgeDisclaimerPH=1' };
   var req;
   try {
-    req = https.get(opts, onResponse);
+    req = https.get(withCa(opts), onResponse);
   } catch (e) {
     return end(e);
   }
@@ -225,7 +283,14 @@ function fetchText(url, cb, hops) {
     r.on('data', function (c) { chunks.push(c); });
     r.on('end', function () { end(null, Buffer.concat(chunks).toString('utf8')); });
   }
-  req.on('error', function (e) { end(e); });
+  req.on('error', function (e) {
+    if (isCertError(e) && !extraCaHosts[opts.hostname]) {
+      extraCaHosts[opts.hostname] = true;
+      done = true; // o novo pedido responde pelo cb
+      return fetchText(url, cb, hops);
+    }
+    end(e);
+  });
   req.setTimeout(15000, function () { req.abort(); end(new Error('tempo esgotado')); });
 }
 
@@ -420,6 +485,14 @@ function safe(res, empty, fn) {
 // tipo certo. Só repassa endereços desses sites (o serviço escuta na rede de casa).
 var PX_HOSTS = /(^|\.)(xvideos-cdn\.com|xvideos\.com|phncdn\.com|pornhub\.com)$/i;
 
+// Últimos pedidos de vídeo (para o aviso de erro do player mostrar o que o site respondeu).
+var pxLog = [];
+function pxNote(target, status, error) {
+  var u = urlLib.parse(target);
+  pxLog.push({ at: Date.now(), host: u.hostname, file: (u.pathname || '').split('/').pop().slice(0, 40), status: status, error: error ? String(error.code || error.message || error).slice(0, 80) : '' });
+  if (pxLog.length > 20) pxLog.shift();
+}
+
 function proxied(target, file) {
   return 'http://127.0.0.1:' + ADDON_PORT + '/px/' + file + '?u=' + encodeURIComponent(target);
 }
@@ -450,9 +523,10 @@ function proxyRoute(req, res, query) {
   }
   var hops = 0;
   var done = false;
-  function fail(code) {
+  function fail(code, err) {
     if (done) return;
     done = true;
+    pxNote(target, code || 502, err || 'falhou');
     try { res.writeHead(code || 502, { 'Content-Type': 'text/plain' }); res.end('falhou'); } catch (e) {}
   }
   function go(addr) {
@@ -464,12 +538,13 @@ function proxyRoute(req, res, query) {
     var lib = opts.protocol === 'http:' ? http : https;
     var up;
     try {
-      up = lib.get(opts, function (r) {
+      up = lib.get(withCa(opts), function (r) {
         if (r.statusCode >= 300 && r.statusCode < 400 && r.headers.location && hops++ < 4) {
           r.resume();
           return go(urlLib.resolve(addr, r.headers.location));
         }
         var type = r.headers['content-type'] || '';
+        pxNote(addr, r.statusCode, '');
         if ((r.statusCode === 200 || r.statusCode === 206) && isPlaylist(addr, type)) {
           var parts = [];
           r.on('data', function (c) { parts.push(c); });
@@ -498,8 +573,14 @@ function proxyRoute(req, res, query) {
     } catch (e) {
       return fail();
     }
-    up.on('error', function () { fail(); });
-    up.setTimeout(20000, function () { up.abort(); fail(504); });
+    up.on('error', function (e) {
+      if (isCertError(e) && !extraCaHosts[opts.hostname] && !done) {
+        extraCaHosts[opts.hostname] = true;
+        return go(addr);
+      }
+      fail(502, e);
+    });
+    up.setTimeout(20000, function () { up.abort(); fail(504, 'tempo esgotado'); });
     // A TV desistiu (trocou de qualidade, fechou o player): para de baixar.
     res.on('close', function () { try { up.abort(); } catch (e) {} });
   }
@@ -747,6 +828,7 @@ var addonServer = http.createServer(guarded(function (req, res) {
   if (url.indexOf('/px/') === 0) return proxyRoute(req, res, urlLib.parse(req.url, true).query);
   if (url === '/api/version') return json(res, 200, { version: SERVICE_VERSION });
   if (url === '/api/quit' && req.method === 'POST') return quit(res);
+  if (url === '/api/pxlog') return json(res, 200, pxLog);
   if (addonRoute(url, res)) return;
   res.writeHead(404, { 'Content-Type': 'text/plain' });
   res.end('404');

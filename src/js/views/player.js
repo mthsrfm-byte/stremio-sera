@@ -388,10 +388,38 @@ function PlayerView(opts) {
     const err = videoEl.error;
     log.warn('Erro de vídeo', err && err.code, mediaUrl);
     if (!alive) return;
-    if (!triedTranscode && server.isAvailable()) {
-      fail(t('A TV não conseguiu tocar este arquivo diretamente.'), true);
-    } else fail(t('A TV não conseguiu tocar este arquivo (formato ou codec não suportado).'));
+    errorDetails(err && err.code).then((details) => {
+      if (!alive) return;
+      if (!triedTranscode && server.isAvailable()) {
+        fail(t('A TV não conseguiu tocar este arquivo diretamente.'), true, details);
+      } else fail(t('A TV não conseguiu tocar este arquivo (formato ou codec não suportado).'), false, details);
+    });
   });
+
+  // Linha de diagnóstico do aviso de erro: código do player, de onde veio o link e, se o vídeo
+  // passou pelo serviço da TV, o que o site respondeu para ele. Uma foto da tela já diz onde quebrou.
+  const MEDIA_ERR = { 1: 'cancelado', 2: 'rede', 3: 'decodificação', 4: 'formato/endereço não suportado' };
+  function errorDetails(code) {
+    let host = '';
+    let target = '';
+    try {
+      const px = /^http:\/\/127\.0\.0\.1:\d+\/px\/[^?]*\?u=([^&]+)/.exec(mediaUrl);
+      target = px ? decodeURIComponent(px[1]) : mediaUrl;
+      host = (target.match(/^https?:\/\/([^/]+)/) || [])[1] || '';
+    } catch (e) {
+      /* ignore */
+    }
+    const parts = [t('erro {c}', { c: (code || '?') + (MEDIA_ERR[code] ? ' (' + MEDIA_ERR[code] + ')' : '') })];
+    parts.push((stream && stream.name ? String(stream.name).split('\n').join(' ') + ' · ' : '') + (host || '?') + (target !== mediaUrl ? ' ' + t('via TV') : ''));
+    if (target === mediaUrl) return Promise.resolve(parts.join(' · '));
+    return getJSON(mediaUrl.replace(/\/px\/.*$/, '/api/pxlog'), { timeout: 3000, quiet: true })
+      .then((list) => {
+        const last = (Array.isArray(list) ? list : []).slice(-3);
+        if (last.length) parts.push(t('site respondeu') + ' ' + last.map((x) => x.status + (x.error ? ' ' + x.error : '') + ' (' + x.file + ')').join(', '));
+        return parts.join(' · ');
+      })
+      .catch(() => parts.concat(t('serviço da TV não respondeu')).join(' · '));
+  }
 
   // ---------- Pular abertura / recapitulação / encerramento ----------
   let segments = [];
@@ -599,7 +627,7 @@ function PlayerView(opts) {
   }
 
   // Erro: um painel só, com o motivo legível (sem endereço técnico no meio) e as saídas em botões.
-  function fail(text, offerTranscode) {
+  function fail(text, offerTranscode, details) {
     hideIntro();
     clearTimeout(slowTimer);
     closeSlow();
@@ -613,7 +641,7 @@ function PlayerView(opts) {
     const buttons = [{ label: '<span class="ico">⇄</span>' + t('Escolher outra fonte'), primary: true, onSelect: () => sourcesMenu() }];
     if (offerTranscode) buttons.push({ label: t('Converter no PC'), onSelect: () => transcode() });
     buttons.push({ label: t('Voltar'), onSelect: () => router.pop() });
-    choiceDialog(t('Problema na reprodução'), reason.charAt(0).toUpperCase() + reason.slice(1) + '. ' + tip, buttons);
+    choiceDialog(t('Problema na reprodução'), reason.charAt(0).toUpperCase() + reason.slice(1) + '. ' + tip + (details ? '\n\n' + t('Detalhes') + ': ' + details : ''), buttons);
   }
 
   function transcode() {

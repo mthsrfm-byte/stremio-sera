@@ -6303,9 +6303,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "c94871f67ad0336266138426baf1aa12e6d62ad9",
-    date: "2026-10-27T05:15:50-03:00",
-    message: "NSFW: vídeos tocam pelo serviço da TV"
+    commit: "7cdebb4648008a313d3dbb4c8d91d89f716698bc",
+    date: "2026-10-27T08:16:05+00:00",
+    message: "Build da dist/ para a TV"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -6456,7 +6456,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
   var TUBES = ["xv", "ph"];
   var TUBE_PORT = 8092;
-  var SERVICE_MIN = 4;
+  var SERVICE_MIN = 5;
   var tubes = null;
   var tubeTries = 0;
   var tubeState = "searching";
@@ -7861,8 +7861,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return m ? m[0] : null;
   }
   var BUILTIN_KEYS = {
-    tmdbKey: true ? "9c57ed7ea044b2f01eea2fcc2e954c2e" : "",
-    mdblistKey: true ? "t9e4f1z29b3c36i1j25rul1wx" : ""
+    tmdbKey: true ? "" : "",
+    mdblistKey: true ? "" : ""
   };
   function keyOf(name) {
     return (settings()[name] || "").trim() || BUILTIN_KEYS[name];
@@ -9159,10 +9159,45 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var err = videoEl.error;
       log.warn("Erro de vídeo", err && err.code, mediaUrl);
       if (!alive) return;
-      if (!triedTranscode && _isAvailable()) {
-        fail(t("A TV não conseguiu tocar este arquivo diretamente."), true);
-      } else fail(t("A TV não conseguiu tocar este arquivo (formato ou codec não suportado)."));
+      errorDetails(err && err.code).then(function (details) {
+        if (!alive) return;
+        if (!triedTranscode && _isAvailable()) {
+          fail(t("A TV não conseguiu tocar este arquivo diretamente."), true, details);
+        } else fail(t("A TV não conseguiu tocar este arquivo (formato ou codec não suportado)."), false, details);
+      });
     });
+    var MEDIA_ERR = {
+      1: "cancelado",
+      2: "rede",
+      3: "decodificação",
+      4: "formato/endereço não suportado"
+    };
+    function errorDetails(code) {
+      var host = "";
+      var target = "";
+      try {
+        var px = /^http:\/\/127\.0\.0\.1:\d+\/px\/[^?]*\?u=([^&]+)/.exec(mediaUrl);
+        target = px ? decodeURIComponent(px[1]) : mediaUrl;
+        host = (target.match(/^https?:\/\/([^/]+)/) || [])[1] || "";
+      } catch (e) {}
+      var parts = [t("erro {c}", {
+        c: (code || "?") + (MEDIA_ERR[code] ? " (" + MEDIA_ERR[code] + ")" : "")
+      })];
+      parts.push((stream && stream.name ? String(stream.name).split("\n").join(" ") + " · " : "") + (host || "?") + (target !== mediaUrl ? " " + t("via TV") : ""));
+      if (target === mediaUrl) return Promise.resolve(parts.join(" · "));
+      return getJSON(mediaUrl.replace(/\/px\/.*$/, "/api/pxlog"), {
+        timeout: 3e3,
+        quiet: true
+      }).then(function (list3) {
+        var last = (Array.isArray(list3) ? list3 : []).slice(-3);
+        if (last.length) parts.push(t("site respondeu") + " " + last.map(function (x) {
+          return x.status + (x.error ? " " + x.error : "") + " (" + x.file + ")";
+        }).join(", "));
+        return parts.join(" · ");
+      }).catch(function () {
+        return parts.concat(t("serviço da TV não respondeu")).join(" · ");
+      });
+    }
     var segments = [];
     var segmentsLoaded = false;
     var activeSeg = null;
@@ -9345,7 +9380,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         videoEl.src = src;
       }, 300);
     }
-    function fail(text2, offerTranscode) {
+    function fail(text2, offerTranscode, details) {
       hideIntro();
       clearTimeout(slowTimer);
       closeSlow();
@@ -9375,7 +9410,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           return pop();
         }
       });
-      choiceDialog(t("Problema na reprodução"), reason.charAt(0).toUpperCase() + reason.slice(1) + ". " + tip, buttons2);
+      choiceDialog(t("Problema na reprodução"), reason.charAt(0).toUpperCase() + reason.slice(1) + ". " + tip + (details ? "\n\n" + t("Detalhes") + ": " + details : ""), buttons2);
     }
     function transcode() {
       triedTranscode = true;

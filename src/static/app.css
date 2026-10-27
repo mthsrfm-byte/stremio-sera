@@ -297,7 +297,7 @@ body.oled .details-shade { background: linear-gradient(to right, #000 25%, rgba(
 .opt small { display: block; font-size: 18px; font-weight: 400; color: rgba(255,255,255,0.55); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .opt.checked:before { content: '● '; color: #9d85ff; }
 .opt.focused { background: rgba(123,91,245,0.35); border-left-color: #9d85ff; }
-.modal-text { padding: 0 36px 24px; font-size: 22px; color: rgba(255,255,255,0.8); }
+.modal-text { padding: 0 36px 24px; font-size: 22px; color: rgba(255,255,255,0.8); white-space: pre-line; }
 .modal-actions { padding: 0 36px; display: -webkit-flex; display: flex; }
 
 /* ---------- Configurações / login ---------- */

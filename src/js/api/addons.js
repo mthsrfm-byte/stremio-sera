@@ -65,7 +65,7 @@ function defaultAddons() {
 // SERVICE_MIN: versão do serviço que este app espera (o /api/version dele); mais velha, pede a nova.
 const TUBES = ['xv', 'ph'];
 const TUBE_PORT = 8092;
-const SERVICE_MIN = 4;
+const SERVICE_MIN = 5;
 let tubes = null; // null: ainda procurando; [] ou lista: já respondeu
 let tubeTries = 0;
 // 'searching' | 'ok' | 'old' (serviço antigo, sem os addons) | 'off' (serviço não responde)
