@@ -6303,9 +6303,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "2f3dcb0e84115276f05b6f259c1638228dbdea20",
-    date: "2026-10-27T08:37:06-03:00",
-    message: "Player: logo do título numa área fixa de 672×260 e vinheta maior"
+    commit: "9fd5d5f79b17114cd142af78a785b77a709f95da",
+    date: "2026-10-27T08:44:33-03:00",
+    message: "Smart Choice sem lista de fontes, continuar na mesma fonte e perfil do artista"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -9155,6 +9155,35 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
     return '<svg class="sig" width="22" height="20" viewBox="0 0 22 20">' + bars + "</svg>";
   }
+  function streamKey(s) {
+    if (!s) return "";
+    if (s.infoHash) return "h:" + String(s.infoHash).toLowerCase() + ":" + (s.fileIdx === void 0 || s.fileIdx === null ? "" : s.fileIdx);
+    return "n:" + (s.addon || "") + "|" + String(s.name || "").replace(/\s+/g, " ") + "|" + String(s.title || s.description || "").split("\n")[0];
+  }
+  var LAST_KEY = "lastStream";
+  function rememberStream(videoId, s) {
+    var key = streamKey(s);
+    if (!videoId || !key) return;
+    var all = get(LAST_KEY, {}) || {};
+    all[videoId] = {
+      key: key,
+      at: Date.now()
+    };
+    var ids = Object.keys(all).sort(function (a, b) {
+      return all[b].at - all[a].at;
+    });
+    ids.slice(300).forEach(function (id) {
+      return delete all[id];
+    });
+    set(LAST_KEY, all);
+  }
+  function rememberedStream(videoId, list3) {
+    var last = (get(LAST_KEY, {}) || {})[videoId];
+    if (!last) return null;
+    return (list3 || []).filter(function (s) {
+      return streamKey(s) === last.key;
+    })[0] || null;
+  }
   function canPlay(s, serverOk) {
     return _isPlayableType(s) && (!_needsServer(s) || serverOk);
   }
@@ -9902,7 +9931,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       hideIntro();
       clearTimeout(slowTimer);
       closeSlow();
-      if (!hasPlayed) scheduleAudioPick();
+      if (!hasPlayed) {
+        scheduleAudioPick();
+        if (meta.id !== "dev") rememberStream(video.id, stream);
+      }
       hasPlayed = true;
       showSpinner(false);
       message("");
@@ -12191,6 +12223,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
 
   // src/js/views/filmography.js
+  var NET_ICON = {
+    instagram: '<svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="0.9" fill="currentColor" stroke="none"/></svg>',
+    tiktok: '<svg viewBox="0 0 24 24"><path d="M14 3.5v11a3.75 3.75 0 1 1-3.75-3.75"/><path d="M14 3.5c.6 2.6 2.5 4.4 5.5 4.6"/></svg>',
+    x: '<svg viewBox="0 0 24 24"><path d="M4 4l16 16"/><path d="M20 4L4 20"/></svg>'
+  };
   function openFilmography(person) {
     if (!person || !person.id) return;
     push(FilmographyView(person));
@@ -12321,29 +12358,41 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           src: qrDataUrl(url2, 4),
           alt: ""
         }), h("div", null, [h("b", {
-          text: "@" + handle
+          html: NET_ICON.instagram + "<span></span>"
         }), h("small", {
           text: t("Aponte a câmera do celular")
         })])]));
       }
+      var insta = socialEl.querySelector(".fp-insta b span");
+      if (insta) insta.textContent = "@" + String(info.instagram).replace(/^@/, "");
       var others = [];
       if (info.tiktok) others.push({
-        label: "TikTok @" + info.tiktok,
+        icon: NET_ICON.tiktok,
+        label: "@" + info.tiktok,
+        title: "TikTok @" + info.tiktok,
         url: "https://tiktok.com/@" + info.tiktok
       });
       if (info.twitter) others.push({
-        label: "X @" + info.twitter,
+        icon: NET_ICON.x,
+        label: "@" + info.twitter,
+        title: "X @" + info.twitter,
         url: "https://x.com/" + info.twitter
       });
-      others.forEach(function (o) {
-        return socialEl.appendChild(h("div.chip.fp-net", {
-          focusable: true,
-          text: o.label,
-          onSelect: function onSelect() {
-            return showQr(o.label, o.url);
-          }
-        }));
-      });
+      if (others.length) {
+        var nets = h("div.fp-nets");
+        others.forEach(function (o) {
+          var chip = h("div.chip.fp-net", {
+            focusable: true,
+            html: o.icon + "<span></span>",
+            onSelect: function onSelect() {
+              return showQr(o.title, o.url);
+            }
+          });
+          chip.lastChild.textContent = o.label;
+          nets.appendChild(chip);
+        });
+        socialEl.appendChild(nets);
+      }
       clear(bioEl);
       if (info.bio) {
         bioEl.appendChild(h("div.fp-bio-text", {
@@ -12657,16 +12706,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         focusable: true,
         onSelect: toggleLibrary
       });
-      var srcBtn = !isSeries() && smartOn() ? h("div.btn", {
-        focusable: true,
-        html: '<span class="ico">⇄</span>' + t("Fontes"),
-        onSelect: function onSelect() {
-          return showStreams({
-            id: movieVideoId(),
-            title: meta.name
-          }, true);
-        }
-      }) : null;
       updateButtons();
       info.appendChild(logo2);
       info.appendChild(title);
@@ -12677,7 +12716,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       info.appendChild(desc);
       info.appendChild(h("div.details-buttons", {
         "data-group": ""
-      }, [watchBtn, libBtn, srcBtn]));
+      }, [watchBtn, libBtn]));
       info.appendChild(castLine);
       loadExtras({
         logo: logo2,
@@ -12998,6 +13037,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         done = true;
         clearTimeout(timer3);
         serverReady.then(function (ok) {
+          var last = rememberedStream(video.id, all);
+          if (last && canPlay(last, ok)) return resolve(last);
           var p = smartPick(all, ok);
           resolve(p ? p.stream : null);
         });
@@ -13012,6 +13053,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
               return all.push(x);
             });
           });
+          if (rememberedStream(video.id, all)) finish2();
         });
       }).then(finish2, finish2);
       pick2.then(function (st) {
@@ -13340,10 +13382,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           return;
         }
       } else {
+        if (smartOn()) panel.style.display = "none";
         if (opts.autoStreams) watch({
           id: movieVideoId(),
           title: meta.name
-        });else if (smartOn()) panel.style.display = "none";else showStreams({
+        });else if (!smartOn()) showStreams({
           id: movieVideoId(),
           title: meta.name
         }, false);
