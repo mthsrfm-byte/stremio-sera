@@ -951,3 +951,56 @@ body.light .nsfw-now { color: rgba(17,17,16,0.6); }
 .p-bar .seek-preview-img { width: 320px; height: 180px; background-repeat: no-repeat; }
 .p-bar .seek-preview.pc .seek-preview-img { background-size: cover; background-position: center; }
 .p-bar .seek-preview.loading:after { content: ''; position: absolute; left: 50%; top: 50%; width: 36px; height: 36px; margin: -21px 0 0 -21px; border-radius: 50%; border: 3px solid rgba(245,244,239,0.3); border-top-color: #F5F4EF; -webkit-animation: spin 0.8s linear infinite; animation: spin 0.8s linear infinite; }
+
+/* ---------- Aba NSFW por site (redesenho) ---------- */
+.nsfw-view:before { display: none; }
+.site-rail { padding: 18px 96px 6px; }
+.site-rail .site-tile { height: 84px; padding: 0 28px 0 16px; margin-right: 18px; border-radius: 18px; background-color: rgba(245,244,239,0.05); border: 3px solid transparent; box-shadow: none; }
+.site-rail .site-tile .provider-logo { width: 52px; height: 52px; border-radius: 12px; opacity: 1; -webkit-filter: none; filter: none; background-color: #2B2B27; }
+.site-rail .provider-logo .mono { line-height: 52px; font-size: 20px; }
+.site-rail .provider-logo .site-mark { border-radius: 12px; }
+.site-rail .provider-logo.icon svg { width: 26px; height: 26px; }
+.site-rail .site-text { margin-left: 14px; }
+.site-rail .site-tile .provider-name { max-width: 360px; opacity: 1; margin-left: 0; font-size: 24px; }
+.site-rail .site-sub { font-size: 16px; font-weight: 500; color: rgba(245,244,239,0.55); white-space: nowrap; }
+.site-rail .site-tile.on { background-color: rgba(51,71,255,0.2); border-color: #3347FF; padding-right: 28px; }
+.site-rail .site-tile.focused { background-color: rgba(51,71,255,0.32); border-color: #A9B4F5; box-shadow: none; }
+.site-rail .site-tile:not(.on):not(.focused) .provider-logo { opacity: 0.75; }
+.site-rail .site-18 { margin-left: auto; background: transparent; border: 2px solid rgba(245,244,239,0.35); color: rgba(245,244,239,0.8); font-size: 16px; letter-spacing: 1px; padding: 4px 12px; }
+
+.nsfw-jumps { margin: 18px 0 8px; }
+.jump-chips .chip { font-size: 19px; padding: 7px 18px; margin-right: 12px; background: rgba(245,244,239,0.07); color: rgba(245,244,239,0.85); }
+.jump-chips .chip svg, .chip svg { width: 18px; height: 18px; margin-right: 8px; vertical-align: -3px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; }
+.nsfw-genres .chip { background: rgba(245,244,239,0.07); }
+.nsfw-genres .chip.focused { background: #3347FF; border-color: #A9B4F5; color: #fff; }
+.nsfw-view .row-title small { color: rgba(245,244,239,0.45); }
+
+/* Cartão com números (vídeos adultos): qualidade, duração, coração e a linha de qualidade embaixo. */
+.card-corner { position: absolute; left: 10px; top: 10px; font-size: 15px; font-weight: 800; letter-spacing: 0.5px; padding: 2px 8px; border-radius: 6px; background: rgba(0,0,0,0.72); color: #F5F4EF; }
+.card-corner.uhd { background: #F5F4EF; color: #111110; }
+.card-dur { position: absolute; right: 10px; bottom: 12px; font-size: 16px; font-weight: 700; padding: 2px 8px; border-radius: 6px; background: rgba(0,0,0,0.75); color: #F5F4EF; }
+.card .progress ~ .card-dur { bottom: 16px; }
+.card-fav { position: absolute; right: 10px; top: 10px; width: 38px; height: 38px; border-radius: 19px; background: rgba(0,0,0,0.6); display: none; -webkit-align-items: center; align-items: center; -webkit-justify-content: center; justify-content: center; color: #F5F4EF; }
+.card-fav svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; }
+.card.focused .card-fav { display: -webkit-flex; display: flex; }
+.card.faved .card-fav { display: -webkit-flex; display: flex; color: #FF6B8A; }
+.card.faved .card-fav svg { fill: currentColor; }
+.card.rich .name { white-space: normal; height: 52px; line-height: 26px; font-size: 20px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.card-stats { margin-top: 6px; font-size: 16px; color: rgba(245,244,239,0.6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card-stats span { margin-right: 14px; }
+.card-stats svg { width: 17px; height: 17px; margin-right: 5px; vertical-align: -3px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.card-stats .cs-like.hot { color: #8FD9A8; }
+body.light .card-stats { color: rgba(17,17,16,0.6); }
+
+/* Detalhes de vídeo adulto: os números que dizem se ele é bom. */
+.adult-stats { margin: 18px 0 8px; }
+.astat-channel { font-size: 21px; font-weight: 600; color: rgba(245,244,239,0.75); margin-bottom: 14px; }
+.astat-row { display: -webkit-flex; display: flex; }
+.astat { min-width: 150px; margin-right: 14px; padding: 16px 20px; border-radius: 16px; background: rgba(245,244,239,0.06); }
+.astat-label { display: block; font-size: 16px; font-weight: 600; color: rgba(245,244,239,0.55); }
+.astat-value { display: block; margin-top: 6px; font-family: 'Bricolage Grotesque', 'Geist', sans-serif; font-size: 36px; font-weight: 800; color: #F5F4EF; }
+.astat.hot .astat-value { color: #8FD9A8; }
+.astat-bar { margin-top: 10px; height: 6px; border-radius: 3px; background: rgba(245,244,239,0.15); }
+.astat-bar i { display: block; height: 6px; border-radius: 3px; background: #8FD9A8; }
+.btn .ico.fav { color: #FF6B8A; }
+.site-rail .site-tile.on.focused { background-color: rgba(51,71,255,0.32); border-color: #A9B4F5; box-shadow: none; }

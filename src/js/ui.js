@@ -9,6 +9,8 @@ import { t } from './lib/i18n.js';
 import * as addons from './api/addons.js';
 import { requirePin } from './views/pin.js';
 import * as calendar from './api/calendar.js';
+import * as stremio from './api/stremio.js';
+import * as nsfwSaved from './lib/nsfwSaved.js';
 
 let toastTimer = null;
 export function toast(msg, ms) {
@@ -317,6 +319,62 @@ export function fmtTime(sec) {
 }
 
 // Cartão de pôster (ou largo, para "continuar assistindo").
+// ---------- Favoritos ----------
+// Filmes e séries: biblioteca da conta Stremio. Vídeos adultos: só nesta TV (aba NSFW).
+// No cartão em foco, a tecla amarela do controle favorita; nos detalhes, o botão Favoritar.
+const HEART = '<svg viewBox="0 0 24 24"><path d="M12 20.5s-7.5-4.6-9.3-9.2C1.5 8 3.6 4.5 7.2 4.5c2 0 3.6 1.1 4.8 2.8 1.2-1.7 2.8-2.8 4.8-2.8 3.6 0 5.7 3.5 4.5 6.8-1.8 4.6-9.3 9.2-9.3 9.2z"/></svg>';
+
+export function isFavorite(item) {
+  const id = item && (item.id || item._id);
+  if (!id) return false;
+  return addons.isAdultId(id) ? nsfwSaved.has(id) : stremio.isInLibrary(id);
+}
+
+// Liga/desliga o favorito; devolve uma Promise com o estado novo.
+export function toggleFavorite(item) {
+  const id = item.id || item._id;
+  if (addons.isAdultId(id)) {
+    const on = nsfwSaved.toggle(Object.assign({}, item, { id: id }));
+    toast(on ? t('♥ Favoritado') : t('Tirado dos favoritos'));
+    return Promise.resolve(on);
+  }
+  const on = !stremio.isInLibrary(id);
+  return stremio.setInLibrary(Object.assign({}, item, { id: id }), on).then(() => {
+    toast(on ? t('♥ Favoritado') : t('Tirado dos favoritos'));
+    return on;
+  });
+}
+
+function paintFavs(id) {
+  Array.prototype.forEach.call(document.querySelectorAll('.card'), (c) => {
+    if (c.__fav && (c.__fav.id || c.__fav._id) === id) c.classList.toggle('faved', isFavorite(c.__fav));
+  });
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.keyCode !== KEY_YELLOW) return;
+  const cur = nav.current();
+  const el = cur && cur.closest && cur.closest('.card');
+  if (!el || !el.__fav) return;
+  e.preventDefault();
+  toggleFavorite(el.__fav).then(() => paintFavs(el.__fav.id || el.__fav._id));
+});
+const KEY_YELLOW = 405;
+
+// Linha de números de um vídeo adulto (visualizações, aprovação, canal) para o cartão.
+export function statsLine(st) {
+  if (!st) return null;
+  const parts = [];
+  if (st.views) parts.push(h('span.cs-views', { html: ICON_EYE + '<b></b>' }));
+  if (st.approval) parts.push(h('span.cs-like', { cls: st.approval >= 85 ? 'hot' : '', html: ICON_LIKE + '<b></b>' }));
+  if (st.channel) parts.push(h('span.cs-by', { text: st.channel }));
+  if (st.views) parts[0].lastChild.textContent = st.views;
+  if (st.approval) parts[st.views ? 1 : 0].lastChild.textContent = st.approval + '%';
+  return parts.length ? h('div.card-stats', null, parts) : null;
+}
+const ICON_EYE = '<svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+const ICON_LIKE = '<svg viewBox="0 0 24 24"><path d="M7 10v11H3V10h4z"/><path d="M7 10l4-8a3 3 0 0 1 3 3v4h5.5a2 2 0 0 1 2 2.3l-1.4 8A2 2 0 0 1 18.1 21H7"/></svg>';
+
 export function card(item, opts) {
   const o = opts || {};
   const wrap = h('div.poster-wrap');
@@ -338,11 +396,21 @@ export function card(item, opts) {
   }
   if (o.progress) wrap.appendChild(h('div.progress', null, h('i', { style: { width: Math.round(o.progress * 100) + '%' } })));
   if (o.badge) wrap.appendChild(h('div.badge', { text: o.badge }));
-  const el = h('div.card', { focusable: true, cls: o.wide ? 'wide' : o.rank ? 'ranked' : '', onSelect: o.onSelect, onFocus: o.onFocus }, [
+  if (o.corner) wrap.appendChild(h('div.card-corner', { cls: o.corner === '4K' ? 'uhd' : '', text: o.corner }));
+  if (o.duration) wrap.appendChild(h('div.card-dur', { text: o.duration }));
+  // Coração: cheio quando favoritado; vazio só no cartão em foco (dica da tecla amarela).
+  const favItem = o.fav === false ? null : o.favItem || ((item.id || item._id) && item.type ? item : null);
+  if (favItem) wrap.appendChild(h('div.card-fav', { html: HEART }));
+  const el = h('div.card', { focusable: true, cls: (o.wide ? 'wide' : o.rank ? 'ranked' : '') + (o.rich ? ' rich' : ''), onSelect: o.onSelect, onFocus: o.onFocus }, [
     o.rank ? h('div.rank', { text: String(o.rank) }) : null,
     wrap,
     h('div.name', { text: o.title || item.name || '' }),
+    o.stats || null,
   ]);
+  if (favItem) {
+    el.__fav = favItem;
+    if (isFavorite(favItem)) el.classList.add('faved');
+  }
   // dropWithoutImage: cartão sem capa sai da fileira e o próximo toma o lugar (foco junto).
   function dropCard() {
     const parent = el.parentNode;

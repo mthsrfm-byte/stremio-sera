@@ -147,6 +147,7 @@ function DetailsView(type, id, opts) {
     info.appendChild(title);
     info.appendChild(metaLine);
     info.appendChild(ratingsEl);
+    if (isAdult() && meta.stats) info.appendChild(adultStats(meta.stats));
     info.appendChild(genres);
     info.appendChild(desc);
     // Botões antes do elenco: o foco começa no Assistir e o elenco fica logo abaixo, para explorar.
@@ -255,8 +256,26 @@ function DetailsView(type, id, opts) {
     }
     watchBtn.innerHTML = '<span class="ico">▶</span>' + label;
     // Adulto: "Salvar" guarda só neste aparelho (aba NSFW), em vez de ir para a biblioteca da conta.
-    if (isAdult()) libBtn.innerHTML = nsfwSaved.has(meta.id) ? '<span class="ico">♥</span>' + t('Salvo') : '<span class="ico">♡</span>' + t('Salvar');
-    else libBtn.innerHTML = stremio.isInLibrary(meta.id) ? '<span class="ico">✓</span>' + t('Na biblioteca') : '<span class="ico">＋</span>' + t('Biblioteca');
+    // Favoritar: filmes e séries vão para a biblioteca da conta; vídeos adultos ficam só nesta TV.
+    const fav = isAdult() ? nsfwSaved.has(meta.id) : stremio.isInLibrary(meta.id);
+    libBtn.classList.toggle('faved', fav);
+    libBtn.innerHTML = fav ? '<span class="ico fav">♥</span>' + t('Favoritado') : '<span class="ico">♡</span>' + t('Favoritar');
+  }
+
+  // Vídeo adulto: os números que dizem se o vídeo é bom (aprovação, curtidas, visualizações, duração).
+  function adultStats(st) {
+    const box = (label, value, extra) =>
+      h('div.astat', { cls: extra || '' }, [h('span.astat-label', { text: label }), h('b.astat-value', { text: value })]);
+    const items = [];
+    if (st.approval) {
+      const a = box(t('Aprovação'), st.approval + '%', st.approval >= 85 ? 'hot' : '');
+      a.appendChild(h('div.astat-bar', null, h('i', { style: { width: Math.min(100, st.approval) + '%' } })));
+      items.push(a);
+    }
+    if (st.likes) items.push(box(t('Curtidas'), st.likes));
+    if (st.views) items.push(box(t('Visualizações'), st.views));
+    if (st.duration) items.push(box(t('Duração'), st.duration));
+    return h('div.adult-stats', null, [st.channel ? h('div.astat-channel', { text: st.channel }) : null, h('div.astat-row', null, items)]);
   }
 
   function isAdult() {
@@ -276,13 +295,13 @@ function DetailsView(type, id, opts) {
     if (isAdult()) {
       const on = nsfwSaved.toggle(meta);
       updateButtons();
-      toast(on ? t('Salvo na aba NSFW') : t('Removido dos salvos'));
+      toast(on ? t('♥ Favoritado') : t('Tirado dos favoritos'));
       return;
     }
     const inLib = stremio.isInLibrary(meta.id);
     stremio.setInLibrary(meta, !inLib).then(() => {
       updateButtons();
-      toast(inLib ? t('Removido da biblioteca') : t('Adicionado à biblioteca'));
+      toast(inLib ? t('Tirado dos favoritos') : t('♥ Favoritado'));
     });
   }
 

@@ -1,13 +1,14 @@
 // Aba NSFW: tudo que vem dos addons adultos, separado do resto do app.
-// Organização: trilho de provedores no topo (Tudo / cada addon / Buscar, como em Streamings) e, dentro dele,
-// 1) Salvos (só neste aparelho), Continuar assistindo e Minha lista, 2) uma seção por addon com as fileiras dos catálogos
-// (cada uma com "Ver tudo") e 3) as categorias do addon como chips que abrem a grade filtrada.
+// Organização por site: no topo, um bloco por site (Pornhub, XVideos e os outros addons; as
+// instalações divididas do mesmo addon, como "TPB 4K Porn (1/2)" e "(2/2)", viram um site só) e a
+// Busca. Dentro do site: atalhos para as fileiras, Favoritos e Continuar assistindo daquele site,
+// Creampie hétero e gay (mais vistos primeiro), as categorias e as demais fileiras.
 import { h, clear, loadVisibleImages } from '../lib/dom.js';
 import * as nav from '../lib/nav.js';
 import { KEY } from '../lib/nav.js';
 import * as addons from '../api/addons.js';
 import * as stremio from '../api/stremio.js';
-import { topbar, card, skeletonCards, retrying, pagedGrid } from '../ui.js';
+import { topbar, card, skeletonCards, retrying, pagedGrid, statsLine } from '../ui.js';
 import * as router from '../router.js';
 import { openDetails as openDetailsRaw } from './details.js';
 import { showRetry } from './recommended.js';
@@ -17,16 +18,66 @@ import * as store from '../lib/store.js';
 import * as nsfwSaved from '../lib/nsfwSaved.js';
 
 const ROW_LIMIT = 20;
-const ICON_ALL = '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>';
 const ICON_SEARCH = '<svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg>';
 
-// "TPB 4K Porn" → "TP"; usado quando o addon não tem logo.
+// Marca dos sites do serviço da TV (cores dos próprios sites).
+const SITE_MARK = {
+  'seraflix.pornhub': { text: 'PH', bg: '#FF9000', fg: '#111110' },
+  'seraflix.xvideos': { text: 'XV', bg: '#DE2600', fg: '#FFFFFF' },
+};
+
+// Sigla do site para quando o addon não tem logo.
 function initialsOf(name) {
   const words = String(name || '?')
     .replace(/[^A-Za-z0-9À-ú+ ]/g, ' ')
     .trim()
     .split(/\s+/);
-  return (words.length > 1 ? words[0][0] + words[1][0] : words[0].slice(0, 2)).toUpperCase();
+  // Sigla já pronta no nome ("TPB 4K Porn" → "TPB"); senão, as iniciais das duas primeiras palavras.
+  if (/^[A-Z0-9]{2,4}$/.test(words[0])) return words[0];
+  return (words.length > 1 ? words[0][0] + words[1][0] : words[0].slice(0, 3)).toUpperCase();
+}
+
+// Nome do site sem a parte da instalação: "TPB 4K Porn (1/2)" → "TPB 4K Porn".
+function siteName(a) {
+  return String(a.manifest.name || a.manifest.id)
+    .replace(/\s*[([]\s*\d+\s*\/\s*\d+\s*[)\]]\s*$/, '')
+    .replace(/\s+(?:part|parte|pt\.?)\s*\d+\s*$/i, '')
+    .trim();
+}
+
+// Sites na ordem dos addons (Pornhub e XVideos primeiro), cada um com as suas instalações.
+export function sites() {
+  const out = [];
+  addons.adultAddons().forEach((a) => {
+    const name = siteName(a);
+    const id = SITE_MARK[a.manifest.id] ? a.manifest.id : 'site:' + name.toLowerCase();
+    let s = out.filter((x) => x.id === id)[0];
+    if (!s) {
+      s = { id: id, name: name, addons: [], mark: SITE_MARK[a.manifest.id] || null };
+      out.push(s);
+    }
+    s.addons.push(a);
+  });
+  return out;
+}
+
+function sitePrefixes(site) {
+  const out = [];
+  site.addons.forEach((a) => {
+    const m = a.manifest;
+    [m.idPrefixes || []].concat((m.resources || []).map((r) => (typeof r === 'object' && r.idPrefixes) || [])).forEach((l) =>
+      l.forEach((p) => p && p !== 'tt' && out.indexOf(p) < 0 && out.push(p))
+    );
+  });
+  return out;
+}
+
+// O item é deste site? Pelo prefixo do id; addon sem prefixo fica com o que nenhum outro site reclama.
+function belongsTo(site, all, id) {
+  const mine = sitePrefixes(site);
+  if (mine.some((p) => id.indexOf(p) === 0)) return true;
+  if (mine.length) return false;
+  return !all.some((s) => s !== site && sitePrefixes(s).some((p) => id.indexOf(p) === 0));
 }
 
 // Tudo que abre daqui fica marcado como adulto (some do resto do app).
@@ -36,63 +87,86 @@ function openDetails(type, id, opts, item) {
   openDetailsRaw(type, id, Object.assign({ fallbackMeta: item || null }, opts));
 }
 
-// Cartão do catálogo: vídeos com capa deitada (posterShape "landscape") usam o cartão largo.
-// Sem prévia (capa que não abre), o vídeo sai da fileira; Salvos, Continuar e Minha lista ficam sempre.
+// Cartão do catálogo: capa deitada, qualidade e duração em cima da prévia e, embaixo, os números
+// do vídeo (visualizações, aprovação, canal). Sem prévia (capa que não abre), o vídeo sai da fileira.
 function itemCard(m, entry) {
   const wide = m.posterShape === 'landscape' || (entry && entry.catalog.posterShape === 'landscape');
-  return card(m, { wide: wide, image: wide ? m.poster || m.background : undefined, dropWithoutImage: true, onSelect: () => openDetails(m.type || entry.catalog.type, m.id, null, m) });
+  const st = m.stats || {};
+  const extra = !m.stats && m.releaseInfo ? h('div.card-stats', null, h('span.cs-by', { text: String(m.releaseInfo) })) : null;
+  return card(m, {
+    wide: wide,
+    rich: true,
+    image: wide ? m.poster || m.background : undefined,
+    dropWithoutImage: true,
+    corner: st.quality,
+    duration: st.duration,
+    stats: statsLine(st) || extra,
+    onSelect: () => openDetails(m.type || entry.catalog.type, m.id, null, m),
+  });
+}
+
+// Creampie primeiro (hétero, depois gay), depois o resto na ordem do addon.
+function catalogOrder(e) {
+  const n = (e.catalog.name || e.catalog.id || '') + ' ' + (e.catalog.id || '');
+  if (!/creampie/i.test(n)) return 2;
+  return /gay/i.test(n) ? 1 : 0;
 }
 
 export function NsfwView() {
   const el = h('div.view.nsfw-view');
   const scroller = h('div.scroll-y', { 'data-scroll-y': '' });
   const bar = topbar('nsfw', router.goTab);
-  // Trilho de provedores (como em Streamings): cada addon adulto com o logo; o escolhido abre o nome.
-  const filters = h('div.provider-rail.nsfw-rail', { 'data-group': '', 'data-trap': '' });
-  const nowEl = h('div.nsfw-now');
+  const filters = h('div.provider-rail.nsfw-rail.site-rail', { 'data-group': '', 'data-trap': '' });
   const body = h('div.rows');
   scroller.appendChild(bar);
-  scroller.appendChild(h('div.page-head.nsfw-head', null, [h('h1.page-title', null, [t('NSFW'), h('span.nsfw-badge', { text: '18+' })]), nowEl]));
   scroller.appendChild(filters);
   scroller.appendChild(body);
   el.appendChild(scroller);
 
-  // 'all' | id do addon | 'search'. Lembra o último provedor (para comparar addons com calma).
+  // id do site | 'search'. Lembra o último site.
   let scope = store.get('nsfwScope', null);
   let switchTimer = null;
   let pending = [];
   let active = 0;
+  let personalSlot = null;
 
   function scopes() {
-    const list = addons.adultAddons();
-    const out = [];
-    if (list.length > 1) out.push({ id: 'all', label: t('Tudo'), sub: t('{n} provedores', { n: list.length }), icon: ICON_ALL });
-    list.forEach((a) => out.push({ id: a.manifest.id, label: a.manifest.name || a.manifest.id, sub: catalogCount(a), addon: a }));
-    if (list.some((a) => addons.adultCatalogs(a).some((e) => addons.supportsSearch(e.catalog))))
-      out.push({ id: 'search', label: t('Buscar'), sub: t('em todos os provedores'), icon: ICON_SEARCH });
+    const list = sites();
+    const out = list.map((s) => ({ id: s.id, label: s.name, sub: siteSub(s), site: s }));
+    if (list.some((s) => s.addons.some((a) => addons.adultCatalogs(a).some((e) => addons.supportsSearch(e.catalog)))))
+      out.push({ id: 'search', label: t('Buscar'), sub: t('em todos os sites'), icon: ICON_SEARCH });
     return out;
   }
 
-  function catalogCount(a) {
-    const n = addons.adultCatalogs(a).filter((e) => addons.isBoardable(e.catalog)).length;
-    return t(n === 1 ? '{n} catálogo' : '{n} catálogos', { n: n });
+  function siteSub(s) {
+    const n = s.addons.reduce((acc, a) => acc + addons.adultCatalogs(a).filter((e) => addons.isBoardable(e.catalog)).length, 0);
+    const cats = t(n === 1 ? '{n} catálogo' : '{n} catálogos', { n: n });
+    return s.addons.length > 1 ? t('{n} instalações', { n: s.addons.length }) + ' · ' + cats : cats;
   }
 
-  // Logo do addon (manifest.logo); sem logo, as iniciais num quadrado colorido.
-  function pillLogo(f) {
+  // Marca do site: a dos sites conhecidos, o logo do addon ou as iniciais.
+  function siteMark(f) {
     const box = h('div.provider-logo');
     if (f.icon) {
-      box.classList.add('img-loaded', 'icon');
+      box.classList.add('img-loaded');
+      box.classList.add('icon');
       box.innerHTML = f.icon;
       return box;
     }
+    const mark = f.site.mark;
+    if (mark) {
+      box.classList.add('img-loaded');
+      box.appendChild(h('span.mono.site-mark', { text: mark.text, style: { background: mark.bg, color: mark.fg } }));
+      return box;
+    }
     box.appendChild(h('span.mono', { text: initialsOf(f.label) }));
-    const logo = f.addon.manifest.logo;
+    const logo = f.site.addons[0].manifest.logo;
     if (logo) {
       const im = h('img', { alt: '' });
       im.onload = () => {
         im.classList.add('ready');
-        box.classList.add('img-loaded', 'has-img');
+        box.classList.add('img-loaded');
+        box.classList.add('has-img');
       };
       im.onerror = () => box.classList.add('img-loaded');
       im.src = logo;
@@ -104,20 +178,19 @@ export function NsfwView() {
   function renderFilters() {
     clear(filters);
     const list = scopes();
-    if (!list.some((f) => f.id === scope)) scope = list.length ? list[0].id : 'all';
+    if (!list.some((f) => f.id === scope)) scope = list.length ? list[0].id : null;
     list.forEach((f) =>
       filters.appendChild(
-        h('div.provider', { focusable: true, cls: f.id === scope ? 'on' : '', title: f.label, onFocus: () => scheduleSwitch(f.id), onSelect: () => pick(f.id, true) }, [
-          pillLogo(f),
-          h('div.provider-name', { text: f.label }),
+        h('div.provider.site-tile', { focusable: true, cls: f.id === scope ? 'on' : '', title: f.label, onFocus: () => scheduleSwitch(f.id), onSelect: () => pick(f.id, true) }, [
+          siteMark(f),
+          h('div.site-text', null, [h('div.provider-name', { text: f.label }), h('div.site-sub', { text: f.sub })]),
         ])
       )
     );
-    const cur = list.filter((f) => f.id === scope)[0];
-    nowEl.textContent = cur ? (cur.addon ? t('Provedor: {name}', { name: cur.label }) : cur.label) + '  ·  ' + cur.sub : '';
+    if (list.length) filters.appendChild(h('div.nsfw-badge.site-18', { text: '18+' }));
   }
 
-  // Parar o foco num provedor troca o conteúdo (como em Streamings); OK entra nas fileiras.
+  // Parar o foco num site troca o conteúdo (como em Streamings); OK entra nas fileiras.
   function scheduleSwitch(id) {
     clearTimeout(switchTimer);
     switchTimer = setTimeout(() => pick(id), 700);
@@ -126,7 +199,7 @@ export function NsfwView() {
   function pick(id, enter) {
     clearTimeout(switchTimer);
     if (id === scope) {
-      const first = enter && body.querySelector('[data-focus]');
+      const first = enter && body.querySelector('.card, .chip');
       if (first) nav.focus(first);
       return;
     }
@@ -141,6 +214,16 @@ export function NsfwView() {
   }
 
   // Mesma ideia da tela inicial: só busca o catálogo quando a fileira chega perto, 2 por vez.
+  function startLoad(p) {
+    p.state = 'loading';
+    active++;
+    p.load().then(() => {
+      p.state = 'done';
+      active--;
+      loadNearby();
+    });
+  }
+
   function loadNearby() {
     if (el.offsetParent === null) return;
     const limit = window.innerHeight * 2.2;
@@ -152,108 +235,154 @@ export function NsfwView() {
         continue;
       }
       if (p.row.getBoundingClientRect().top > limit) break;
-      p.state = 'loading';
-      active++;
-      p.load().then(() => {
-        p.state = 'done';
-        active--;
-        loadNearby();
-      });
+      startLoad(p);
     }
+  }
+
+  // Atalho: vai para o primeiro vídeo da fileira (carrega na hora se ela ainda não carregou).
+  function jumpTo(p) {
+    const first = p.row.querySelector('.card');
+    if (first) return nav.focus(first);
+    p.wantFocus = true;
+    if (p.state === 'idle') startLoad(p);
   }
 
   function renderBody() {
     pending = [];
     clear(body);
     if (scope === 'search') return renderSearch();
-    const list = addons.adultAddons().filter((a) => scope === 'all' || a.manifest.id === scope);
-    if (!list.length) {
+    const all = sites();
+    const site = all.filter((s) => s.id === scope)[0];
+    if (!site) {
       body.appendChild(h('div.hint', { text: emptyHint() }));
       return;
     }
-    personalRows();
-    list.forEach((addon) => {
-      if (scope === 'all' && addons.adultAddons().length > 1) body.appendChild(h('div.nsfw-section', { text: addon.manifest.name || addon.manifest.id }));
-      const entries = addons.adultCatalogs(addon);
-      // Categorias antes das fileiras: é o atalho mais usado, fica perto do topo.
-      genreStrip(entries);
-      entries
-        .filter((e) => addons.isBoardable(e.catalog) && !tr.isHiddenCategory(e.catalog.name || e.catalog.id))
-        .forEach((e) => pending.push(Object.assign(catalogRow(e, body), { state: 'idle' })));
+    const chips = h('div.chip-track.jump-chips', { 'data-scroll-x': '', 'data-group': '', 'data-trap': '' });
+    body.appendChild(h('div.row.nsfw-jumps', { 'data-anchor': '30' }, chips));
+    personalSlot = h('div.nsfw-personal');
+    body.appendChild(personalSlot);
+    renderPersonal(site, all, chips);
+
+    const entries = [];
+    site.addons.forEach((a) =>
+      addons.adultCatalogs(a).forEach((e) => {
+        if (addons.isBoardable(e.catalog) && !tr.isHiddenCategory(e.catalog.name || e.catalog.id)) entries.push(e);
+      })
+    );
+    // Site sem catálogo de creampie (ex.: TPB): usa a busca dele, se tiver.
+    if (!entries.some((e) => catalogOrder(e) < 2)) {
+      const searchable = [];
+      site.addons.forEach((a) => addons.adultCatalogs(a).forEach((e) => addons.supportsSearch(e.catalog) && searchable.push(e)));
+      if (searchable.length) {
+        entries.unshift(Object.assign({}, searchable[0], { extra: { search: 'gay creampie' }, title: t('Creampie gay') }));
+        entries.unshift(Object.assign({}, searchable[0], { extra: { search: 'creampie' }, title: t('Creampie hétero') }));
+      }
+    }
+    const ordered = entries.map((e, i) => ({ e: e, i: i })).sort((a, b) => (a.e.extra ? (a.e.extra.search === 'creampie' ? 0 : 1) : catalogOrder(a.e)) - (b.e.extra ? (b.e.extra.search === 'creampie' ? 0 : 1) : catalogOrder(b.e)) || a.i - b.i);
+    let genresDone = false;
+    ordered.forEach((x) => {
+      const isCreampie = x.e.extra || catalogOrder(x.e) < 2;
+      // Categorias logo depois de Creampie: o atalho mais usado depois deles.
+      if (!isCreampie && !genresDone) {
+        genresDone = true;
+        genreStrip(site, chips);
+      }
+      const p = Object.assign(catalogRow(x.e, body), { state: 'idle' });
+      pending.push(p);
+      chips.appendChild(h('div.chip', { focusable: true, text: x.e.title || catName(x.e), onSelect: () => jumpTo(p) }));
     });
+    if (!genresDone) genreStrip(site, chips);
+    if (scopes().some((f) => f.id === 'search')) chips.appendChild(h('div.chip', { focusable: true, html: ICON_SEARCH + t('Busca'), onSelect: () => pick('search', true) }));
     loadVisibleImages(el);
     loadNearby();
   }
 
-  // Salvos + Continuar assistindo + Minha lista, só com o que veio dos addons adultos.
-  // Salvos: primeira fileira da aba (atualiza ao voltar dos detalhes, onde se salva).
-  const savedSlot = h('div.nsfw-saved');
-  function renderSaved() {
-    clear(savedSlot);
-    const items = nsfwSaved.list();
-    if (!items.length) return;
-    const cards = items.slice(0, 40).map((it) =>
-      card(it, { wide: it.posterShape === 'landscape', image: it.posterShape === 'landscape' ? it.poster : undefined, onSelect: () => openDetails(it.type, it.id, null, it) })
-    );
-    savedSlot.appendChild(
-      h('div.row', { 'data-anchor': '30' }, [
-        h('div.row-title', null, ['♥ ' + t('Salvos'), h('small', { text: t('{n} vídeo(s)', { n: items.length }) })]),
-        h('div.row-track', { 'data-scroll-x': '', 'data-group': '', 'data-trap': '' }, cards),
-      ])
-    );
-    loadVisibleImages(savedSlot);
-  }
-
-  function personalRows() {
-    body.appendChild(savedSlot);
-    renderSaved();
-    const lib = stremio.cachedLibrary().filter((it) => addons.isAdultId(it._id) && it.name);
+  // Favoritos e Continuar assistindo, só com o que é deste site (refeito ao voltar dos detalhes).
+  function renderPersonal(site, all, chips) {
+    if (!personalSlot) return;
+    clear(personalSlot);
+    const mine = (id) => !!id && belongsTo(site, all, id);
+    const lib = stremio.cachedLibrary().filter((it) => addons.isAdultId(it._id) && it.name && mine(it._id));
     const watching = lib
       .filter((it) => (!it.removed || it.temp) && it.state && it.state.timeOffset > 0)
       .sort((a, b) => String(b.state.lastWatched || '').localeCompare(String(a.state.lastWatched || '')));
-    const saved = lib.filter((it) => !it.removed && !it.temp && watching.indexOf(it) < 0);
-    if (watching.length)
-      staticRow(
-        t('Continuar assistindo'),
-        watching.slice(0, ROW_LIMIT).map((it) =>
-          card(
-            { name: it.name, poster: it.poster },
-            {
-              wide: true,
-              image: it.background || it.poster,
-              progress: it.state.duration ? it.state.timeOffset / it.state.duration : 0,
-              onSelect: () => openDetails(it.type, it._id, { videoId: it.state.video_id, autoStreams: true }, { name: it.name, poster: it.poster }),
-            }
+    const favs = nsfwSaved.list().filter((it) => mine(it.id));
+    lib.filter((it) => !it.removed && !it.temp && watching.indexOf(it) < 0 && !favs.some((f) => f.id === it._id)).forEach((it) =>
+      favs.push({ id: it._id, type: it.type, name: it.name, poster: it.poster, posterShape: it.posterShape })
+    );
+    const rows = [];
+    if (favs.length)
+      rows.push(
+        staticRow(
+          '♥ ' + t('Favoritos'),
+          t('{n} vídeo(s)', { n: favs.length }),
+          favs.slice(0, 40).map((it) =>
+            card(it, { wide: it.posterShape === 'landscape', rich: true, image: it.posterShape === 'landscape' ? it.poster : undefined, onSelect: () => openDetails(it.type, it.id, null, it) })
           )
         )
       );
-    if (saved.length)
-      staticRow(
-        t('Minha lista'),
-        saved.slice(0, ROW_LIMIT).map((it) => card({ name: it.name, poster: it.poster }, { onSelect: () => openDetails(it.type, it._id, null, { name: it.name, poster: it.poster }) }))
+    if (watching.length)
+      rows.push(
+        staticRow(
+          t('Continuar assistindo'),
+          '',
+          watching.slice(0, ROW_LIMIT).map((it) => {
+            const s = it.state;
+            const left = s.duration ? Math.max(1, Math.round((s.duration - s.timeOffset) / 60000)) : 0;
+            return card(
+              { id: it._id, type: it.type, name: it.name, poster: it.poster },
+              {
+                wide: true,
+                rich: true,
+                image: it.background || it.poster,
+                duration: left ? t('faltam {n} min', { n: left }) : '',
+                progress: s.duration ? s.timeOffset / s.duration : 0,
+                onSelect: () => openDetails(it.type, it._id, { videoId: s.video_id, autoStreams: true }, { name: it.name, poster: it.poster }),
+              }
+            );
+          })
+        )
       );
+    if (chips) {
+      const jumps = rows.map((r) =>
+        h('div.chip', {
+          focusable: true,
+          text: r.title,
+          onSelect: () => {
+            const c = r.row.querySelector('.card');
+            if (c) nav.focus(c);
+          },
+        })
+      );
+      jumps.reverse().forEach((j) => chips.insertBefore(j, chips.firstChild));
+    }
+    loadVisibleImages(personalSlot);
   }
 
-  function staticRow(title, cards) {
+  function staticRow(title, sub, cards) {
     const track = h('div.row-track', { 'data-scroll-x': '', 'data-group': '', 'data-trap': '' }, cards);
-    body.appendChild(h('div.row', { 'data-anchor': '30' }, [h('div.row-title', { text: title }), track]));
+    const row = h('div.row', { 'data-anchor': '30' }, [h('div.row-title', null, [title, sub ? h('small', { text: sub }) : null]), track]);
+    personalSlot.appendChild(row);
+    return { row: row, title: title };
   }
 
-  // Categorias do addon (gêneros dos catálogos), sem repetir, como chips que abrem a grade.
-  function genreStrip(entries) {
+  // Categorias do site (gêneros dos catálogos), sem repetir, como chips que abrem a grade.
+  function genreStrip(site) {
     const seen = {};
     const chips = [];
-    entries.forEach((e) =>
-      addons.genreOptions(e.catalog).forEach((g) => {
-        if (seen[g] || tr.isHiddenCategory(g)) return;
-        seen[g] = true;
-        chips.push(h('div.chip', { focusable: true, text: tr.genre(g), onSelect: () => router.push(GridView(e, { genre: g })) }));
-      })
+    site.addons.forEach((a) =>
+      addons.adultCatalogs(a).forEach((e) =>
+        addons.genreOptions(e.catalog).forEach((g) => {
+          if (seen[g] || tr.isHiddenCategory(g)) return;
+          seen[g] = true;
+          chips.push(h('div.chip', { focusable: true, text: tr.genre(g), onSelect: () => router.push(GridView(e, { genre: g })) }));
+        })
+      )
     );
     if (!chips.length) return;
     body.appendChild(
       h('div.row.nsfw-genres', { 'data-anchor': '30' }, [
-        h('div.row-title', { text: t('Categorias') }),
+        h('div.row-title', { text: t('Mais categorias') }),
         h('div.chip-track', { 'data-scroll-x': '', 'data-group': '', 'data-trap': '' }, chips),
       ])
     );
@@ -279,7 +408,7 @@ export function NsfwView() {
       let found = 0;
       cats.forEach((entry) => {
         const track = h('div.row-track', { 'data-scroll-x': '', 'data-group': '', 'data-trap': '' });
-        const row = h('div.row', { 'data-anchor': '30' }, [h('div.row-title', null, [catName(entry), h('small', { text: entry.addon.manifest.name || '' })]), track]);
+        const row = h('div.row', { 'data-anchor': '30' }, [h('div.row-title', null, [catName(entry), h('small', { text: siteName(entry.addon) })]), track]);
         addons
           .fetchCatalog(entry, { search: query })
           .then((metas) => {
@@ -300,8 +429,8 @@ export function NsfwView() {
 
   function render() {
     lastKey = providersKey();
-    // O addon do filtro pode ter sido desmarcado em Ajustes.
-    if (!scopes().some((f) => f.id === scope)) scope = store.get('nsfwScope', null) || 'all';
+    // O site do filtro pode ter sido desmarcado em Ajustes.
+    if (!scopes().some((f) => f.id === scope)) scope = store.get('nsfwScope', null);
     renderFilters();
     renderBody();
   }
@@ -309,7 +438,7 @@ export function NsfwView() {
   body.appendChild(h('div.hint', { text: t('Carregando addons...') }));
   let ready = false;
 
-  // Sem provedor: explica o porquê (o XVideos e o Pornhub vêm do serviço do Seraflix na TV).
+  // Sem site: explica o porquê (o XVideos e o Pornhub vêm do serviço do Seraflix na TV).
   function emptyHint() {
     const st = addons.tubeStatus();
     if (st === 'searching') return t('Procurando os provedores no serviço da TV...');
@@ -317,7 +446,7 @@ export function NsfwView() {
     return t('O serviço do Seraflix na TV não respondeu. Abra o TizenBrew, confira se o Seraflix está na lista de serviços e abra o app de novo. Continuo procurando.');
   }
 
-  // Provedores que chegam depois (serviço da TV ligou atrasado) ou mudaram: refaz a aba.
+  // Sites que chegam depois (serviço da TV ligou atrasado) ou mudaram: refaz a aba.
   let lastKey = null;
   const providersKey = () => addons.tubeStatus() + '|' + addons.adultAddons().map((a) => a.manifest.id).join(',');
   const stopWatch = addons.onChange(() => {
@@ -335,8 +464,7 @@ export function NsfwView() {
     if (target) nav.focus(target);
   };
 
-  // Como em Streamings: ↓ da barra de cima vai para o trilho de provedores, e ↑ do primeiro item
-  // do conteúdo volta para ele.
+  // Como em Streamings: ↓ da barra de cima vai para os sites, e ↑ do primeiro item do conteúdo volta para eles.
   function onKey(e) {
     const cur = nav.current();
     if (!cur || !filters.firstChild) return false;
@@ -345,7 +473,7 @@ export function NsfwView() {
       return true;
     }
     if (e.keyCode === KEY.UP && body.contains(cur)) {
-      const firstRow = body.querySelector('[data-focus]');
+      const firstRow = body.querySelector('.chip, .card');
       const top = firstRow ? firstRow.getBoundingClientRect().top : 0;
       if (Math.abs(cur.getBoundingClientRect().top - top) < 10) {
         onRail();
@@ -360,13 +488,18 @@ export function NsfwView() {
     onKey: onKey,
     onShow: () => {
       if (ready) {
-        renderSaved();
+        if (scope !== 'search') {
+          const all = sites();
+          const site = all.filter((s) => s.id === scope)[0];
+          // Favoritos/Continuar mudam nos detalhes e no player: refaz só essa parte (sem mexer nos atalhos).
+          if (site && personalSlot && !personalSlot.contains(nav.current())) renderPersonal(site, all, null);
+        }
         return loadNearby();
       }
       addons.load().then(() => {
         ready = true;
         render();
-        onRail(); // a aba abre com o provedor atual em foco
+        onRail(); // a aba abre com o site atual em foco
       });
     },
     onScroll: () => loadNearby(),
@@ -380,18 +513,19 @@ export function NsfwView() {
 
 // Nome do catálogo em português ("Top Rated" → "Mais bem avaliados").
 function catName(entry) {
-  return tr.genre(entry.catalog.name || entry.catalog.id);
+  return entry.title || tr.genre(entry.catalog.name || entry.catalog.id);
 }
 
 function catalogRow(entry, parent) {
   const row = h('div.row', { 'data-anchor': '30' });
-  const typeName = addons.catalogTitle(entry).split(' · ').pop();
+  const sub = entry.extra && entry.extra.search ? t('busca no {site}', { site: siteName(entry.addon) }) : /creampie/i.test(entry.catalog.name || '') ? t('mais vistos primeiro') : siteName(entry.addon);
   const track = h('div.row-track.pending', { 'data-scroll-x': '', 'data-group': '', 'data-trap': '' }, skeletonCards());
-  row.appendChild(h('div.row-title', null, [catName(entry), h('small', { text: typeName + ' · ' + (entry.addon.manifest.name || '') })]));
+  row.appendChild(h('div.row-title', null, [catName(entry), h('small', { text: sub })]));
   row.appendChild(track);
   parent.appendChild(row);
+  const out = { row: row };
   const load = () =>
-    retrying(() => addons.fetchCatalog(entry))
+    retrying(() => addons.fetchCatalog(entry, entry.extra))
       .then((metas) => {
         clear(track);
         track.classList.remove('pending');
@@ -402,21 +536,23 @@ function catalogRow(entry, parent) {
         metas.slice(0, ROW_LIMIT).forEach((m) => track.appendChild(itemCard(m, entry)));
         if (metas.length > ROW_LIMIT)
           track.appendChild(
-            h('div.card.see-all', { focusable: true, onSelect: () => router.push(GridView(entry, {})) }, [
+            h('div.card.see-all', { focusable: true, onSelect: () => router.push(GridView(entry, entry.extra || {})) }, [
               h('div.poster-wrap', null, h('div.see-all-label', null, [h('b', { text: t('Ver tudo') }), h('span', { text: catName(entry) })])),
             ])
           );
         loadVisibleImages(row);
+        if (out.wantFocus && track.firstChild) nav.focus(track.firstChild);
       })
       .catch(() => showRetry(track, () => load()));
-  return { row: row, load: load };
+  out.load = load;
+  return out;
 }
 
-// Grade com o catálogo inteiro (opcionalmente filtrado por categoria), paginada pelo "skip".
+// Grade com o catálogo inteiro (opcionalmente filtrado por categoria ou busca), paginada pelo "skip".
 function GridView(entry, extra) {
   const el = h('div.view.nsfw-view');
   const scroller = h('div.scroll-y', { 'data-scroll-y': '' });
-  const crumb = [h('span', { text: 'NSFW › ' + (entry.addon.manifest.name || '') }), ' › ', h('b', { text: extra.genre ? tr.genre(extra.genre) : catName(entry) })];
+  const crumb = [h('span', { text: 'NSFW › ' + siteName(entry.addon) }), ' › ', h('b', { text: extra.genre ? tr.genre(extra.genre) : catName(entry) })];
   let skip = 0;
   const pg = pagedGrid({
     load: () =>
