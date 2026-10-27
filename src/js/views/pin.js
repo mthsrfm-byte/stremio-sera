@@ -54,7 +54,7 @@ function shuffle(a) {
 // Já desbloqueado: segue direto. Senão pede o PIN.
 export function requirePin(onOk) {
   if (unlocked) return onOk();
-  askPin(t('Área adulta'), (ok) => {
+  askPin(t('NSFW'), (ok) => {
     if (!ok) return;
     unlocked = true;
     onOk();
@@ -69,7 +69,7 @@ export function askPin(title, onDone) {
   const box = h('div.pin-box', null, [
     h('div.pin-lock', { html: LOCK_SVG }),
     h('h2.pin-title', { text: title }),
-    h('div.pin-sub', { text: t('Digite o PIN') }),
+    h('div.pin-sub', { text: t('Digite a senha para continuar') }),
     dots,
     pad,
     msg,

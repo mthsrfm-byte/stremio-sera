@@ -875,9 +875,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var WeakMap = globalThis2.WeakMap;
       var set2;
       var get2;
-      var has;
+      var has2;
       var enforce = function enforce(it) {
-        return has(it) ? get2(it) : set2(it, {});
+        return has2(it) ? get2(it) : set2(it, {});
       };
       var getterFor = function getterFor(TYPE) {
         return function (it) {
@@ -902,7 +902,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         get2 = function get2(it) {
           return store.get(it) || {};
         };
-        has = function has(it) {
+        has2 = function has2(it) {
           return store.has(it);
         };
       } else {
@@ -917,7 +917,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         get2 = function get2(it) {
           return hasOwn(it, STATE) ? it[STATE] : {};
         };
-        has = function has(it) {
+        has2 = function has2(it) {
           return hasOwn(it, STATE);
         };
       }
@@ -926,7 +926,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       module.exports = {
         set: set2,
         get: get2,
-        has: has,
+        has: has2,
         enforce: enforce,
         getterFor: getterFor
       };
@@ -1967,7 +1967,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         var nativeIterator = IterablePrototype[ITERATOR] || IterablePrototype["@@iterator"] || DEFAULT && IterablePrototype[DEFAULT];
         var defaultIterator = !BUGGY_SAFARI_ITERATORS && nativeIterator || getIterationMethod(DEFAULT);
         var anyNativeIterator = NAME === "Array" ? IterablePrototype.entries || nativeIterator : nativeIterator;
-        var CurrentIteratorPrototype, methods, KEY2;
+        var CurrentIteratorPrototype, methods, KEY3;
         if (anyNativeIterator) {
           CurrentIteratorPrototype = getPrototypeOf(anyNativeIterator.call(new Iterable()));
           if (CurrentIteratorPrototype !== Object.prototype && CurrentIteratorPrototype.next) {
@@ -1998,9 +1998,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             keys: IS_SET ? defaultIterator : getIterationMethod(KEYS),
             entries: getIterationMethod(ENTRIES)
           };
-          if (FORCED) for (KEY2 in methods) {
-            if (BUGGY_SAFARI_ITERATORS || INCORRECT_VALUES_NAME || !(KEY2 in IterablePrototype)) {
-              defineBuiltIn(IterablePrototype, KEY2, methods[KEY2]);
+          if (FORCED) for (KEY3 in methods) {
+            if (BUGGY_SAFARI_ITERATORS || INCORRECT_VALUES_NAME || !(KEY3 in IterablePrototype)) {
+              defineBuiltIn(IterablePrototype, KEY3, methods[KEY3]);
             }
           } else $({
             target: NAME,
@@ -4167,16 +4167,16 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
               throw "bad rs block @ typeNumber:" + typeNumber + "/errorCorrectionLevel:" + errorCorrectionLevel;
             }
             var length = rsBlock.length / 3;
-            var list2 = [];
+            var list3 = [];
             for (var i = 0; i < length; i += 1) {
               var count = rsBlock[i * 3 + 0];
               var totalCount = rsBlock[i * 3 + 1];
               var dataCount = rsBlock[i * 3 + 2];
               for (var j = 0; j < count; j += 1) {
-                list2.push(qrRSBlock(totalCount, dataCount));
+                list3.push(qrRSBlock(totalCount, dataCount));
               }
             }
-            return list2;
+            return list3;
           };
           return _this;
         }();
@@ -5234,14 +5234,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       y: (r.top + r.bottom) / 2
     };
   }
-  function pick(list2, cur, dir) {
+  function pick(list3, cur, dir) {
     var cr = cur.getBoundingClientRect();
     var cc = center(cr);
     var tol = 8;
     var best = null;
     var bestScore = Infinity;
-    for (var i = 0; i < list2.length; i++) {
-      var el = list2[i];
+    for (var i = 0; i < list3.length; i++) {
+      var el = list3[i];
       var r = el.getBoundingClientRect();
       var primary = void 0;
       var secondary = void 0;
@@ -5516,12 +5516,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return "p." + id + "." + key;
   }
   function ensureProfiles() {
-    var list2 = rawGet("profiles", null);
-    if (list2 && list2.length) return list2;
+    var list3 = rawGet("profiles", null);
+    if (list3 && list3.length) return list3;
     var id = "p" + Date.now().toString(36);
     var oldAuth = rawGet("auth", null);
     var email = oldAuth && oldAuth.user && oldAuth.user.email;
-    list2 = [email ? {
+    list3 = [email ? {
       id: id,
       name: email.split("@")[0],
       color: COLORS[0]
@@ -5548,50 +5548,50 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       rawSet(profileKey(id, "settings"), prof);
       rawSet("settings", null);
     }
-    rawSet("profiles", list2);
+    rawSet("profiles", list3);
     rawSet("activeProfile", id);
-    return list2;
+    return list3;
   }
   function profiles() {
     return ensureProfiles();
   }
   function activeProfile() {
-    var list2 = ensureProfiles();
+    var list3 = ensureProfiles();
     var id = rawGet("activeProfile", null);
-    return list2.find(function (p) {
+    return list3.find(function (p) {
       return p.id === id;
-    }) || list2[0];
+    }) || list3[0];
   }
   function setActiveProfile(id) {
     rawSet("activeProfile", id);
   }
   function addProfile(name, color) {
-    var list2 = ensureProfiles();
+    var list3 = ensureProfiles();
     var p = {
       id: "p" + Date.now().toString(36),
-      name: name || "Perfil " + (list2.length + 1),
-      color: color || COLORS[list2.length % COLORS.length]
+      name: name || "Perfil " + (list3.length + 1),
+      color: color || COLORS[list3.length % COLORS.length]
     };
-    list2.push(p);
-    rawSet("profiles", list2);
+    list3.push(p);
+    rawSet("profiles", list3);
     return p;
   }
   function updateProfile(id, patch) {
-    var list2 = ensureProfiles().map(function (p) {
+    var list3 = ensureProfiles().map(function (p) {
       return p.id === id ? Object.assign({}, p, patch) : p;
     });
-    rawSet("profiles", list2);
+    rawSet("profiles", list3);
   }
   function removeProfile(id) {
-    var list2 = ensureProfiles().filter(function (p) {
+    var list3 = ensureProfiles().filter(function (p) {
       return p.id !== id;
     });
-    if (!list2.length) return false;
+    if (!list3.length) return false;
     ["auth", "addons", "library", "settings"].forEach(function (k) {
       return rawSet(profileKey(id, k), null);
     });
-    rawSet("profiles", list2);
-    if (rawGet("activeProfile", null) === id) rawSet("activeProfile", list2[0].id);
+    rawSet("profiles", list3);
+    if (rawGet("activeProfile", null) === id) rawSet("activeProfile", list3[0].id);
     return true;
   }
   function get(key, fallback) {
@@ -5764,13 +5764,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         authKey: auth.authKey,
         update: true
       }).then(function (r) {
-        var list2 = r && r.addons || [];
-        if (list2.some(function (a) {
+        var list3 = r && r.addons || [];
+        if (list3.some(function (a) {
           return a.transportUrl === transportUrl || a.manifest && a.manifest.id === manifest.id;
         })) {
           throw new Error(t("Esse addon já está instalado"));
         }
-        var next = list2.concat([{
+        var next = list3.concat([{
           transportUrl: transportUrl,
           transportName: "http",
           manifest: manifest,
@@ -5801,15 +5801,15 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       ids: [],
       all: true
     }).then(function (items) {
-      var list2 = Array.isArray(items) ? items : [];
-      setLibrary(list2);
-      return list2;
+      var list3 = Array.isArray(items) ? items : [];
+      setLibrary(list3);
+      return list3;
     });
   }
   var libMem = null;
   var libSaveTimer = null;
-  function setLibrary(list2) {
-    libMem = list2;
+  function setLibrary(list3) {
+    libMem = list3;
     clearTimeout(libSaveTimer);
     libSaveTimer = setTimeout(function () {
       var slim = (libMem || []).filter(function (it) {
@@ -6257,8 +6257,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return getJSON(base + "tracks/" + encodeURIComponent(mediaUrl), {
       timeout: 2e4,
       quiet: true
-    }).then(function (list2) {
-      var arr = Array.isArray(list2) ? list2 : [];
+    }).then(function (list3) {
+      var arr = Array.isArray(list3) ? list3 : [];
       return {
         audio: arr.filter(function (tk) {
           return tk && tk.type === "audio";
@@ -6305,17 +6305,17 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   function onChange(fn) {
     listeners.push(fn);
   }
-  function changed(list2) {
-    addons = list2;
+  function changed(list3) {
+    addons = list3;
     listeners.forEach(function (fn) {
       try {
         fn();
       } catch (e) {}
     });
-    return list2;
+    return list3;
   }
-  function normalize(list2) {
-    return (list2 || []).filter(function (a) {
+  function normalize(list3) {
+    return (list3 || []).filter(function (a) {
       return a && a.transportUrl && a.manifest;
     }).filter(function (a) {
       return /^https?:/.test(a.transportUrl);
@@ -6339,16 +6339,16 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }).catch(function () {
         return null;
       });
-    })).then(function (list2) {
-      return list2.filter(Boolean);
+    })).then(function (list3) {
+      return list3.filter(Boolean);
     });
   }
   var TUBE_URLS = ["http://127.0.0.1:8090/xv/manifest.json", "http://127.0.0.1:8090/ph/manifest.json"];
   var tubes = null;
-  function withTubes(list2) {
-    if (!tubes || !tubes.length) return list2;
-    return list2.concat(tubes.filter(function (t2) {
-      return !list2.some(function (a) {
+  function withTubes(list3) {
+    if (!tubes || !tubes.length) return list3;
+    return list3.concat(tubes.filter(function (t2) {
+      return !list3.some(function (a) {
         return a.transportUrl === t2.transportUrl;
       });
     }));
@@ -6368,8 +6368,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }, function () {
         return null;
       });
-    })).then(function (list2) {
-      tubes = normalize(list2.filter(Boolean));
+    })).then(function (list3) {
+      tubes = normalize(list3.filter(Boolean));
       if (tubes.length && addons) changed(withTubes(addons));
     });
   }
@@ -6378,8 +6378,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     if (addons && !force) return Promise.resolve(addons);
     if (isLoggedIn()) {
       var cached = cachedAddons();
-      var fresh = getAddonCollection().then(function (list2) {
-        return changed(withTubes(normalize(list2)));
+      var fresh = getAddonCollection().then(function (list3) {
+        return changed(withTubes(normalize(list3)));
       });
       if (cached && cached.length && !force) {
         addons = withTubes(normalize(cached));
@@ -6393,8 +6393,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         return addons;
       });
     }
-    return defaultAddons().then(function (list2) {
-      return changed(withTubes(normalize(list2)));
+    return defaultAddons().then(function (list3) {
+      return changed(withTubes(normalize(list3)));
     });
   }
   function list() {
@@ -6485,11 +6485,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return adultIds;
   }
   function markAdult(id) {
-    var list2 = seenIds();
-    if (!id || list2.indexOf(id) >= 0) return;
-    list2.push(id);
-    if (list2.length > 2e3) list2.splice(0, list2.length - 2e3);
-    set("nsfwIds", list2);
+    var list3 = seenIds();
+    if (!id || list3.indexOf(id) >= 0) return;
+    list3.push(id);
+    if (list3.length > 2e3) list3.splice(0, list3.length - 2e3);
+    set("nsfwIds", list3);
   }
   function isAdultId(id) {
     var s = String(id || "");
@@ -6640,9 +6640,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         });
       }).catch(function () {
         return [];
-      }).then(function (list2) {
-        if (onAddon) onAddon(list2);
-        return list2;
+      }).then(function (list3) {
+        if (onAddon) onAddon(list3);
+        return list3;
       });
     })).then(function (all) {
       return all.reduce(function (acc, x) {
@@ -6753,9 +6753,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return profiles().length > 1 && settings().askProfile && !session(SESSION_PICKED);
   }
   function showPicker(onPicked) {
-    var list2 = profiles();
+    var list3 = profiles();
     var active = activeProfile();
-    var cards = list2.map(function (p) {
+    var cards = list3.map(function (p) {
       return h("div.profile-card", {
         focusable: true,
         "data-autofocus": p.id === active.id ? "" : null,
@@ -6831,7 +6831,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
   function requirePin(onOk) {
     if (unlocked) return onOk();
-    askPin(t("Área adulta"), function (ok) {
+    askPin(t("NSFW"), function (ok) {
       if (!ok) return;
       unlocked = true;
       onOk();
@@ -6848,7 +6848,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }), h("h2.pin-title", {
       text: title
     }), h("div.pin-sub", {
-      text: t("Digite o PIN")
+      text: t("Digite a senha para continuar")
     }), dots, pad, msg, h("div.pin-hint", {
       text: t("Os números do controle também funcionam")
     })]);
@@ -6969,12 +6969,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
   function menu(title, options, opts) {
     var o = opts || {};
-    var list2 = h("div.modal-list", {
+    var list3 = h("div.modal-list", {
       "data-scroll-y": "",
       "data-pad-y": "80"
     });
     options.forEach(function (opt) {
-      list2.appendChild(h("div.opt", {
+      list3.appendChild(h("div.opt", {
         focusable: true,
         cls: opt.checked ? "checked" : "",
         "data-autofocus": opt.checked ? "" : null,
@@ -6987,14 +6987,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         text: opt.sub
       }) : null]));
     });
-    if (!options.length) list2.appendChild(h("div.modal-text", {
+    if (!options.length) list3.appendChild(h("div.modal-text", {
       text: o.empty || t("Nada por aqui.")
     }));
     var box = h("div.modal-box", {
       cls: o.center ? "center" : ""
     }, [h("h3", {
       text: title
-    }), list2]);
+    }), list3]);
     var modal = h("div.modal", null, box);
     document.getElementById("app").appendChild(modal);
     var layer = pushLayer(modal, {
@@ -7270,9 +7270,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     })]);
   }
   function skeletonCards(n) {
-    var list2 = [];
-    for (var i = 0; i < (n || 8); i++) list2.push(h("div.card.skeleton", null, [h("div.poster-wrap"), h("div.name-sk")]));
-    return list2;
+    var list3 = [];
+    for (var i = 0; i < (n || 8); i++) list3.push(h("div.card.skeleton", null, [h("div.poster-wrap"), h("div.name-sk")]));
+    return list3;
   }
   function retrying(fn) {
     var delays = [1500, 4e3];
@@ -7967,8 +7967,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return Promise.all(["movie", "series"].map(function (t2) {
       return _getJSONViaProxy(MDBLIST[t2], {
         timeout: 15e3
-      }).then(function (list2) {
-        return Promise.all((list2 || []).filter(function (x) {
+      }).then(function (list3) {
+        return Promise.all((list3 || []).filter(function (x) {
           return x.imdb_id;
         }).slice(0, 6).map(function (x) {
           return fetchMeta(t2, x.imdb_id).then(fromMeta).catch(function () {
@@ -8153,7 +8153,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       episode: parseInt(m[2], 10)
     } : null;
   }
-  function rank(list2, prefLangs, info, ep) {
+  function rank(list3, prefLangs, info, ep) {
     var fileTok = tokens(info.filename);
     var fileSet = {};
     fileTok.forEach(function (x) {
@@ -8164,7 +8164,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     })[0];
     var group = fileTok.length ? fileTok[fileTok.length - 1] : "";
     var out = [];
-    (list2 || []).forEach(function (s, order) {
+    (list3 || []).forEach(function (s, order) {
       var li = prefLangs.indexOf(String(s.lang).toLowerCase());
       if (li < 0 || !s.url) return;
       var text2 = subText(s);
@@ -8325,10 +8325,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     shadow: "3px 3px 6px rgba(0,0,0,0.95), 0 0 10px rgba(0,0,0,0.6)",
     box: "none"
   };
-  function find(list2, id) {
-    return list2.find(function (x) {
+  function find(list3, id) {
+    return list3.find(function (x) {
       return x.id === id;
-    }) || list2[0];
+    }) || list3[0];
   }
   function apply(el, s) {
     var font = find(FONTS, s.subtitleFont);
@@ -8442,8 +8442,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var healthy = info.cached || info.seeders !== null && info.seeders >= MIN_SEEDERS;
     return res && healthy;
   }
-  function smartPick(list2, serverOk) {
-    var playable = list2.filter(function (s) {
+  function smartPick(list3, serverOk) {
+    var playable = list3.filter(function (s) {
       return canPlay(s, serverOk);
     });
     if (!playable.length) return null;
@@ -8532,8 +8532,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var key = imdb + ":" + season;
     if (!malCache[key]) malCache[key] = getJSON(ARM + "imdb?id=" + imdb, {
       quiet: true
-    }).then(function (list2) {
-      var arr = Array.isArray(list2) ? list2 : [];
+    }).then(function (list3) {
+      var arr = Array.isArray(list3) ? list3 : [];
       var hit = arr.find(function (x) {
         return x.myanimelist && (x["thetvdb-season"] === season || x["themoviedb-season"] === season);
       }) || (arr.length === 1 ? arr[0] : null);
@@ -8858,9 +8858,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           autoPick();
         };
         setTimeout(settle, 6e3);
-        fetchSubtitles(meta.type, video.id, extra(info), function (list2) {
+        fetchSubtitles(meta.type, video.id, extra(info), function (list3) {
           if (!alive || forVideo !== video) return;
-          addonSubs = (addonSubs || []).concat(list2);
+          addonSubs = (addonSubs || []).concat(list3);
         }).then(settle, settle);
       });
     }
@@ -9012,8 +9012,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       if (segmentsLoaded || settings().skipMode === "off") return;
       segmentsLoaded = true;
       var forVideo = video;
-      getSegments(meta, video, videoEl.duration).then(function (list2) {
-        if (alive && forVideo === video) segments = list2;
+      getSegments(meta, video, videoEl.duration).then(function (list3) {
+        if (alive && forVideo === video) segments = list3;
       }).catch(function () {});
     }
     function segLabel(seg) {
@@ -9464,17 +9464,17 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
     function openAudioMenu() {
       var native = videoEl.audioTracks;
-      var list2 = [];
+      var list3 = [];
       if (native && native.length) {
         for (var i = 0; i < native.length; i++) {
-          list2.push({
+          list3.push({
             label: langName(native[i].language) + (native[i].label ? " · " + native[i].label : ""),
             value: i,
             checked: native[i].enabled
           });
         }
       } else if (embedded && embedded.audio.length) {
-        list2 = embedded.audio.map(function (tr, i) {
+        list3 = embedded.audio.map(function (tr, i) {
           return {
             label: langName(tr.lang) + (tr.label ? " · " + tr.label : ""),
             sub: [tr.codec, tr.channels ? t("{n} canais", {
@@ -9485,7 +9485,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           };
         });
       }
-      menu(t("Áudio"), list2, {
+      menu(t("Áudio"), list3, {
         empty: _isAvailable() ? t("Só uma faixa de áudio.") : t("Para listar as faixas, conecte o servidor do PC em Ajustes."),
         onPick: function onPick(i) {
           return selectEmbeddedAudio(i);
@@ -9598,7 +9598,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       });
     }
     function sourcesMenu() {
-      var list2 = (opts.streams || []).map(function (s, i) {
+      var list3 = (opts.streams || []).map(function (s, i) {
         return {
           label: ((s.name || s.addon || "") + "").replace(/\n/g, " "),
           sub: ((s.title || s.description || "") + "").replace(/\n/g, " · "),
@@ -9606,7 +9606,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           checked: s === stream
         };
       });
-      menu(t("Fontes"), list2, {
+      menu(t("Fontes"), list3, {
         onPick: function onPick(i) {
           var s = opts.streams[i];
           if (!s || s === stream) return;
@@ -9786,15 +9786,15 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var group = stream.behaviorHints && stream.behaviorHints.bingeGroup;
       showSpinner(true);
       message(t("Procurando o próximo episódio..."));
-      fetchStreams(meta.type, nv.id).then(function (list2) {
+      fetchStreams(meta.type, nv.id).then(function (list3) {
         if (!alive) return;
-        var match = group ? list2.find(function (s) {
+        var match = group ? list3.find(function (s) {
           return s.behaviorHints && s.behaviorHints.bingeGroup === group;
         }) : null;
         if (match && (!_needsServer(match) || _isAvailable())) {
           video = nv;
           stream = match;
-          opts.streams = list2;
+          opts.streams = list3;
           pendingStart = 0;
           triedTranscode = false;
           autoDone = {
@@ -9935,6 +9935,34 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
   }
 
+  // src/js/lib/nsfwSaved.js
+  var KEY2 = "nsfwSaved";
+  var MAX = 500;
+  function list2() {
+    return get(KEY2, []) || [];
+  }
+  function has(id) {
+    return list2().some(function (x) {
+      return x.id === id;
+    });
+  }
+  function toggle(meta) {
+    var items = list2();
+    var i = items.findIndex(function (x) {
+      return x.id === meta.id;
+    });
+    if (i >= 0) items.splice(i, 1);else items.unshift({
+      id: meta.id,
+      type: meta.type || "movie",
+      name: meta.name || "",
+      poster: meta.poster || meta.background || "",
+      posterShape: meta.posterShape || "",
+      savedAt: Date.now()
+    });
+    set(KEY2, items.slice(0, MAX));
+    return i < 0;
+  }
+
   // src/js/api/phoneRemote.js
   var import_qrcode_generator = __toESM(require_qrcode(), 1);
   var PORT = 8090;
@@ -9990,11 +10018,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return (it.rating * it.votes + 7 * m) / (it.votes + m);
   }
   function pages(fetchPage, from, count) {
-    var list2 = [];
-    for (var p = from; p < from + count; p++) list2.push(fetchPage(p).catch(function () {
+    var list3 = [];
+    for (var p = from; p < from + count; p++) list3.push(fetchPage(p).catch(function () {
       return [];
     }));
-    return Promise.all(list2).then(function (all) {
+    return Promise.all(list3).then(function (all) {
       return [].concat.apply([], all);
     });
   }
@@ -10358,7 +10386,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
   }
   function trailerKeys(it) {
-    var list2 = function list2(r) {
+    var list3 = function list3(r) {
       var vids = (r && r.results || []).filter(function (v) {
         return v.site === "YouTube" && (v.type === "Trailer" || v.type === "Teaser");
       });
@@ -10372,11 +10400,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var base = it.mediaType + "/" + it.tmdbId + "/videos";
     return Promise.all([tmdb(base, {
       language: "pt-BR"
-    }).then(list2).catch(function () {
+    }).then(list3).catch(function () {
       return [];
     }), tmdb(base, {
       language: "en-US"
-    }).then(list2).catch(function () {
+    }).then(list3).catch(function () {
       return [];
     })]).then(function (both) {
       return both[0].concat(both[1].filter(function (k) {
@@ -10643,21 +10671,21 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     };
   }
   function Rail(defs) {
-    var list2 = h("div.rail-items");
+    var list3 = h("div.rail-items");
     var caption = h("div.rail-caption");
-    var el = h("div.reco-rail", null, [list2, caption]);
+    var el = h("div.reco-rail", null, [list3, caption]);
     var items = [];
     var active = -1;
     function setDefs(d) {
       defs = d;
-      clear(list2);
+      clear(list3);
       items = defs.map(function (x) {
         return h("div.rail-item", null, h("span", {
           text: t(x.short)
         }));
       });
       items.forEach(function (x) {
-        return list2.appendChild(x);
+        return list3.appendChild(x);
       });
       active = -1;
     }
@@ -11391,8 +11419,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       loadVisibleImages(panel, 600);
     }
     grid.appendChild(spinnerLine(t("Carregando filmografia...")));
-    personCredits(person.id).then(function (list2) {
-      items = list2;
+    personCredits(person.id).then(function (list3) {
+      items = list3;
       renderChips();
       renderGrid();
       var first = grid.querySelector(".fp-item");
@@ -11703,7 +11731,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         label = t("Continuar") + (ep ? " T" + ep.season + "E" + ep.episode : "");
       }
       watchBtn.innerHTML = '<span class="ico">▶</span>' + label;
-      libBtn.innerHTML = isInLibrary(meta.id) ? '<span class="ico">✓</span>' + t("Na biblioteca") : '<span class="ico">＋</span>' + t("Biblioteca");
+      if (isAdult2()) libBtn.innerHTML = has(meta.id) ? '<span class="ico">♥</span>' + t("Salvo") : '<span class="ico">♡</span>' + t("Salvar");else libBtn.innerHTML = isInLibrary(meta.id) ? '<span class="ico">✓</span>' + t("Na biblioteca") : '<span class="ico">＋</span>' + t("Biblioteca");
+    }
+    function isAdult2() {
+      return isAdultId(meta.id);
     }
     function onWatch() {
       if (isSeries()) {
@@ -11717,6 +11748,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }
     }
     function toggleLibrary() {
+      if (isAdult2()) {
+        var on = toggle(meta);
+        updateButtons();
+        toast(on ? t("Salvo na aba NSFW") : t("Removido dos salvos"));
+        return;
+      }
       var inLib = isInLibrary(meta.id);
       setInLibrary(meta, !inLib).then(function () {
         updateButtons();
@@ -11762,13 +11799,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         });
       }));
       panel.appendChild(chips);
-      var list2 = h("div.list", {
+      var list3 = h("div.list", {
         "data-scroll-y": "",
         "data-pad-y": "120",
         "data-group": "",
         "data-vertical": ""
       });
-      list2.style.top = "190px";
+      list3.style.top = "190px";
       var li = libraryItem(meta.id);
       var focusEl = null;
       sortedVideos(meta).filter(function (v) {
@@ -11813,10 +11850,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         row.__episode = v.episode;
         row.__video = v;
         if (v.id === focusVideoId || !focusVideoId && inProgress) focusEl = row;
-        list2.appendChild(row);
+        list3.appendChild(row);
       });
-      panel.appendChild(list2);
-      list2.__last = focusEl || list2.firstChild;
+      panel.appendChild(list3);
+      list3.__last = focusEl || list3.firstChild;
       localizeEpisodes();
       loadVisibleImages(panel, 300);
       if (focusEl && focusVideoId) setTimeout(function () {
@@ -11938,24 +11975,24 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       panel.appendChild(sub);
       var loadBar = h("div.load-bar", null, barFill);
       panel.appendChild(loadBar);
-      var list2 = h("div.list", {
+      var list3 = h("div.list", {
         "data-scroll-y": "",
         "data-pad-y": "120",
         "data-group": "",
         "data-vertical": ""
       });
-      list2.style.top = "178px";
-      panel.appendChild(list2);
+      list3.style.top = "178px";
+      panel.appendChild(list3);
       var srcs = streamAddons(video);
       if (!srcs.length) {
-        list2.appendChild(h("div.loading-line", {
+        list3.appendChild(h("div.loading-line", {
           text: t("Nenhum addon de streams instalado (ex.: Torrentio). Instale pela sua conta Stremio.")
         }));
         return;
       }
       var groups = srcs.map(function (a) {
         var el2 = h("div.stream-group");
-        list2.appendChild(el2);
+        list3.appendChild(el2);
         return {
           addon: a,
           el: el2,
@@ -11965,7 +12002,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         };
       });
       var loadingLine = spinnerLine(t("Buscando fontes nos addons..."));
-      list2.appendChild(loadingLine);
+      list3.appendChild(loadingLine);
       var filter = "all";
       var pendingCount = srcs.length;
       var all = [];
@@ -11986,7 +12023,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         filterBtn.textContent = (g ? g.addon.manifest.name : filter === "dub" ? t("Dublados") : t("Todos")) + " ▾";
       }
       function firstVisibleItem() {
-        var items = list2.querySelectorAll(".stream");
+        var items = list3.querySelectorAll(".stream");
         for (var i = 0; i < items.length; i++) if (items[i].offsetParent !== null && !items[i].classList.contains("disabled")) return items[i];
         return null;
       }
@@ -11994,8 +12031,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         groups.forEach(function (g) {
           return g.el.style.display = filter === "all" || filter === "dub" || filter === g.addon.transportUrl ? "" : "none";
         });
-        list2.classList.toggle("only-dub", filter === "dub");
-        list2.scrollTop = 0;
+        list3.classList.toggle("only-dub", filter === "dub");
+        list3.scrollTop = 0;
         status2();
         var first = firstVisibleItem();
         if (first) focus(first);
@@ -12068,8 +12105,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             }
           }
           if (pendingCount <= 0) {
-            if (loadingLine.parentNode) list2.removeChild(loadingLine);
-            if (!all.length) list2.appendChild(h("div.loading-line", {
+            if (loadingLine.parentNode) list3.removeChild(loadingLine);
+            if (!all.length) list3.appendChild(h("div.loading-line", {
               text: t("Nenhuma fonte encontrada.")
             }));
           }
@@ -12615,8 +12652,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return {
       el: el,
       load: function load() {
-        return load2().then(function (list2) {
-          items = list2.slice(0, 12);
+        return load2().then(function (list3) {
+          items = list3.slice(0, 12);
           index = 0;
           render();
           schedule();
@@ -12715,17 +12752,17 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var pending = [];
     var active = 0;
     function scopes() {
-      var list2 = adultAddons();
+      var list3 = adultAddons();
       var out = [];
-      if (list2.length > 1) out.push({
+      if (list3.length > 1) out.push({
         id: "all",
         label: t("Tudo"),
         sub: t("{n} provedores", {
-          n: list2.length
+          n: list3.length
         }),
         icon: ICON_ALL
       });
-      list2.forEach(function (a) {
+      list3.forEach(function (a) {
         return out.push({
           id: a.manifest.id,
           label: a.manifest.name || a.manifest.id,
@@ -12733,7 +12770,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           addon: a
         });
       });
-      if (list2.some(function (a) {
+      if (list3.some(function (a) {
         return adultCatalogs(a).some(function (e) {
           return supportsSearch(e.catalog);
         });
@@ -12782,11 +12819,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
     function renderFilters() {
       clear(filters);
-      var list2 = scopes();
-      if (!list2.some(function (f) {
+      var list3 = scopes();
+      if (!list3.some(function (f) {
         return f.id === scope;
-      })) scope = list2.length ? list2[0].id : "all";
-      list2.forEach(function (f) {
+      })) scope = list3.length ? list3[0].id : "all";
+      list3.forEach(function (f) {
         return filters.appendChild(h("div.provider", {
           focusable: true,
           cls: f.id === scope ? "on" : "",
@@ -12801,7 +12838,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           text: f.label
         })]));
       });
-      var cur = list2.filter(function (f) {
+      var cur = list3.filter(function (f) {
         return f.id === scope;
       })[0];
       nowEl.textContent = cur ? (cur.addon ? t("Provedor: {name}", {
@@ -12862,17 +12899,17 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       pending = [];
       clear(body);
       if (scope === "search") return renderSearch();
-      var list2 = adultAddons().filter(function (a) {
+      var list3 = adultAddons().filter(function (a) {
         return scope === "all" || a.manifest.id === scope;
       });
-      if (!list2.length) {
+      if (!list3.length) {
         body.appendChild(h("div.hint", {
           text: t("Nenhum addon adulto encontrado. Marque um addon em Ajustes › NSFW.")
         }));
         return;
       }
       personalRows();
-      list2.forEach(function (addon) {
+      list3.forEach(function (addon) {
         if (scope === "all" && adultAddons().length > 1) body.appendChild(h("div.nsfw-section", {
           text: addon.manifest.name || addon.manifest.id
         }));
@@ -12889,7 +12926,36 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       loadVisibleImages(el);
       loadNearby();
     }
+    var savedSlot = h("div.nsfw-saved");
+    function renderSaved() {
+      clear(savedSlot);
+      var items = list2();
+      if (!items.length) return;
+      var cards = items.slice(0, 40).map(function (it) {
+        return _card(it, {
+          wide: it.posterShape === "landscape",
+          image: it.posterShape === "landscape" ? it.poster : void 0,
+          onSelect: function onSelect() {
+            return openDetails2(it.type, it.id, null, it);
+          }
+        });
+      });
+      savedSlot.appendChild(h("div.row", {
+        "data-anchor": "30"
+      }, [h("div.row-title", null, ["♥ " + t("Salvos"), h("small", {
+        text: t("{n} vídeo(s)", {
+          n: items.length
+        })
+      })]), h("div.row-track", {
+        "data-scroll-x": "",
+        "data-group": "",
+        "data-trap": ""
+      }, cards)]));
+      loadVisibleImages(savedSlot);
+    }
     function personalRows() {
+      body.appendChild(savedSlot);
+      renderSaved();
       var lib = cachedLibrary().filter(function (it) {
         return isAdultId(it._id) && it.name;
       });
@@ -13079,7 +13145,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       el: el,
       onKey: onKey,
       onShow: function onShow() {
-        if (ready) return loadNearby();
+        if (ready) {
+          renderSaved();
+          return loadNearby();
+        }
         load().then(function () {
           ready = true;
           render();
@@ -13389,9 +13458,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "aa02ae55c20c292c54b226dc4e2711cb5097759c",
-    date: "2026-10-27T06:52:30+00:00",
-    message: "Build da dist/ para a TV"
+    commit: "8123c707678aa0e61e2570b0f11195724b90b2ff",
+    date: "2026-10-27T07:06:18+00:00",
+    message: "Seraflix Tube: XVideos and Pornhub add-ons served by the TV service (links requested from the TV's own IP), auto-attached in the app; new adult PIN screen; readable playback error panel"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -13779,14 +13848,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       });
     }
     function showNetworkCheck() {
-      var list2 = h("div.diag-list");
+      var list3 = h("div.diag-list");
       var box = h("div.modal-box.center.diag-box", null, [h("h3", {
         text: t("Teste de conexão")
       }), h("p.modal-text", {
         text: t("Relógio da TV: {now}", {
           now: (/* @__PURE__ */new Date()).toLocaleString("pt-BR")
         })
-      }), list2, h("div.modal-actions", null, [h("div.btn.primary", {
+      }), list3, h("div.modal-actions", null, [h("div.btn.primary", {
         focusable: true,
         "data-autofocus": "",
         text: t("Fechar"),
@@ -13810,7 +13879,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         var res = h("span.diag-res", {
           text: t("testando...")
         });
-        list2.appendChild(h("div.diag-line", null, [h("span.diag-name", {
+        list3.appendChild(h("div.diag-line", null, [h("span.diag-name", {
           text: name
         }), res]));
         return res;
@@ -13865,12 +13934,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         });
       }, Promise.resolve()).then(function () {
         var errs = recentErrors();
-        list2.appendChild(h("div.diag-head", {
+        list3.appendChild(h("div.diag-head", {
           text: errs.length ? t("Últimos erros do app") : t("Nenhum erro de rede registrado desde que o app abriu.")
         }));
         errs.slice(0, 8).forEach(function (e) {
           var ago = Math.round((Date.now() - e.at) / 6e4);
-          list2.appendChild(h("div.diag-err", {
+          list3.appendChild(h("div.diag-err", {
             text: e.msg + " · " + e.ms + " ms · " + t("há {n} min", {
               n: ago
             }) + " · " + e.url.slice(0, 70)
@@ -13940,9 +14009,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         });
       });
     }
-    function nsfwSection(list2) {
+    function nsfwSection(list3) {
       var s = settings();
-      var adult = list2.filter(isAdult);
+      var adult = list3.filter(isAdult);
       var guarded = function guarded(fn) {
         return function () {
           return requirePin(fn);
@@ -13955,7 +14024,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         refreshTabs();
         dropTab("nsfw");
         render();
-      }), toggle(s.nsfwTab !== false)));
+      }), toggle2(s.nsfwTab !== false)));
       var pinInput = h("input.input", {
         type: "password",
         placeholder: t("Novo PIN (4 a 8 números)")
@@ -13980,7 +14049,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       body.appendChild(row(t("Addons adultos"), t("Detectados sozinhos; marque ou desmarque à mão"), adult.length ? t("{n} addon(s)", {
         n: adult.length
       }) : t("nenhum"), guarded(function () {
-        return menu(t("Addons adultos"), list2.map(function (a) {
+        return menu(t("Addons adultos"), list3.map(function (a) {
           return {
             label: a.manifest.name || a.manifest.id,
             sub: adultByManifest(a) ? t("Detectado como adulto") : "",
@@ -13989,7 +14058,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           };
         }), {
           onPick: function onPick(id) {
-            var a = list2.filter(function (x) {
+            var a = list3.filter(function (x) {
               return x.manifest.id === id;
             })[0];
             var cur = settings();
@@ -14066,7 +14135,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         return toast(t("O serviço da TV não respondeu. Abra o Seraflix pelo TizenBrew e tente de novo."), 6e3);
       });
     }
-    function toggle(on) {
+    function toggle2(on) {
       return h("div.toggle", {
         cls: on ? "on" : ""
       }, h("i"));
@@ -14151,7 +14220,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             askProfile: !settings().askProfile
           });
           render();
-        }, toggle(s.askProfile)));
+        }, toggle2(s.askProfile)));
         body.appendChild(row(t("Apagar este perfil"), t("Remove deste aparelho a conta e as preferências do perfil (a conta Stremio continua existindo)"), "", function () {
           return confirmDialog(t('Apagar o perfil "{name}" desta TV?', {
             name: prof.name
@@ -14286,7 +14355,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         });
         applyTheme(settings());
         render();
-      }, toggle(themeOf(s) === "light")));
+      }, toggle2(themeOf(s) === "light")));
       body.appendChild(row(t("Rolagem animada"), t("Mais bonita, porém mais pesada na TV"), "", function () {
         var on = !settings().smoothScroll;
         saveSettings({
@@ -14294,7 +14363,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         });
         setSmooth(on);
         render();
-      }, toggle(s.smoothScroll)));
+      }, toggle2(s.smoothScroll)));
       body.appendChild(row(t("Som de abertura"), t("O clique com acorde quando o Seraflix abre"), "", function () {
         var on = settings().introSound === false;
         saveSettings({
@@ -14302,7 +14371,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         });
         if (on) playSound();
         render();
-      }, toggle(s.introSound !== false)));
+      }, toggle2(s.introSound !== false)));
       body.appendChild(h("div.set-section", {
         text: t("Reprodução")
       }));
@@ -14311,7 +14380,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           smartChoice: settings().smartChoice === false
         });
         render();
-      }, toggle(s.smartChoice !== false)));
+      }, toggle2(s.smartChoice !== false)));
       body.appendChild(h("div.set-section", {
         text: t("Legendas e áudio")
       }));
@@ -14341,7 +14410,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           subtitlesAuto: !settings().subtitlesAuto
         });
         render();
-      }, toggle(s.subtitlesAuto)));
+      }, toggle2(s.subtitlesAuto)));
       var audName = (AUDIO_LANGS.find(function (x) {
         return JSON.stringify(x.value) === JSON.stringify(s.audioLangs);
       }) || AUDIO_LANGS[0]).label;
@@ -14370,9 +14439,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       apply(preview, s);
       body.appendChild(h("div.sub-preview", null, preview));
       var lb = labels(s);
-      var choose = function choose(title, sub, list3, key, value, label) {
+      var choose = function choose(title, sub, list4, key, value, label) {
         return body.appendChild(row(title, sub, t(String(label)), function () {
-          return menu(title, list3.map(function (x) {
+          return menu(title, list4.map(function (x) {
             return {
               label: t(String(x.label)),
               value: x.id,
@@ -14403,7 +14472,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           subtitleBold: settings().subtitleBold === false
         });
         render();
-      }, toggle(s.subtitleBold !== false)));
+      }, toggle2(s.subtitleBold !== false)));
       body.appendChild(h("div.hint", {
         style: {
           padding: "6px 4px 0"
@@ -14459,20 +14528,20 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       body.appendChild(h("div.set-section", {
         text: t("Addons")
       }));
-      var list2 = list();
+      var list3 = list();
       body.appendChild(row(t("Addons ativos"), isLoggedIn() ? t("Gerencie pela sua conta em web.stremio.com") : t("Sem conta: Cinemeta, OpenSubtitles e os adicionados aqui"), t("{n} addon(s)", {
-        n: list2.length
+        n: list3.length
       }), function () {
-        return menu(t("Addons ativos"), list2.map(function (a) {
+        return menu(t("Addons ativos"), list3.map(function (a) {
           return {
             label: a.manifest.name || a.manifest.id,
             sub: a.transportUrl
           };
         }), {});
       }));
-      nsfwSection(list2);
+      nsfwSection(list3);
       RECOMMENDED.filter(function (r) {
-        return !list2.some(function (a) {
+        return !list3.some(function (a) {
           return a.transportUrl === r.url || a.manifest && a.manifest.id === r.id;
         });
       }).forEach(function (r) {

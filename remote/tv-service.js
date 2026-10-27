@@ -272,6 +272,9 @@ var TUBES = {
       idPrefixes: ['xv:'],
       behaviorHints: { adult: true },
       catalogs: [
+        // Recomendadas primeiro: são as primeiras fileiras da aba NSFW.
+        { type: 'movie', id: 'xv-cp', name: 'Creampie hétero', extra: [{ name: 'skip' }] },
+        { type: 'movie', id: 'xv-cpgay', name: 'Creampie gay', extra: [{ name: 'skip' }] },
         { type: 'movie', id: 'xv-new', name: 'Novidades', extra: [{ name: 'skip' }] },
         { type: 'movie', id: 'xv-top', name: 'Mais vistos em HD', extra: [{ name: 'skip' }] },
         { type: 'movie', id: 'xv-4k', name: '4K mais bem avaliados', extra: [{ name: 'skip' }] },
@@ -282,6 +285,8 @@ var TUBES = {
     listUrl: function (cat, page, extra) {
       var p = page ? '&p=' + page : '';
       if (cat === 'xv-search') return 'https://www.xvideos.com/?k=' + encodeURIComponent(extra.search || '') + p;
+      if (cat === 'xv-cp') return 'https://www.xvideos.com/?k=creampie' + p;
+      if (cat === 'xv-cpgay') return 'https://www.xvideos.com/?k=creampie&typef=gay' + p;
       if (cat === 'xv-top') return 'https://www.xvideos.com/?k=hd&sort=views' + p;
       if (cat === 'xv-4k') return 'https://www.xvideos.com/?k=4k&sort=rating' + p;
       // Novidades: a primeira página é a inicial; as seguintes, /new/1, /new/2...
@@ -323,6 +328,8 @@ var TUBES = {
       idPrefixes: ['ph:'],
       behaviorHints: { adult: true },
       catalogs: [
+        { type: 'movie', id: 'ph-cp', name: 'Creampie hétero', extra: [{ name: 'skip' }] },
+        { type: 'movie', id: 'ph-cpgay', name: 'Creampie gay', extra: [{ name: 'skip' }] },
         { type: 'movie', id: 'ph-hot', name: 'Em alta', extra: [{ name: 'skip' }] },
         { type: 'movie', id: 'ph-top', name: 'Mais vistos', extra: [{ name: 'skip' }] },
         { type: 'movie', id: 'ph-search', name: 'Busca', extra: [{ name: 'search', isRequired: true }, { name: 'skip' }] }
@@ -331,6 +338,8 @@ var TUBES = {
     PAGE: 32,
     listUrl: function (cat, page, extra) {
       var p = '&page=' + ((page || 0) + 1);
+      if (cat === 'ph-cp') return 'https://www.pornhub.com/video/search?search=creampie' + p;
+      if (cat === 'ph-cpgay') return 'https://www.pornhub.com/gay/video/search?search=creampie' + p;
       if (cat === 'ph-search') return 'https://www.pornhub.com/video/search?search=' + encodeURIComponent(extra.search || '') + p;
       return 'https://www.pornhub.com/video?o=' + (cat === 'ph-top' ? 'mv' : 'ht') + p;
     },

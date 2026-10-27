@@ -13,6 +13,7 @@ import { smallThumb } from '../lib/img.js';
 import { t } from '../lib/i18n.js';
 import { log } from '../lib/log.js';
 import * as si from '../lib/streaminfo.js';
+import * as nsfwSaved from '../lib/nsfwSaved.js';
 import * as store from '../lib/store.js';
 import { genreName } from '../lib/genres.js';
 import { openFilmography } from './filmography.js';
@@ -252,7 +253,13 @@ function DetailsView(type, id, opts) {
       label = t('Continuar') + (ep ? ' T' + ep.season + 'E' + ep.episode : '');
     }
     watchBtn.innerHTML = '<span class="ico">▶</span>' + label;
-    libBtn.innerHTML = stremio.isInLibrary(meta.id) ? '<span class="ico">✓</span>' + t('Na biblioteca') : '<span class="ico">＋</span>' + t('Biblioteca');
+    // Adulto: "Salvar" guarda só neste aparelho (aba NSFW), em vez de ir para a biblioteca da conta.
+    if (isAdult()) libBtn.innerHTML = nsfwSaved.has(meta.id) ? '<span class="ico">♥</span>' + t('Salvo') : '<span class="ico">♡</span>' + t('Salvar');
+    else libBtn.innerHTML = stremio.isInLibrary(meta.id) ? '<span class="ico">✓</span>' + t('Na biblioteca') : '<span class="ico">＋</span>' + t('Biblioteca');
+  }
+
+  function isAdult() {
+    return addons.isAdultId(meta.id);
   }
 
   function onWatch() {
@@ -265,6 +272,12 @@ function DetailsView(type, id, opts) {
   }
 
   function toggleLibrary() {
+    if (isAdult()) {
+      const on = nsfwSaved.toggle(meta);
+      updateButtons();
+      toast(on ? t('Salvo na aba NSFW') : t('Removido dos salvos'));
+      return;
+    }
     const inLib = stremio.isInLibrary(meta.id);
     stremio.setInLibrary(meta, !inLib).then(() => {
       updateButtons();
