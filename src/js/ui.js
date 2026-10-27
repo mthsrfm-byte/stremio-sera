@@ -238,7 +238,7 @@ export function agendaPanel() {
       const soon = eventSoon(e);
       const sub = [e.allDay ? '' : minutesLabel(e.end - e.start), e.location, soon].filter(Boolean).join(' · ');
       list.appendChild(
-        h('div.agenda-ev', { focusable: true, cls: (e.end.getTime() <= now ? 'past' : '') + (soon ? ' soon' : '') }, [
+        h('div.agenda-ev', { focusable: true, cls: (e.end.getTime() <= now ? 'past' : '') + (soon ? ' soon' : ''), onSelect: () => eventDetail(e) }, [
           h('span.agenda-time', { text: eventTime(e) }),
           h('div.agenda-info', null, [h('div.agenda-title', { text: e.title }), sub ? h('div.agenda-sub', { text: sub }) : null]),
           h('i.agenda-color', { style: { background: e.color } }),
@@ -272,6 +272,41 @@ export function agendaPanel() {
     nav.focus(ok);
   }
   calendar.refresh();
+}
+
+const ATTEND = { ACCEPTED: 'confirmou', DECLINED: 'recusou', TENTATIVE: 'talvez', DELEGATED: 'delegou' };
+
+// Detalhes de um evento: quando, onde, quem organizou, quem está convidado e a descrição.
+export function eventDetail(e) {
+  const when = dayLabel(e.start) + ' · ' + eventTime(e, true) + (e.allDay || e.end - e.start <= 60000 ? '' : ' · ' + minutesLabel(e.end - e.start));
+  const info = [];
+  const row = (label, value) => info.push(h('div.ev-row', null, [h('span.ev-label', { text: label }), h('span.ev-value', { text: value })]));
+  if (e.calendar) row(t('Agenda'), e.calendar);
+  if (e.location) row(t('Onde'), e.location);
+  if (e.organizer) row(t('Organizador'), e.organizer.name + (e.organizer.email ? ' · ' + e.organizer.email : ''));
+
+  const people = (e.attendees || []).map((p) => {
+    const answer = ATTEND[p.status] || t('sem resposta');
+    return h('div.ev-person', null, [h('span.ev-name', { text: p.name }), p.email ? h('span.ev-mail', { text: p.email }) : null, h('span.ev-answer', { text: answer })]);
+  });
+
+  const scroll = h('div.ev-scroll', { 'data-scroll-y': '' }, [
+    h('div.ev-when', { text: when }),
+    info.length ? h('div.ev-info', null, info) : null,
+    people.length ? h('div.ev-section', null, [h('div.ev-title-sm', { text: t('Convidados') + ' (' + people.length + ')' }), h('div.ev-people', null, people)]) : null,
+    e.description ? h('div.ev-section', null, [h('div.ev-title-sm', { text: t('Descrição') }), h('div.ev-desc', { focusable: true, text: e.description })]) : null,
+  ]);
+  const close = h('div.btn', { focusable: true, text: t('Voltar'), onSelect: () => close_() });
+  const box = h('div.modal-box.ev-box', null, [h('h3', { text: e.title }), scroll, close]);
+  const modal = h('div.modal', null, box);
+  document.getElementById('app').appendChild(modal);
+  const close_ = () => {
+    nav.popLayer(layer);
+    if (modal.parentNode) modal.parentNode.removeChild(modal);
+  };
+  const layer = nav.pushLayer(modal, { onBack: () => close_() });
+  const first = scroll.querySelector('.ev-desc') || close;
+  nav.focus(first);
 }
 
 // Avatar do perfil ativo na barra superior: troca rápida de perfil.

@@ -900,6 +900,30 @@ body.light .nsfw-now { color: rgba(17,17,16,0.6); }
 .cal-card.soon { background: rgba(51,71,255,0.16); }
 .cal-card.focused { border-color: #3347FF; -webkit-transform: scale(1.05); transform: scale(1.05); opacity: 1; }
 .cal-card.empty { display: inline-block; height: 112px; line-height: 82px; text-align: center; font-size: 20px; color: rgba(245,244,239,0.5); }
+/* Primeira busca da agenda: cartões com o mesmo brilho dos pôsteres enquanto carregam. */
+.cal-card.skel { display: inline-block; vertical-align: top; width: 300px; height: 112px; margin-right: 16px; border-radius: 12px; background-color: rgba(245,244,239,0.06); background-image: linear-gradient(100deg, rgba(245,244,239,0) 30%, rgba(245,244,239,0.09) 50%, rgba(245,244,239,0) 70%); background-size: 300% 100%; background-repeat: no-repeat; -webkit-animation: shimmer 1.4s ease-in-out infinite; animation: shimmer 1.4s ease-in-out infinite; }
+body.light .cal-card.skel { background-color: rgba(17,17,16,0.06); background-image: linear-gradient(100deg, rgba(17,17,16,0) 30%, rgba(17,17,16,0.08) 50%, rgba(17,17,16,0) 70%); }
+
+/* Detalhes do evento (toque num cartão ou numa linha da agenda). */
+.modal-box.ev-box { top: 110px; bottom: auto; width: 820px; max-height: 900px; padding: 30px 0 24px; }
+.modal-box.ev-box h3 { margin: 0; padding: 0 40px; font-size: 40px; }
+.modal-box.ev-box > .btn { margin: 16px 40px 0; }
+.ev-scroll { max-height: 640px; overflow: hidden; padding: 16px 40px 0; }
+.ev-when { font-size: 24px; color: #A9B4F5; font-weight: 600; }
+.ev-info { margin-top: 18px; }
+.ev-row { display: flex; font-size: 22px; line-height: 1.6; }
+.ev-label { width: 190px; flex: none; color: rgba(245,244,239,0.5); }
+.ev-value { color: #F5F4EF; }
+.ev-section { margin-top: 22px; }
+.ev-title-sm { font-size: 20px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: rgba(245,244,239,0.6); margin-bottom: 8px; }
+.ev-person { display: flex; align-items: baseline; font-size: 22px; line-height: 1.7; }
+.ev-name { color: #F5F4EF; font-weight: 600; }
+.ev-mail { margin-left: 14px; font-size: 18px; color: rgba(245,244,239,0.45); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ev-answer { margin-left: auto; font-size: 18px; color: rgba(245,244,239,0.6); }
+.ev-desc { font-size: 22px; line-height: 1.5; white-space: pre-line; color: rgba(245,244,239,0.85); padding: 10px 14px; border-radius: 12px; border: 3px solid transparent; }
+.ev-desc.focused { border-color: #3347FF; }
+body.light .ev-label, body.light .ev-title-sm, body.light .ev-answer { color: rgba(17,17,16,0.55); }
+
 .cal-card-top { display: -webkit-flex; display: flex; -webkit-justify-content: space-between; justify-content: space-between; -webkit-align-items: center; align-items: center; height: 26px; }
 .cal-card-time { font-size: 18px; font-weight: 600; color: #A9B4F5; white-space: nowrap; }
 .cal-card-time i, .cal-notice-sub i { display: inline-block; width: 9px; height: 9px; border-radius: 5px; margin-right: 8px; vertical-align: middle; }

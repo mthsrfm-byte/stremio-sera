@@ -6,7 +6,7 @@ import { KEY } from '../lib/nav.js';
 import * as addons from '../api/addons.js';
 import * as stremio from '../api/stremio.js';
 import * as hero from '../api/hero.js';
-import { topbar, card, spinnerLine, skeletonCards, retrying, agendaPanel, dayLabel, eventTime, eventSoon } from '../ui.js';
+import { topbar, card, spinnerLine, skeletonCards, retrying, agendaPanel, eventDetail, dayLabel, eventTime, eventSoon } from '../ui.js';
 import * as calendar from '../api/calendar.js';
 import * as router from '../router.js';
 import { openDetails } from './details.js';
@@ -73,16 +73,27 @@ export function HomeView() {
       return;
     }
     calRow.style.display = '';
-    calRow.appendChild(h('div.row-title', null, [t('Sua agenda'), h('small', { text: t('Google Agenda') })]));
+    calRow.appendChild(h('div.row-title', null, [t('Sua agenda')]));
+    const track = h('div.row-track.cal-track', { 'data-scroll-x': '', 'data-group': '', 'data-trap': '' });
+    if (calendar.loading()) {
+      // Primeira busca: cartões com brilho no lugar, do mesmo tamanho dos de verdade.
+      for (let i = 0; i < 4; i++) track.appendChild(h('div.cal-card.skel'));
+      calRow.appendChild(track);
+      return;
+    }
+    if (calendar.failed()) {
+      track.appendChild(h('div.cal-card.empty', { focusable: true, text: t('Não consegui baixar a agenda. Toque para tentar de novo.'), onSelect: () => calendar.refresh() }));
+      calRow.appendChild(track);
+      return;
+    }
     const d = calendar.days();
     const today = new Date();
-    const track = h('div.row-track.cal-track', { 'data-scroll-x': '', 'data-group': '', 'data-trap': '' });
     const now = Date.now();
     const group = (label, date, events) => {
       const cards = events.map((e) => {
         const soon = eventSoon(e);
         const sub = e.location || e.calendar || '';
-        return h('div.cal-card', { focusable: true, cls: (e.end.getTime() <= now ? 'past' : '') + (soon ? ' soon' : ''), onSelect: () => agendaPanel() }, [
+        return h('div.cal-card', { focusable: true, cls: (e.end.getTime() <= now ? 'past' : '') + (soon ? ' soon' : ''), onSelect: () => eventDetail(e) }, [
           h('div.cal-card-top', null, [h('span.cal-card-time', null, [h('i', { style: { background: e.color } }), eventTime(e)]), soon ? h('span.cal-badge', { text: soon }) : null]),
           h('div.cal-card-title', { text: e.title }),
           h('div.cal-card-sub', { text: e.end.getTime() <= now ? t('Terminou') + (sub ? ' · ' + sub : '') : sub }),

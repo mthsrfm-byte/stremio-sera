@@ -14,8 +14,9 @@ const COLORS = ['#3347FF', '#F2A33A', '#3FB68B', '#E0559B'];
 
 let events = []; // eventos de hoje e amanhã, em ordem
 let loadedAt = 0;
+let failedAt = 0; // última tentativa que falhou de todo (antes de ter agenda nenhuma)
 let timer = null;
-let loading = null;
+let inFlight = null;
 const listeners = [];
 
 // Link embutido no build (segredo CALENDAR_ICAL_URL do GitHub); o de Ajustes, se tiver, vale no lugar.
@@ -30,6 +31,16 @@ export function urls() {
 
 export function enabled() {
   return !IS_WEB && urls().length > 0;
+}
+
+// Ainda baixando a primeira vez (a home mostra os cartões em carregamento).
+export function loading() {
+  return enabled() && !loadedAt && !failedAt;
+}
+
+// Falhou de todo e ainda não tem agenda nenhuma.
+export function failed() {
+  return enabled() && !loadedAt && !!failedAt;
 }
 
 export function onChange(fn) {
@@ -67,9 +78,9 @@ export function start() {
 
 export function refresh() {
   if (!enabled()) return Promise.resolve([]);
-  if (loading) return loading;
+  if (inFlight) return inFlight;
   const list = urls();
-  loading = Promise.all(
+  inFlight = Promise.all(
     list.map((u, i) =>
       getText(SERVICE + encodeURIComponent(u), { timeout: 30000, quiet: true }).then(
         (text) => parse(text, COLORS[i % COLORS.length]),
@@ -80,31 +91,47 @@ export function refresh() {
       )
     )
   ).then((all) => {
-    loading = null;
+    inFlight = null;
     // Falhou tudo: mantém o que já tinha (a rede da TV às vezes engasga).
-    if (all.every((x) => x === null) && loadedAt) return events;
+    if (all.every((x) => x === null)) {
+      if (loadedAt) return events;
+      failedAt = Date.now();
+      changed();
+      return events;
+    }
     events = all
       .filter(Boolean)
       .reduce((acc, x) => acc.concat(x), [])
       .sort((a, b) => a.start - b.start || (b.allDay ? 1 : 0) - (a.allDay ? 1 : 0));
     loadedAt = Date.now();
+    failedAt = 0;
     changed();
     return events;
   });
-  return loading;
+  return inFlight;
 }
 
 export function lastUpdate() {
   return loadedAt;
 }
 
+// Quanto tempo um evento que já acabou continua na lista (depois disso, some).
+const KEEP_ENDED_MS = 60 * 60000;
+
 // { today: [...], tomorrow: [...] } com os eventos de cada dia (os de dia todo primeiro).
+// De hoje, só o que ainda não acabou + o último que acabou, se acabou há menos de 1 hora.
 export function days() {
+  const now = Date.now();
   const t0 = dayStart(new Date());
   const t1 = addDays(t0, 1);
   const t2 = addDays(t0, 2);
   const on = (a, b) => events.filter((e) => e.start < b && e.end > a).sort((x, y) => (y.allDay ? 1 : 0) - (x.allDay ? 1 : 0) || x.start - y.start);
-  return { today: on(t0, t1), tomorrow: on(t1, t2) };
+  const ended = on(t0, t1).filter((e) => e.end.getTime() <= now);
+  const lastEnded = ended.reduce((a, b) => (!a || b.end > a.end ? b : a), null);
+  const today = on(t0, t1).filter((e) => e.end.getTime() > now);
+  if (lastEnded && now - lastEnded.end.getTime() <= KEEP_ENDED_MS) today.push(lastEnded);
+  today.sort((x, y) => (y.allDay ? 1 : 0) - (x.allDay ? 1 : 0) || x.start - y.start);
+  return { today: today, tomorrow: on(t1, t2) };
 }
 
 // Próximo evento com horário que começa dentro de `ms` (para o ponto no ícone e o aviso no vídeo).
@@ -127,6 +154,22 @@ function unescape(v) {
     .replace(/\\n/gi, ' ')
     .replace(/\\([,;\\])/g, '$1')
     .trim();
+}
+
+// Descrição: mantém as quebras de linha (\n), que o título não usa.
+function unescapeText(v) {
+  return String(v || '')
+    .replace(/\\n/gi, '\n')
+    .replace(/\\([,;\\])/g, '$1')
+    .trim()
+    .slice(0, 800);
+}
+
+// Convidado ou organizador: nome (CN), e-mail e resposta (PARTSTAT) quando tiver.
+function person(p) {
+  const email = String(p.value || '').replace(/^mailto:/i, '').trim();
+  const name = String(p.params.CN || '').replace(/^"|"$/g, '').trim();
+  return { name: name || email.split('@')[0], email: email, status: (p.params.PARTSTAT || '').toUpperCase() };
 }
 
 // "DTSTART;TZID=America/Sao_Paulo:20261027T190000" → { name, params, value }
@@ -180,6 +223,9 @@ export function parse(text, color) {
       if (p.name === 'SUMMARY') cur.title = unescape(p.value);
       else if (p.name === 'LOCATION') cur.location = unescape(p.value);
       else if (p.name === 'UID') cur.uid = p.value;
+      else if (p.name === 'DESCRIPTION') cur.description = unescapeText(p.value);
+      else if (p.name === 'ORGANIZER') cur.organizer = person(p);
+      else if (p.name === 'ATTENDEE') (cur.attendees = cur.attendees || []).push(person(p));
       else if (p.name === 'STATUS') cur.status = p.value.toUpperCase();
       else if (p.name === 'DTSTART') cur.start = icsDate(p);
       else if (p.name === 'DTEND') cur.end = icsDate(p);
@@ -219,6 +265,9 @@ export function parse(text, color) {
         allDay: e.start.allDay,
         calendar: calName,
         color: color,
+        description: e.description || '',
+        organizer: e.organizer || null,
+        attendees: e.attendees || [],
       });
     });
   });

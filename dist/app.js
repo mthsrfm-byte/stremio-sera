@@ -6316,9 +6316,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "4fff151f063ae3c8222021dc05b076c61d436aeb",
-    date: "2026-10-27T20:56:10Z",
-    message: "NSFW: subir não tira o foco da categoria"
+    commit: "69bccc48708e7d203b66fd32146d2b8ce9b43d73",
+    date: "2026-10-27T20:56:30+00:00",
+    message: "Build da dist/ para a TV"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -7152,10 +7152,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var COLORS2 = ["#3347FF", "#F2A33A", "#3FB68B", "#E0559B"];
   var events = [];
   var loadedAt = 0;
+  var failedAt = 0;
   var timer = null;
-  var loading = null;
+  var inFlight = null;
   var listeners2 = [];
-  var BUILTIN = true ? "https://calendar.google.com/calendar/ical/matheus.serafim%40pagaleve.com.br/private-9d7111ae13c15982affb7c795403fcdd/basic.ics" : "";
+  var BUILTIN = true ? "" : "";
   function urls() {
     return String(settings().calendarUrl || BUILTIN || "").split(/[\s,]+/).filter(function (u) {
       return /^(https?|webcal):\/\//i.test(u);
@@ -7165,6 +7166,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
   function enabled() {
     return !IS_WEB && urls().length > 0;
+  }
+  function loading() {
+    return enabled() && !loadedAt && !failedAt;
+  }
+  function failed() {
+    return enabled() && !loadedAt && !!failedAt;
   }
   function onChange2(fn) {
     listeners2.push(fn);
@@ -7195,9 +7202,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
   function refresh() {
     if (!enabled()) return Promise.resolve([]);
-    if (loading) return loading;
+    if (inFlight) return inFlight;
     var list3 = urls();
-    loading = Promise.all(list3.map(function (u, i) {
+    inFlight = Promise.all(list3.map(function (u, i) {
       return getText(SERVICE + encodeURIComponent(u), {
         timeout: 3e4,
         quiet: true
@@ -7208,25 +7215,33 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         return null;
       });
     })).then(function (all) {
-      loading = null;
+      inFlight = null;
       if (all.every(function (x) {
         return x === null;
-      }) && loadedAt) return events;
+      })) {
+        if (loadedAt) return events;
+        failedAt = Date.now();
+        changed2();
+        return events;
+      }
       events = all.filter(Boolean).reduce(function (acc, x) {
         return acc.concat(x);
       }, []).sort(function (a, b) {
         return a.start - b.start || (b.allDay ? 1 : 0) - (a.allDay ? 1 : 0);
       });
       loadedAt = Date.now();
+      failedAt = 0;
       changed2();
       return events;
     });
-    return loading;
+    return inFlight;
   }
   function lastUpdate() {
     return loadedAt;
   }
+  var KEEP_ENDED_MS = 60 * 6e4;
   function days() {
+    var now = Date.now();
     var t0 = dayStart(/* @__PURE__ */new Date());
     var t1 = addDays(t0, 1);
     var t2 = addDays(t0, 2);
@@ -7237,8 +7252,21 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         return (y.allDay ? 1 : 0) - (x.allDay ? 1 : 0) || x.start - y.start;
       });
     };
+    var ended = on(t0, t1).filter(function (e) {
+      return e.end.getTime() <= now;
+    });
+    var lastEnded = ended.reduce(function (a, b) {
+      return !a || b.end > a.end ? b : a;
+    }, null);
+    var today = on(t0, t1).filter(function (e) {
+      return e.end.getTime() > now;
+    });
+    if (lastEnded && now - lastEnded.end.getTime() <= KEEP_ENDED_MS) today.push(lastEnded);
+    today.sort(function (x, y) {
+      return (y.allDay ? 1 : 0) - (x.allDay ? 1 : 0) || x.start - y.start;
+    });
     return {
-      today: on(t0, t1),
+      today: today,
       tomorrow: on(t1, t2)
     };
   }
@@ -7253,6 +7281,18 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
   function unescape(v) {
     return String(v || "").replace(/\\n/gi, " ").replace(/\\([,;\\])/g, "$1").trim();
+  }
+  function unescapeText(v) {
+    return String(v || "").replace(/\\n/gi, "\n").replace(/\\([,;\\])/g, "$1").trim().slice(0, 800);
+  }
+  function person(p) {
+    var email = String(p.value || "").replace(/^mailto:/i, "").trim();
+    var name = String(p.params.CN || "").replace(/^"|"$/g, "").trim();
+    return {
+      name: name || email.split("@")[0],
+      email: email,
+      status: (p.params.PARTSTAT || "").toUpperCase()
+    };
   }
   function prop(line) {
     var i = line.indexOf(":");
@@ -7310,7 +7350,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           if (p.name === "X-WR-CALNAME") calName = unescape(p.value);
           return;
         }
-        if (p.name === "SUMMARY") cur.title = unescape(p.value);else if (p.name === "LOCATION") cur.location = unescape(p.value);else if (p.name === "UID") cur.uid = p.value;else if (p.name === "STATUS") cur.status = p.value.toUpperCase();else if (p.name === "DTSTART") cur.start = icsDate(p);else if (p.name === "DTEND") cur.end = icsDate(p);else if (p.name === "DURATION") cur.duration = duration(p.value);else if (p.name === "RRULE") cur.rrule = p.value;else if (p.name === "RECURRENCE-ID") cur.recurrenceId = icsDate(p);else if (p.name === "EXDATE") p.value.split(",").forEach(function (v) {
+        if (p.name === "SUMMARY") cur.title = unescape(p.value);else if (p.name === "LOCATION") cur.location = unescape(p.value);else if (p.name === "UID") cur.uid = p.value;else if (p.name === "DESCRIPTION") cur.description = unescapeText(p.value);else if (p.name === "ORGANIZER") cur.organizer = person(p);else if (p.name === "ATTENDEE") (cur.attendees = cur.attendees || []).push(person(p));else if (p.name === "STATUS") cur.status = p.value.toUpperCase();else if (p.name === "DTSTART") cur.start = icsDate(p);else if (p.name === "DTEND") cur.end = icsDate(p);else if (p.name === "DURATION") cur.duration = duration(p.value);else if (p.name === "RRULE") cur.rrule = p.value;else if (p.name === "RECURRENCE-ID") cur.recurrenceId = icsDate(p);else if (p.name === "EXDATE") p.value.split(",").forEach(function (v) {
           var d = icsDate({
             value: v,
             params: p.params
@@ -7342,7 +7382,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           end: len > 0 ? end : new Date(s.getTime() + 1),
           allDay: e.start.allDay,
           calendar: calName,
-          color: color
+          color: color,
+          description: e.description || "",
+          organizer: e.organizer || null,
+          attendees: e.attendees || []
         });
       });
     });
@@ -7768,7 +7811,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         var sub = [e.allDay ? "" : minutesLabel(e.end - e.start), e.location, soon].filter(Boolean).join(" · ");
         list3.appendChild(h("div.agenda-ev", {
           focusable: true,
-          cls: (e.end.getTime() <= now ? "past" : "") + (soon ? " soon" : "")
+          cls: (e.end.getTime() <= now ? "past" : "") + (soon ? " soon" : ""),
+          onSelect: function onSelect() {
+            return eventDetail(e);
+          }
         }, [h("span.agenda-time", {
           text: eventTime(e)
         }), h("div.agenda-info", null, [h("div.agenda-title", {
@@ -7824,6 +7870,71 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       focus(ok);
     }
     refresh();
+  }
+  var ATTEND = {
+    ACCEPTED: "confirmou",
+    DECLINED: "recusou",
+    TENTATIVE: "talvez",
+    DELEGATED: "delegou"
+  };
+  function eventDetail(e) {
+    var when = dayLabel(e.start) + " · " + eventTime(e, true) + (e.allDay || e.end - e.start <= 6e4 ? "" : " · " + minutesLabel(e.end - e.start));
+    var info = [];
+    var row = function row(label, value) {
+      return info.push(h("div.ev-row", null, [h("span.ev-label", {
+        text: label
+      }), h("span.ev-value", {
+        text: value
+      })]));
+    };
+    if (e.calendar) row(t("Agenda"), e.calendar);
+    if (e.location) row(t("Onde"), e.location);
+    if (e.organizer) row(t("Organizador"), e.organizer.name + (e.organizer.email ? " · " + e.organizer.email : ""));
+    var people = (e.attendees || []).map(function (p) {
+      var answer = ATTEND[p.status] || t("sem resposta");
+      return h("div.ev-person", null, [h("span.ev-name", {
+        text: p.name
+      }), p.email ? h("span.ev-mail", {
+        text: p.email
+      }) : null, h("span.ev-answer", {
+        text: answer
+      })]);
+    });
+    var scroll = h("div.ev-scroll", {
+      "data-scroll-y": ""
+    }, [h("div.ev-when", {
+      text: when
+    }), info.length ? h("div.ev-info", null, info) : null, people.length ? h("div.ev-section", null, [h("div.ev-title-sm", {
+      text: t("Convidados") + " (" + people.length + ")"
+    }), h("div.ev-people", null, people)]) : null, e.description ? h("div.ev-section", null, [h("div.ev-title-sm", {
+      text: t("Descrição")
+    }), h("div.ev-desc", {
+      focusable: true,
+      text: e.description
+    })]) : null]);
+    var close = h("div.btn", {
+      focusable: true,
+      text: t("Voltar"),
+      onSelect: function onSelect() {
+        return close_();
+      }
+    });
+    var box = h("div.modal-box.ev-box", null, [h("h3", {
+      text: e.title
+    }), scroll, close]);
+    var modal = h("div.modal", null, box);
+    document.getElementById("app").appendChild(modal);
+    var close_ = function close_() {
+      popLayer(layer);
+      if (modal.parentNode) modal.parentNode.removeChild(modal);
+    };
+    var layer = pushLayer(modal, {
+      onBack: function onBack() {
+        return close_();
+      }
+    });
+    var first = scroll.querySelector(".ev-desc") || close;
+    focus(first);
   }
   function profileButton(onTab) {
     var chip = h("div.profile-chip", {
@@ -8449,8 +8560,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return m ? m[0] : null;
   }
   var BUILTIN_KEYS = {
-    tmdbKey: true ? "9c57ed7ea044b2f01eea2fcc2e954c2e" : "",
-    mdblistKey: true ? "t9e4f1z29b3c36i1j25rul1wx" : ""
+    tmdbKey: true ? "" : "",
+    mdblistKey: true ? "" : ""
   };
   function keyOf(name) {
     return (settings()[name] || "").trim() || BUILTIN_KEYS[name];
@@ -10143,14 +10254,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       log.warn("Erro de vídeo", code || why, mediaUrl);
       if (!alive || errorToken === sourceToken) return;
       errorToken = sourceToken;
-      var failed = stream;
+      var failed2 = stream;
       errorDetails(code, why).then(function (details) {
-        if (!alive || failed !== stream) return;
+        if (!alive || failed2 !== stream) return;
         var next = autoFallback();
         if (next) {
           failedNotes.push(details);
           var what = isTubeStream(next) ? String(next.name || "").split("\n").join(" ") : summary(parse3(next)) || parse3(next).addon;
-          toast(parse3(failed).dv ? t("Dolby Vision não abre na TV. Tentando: {what}", {
+          toast(parse3(failed2).dv ? t("Dolby Vision não abre na TV. Tentando: {what}", {
             what: what
           }) : t("Tentando: {what}", {
             what: what
@@ -12180,7 +12291,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var all = row.parentNode ? row.parentNode.children : [];
       for (var i = 0; i < all.length; i++) all[i].classList.toggle("past", i < index);
     };
-    var failed = function failed() {
+    var failed2 = function failed2() {
       return showRetry(track, function () {
         return load4();
       }, function () {
@@ -12194,7 +12305,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }).then(function (items2) {
         clear(track);
         track.classList.remove("pending");
-        if (!items2.length) return failed();
+        if (!items2.length) return failed2();
         items2.slice(0, ROW_LIMIT).forEach(function (it) {
           return track.appendChild(_card(it, {
             onSelect: function onSelect() {
@@ -12221,7 +12332,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           text: t(def.title)
         })]))]));
         loadVisibleImages(row);
-      }).catch(failed);
+      }).catch(failed2);
     };
     return {
       row: row,
@@ -12460,7 +12571,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       "data-trap": ""
     }, skeletonCards());
     row.appendChild(track);
-    var failed = function failed() {
+    var failed2 = function failed2() {
       return showRetry(track, function () {
         return load4();
       });
@@ -12473,7 +12584,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         track.classList.remove("pending");
         if (!items2.length) {
           if (def.optional && row.parentNode) return row.parentNode.removeChild(row);
-          return failed();
+          return failed2();
         }
         items2.slice(0, def.ranked ? 10 : ROW_LIMIT).forEach(function (it, i) {
           return track.appendChild(_card(it, {
@@ -12494,7 +12605,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           text: t(def.title)
         })]))]));
         loadVisibleImages(row);
-      }).catch(failed);
+      }).catch(failed2);
     };
     return {
       row: row,
@@ -12582,9 +12693,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     tiktok: '<svg viewBox="0 0 24 24"><path d="M14 3.5v11a3.75 3.75 0 1 1-3.75-3.75"/><path d="M14 3.5c.6 2.6 2.5 4.4 5.5 4.6"/></svg>',
     x: '<svg viewBox="0 0 24 24"><path d="M4 4l16 16"/><path d="M20 4L4 20"/></svg>'
   };
-  function openFilmography(person) {
-    if (!person || !person.id) return;
-    push(FilmographyView(person));
+  function openFilmography(person2) {
+    if (!person2 || !person2.id) return;
+    push(FilmographyView(person2));
   }
   var FILTERS = [{
     id: "all",
@@ -12636,12 +12747,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   function role(character) {
     return String(character || "").replace(/\(uncredited\)/i, "(não creditado)").replace(/\(voice\)/i, "(voz)").replace(/\bHimself\b|\bHerself\b/, "Si mesmo").trim();
   }
-  function FilmographyView(person) {
+  function FilmographyView(person2) {
     var el2 = h("div.view.filmo");
     var ambient = h("div.fp-ambient");
     var photo = h("div.fp-photo");
     var nameEl = h("h1.fp-name", {
-      text: person.name
+      text: person2.name
     });
     var lifeEl = h("div.fp-life");
     var placeEl = h("div.fp-place");
@@ -12672,7 +12783,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var info = null;
     var filter = "all";
     var newestFirst = true;
-    setPhoto(person.photo ? person.photo.replace("/w185/", "/h632/") : null);
+    setPhoto(person2.photo ? person2.photo.replace("/w185/", "/h632/") : null);
     bioEl.appendChild(spinnerLine(t("Carregando bio...")));
     function setPhoto(url2) {
       clear(photo);
@@ -12780,7 +12891,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         text: info.bio
       });
       var box = h("div.modal-box.center.fp-bio-box", null, [h("h3", {
-        text: person.name
+        text: person2.name
       }), text2]);
       modal(box, function (e) {
         if (e.keyCode === KEY.DOWN) text2.scrollTop += 160;else if (e.keyCode === KEY.UP) text2.scrollTop -= 160;else return false;
@@ -12884,7 +12995,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       loadVisibleImages(panel, 600);
     }
     grid.appendChild(spinnerLine(t("Carregando filmografia...")));
-    personCredits(person.id).then(function (list3) {
+    personCredits(person2.id).then(function (list3) {
       items2 = list3;
       renderChips();
       renderGrid();
@@ -12899,9 +13010,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         text: t("Não foi possível carregar a filmografia.")
       }));
     });
-    personInfo(person.id).then(function (i) {
+    personInfo(person2.id).then(function (i) {
       info = i;
-      if (i.photo && !person.photo) setPhoto(i.photo);
+      if (i.photo && !person2.photo) setPhoto(i.photo);
       renderInfo();
     }).catch(function () {
       clear(bioEl);
@@ -13873,16 +13984,30 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         return;
       }
       calRow.style.display = "";
-      calRow.appendChild(h("div.row-title", null, [t("Sua agenda"), h("small", {
-        text: t("Google Agenda")
-      })]));
-      var d = days();
-      var today = /* @__PURE__ */new Date();
+      calRow.appendChild(h("div.row-title", null, [t("Sua agenda")]));
       var track = h("div.row-track.cal-track", {
         "data-scroll-x": "",
         "data-group": "",
         "data-trap": ""
       });
+      if (loading()) {
+        for (var i = 0; i < 4; i++) track.appendChild(h("div.cal-card.skel"));
+        calRow.appendChild(track);
+        return;
+      }
+      if (failed()) {
+        track.appendChild(h("div.cal-card.empty", {
+          focusable: true,
+          text: t("Não consegui baixar a agenda. Toque para tentar de novo."),
+          onSelect: function onSelect() {
+            return refresh();
+          }
+        }));
+        calRow.appendChild(track);
+        return;
+      }
+      var d = days();
+      var today = /* @__PURE__ */new Date();
       var now = Date.now();
       var group = function group(label, date, events2) {
         var cards = events2.map(function (e) {
@@ -13892,7 +14017,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             focusable: true,
             cls: (e.end.getTime() <= now ? "past" : "") + (soon ? " soon" : ""),
             onSelect: function onSelect() {
-              return agendaPanel();
+              return eventDetail(e);
             }
           }, [h("div.cal-card-top", null, [h("span.cal-card-time", null, [h("i", {
             style: {
@@ -14060,7 +14185,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     row.appendChild(title);
     row.appendChild(track);
     parent.appendChild(row);
-    var failed = function failed() {
+    var failed2 = function failed2() {
       return showRetry(track, function () {
         return load4();
       });
@@ -14083,7 +14208,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           }));
         });
         loadVisibleImages(row);
-      }).catch(failed);
+      }).catch(failed2);
     };
     return {
       row: row,
