@@ -6303,9 +6303,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "57cef195809c0241483094ec7e43f2decb0e5cab",
-    date: "2026-10-27T07:49:30-03:00",
-    message: "Player: Dolby Vision por último e troca automática de fonte em filmes e séries"
+    commit: "ff1643ed7ef95473ff32375ea4225874b4b7fa22",
+    date: "2026-10-27T08:28:54-03:00",
+    message: "Player: logo do título no canto com vinheta e botão Favoritar"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -9496,6 +9496,25 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         return playNext();
       }
     });
+    var favItem = {
+      id: meta.id,
+      type: meta.type,
+      name: meta.name,
+      poster: meta.poster,
+      posterShape: meta.posterShape
+    };
+    var favBtn = h("div.btn", {
+      focusable: true,
+      onSelect: function onSelect() {
+        return toggleFavorite(favItem).then(paintFav);
+      }
+    });
+    function paintFav() {
+      var on = isFavorite(favItem);
+      favBtn.innerHTML = on ? '<span class="ico fav">♥</span>' + t("Favoritado") : '<span class="ico">♡</span>' + t("Favoritar");
+    }
+    paintFav();
+    if (meta.id === "dev") favBtn.style.display = "none";
     var restartBtn = h("div.btn", {
       focusable: true,
       html: '<span class="ico">↺</span>' + t("Do início"),
@@ -9506,7 +9525,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     restartBtn.style.display = opts.startTime > 3e4 ? "" : "none";
     var buttons = h("div.p-buttons", {
       "data-group": ""
-    }, [playBtn, restartBtn, audioBtn, subsBtn, srcBtn, nextBtn]);
+    }, [playBtn, restartBtn, audioBtn, subsBtn, srcBtn, favBtn, nextBtn]);
     var spinner = h("div.p-center", null, h("div.spinner"));
     var msgEl = h("div.p-msg");
     var skipFill = h("i");
@@ -9566,7 +9585,25 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     };
     function setTitle() {
       clear(titleEl);
-      titleEl.appendChild(document.createTextNode(meta.name || ""));
+      var name = h("span.p-name", {
+        text: meta.name || ""
+      });
+      titleEl.appendChild(name);
+      var logoUrl = meta.logo || (/^tt\d+/.test(meta.id) ? logo(meta.id) : "");
+      if (logoUrl) {
+        var img = h("img.p-logo", {
+          alt: ""
+        });
+        img.onload = function () {
+          img.classList.add("ready");
+          name.style.display = "none";
+        };
+        img.onerror = function () {
+          return img.parentNode && img.parentNode.removeChild(img);
+        };
+        img.src = logoUrl;
+        titleEl.insertBefore(img, name);
+      }
       if (opts.isSeries) titleEl.appendChild(h("small", {
         text: "T" + video.season + " E" + video.episode + " · " + (video.namePt || video.name || video.title || "")
       }));
