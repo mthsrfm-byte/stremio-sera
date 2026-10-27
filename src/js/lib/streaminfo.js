@@ -110,22 +110,8 @@ export function smartPick(list, serverOk) {
   return { stream: playable[0], ideal: false };
 }
 
-// Melhor fonte numa resolução (para o seletor 4K/1080p do player), preferindo dublado e saudável.
-export function bestAt(list, res, serverOk, exclude) {
-  const ok = list.filter((s) => s !== exclude && canPlay(s, serverOk) && parse(s).res === res);
-  const score = (s) => {
-    const i = parse(s);
-    return (good(i) ? 4 : 0) + (i.dub ? 2 : 0) + (i.original ? 1 : 0);
-  };
-  let best = null;
-  ok.forEach((s) => {
-    if (!best || score(s) > score(best)) best = s;
-  });
-  return best;
-}
-
 export function summary(info) {
-  return [info.res, info.dv ? 'Dolby Vision' : info.hdr ? 'HDR' : '', info.dub ? 'Dublado' : '', info.seeders !== null ? info.seeders + ' seeders' : '']
+  return [info.res, info.dv ? 'Dolby Vision' : info.hdr ? 'HDR' : '', info.dub ? (info.original ? 'Original + Dublado' : 'Dublado') : '', info.seeders !== null ? info.seeders + ' seeders' : '']
     .filter(Boolean)
     .join(' · ');
 }

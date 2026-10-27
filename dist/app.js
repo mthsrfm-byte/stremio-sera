@@ -8088,22 +8088,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       ideal: false
     };
   }
-  function bestAt(list2, res, serverOk, exclude) {
-    var ok = list2.filter(function (s) {
-      return s !== exclude && canPlay(s, serverOk) && parse2(s).res === res;
-    });
-    var score2 = function score2(s) {
-      var i = parse2(s);
-      return (good(i) ? 4 : 0) + (i.dub ? 2 : 0) + (i.original ? 1 : 0);
-    };
-    var best = null;
-    ok.forEach(function (s) {
-      if (!best || score2(s) > score2(best)) best = s;
-    });
-    return best;
-  }
   function summary(info) {
-    return [info.res, info.dv ? "Dolby Vision" : info.hdr ? "HDR" : "", info.dub ? "Dublado" : "", info.seeders !== null ? info.seeders + " seeders" : ""].filter(Boolean).join(" · ");
+    return [info.res, info.dv ? "Dolby Vision" : info.hdr ? "HDR" : "", info.dub ? info.original ? "Original + Dublado" : "Dublado" : "", info.seeders !== null ? info.seeders + " seeders" : ""].filter(Boolean).join(" · ");
   }
 
   // src/js/api/skip.js
@@ -8280,12 +8266,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var subsEl = h("div.subs");
     var titleEl = h("div.p-title");
     var clockEl = h("div.p-clock");
-    var qualityBtn = h("div.btn.p-quality", {
-      focusable: true,
-      onSelect: function onSelect() {
-        return toggleQuality();
-      }
-    });
     var posEl = h("div.pos");
     var bufEl = h("div.buf");
     var knobEl = h("div.knob");
@@ -8353,10 +8333,18 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }
     });
     var skipBox = h("div.p-skip", null, [skipBtn, h("div.bar", null, skipFill)]);
-    var overlay = h("div.p-overlay", null, [h("div.p-top", null, [titleEl, h("div.p-top-right", {
-      "data-group": ""
-    }, [qualityBtn, clockEl])]), h("div.p-bottom", null, [bar, h("div.p-times", null, [curTimeEl, h("div.spacer"), durEl]), buttons])]);
-    var el = h("div.view.player", null, [videoEl, subsEl, overlay, skipBox, spinner, msgEl]);
+    var overlay = h("div.p-overlay", null, [h("div.p-top", null, [titleEl, clockEl]), h("div.p-bottom", null, [bar, h("div.p-times", null, [curTimeEl, h("div.spacer"), durEl]), buttons])]);
+    var introBg = h("div.pi-bg");
+    var introLogo = h("img.pi-logo", {
+      alt: ""
+    });
+    var introTitle = h("div.pi-title", {
+      text: meta.name || ""
+    });
+    var introSub = h("div.pi-sub");
+    var introStatus = h("div.pi-status");
+    var intro = h("div.p-intro", null, [introBg, h("div.pi-shade"), h("div.pi-info", null, [introLogo, introTitle, introSub, h("div.pi-line", null, h("i")), introStatus])]);
+    var el = h("div.view.player.intro-on", null, [videoEl, subsEl, overlay, skipBox, spinner, msgEl, intro]);
     var renderer = Renderer(subsEl);
     apply(subsEl, settings2);
     var alive = true;
@@ -8409,7 +8397,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     function start3() {
       setTitle();
       if (!stream) return waitForPick();
-      updateQuality();
       armSlow();
       showSpinner(true);
       message("");
@@ -8448,8 +8435,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
     function waitForPick() {
       showSpinner(true);
-      qualityBtn.style.display = "none";
-      message(t("Smart Choice: escolhendo a melhor fonte..."));
       (opts.pick || Promise.resolve(null)).then(function (s) {
         if (!alive || stream) return;
         if (!s) {
@@ -8459,11 +8444,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         }
         stream = s;
         tried.push(s);
-        qualityBtn.style.display = "";
         var info = parse2(s);
-        toast(t("Smart Choice: {what}", {
+        introStatus.textContent = t("Smart Choice: {what}", {
           what: summary(info) || info.addon
-        }), 3500);
+        });
         start3();
       });
     }
@@ -8604,10 +8588,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       updateTimes();
       loadSegments();
     });
-    videoEl.addEventListener("loadedmetadata", function () {
-      return updateQuality();
-    });
     videoEl.addEventListener("playing", function () {
+      hideIntro();
       clearTimeout(slowTimer);
       closeSlow();
       if (!hasPlayed) scheduleAudioPick();
@@ -8834,6 +8816,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }, 300);
     }
     function fail(text, offerTranscode) {
+      hideIntro();
       clearTimeout(slowTimer);
       closeSlow();
       showSpinner(false);
@@ -8940,11 +8923,48 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         if (!videoEl.paused && seekTarget === null && topLayer() && topLayer().root === el) hideControls();
       }, HIDE_MS);
     }
+    var introOn = true;
+    function setupIntro() {
+      requestAnimationFrame(function () {
+        return requestAnimationFrame(function () {
+          return introOn && intro.classList.add("in");
+        });
+      });
+      var art = meta.background || background(meta.id);
+      if (art) {
+        var pre = new Image();
+        pre.onload = function () {
+          return introOn && (introBg.style.backgroundImage = 'url("' + art + '")') && introBg.classList.add("show");
+        };
+        pre.src = art;
+      }
+      introTitle.style.display = "none";
+      introLogo.onerror = function () {
+        introLogo.style.display = "none";
+        introTitle.style.display = "";
+      };
+      introLogo.src = meta.logo || logo(meta.id);
+      introSub.textContent = opts.isSeries ? "T" + video.season + " E" + video.episode + " · " + (video.namePt || video.name || video.title || "") : "";
+      introStatus.textContent = stream ? t("Preparando o vídeo...") : t("Smart Choice: escolhendo a melhor fonte...");
+    }
+    function hideIntro() {
+      if (!introOn) return;
+      introOn = false;
+      intro.classList.remove("in");
+      setTimeout(function () {
+        return el.classList.remove("intro-on");
+      }, 600);
+      setTimeout(function () {
+        introBg.style.backgroundImage = "";
+        intro.style.display = "none";
+      }, 900);
+    }
     function showSpinner(on) {
       spinner.style.display = on ? "" : "none";
     }
     function message(text) {
-      msgEl.textContent = text;
+      msgEl.textContent = introOn ? "" : text;
+      if (introOn && text) introStatus.textContent = text;
     }
     function seekBy(dir) {
       var d = videoEl.duration;
@@ -9234,35 +9254,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       };
       start3();
     }
-    function currentRes() {
-      var hgt = videoEl.videoHeight;
-      if (hgt >= 1800) return "4K";
-      if (hgt >= 1e3) return "1080p";
-      if (hgt >= 700) return "720p";
-      if (hgt > 0) return "SD";
-      return stream ? parse2(stream).res || "" : "";
-    }
-    function updateQuality() {
-      var cur = currentRes();
-      var target = cur === "4K" ? "1080p" : "4K";
-      var alt = bestAt(opts.streams || [], target, _isAvailable(), stream);
-      qualityBtn.innerHTML = "<b>" + (cur || "Auto") + "</b>" + (alt ? "<small>" + t("trocar p/ {res}", {
-        res: target
-      }) + "</small>" : "");
-      qualityBtn.classList.toggle("no-alt", !alt);
-    }
-    function toggleQuality() {
-      var cur = currentRes();
-      var target = cur === "4K" ? "1080p" : "4K";
-      var alt = bestAt(opts.streams || [], target, _isAvailable(), stream);
-      if (!alt) return toast(t("Nenhuma fonte em {res} para este título.", {
-        res: target
-      }));
-      toast(t("Trocando para {res}...", {
-        res: target
-      }));
-      switchTo(alt);
-    }
     function armSlow() {
       clearTimeout(slowTimer);
       closeSlow();
@@ -9504,9 +9495,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           return true;
         }
         if (k === KEY.UP) {
-          focus(qualityBtn, {
-            noScroll: true
-          });
+          hideControls();
           return true;
         }
       }
@@ -9521,6 +9510,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       onKey: onKey,
       onShow: function onShow() {
         if (!ticker) {
+          setupIntro();
           start3();
           ticker = setInterval(function () {
             if (controlsOn) updateTimes();
@@ -10546,8 +10536,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       billboard.stop();
       rail.setDefs(p.rows);
       rail.set(0);
+      rows.classList.add("sw");
       clear(rows);
       rows.scrollTop = 0;
+      requestAnimationFrame(function () {
+        return requestAnimationFrame(function () {
+          return rows.classList.remove("sw");
+        });
+      });
       var ctx = {
         billboard: billboard,
         rail: rail,
@@ -11044,6 +11040,16 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         focusable: true,
         onSelect: toggleLibrary
       });
+      var srcBtn = !isSeries() && smartOn() ? h("div.btn", {
+        focusable: true,
+        html: '<span class="ico">⇄</span>' + t("Fontes"),
+        onSelect: function onSelect() {
+          return showStreams({
+            id: movieVideoId(),
+            title: meta.name
+          }, true);
+        }
+      }) : null;
       updateButtons();
       info.appendChild(logo2);
       info.appendChild(title);
@@ -11054,7 +11060,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       info.appendChild(castLine);
       info.appendChild(h("div.details-buttons", {
         "data-group": ""
-      }, [watchBtn, libBtn]));
+      }, [watchBtn, libBtn, srcBtn]));
       loadExtras({
         logo: logo2,
         title: title,
@@ -11175,12 +11181,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     function onWatch() {
       if (isSeries()) {
         var v = nextUpVideo();
-        if (v) showStreams(v, true, true);
+        if (v) watch(v);
       } else {
-        showStreams({
+        watch({
           id: movieVideoId(),
           title: meta.name
-        }, true, true);
+        });
       }
     }
     function toggleLibrary() {
@@ -11268,7 +11274,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           onSelect: function onSelect() {
             return soon ? toast(t("Esse episódio ainda não saiu. Estreia em {date}.", {
               date: formatDate2(v.released)
-            })) : showStreams(v, true, true);
+            })) : watch(v);
           }
         }, [thumb, h("div.ep-info", null, [h("div.ep-title", null, [soon ? h("span.soon-tag", {
           text: t("Em breve")
@@ -11296,6 +11302,66 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       if (/torrentio/i.test(n)) return 1;
       return 2;
     }
+    function streamAddons(video) {
+      return withResource("stream", meta.type, video.id).map(function (a, i) {
+        return {
+          a: a,
+          i: i
+        };
+      }).sort(function (x, y) {
+        return addonRank(x.a) - addonRank(y.a) || x.i - y.i;
+      }).map(function (x) {
+        return x.a;
+      });
+    }
+    var smartOn = function smartOn() {
+      return settings().smartChoice !== false;
+    };
+    function watch(video) {
+      if (smartOn() && streamAddons(video).length) smartPlay(video);else showStreams(video, true);
+    }
+    function smartPlay(video) {
+      var srcs = streamAddons(video);
+      var per = srcs.map(function () {
+        return null;
+      });
+      var all = [];
+      var resolve = null;
+      var pick2 = new Promise(function (ok) {
+        return resolve = ok;
+      });
+      var done = false;
+      var serverReady = _isAvailable() ? Promise.resolve(true) : _check().then(function (r) {
+        return !!(r && r.ok);
+      }, function () {
+        return false;
+      });
+      var finish2 = function finish2() {
+        if (done) return;
+        done = true;
+        clearTimeout(timer2);
+        serverReady.then(function (ok) {
+          var p = smartPick(all, ok);
+          resolve(p ? p.stream : null);
+        });
+      };
+      var timer2 = setTimeout(finish2, 12e3);
+      serverReady.then(function () {
+        return fetchStreams(meta.type, video.id, function (addon, streams) {
+          per[srcs.indexOf(addon)] = streams;
+          all.length = 0;
+          per.forEach(function (l) {
+            return l && l.forEach(function (x) {
+              return all.push(x);
+            });
+          });
+        });
+      }).then(finish2, finish2);
+      pick2.then(function (st) {
+        if (!st && alive) showStreams(video, true);
+      });
+      play2(video, null, all, pick2);
+    }
     function runtimeMinutes() {
       var r = String(meta.runtime || "");
       var hMatch = r.match(/(\d+)\s*h/i);
@@ -11308,7 +11374,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var mbps = Math.round(info2.sizeMb * 8 / (runtimeMinutes() * 60));
       return mbps > 30 ? mbps : 0;
     }
-    function showStreams(video, focusFirst2, smart) {
+    function showStreams(video, focusFirst2) {
+      panel.style.display = "";
       mode = "streams";
       streamsVideo = video;
       clear(panel);
@@ -11345,16 +11412,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       });
       list2.style.top = "178px";
       panel.appendChild(list2);
-      var srcs = withResource("stream", meta.type, video.id).map(function (a, i) {
-        return {
-          a: a,
-          i: i
-        };
-      }).sort(function (x, y) {
-        return addonRank(x.a) - addonRank(y.a) || x.i - y.i;
-      }).map(function (x) {
-        return x.a;
-      });
+      var srcs = streamAddons(video);
       if (!srcs.length) {
         list2.appendChild(h("div.loading-line", {
           text: t("Nenhum addon de streams instalado (ex.: Torrentio). Instale pela sua conta Stremio.")
@@ -11379,20 +11437,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var all = [];
       var autoFocused = null;
       var serverOk = _isAvailable();
-      var smartOn = !!(smart && focusFirst2 && settings().smartChoice !== false);
-      var smartResolve = null;
-      var smartTimer = smartOn ? setTimeout(function () {
-        return runSmart();
-      }, 12e3) : null;
-      function runSmart() {
-        if (!smartOn) return;
-        smartOn = false;
-        clearTimeout(smartTimer);
-        status2();
-        var ok = alive && streamsVideo === video;
-        var pick2 = ok ? smartPick(all, serverOk) : null;
-        if (smartResolve) smartResolve(pick2 ? pick2.stream : null);
-      }
       function status2() {
         var srv = serverOk ? t("Servidor do PC conectado") : t("Servidor do PC não conectado: só links diretos");
         sub.textContent = srv + (pendingCount > 0 ? "  ·  " + t("{n} addon(s) ainda carregando", {
@@ -11458,9 +11502,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         });
       }
       status2();
-      if (smartOn) play2(video, null, all, new Promise(function (ok) {
-        return smartResolve = ok;
-      }));
       (serverOk ? Promise.resolve() : _check().then(function (r) {
         return serverOk = r.ok;
       })).then(function () {
@@ -11493,7 +11534,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             }
           }
           if (pendingCount <= 0) {
-            if (smartOn) setTimeout(runSmart, 0);
             if (loadingLine.parentNode) list2.removeChild(loadingLine);
             if (!all.length) list2.appendChild(h("div.loading-line", {
               text: t("Nenhuma fonte encontrada.")
@@ -11618,21 +11658,24 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           });
           if (v) season = v.season || 0;
           if (v && opts.autoStreams) {
-            showStreams(v, true, true);
+            watch(v);
             return;
           }
         }
         showEpisodes(opts.videoId);
         if (opts.autoStreams) {
           var _v = nextUpVideo();
-          if (_v) showStreams(_v, true, true);
+          if (_v) watch(_v);
           return;
         }
       } else {
-        showStreams({
+        if (opts.autoStreams) watch({
           id: movieVideoId(),
           title: meta.name
-        }, !!opts.autoStreams, !!opts.autoStreams);
+        });else if (smartOn()) panel.style.display = "none";else showStreams({
+          id: movieVideoId(),
+          title: meta.name
+        }, false);
       }
       if (!opts.autoStreams) focus(watchBtn);
     }).catch(function (e) {
@@ -11671,6 +11714,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         loadVisibleImages(panel, 300);
       },
       onBack: function onBack() {
+        if (mode === "streams" && !isSeries() && smartOn()) {
+          panel.style.display = "none";
+          mode = "none";
+          focus(watchBtn);
+          return true;
+        }
         if (mode === "streams" && isSeries()) {
           var v = streamsVideo;
           showEpisodes(v && v.id);
@@ -12878,9 +12927,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "b8353026201f0a5d833623cb70d9de90500d6c2f",
-    date: "2026-10-27T05:51:23+00:00",
-    message: "Playback fixes: Smart Choice follows list order and needs real health, torrent still downloading gets more time, subtitle hash waits for playback on torrents, narrower adult add-on detection"
+    commit: "5242027900324547b76e183ec43faf15ef18df0d",
+    date: "2026-10-27T05:55:00+00:00",
+    message: "Smart Choice opens the player instantly, resume dialog redesign with Do inicio button, broader adult add-on detection with live tab refresh"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {

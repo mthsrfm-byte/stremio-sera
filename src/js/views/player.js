@@ -13,6 +13,7 @@ import * as server from '../api/server.js';
 import * as addons from '../api/addons.js';
 import * as stremio from '../api/stremio.js';
 import * as skip from '../api/skip.js';
+import * as hero from '../api/hero.js';
 import { menu, toast, fmtTime, timeHM } from '../ui.js';
 import * as router from '../router.js';
 import { sortedVideos, openDetails } from './details.js';
@@ -49,7 +50,6 @@ function PlayerView(opts) {
   const subsEl = h('div.subs');
   const titleEl = h('div.p-title');
   const clockEl = h('div.p-clock');
-  const qualityBtn = h('div.btn.p-quality', { focusable: true, onSelect: () => toggleQuality() });
   const posEl = h('div.pos');
   const bufEl = h('div.buf');
   const knobEl = h('div.knob');
@@ -72,10 +72,21 @@ function PlayerView(opts) {
   const skipBtn = h('div.btn', { focusable: true, onSelect: () => doSkip() });
   const skipBox = h('div.p-skip', null, [skipBtn, h('div.bar', null, skipFill)]);
   const overlay = h('div.p-overlay', null, [
-    h('div.p-top', null, [titleEl, h('div.p-top-right', { 'data-group': '' }, [qualityBtn, clockEl])]),
+    h('div.p-top', null, [titleEl, clockEl]),
     h('div.p-bottom', null, [bar, h('div.p-times', null, [curTimeEl, h('div.spacer'), durEl]), buttons]),
   ]);
-  const el = h('div.view.player', null, [videoEl, subsEl, overlay, skipBox, spinner, msgEl]);
+  // Abertura: arte do título, logo e o que está acontecendo, até o vídeo começar a tocar.
+  const introBg = h('div.pi-bg');
+  const introLogo = h('img.pi-logo', { alt: '' });
+  const introTitle = h('div.pi-title', { text: meta.name || '' });
+  const introSub = h('div.pi-sub');
+  const introStatus = h('div.pi-status');
+  const intro = h('div.p-intro', null, [
+    introBg,
+    h('div.pi-shade'),
+    h('div.pi-info', null, [introLogo, introTitle, introSub, h('div.pi-line', null, h('i')), introStatus]),
+  ]);
+  const el = h('div.view.player.intro-on', null, [videoEl, subsEl, overlay, skipBox, spinner, msgEl, intro]);
 
   const renderer = subs.Renderer(subsEl);
   substyle.apply(subsEl, settings);
@@ -124,7 +135,6 @@ function PlayerView(opts) {
   function start() {
     setTitle();
     if (!stream) return waitForPick();
-    updateQuality();
     armSlow();
     showSpinner(true);
     message('');
@@ -169,8 +179,6 @@ function PlayerView(opts) {
   // Smart Choice: o player abre na hora e a fonte chega depois (os addons ainda estão respondendo).
   function waitForPick() {
     showSpinner(true);
-    qualityBtn.style.display = 'none';
-    message(t('Smart Choice: escolhendo a melhor fonte...'));
     (opts.pick || Promise.resolve(null)).then((s) => {
       if (!alive || stream) return;
       if (!s) {
@@ -180,9 +188,8 @@ function PlayerView(opts) {
       }
       stream = s;
       tried.push(s);
-      qualityBtn.style.display = '';
       const info = si.parse(s);
-      toast(t('Smart Choice: {what}', { what: si.summary(info) || info.addon }), 3500);
+      introStatus.textContent = t('Smart Choice: {what}', { what: si.summary(info) || info.addon });
       start();
     });
   }
@@ -335,8 +342,8 @@ function PlayerView(opts) {
     updateTimes();
     loadSegments();
   });
-  videoEl.addEventListener('loadedmetadata', () => updateQuality());
   videoEl.addEventListener('playing', () => {
+    hideIntro();
     clearTimeout(slowTimer);
     closeSlow();
     if (!hasPlayed) scheduleAudioPick();
@@ -584,6 +591,7 @@ function PlayerView(opts) {
   }
 
   function fail(text, offerTranscode) {
+    hideIntro();
     clearTimeout(slowTimer);
     closeSlow();
     showSpinner(false);
@@ -685,12 +693,45 @@ function PlayerView(opts) {
     }, HIDE_MS);
   }
 
+  let introOn = true;
+  function setupIntro() {
+    requestAnimationFrame(() => requestAnimationFrame(() => introOn && intro.classList.add('in')));
+    const art = meta.background || hero.background(meta.id);
+    if (art) {
+      const pre = new Image();
+      pre.onload = () => introOn && (introBg.style.backgroundImage = 'url("' + art + '")') && introBg.classList.add('show');
+      pre.src = art;
+    }
+    introTitle.style.display = 'none';
+    introLogo.onerror = () => {
+      introLogo.style.display = 'none';
+      introTitle.style.display = '';
+    };
+    introLogo.src = meta.logo || hero.logo(meta.id);
+    introSub.textContent = opts.isSeries ? 'T' + video.season + ' E' + video.episode + ' · ' + (video.namePt || video.name || video.title || '') : '';
+    introStatus.textContent = stream ? t('Preparando o vídeo...') : t('Smart Choice: escolhendo a melhor fonte...');
+  }
+
+  function hideIntro() {
+    if (!introOn) return;
+    introOn = false;
+    intro.classList.remove('in');
+    // Controles e círculo voltam junto com o fim do fade.
+    setTimeout(() => el.classList.remove('intro-on'), 600);
+    // Depois do fade, solta a arte (1920x1080 pesa na memória da TV).
+    setTimeout(() => {
+      introBg.style.backgroundImage = '';
+      intro.style.display = 'none';
+    }, 900);
+  }
+
   function showSpinner(on) {
     spinner.style.display = on ? '' : 'none';
   }
 
   function message(text) {
-    msgEl.textContent = text;
+    msgEl.textContent = introOn ? '' : text;
+    if (introOn && text) introStatus.textContent = text;
   }
 
   // Busca acumulada: segurar a seta acelera (10s → 30s → 60s).
@@ -934,33 +975,6 @@ function PlayerView(opts) {
     start();
   }
 
-  // ---------- Qualidade (4K ⇄ 1080p) ----------
-  function currentRes() {
-    const hgt = videoEl.videoHeight;
-    if (hgt >= 1800) return '4K';
-    if (hgt >= 1000) return '1080p';
-    if (hgt >= 700) return '720p';
-    if (hgt > 0) return 'SD';
-    return stream ? si.parse(stream).res || '' : '';
-  }
-
-  function updateQuality() {
-    const cur = currentRes();
-    const target = cur === '4K' ? '1080p' : '4K';
-    const alt = si.bestAt(opts.streams || [], target, server.isAvailable(), stream);
-    qualityBtn.innerHTML = '<b>' + (cur || 'Auto') + '</b>' + (alt ? '<small>' + t('trocar p/ {res}', { res: target }) + '</small>' : '');
-    qualityBtn.classList.toggle('no-alt', !alt);
-  }
-
-  function toggleQuality() {
-    const cur = currentRes();
-    const target = cur === '4K' ? '1080p' : '4K';
-    const alt = si.bestAt(opts.streams || [], target, server.isAvailable(), stream);
-    if (!alt) return toast(t('Nenhuma fonte em {res} para este título.', { res: target }));
-    toast(t('Trocando para {res}...', { res: target }));
-    switchTo(alt);
-  }
-
   // ---------- Demorando para carregar: oferece outro provedor ----------
   function armSlow() {
     clearTimeout(slowTimer);
@@ -1171,7 +1185,7 @@ function PlayerView(opts) {
         return true;
       }
       if (k === KEY.UP) {
-        nav.focus(qualityBtn, { noScroll: true });
+        hideControls();
         return true;
       }
     }
@@ -1188,6 +1202,7 @@ function PlayerView(opts) {
     onKey: onKey,
     onShow: () => {
       if (!ticker) {
+        setupIntro();
         start();
         ticker = setInterval(() => {
           if (controlsOn) updateTimes();

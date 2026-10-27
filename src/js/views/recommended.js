@@ -498,8 +498,11 @@ export function StreamingsView() {
     billboard.stop();
     rail.setDefs(p.rows);
     rail.set(0);
+    // Troca de serviço: as fileiras novas sobem e aparecem num fade (só opacity/transform, leve na TV).
+    rows.classList.add('sw');
     clear(rows);
     rows.scrollTop = 0;
+    requestAnimationFrame(() => requestAnimationFrame(() => rows.classList.remove('sw')));
     const ctx = { billboard: billboard, rail: rail, crumb: 'Streamings › ' + p.name };
     const built = p.rows.map((def, i) => buildRow(def, i, ctx));
     built.forEach((b) => rows.appendChild(b.row));
