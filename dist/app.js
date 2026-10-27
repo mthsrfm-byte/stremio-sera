@@ -12676,6 +12676,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // src/js/views/nsfw.js
   var ROW_LIMIT3 = 20;
+  var ICON_ALL = '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>';
+  var ICON_SEARCH = '<svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg>';
+  function initialsOf(name) {
+    var words = String(name || "?").replace(/[^A-Za-z0-9À-ú+ ]/g, " ").trim().split(/\s+/);
+    return (words.length > 1 ? words[0][0] + words[1][0] : words[0].slice(0, 2)).toUpperCase();
+  }
   function openDetails2(type, id, opts) {
     markAdult(id);
     openDetails(type, id, opts);
@@ -12696,29 +12702,40 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       "data-scroll-y": ""
     });
     var bar = topbar("nsfw", goTab);
-    var filters = h("div.filters", {
-      "data-group": ""
+    var filters = h("div.provider-rail.nsfw-rail", {
+      "data-group": "",
+      "data-trap": ""
     });
+    var nowEl = h("div.nsfw-now");
     var body = h("div.rows");
     scroller.appendChild(bar);
-    scroller.appendChild(h("div.page-head", null, [h("h1.page-title", null, [t("NSFW"), h("span.nsfw-badge", {
+    scroller.appendChild(h("div.page-head.nsfw-head", null, [h("h1.page-title", null, [t("NSFW"), h("span.nsfw-badge", {
       text: "18+"
-    })]), filters]));
+    })]), nowEl]));
+    scroller.appendChild(filters);
     scroller.appendChild(body);
     el.appendChild(scroller);
-    var scope = "all";
+    var scope = get("nsfwScope", null);
+    var switchTimer = null;
     var pending = [];
     var active = 0;
     function scopes() {
       var list2 = adultAddons();
-      var out = [{
+      var out = [];
+      if (list2.length > 1) out.push({
         id: "all",
-        label: t("Tudo")
-      }];
-      if (list2.length > 1) list2.forEach(function (a) {
+        label: t("Tudo"),
+        sub: t("{n} provedores", {
+          n: list2.length
+        }),
+        icon: ICON_ALL
+      });
+      list2.forEach(function (a) {
         return out.push({
           id: a.manifest.id,
-          label: a.manifest.name || a.manifest.id
+          label: a.manifest.name || a.manifest.id,
+          sub: catalogCount(a),
+          addon: a
         });
       });
       if (list2.some(function (a) {
@@ -12727,25 +12744,103 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         });
       })) out.push({
         id: "search",
-        label: t("Buscar")
+        label: t("Buscar"),
+        sub: t("em todos os provedores"),
+        icon: ICON_SEARCH
       });
       return out;
+    }
+    function catalogCount(a) {
+      var n = adultCatalogs(a).filter(function (e) {
+        return isBoardable(e.catalog);
+      }).length;
+      return t(n === 1 ? "{n} catálogo" : "{n} catálogos", {
+        n: n
+      });
+    }
+    function pillLogo(f) {
+      var box = h("div.provider-logo");
+      if (f.icon) {
+        box.classList.add("img-loaded", "icon");
+        box.innerHTML = f.icon;
+        return box;
+      }
+      box.appendChild(h("span.mono", {
+        text: initialsOf(f.label)
+      }));
+      var logo2 = f.addon.manifest.logo;
+      if (logo2) {
+        var im = h("img", {
+          alt: ""
+        });
+        im.onload = function () {
+          im.classList.add("ready");
+          box.classList.add("img-loaded", "has-img");
+        };
+        im.onerror = function () {
+          return box.classList.add("img-loaded");
+        };
+        im.src = logo2;
+        box.appendChild(im);
+      } else box.classList.add("img-loaded");
+      return box;
     }
     function renderFilters() {
       clear(filters);
       var list2 = scopes();
-      list2.forEach(function (f, i) {
-        return filters.appendChild(h("div.chip", {
+      if (!list2.some(function (f) {
+        return f.id === scope;
+      })) scope = list2.length ? list2[0].id : "all";
+      list2.forEach(function (f) {
+        return filters.appendChild(h("div.provider", {
           focusable: true,
-          cls: f.id === scope ? "active" : "",
-          text: f.label,
+          cls: f.id === scope ? "on" : "",
+          title: f.label,
+          onFocus: function onFocus() {
+            return scheduleSwitch(f.id);
+          },
           onSelect: function onSelect() {
-            scope = f.id;
-            renderFilters();
-            renderBody();
-            focus(filters.children[i]);
+            return pick2(f.id, true);
           }
-        }));
+        }, [pillLogo(f), h("div.provider-name", {
+          text: f.label
+        })]));
+      });
+      var cur = list2.filter(function (f) {
+        return f.id === scope;
+      })[0];
+      nowEl.textContent = cur ? (cur.addon ? t("Provedor: {name}", {
+        name: cur.label
+      }) : cur.label) + "  ·  " + cur.sub : "";
+    }
+    function scheduleSwitch(id) {
+      clearTimeout(switchTimer);
+      switchTimer = setTimeout(function () {
+        return pick2(id);
+      }, 450);
+    }
+    function pick2(id, enter) {
+      clearTimeout(switchTimer);
+      if (id === scope) {
+        var first = enter && body.querySelector("[data-focus]");
+        if (first) focus(first);
+        return;
+      }
+      scope = id;
+      set("nsfwScope", id);
+      var idx = scopes().map(function (f) {
+        return f.id;
+      }).indexOf(id);
+      renderFilters();
+      body.classList.add("sw");
+      renderBody();
+      requestAnimationFrame(function () {
+        return requestAnimationFrame(function () {
+          return body.classList.remove("sw");
+        });
+      });
+      if (filters.children[idx]) focus(filters.children[idx], {
+        noScroll: true
       });
     }
     function loadNearby() {
@@ -12967,20 +13062,43 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       text: t("Carregando addons...")
     }));
     var ready = false;
+    var onRail = function onRail() {
+      return focus(filters.querySelector(".provider.on") || filters.firstChild);
+    };
+    function onKey(e) {
+      var cur = current2();
+      if (!cur || !filters.firstChild) return false;
+      if (e.keyCode === KEY.DOWN && cur.closest(".topbar")) {
+        onRail();
+        return true;
+      }
+      if (e.keyCode === KEY.UP && body.contains(cur)) {
+        var firstRow = body.querySelector("[data-focus]");
+        var top2 = firstRow ? firstRow.getBoundingClientRect().top : 0;
+        if (Math.abs(cur.getBoundingClientRect().top - top2) < 10) {
+          onRail();
+          return true;
+        }
+      }
+      return false;
+    }
     return {
       el: el,
+      onKey: onKey,
       onShow: function onShow() {
         if (ready) return loadNearby();
         load().then(function () {
           ready = true;
           render();
+          onRail();
         });
       },
       onScroll: function onScroll() {
         return loadNearby();
       },
       destroy: function destroy() {
-        return bar.__destroy && bar.__destroy();
+        clearTimeout(switchTimer);
+        if (bar.__destroy) bar.__destroy();
       }
     };
   }
@@ -13282,9 +13400,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "53be52fdc13dc99aeaa2645841ef8fc30762866e",
-    date: "2026-10-27T06:16:02+00:00",
-    message: "Build da dist/ para a TV"
+    commit: "b104a1296531b85954b3e40cb01afef6428b35e5",
+    date: "2026-10-27T06:29:23+00:00",
+    message: "Intro: back to the blue sweep reveal, white aligned logo, aurora borealis background instead of the glow"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {

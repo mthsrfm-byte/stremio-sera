@@ -855,3 +855,20 @@ body.light .fp-panel { background: rgba(255,255,255,0.5); }
 .profile-chip { padding: 4px; margin-right: 22px; border-radius: 50%; }
 .profile-chip span { display: none; }
 .clock { font-size: 24px; }
+
+/* NSFW: trilho de provedores (mesmo visual de Streamings) e "Provedor: X" bem à vista */
+.nsfw-head { padding-bottom: 6px; }
+.nsfw-now { font-size: 22px; font-weight: 600; color: rgba(245,244,239,0.65); }
+.nsfw-rail { padding: 0 96px 26px; }
+.nsfw-rail .provider-logo { position: relative; background-color: #2a1622; }
+.nsfw-rail .provider-logo .mono { position: absolute; left: 0; top: 0; right: 0; bottom: 0; line-height: 64px; text-align: center; font-family: 'Bricolage Grotesque', 'Geist', sans-serif; font-size: 24px; font-weight: 800; color: #ffc2d9; background: linear-gradient(135deg, #e5508c, #7b5bf5); }
+.nsfw-rail .provider-logo.has-img .mono { display: none; }
+.nsfw-rail .provider-logo img { position: relative; object-fit: cover; }
+.nsfw-rail .provider-logo.icon { display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; -webkit-justify-content: center; justify-content: center; background: rgba(245,244,239,0.1); }
+.nsfw-rail .provider-logo.icon svg { width: 30px; height: 30px; fill: none; stroke: #F5F4EF; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.nsfw-rail .provider.on { background-color: rgba(229,80,140,0.22); }
+.nsfw-rail .provider.on.focused { background-color: rgba(229,80,140,0.4); }
+.nsfw-rail .provider.focused { box-shadow: 0 0 0 4px #e5508c; }
+.nsfw-view .rows { -webkit-transition: opacity 0.4s ease, -webkit-transform 0.4s ease; transition: opacity 0.4s ease, transform 0.4s ease; }
+.nsfw-view .rows.sw { opacity: 0; -webkit-transform: translateY(30px); transform: translateY(30px); -webkit-transition: none; transition: none; }
+body.light .nsfw-now { color: rgba(17,17,16,0.6); }
