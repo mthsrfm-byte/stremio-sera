@@ -6303,9 +6303,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "7a06608a1a1a7df740f8ca841054fea0b6e9257a",
-    date: "2026-10-27T05:42:33-03:00",
-    message: "NSFW: links diretos primeiro, troca automática e serviço da TV protegido"
+    commit: "b653693d3ed8457bdb4737988389a91583bcd78c",
+    date: "2026-10-27T06:32:04-03:00",
+    message: "NSFW: Pornhub com sessão, hls.js de endereço fixo, ordem das abas, sem RT e sem vídeo sem prévia"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -6456,7 +6456,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
   var TUBES = ["xv", "ph"];
   var TUBE_PORT = 8092;
-  var SERVICE_MIN = 6;
+  var SERVICE_MIN = 7;
   var tubes = null;
   var tubeTries = 0;
   var tubeState = "searching";
@@ -6622,8 +6622,22 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     if ((s.sfwAddons || []).indexOf(id) >= 0) return false;
     return (s.nsfwAddons || []).indexOf(id) >= 0 || adultByManifest(addon);
   }
+  var ADULT_FIRST = ["seraflix.pornhub", "seraflix.xvideos"];
   function adultAddons() {
-    return list().filter(isAdult);
+    var rank2 = function rank2(a) {
+      var i = ADULT_FIRST.indexOf(a.manifest && a.manifest.id);
+      return i < 0 ? ADULT_FIRST.length : i;
+    };
+    return list().filter(isAdult).map(function (a, i) {
+      return {
+        a: a,
+        i: i
+      };
+    }).sort(function (x, y) {
+      return rank2(x.a) - rank2(y.a) || x.i - y.i;
+    }).map(function (x) {
+      return x.a;
+    });
   }
   function nsfwEnabled() {
     return settings().nsfwTab !== false;
@@ -7400,6 +7414,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       });
       im.setAttribute("data-lazy", src);
       im.onerror = function () {
+        if (o.dropWithoutImage) return dropCard();
         im.style.display = "none";
         wrap.classList.add("img-loaded");
         wrap.appendChild(h("div.ph", {
@@ -7407,7 +7422,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         }));
       };
       wrap.appendChild(im);
-    } else {
+    } else if (!o.dropWithoutImage) {
       wrap.classList.add("img-loaded");
       wrap.appendChild(h("div.ph", {
         text: item.name || ""
@@ -7421,7 +7436,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     if (o.badge) wrap.appendChild(h("div.badge", {
       text: o.badge
     }));
-    return h("div.card", {
+    var el = h("div.card", {
       focusable: true,
       cls: o.wide ? "wide" : o.rank ? "ranked" : "",
       onSelect: o.onSelect,
@@ -7431,6 +7446,18 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }) : null, wrap, h("div.name", {
       text: o.title || item.name || ""
     })]);
+    function dropCard() {
+      var parent = el.parentNode;
+      if (!parent) return;
+      if (current2() === el) {
+        var next = el.nextElementSibling || el.previousElementSibling;
+        if (next) focus(next);
+      }
+      parent.removeChild(el);
+      loadVisibleImages(parent);
+    }
+    if (o.dropWithoutImage && !src) setTimeout(dropCard, 0);
+    return el;
   }
   function skeletonCards(n) {
     var list3 = [];
@@ -8627,6 +8654,82 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return [info.res, info.dv ? "Dolby Vision" : info.hdr ? "HDR" : "", info.dub ? info.original ? "Original + Dublado" : "Dublado" : "", info.seeders !== null ? info.seeders + " seeders" : ""].filter(Boolean).join(" · ");
   }
 
+  // src/js/lib/hlsplay.js
+  var SOURCES3 = ["https://cdn.jsdelivr.net/npm/hls.js@1.5.20/dist/hls.min.js", "hls.js"];
+  var loading = null;
+  var unavailable = "";
+  function loadScript(src) {
+    return new Promise(function (ok, fail) {
+      var s = document.createElement("script");
+      s.src = src;
+      s.onload = function () {
+        return window.Hls ? ok(window.Hls) : fail(new Error("hls.js não carregou"));
+      };
+      s.onerror = function () {
+        return fail(new Error("hls.js não baixou"));
+      };
+      document.head.appendChild(s);
+    });
+  }
+  function loadHls() {
+    if (window.Hls) return Promise.resolve(window.Hls);
+    if (!loading) {
+      loading = loadScript(SOURCES3[0]).catch(function () {
+        return loadScript(SOURCES3[1]);
+      }).catch(function (e) {
+        loading = null;
+        throw e;
+      });
+    }
+    return loading;
+  }
+  function isHls(url2) {
+    return /\.m3u8$/i.test(String(url2 || "").split(/[?#]/)[0]);
+  }
+  function attach(videoEl, url2, onFatal) {
+    return loadHls().then(function (Hls) {
+      if (!Hls.isSupported()) {
+        unavailable = t("sem suporte a hls.js nesta TV");
+        return null;
+      }
+      unavailable = "";
+      var hls = new Hls({
+        // Worker de blob esbarra no Content-Security-Policy do app; na thread principal dá conta.
+        enableWorker: false,
+        // Pouca RAM na TV: segura menos vídeo na memória.
+        maxBufferLength: 30,
+        maxMaxBufferLength: 60,
+        backBufferLength: 30
+      });
+      var mediaRecovered = false;
+      var dead = false;
+      hls.on(Hls.Events.ERROR, function (ev, data) {
+        if (!data || !data.fatal || dead) return;
+        if (data.type === Hls.ErrorTypes.MEDIA_ERROR && !mediaRecovered) {
+          mediaRecovered = true;
+          hls.recoverMediaError();
+          return;
+        }
+        dead = true;
+        var code = data.response && data.response.code;
+        onFatal("hls " + (data.details || data.type) + (code ? " (HTTP " + code + ")" : ""));
+      });
+      hls.loadSource(url2);
+      hls.attachMedia(videoEl);
+      return {
+        destroy: function destroy() {
+          dead = true;
+          try {
+            hls.destroy();
+          } catch (e) {}
+        }
+      };
+    }, function (e) {
+      unavailable = e.message;
+      return null;
+    });
+  }
+
   // src/js/api/skip.js
   var INTRODB = "https://api.introdb.app/segments";
   var ANISKIP = "https://api.aniskip.com/v2/skip-times/";
@@ -8952,13 +9055,36 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         viaServer = res.viaServer;
         log.info("Tocando", mediaUrl);
         hasPlayed = false;
-        videoEl.autoplay = true;
-        videoEl.src = mediaUrl;
+        setSource(mediaUrl);
         freeBackgroundMemory();
         loadSubtitles();
       }).catch(function (e) {
         return fail(e.message);
       });
+    }
+    var hlsCtl = null;
+    var sourceUrl = "";
+    var sourceToken = 0;
+    function setSource(url2) {
+      dropSource();
+      var token = ++sourceToken;
+      sourceUrl = url2;
+      videoEl.autoplay = true;
+      if (!isHls(url2)) {
+        videoEl.src = url2;
+        return;
+      }
+      attach(videoEl, url2, function (why) {
+        if (alive && token === sourceToken) playbackError(null, why);
+      }).then(function (ctl) {
+        if (!alive || token !== sourceToken) return ctl && ctl.destroy();
+        if (ctl) hlsCtl = ctl;else videoEl.src = url2;
+      });
+    }
+    function dropSource() {
+      sourceToken++;
+      if (hlsCtl) hlsCtl.destroy();
+      hlsCtl = null;
     }
     function restart() {
       restartBtn.style.display = "none";
@@ -9162,10 +9288,16 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
     videoEl.addEventListener("error", function () {
       var err = videoEl.error;
-      log.warn("Erro de vídeo", err && err.code, mediaUrl);
-      if (!alive) return;
+      if (!sourceUrl || !videoEl.getAttribute("src")) return;
+      playbackError(err && err.code);
+    });
+    var errorToken = -1;
+    function playbackError(code, why) {
+      log.warn("Erro de vídeo", code || why, mediaUrl);
+      if (!alive || errorToken === sourceToken) return;
+      errorToken = sourceToken;
       var failed = stream;
-      errorDetails(err && err.code).then(function (details) {
+      errorDetails(code, why).then(function (details) {
         if (!alive || failed !== stream) return;
         var next = tubeFallback();
         if (next) {
@@ -9181,7 +9313,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           fail(t("A TV não conseguiu tocar este arquivo diretamente."), true, details);
         } else fail(t("A TV não conseguiu tocar este arquivo (formato ou codec não suportado)."), false, details);
       });
-    });
+    }
     var failedNotes = [];
     function tubeFallback() {
       if (!isTubeStream(stream)) return null;
@@ -9195,7 +9327,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       3: "decodificação",
       4: "formato/endereço não suportado"
     };
-    function errorDetails(code) {
+    function errorDetails(code, why) {
       var host = "";
       var target = "";
       try {
@@ -9203,9 +9335,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         target = px ? decodeURIComponent(px[1]) : mediaUrl;
         host = (target.match(/^https?:\/\/([^/]+)/) || [])[1] || "";
       } catch (e) {}
-      var parts = [t("erro {c}", {
+      var parts = [why || t("erro {c}", {
         c: (code || "?") + (MEDIA_ERR[code] ? " (" + MEDIA_ERR[code] + ")" : "")
       })];
+      if (!why && isHls(sourceUrl) && !hlsCtl && unavailable) parts[0] += " · " + unavailable;
       parts.push((stream && stream.name ? String(stream.name).split("\n").join(" ") + " · " : "") + (host || "?") + (target !== mediaUrl ? " " + t("via TV") : ""));
       if (target === mediaUrl) return Promise.resolve(parts.join(" · "));
       return getJSON(mediaUrl.replace(/\/px\/.*$/, "/api/pxlog"), {
@@ -9390,17 +9523,17 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       showSpinner(true);
       toast(t("Reconectando ao vídeo..."));
       pendingStart = Math.max(0, pos - 1) * 1e3;
-      var src = videoEl.currentSrc || mediaUrl;
+      var src = sourceUrl || mediaUrl;
       try {
         videoEl.pause();
+        dropSource();
         videoEl.removeAttribute("src");
         videoEl.load();
       } catch (e) {}
       setTimeout(function () {
         if (!alive) return;
         hasPlayed = false;
-        videoEl.autoplay = true;
-        videoEl.src = src;
+        setSource(src);
       }, 300);
     }
     function fail(text2, offerTranscode, details) {
@@ -9452,9 +9585,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       showSpinner(true);
       message("");
       log.info("Transcodificando", url2);
-      videoEl.src = url2;
-      videoEl.load();
-      videoEl.play();
+      setSource(url2);
     }
     function togglePlay() {
       if (videoEl.paused) videoEl.play();else videoEl.pause();
@@ -10135,6 +10266,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         closeSlow();
         try {
           videoEl.pause();
+          dropSource();
           videoEl.removeAttribute("src");
           videoEl.load();
         } catch (e) {}
@@ -10665,11 +10797,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var bgA = h("div.reco-bg");
     var bgB = h("div.reco-bg");
     var frameBox = h("div.reco-trailer");
-    var loading = h("div.reco-loading", null, h("div.spinner.small"));
+    var loading2 = h("div.reco-loading", null, h("div.spinner.small"));
     var title = h("div.reco-title");
     var meta = h("div.reco-meta");
     var desc = h("div.reco-desc");
-    var el = h("div.reco-bill", null, [h("div.aurora", null, [h("i.a1"), h("i.a2"), h("i.a3")]), bgA, bgB, frameBox, h("div.reco-shade-left"), h("div.reco-shade-bottom"), loading, h("div.reco-info", null, [title, meta, desc])]);
+    var el = h("div.reco-bill", null, [h("div.aurora", null, [h("i.a1"), h("i.a2"), h("i.a3")]), bgA, bgB, frameBox, h("div.reco-shade-left"), h("div.reco-shade-bottom"), loading2, h("div.reco-info", null, [title, meta, desc])]);
     var front = bgA;
     var current3 = null;
     var previewTimer = null;
@@ -11841,15 +11973,16 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         ratingsEl: ratingsEl
       });
     }
-    function renderRatings(el2, r, loading) {
+    function renderRatings(el2, r, loading2) {
       clear(el2);
       if (r.imdb) el2.appendChild(h("span.rating.imdb", {
         html: IMDB_SVG
       }, h("span.rv", {
         text: r.imdb
       })));
+      if (isAdult2()) return;
       var pct = function pct(v) {
-        return v === null || v === void 0 ? loading ? "··" : "--" : v + "%";
+        return v === null || v === void 0 ? loading2 ? "··" : "--" : v + "%";
       };
       el2.appendChild(h("span.rating.rt", {
         title: t("Rotten Tomatoes: crítica e público")
@@ -12940,6 +13073,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return _card(m, {
       wide: wide,
       image: wide ? m.poster || m.background : void 0,
+      dropWithoutImage: true,
       onSelect: function onSelect() {
         return openDetails2(m.type || entry.catalog.type, m.id, null, m);
       }

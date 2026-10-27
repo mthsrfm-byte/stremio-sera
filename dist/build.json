@@ -1,6 +1,6 @@
 {
   "version": "1.2.0",
-  "commit": "7a06608a1a1a7df740f8ca841054fea0b6e9257a",
-  "date": "2026-10-27T05:42:33-03:00",
-  "message": "NSFW: links diretos primeiro, troca automática e serviço da TV protegido"
+  "commit": "b653693d3ed8457bdb4737988389a91583bcd78c",
+  "date": "2026-10-27T06:32:04-03:00",
+  "message": "NSFW: Pornhub com sessão, hls.js de endereço fixo, ordem das abas, sem RT e sem vídeo sem prévia"
 }
