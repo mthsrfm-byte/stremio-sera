@@ -48,5 +48,6 @@
     "ColorF3Blue",
     "ChannelUp",
     "ChannelDown"
-  ]
+  ],
+  "serviceFile": "remote/tv-service.js"
 }
