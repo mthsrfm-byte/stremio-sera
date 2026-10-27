@@ -11,6 +11,7 @@ import { openPlayer } from './player.js';
 import * as extras from '../api/extras.js';
 import { smallThumb } from '../lib/img.js';
 import { t } from '../lib/i18n.js';
+import { log } from '../lib/log.js';
 
 // Logos das notas (SVG pequeno, sem depender de imagem externa).
 const IMDB_SVG =
@@ -41,6 +42,10 @@ function castPhoto(url) {
   ph.appendChild(im);
   return ph;
 }
+
+// Bandeira do Brasil desenhada (a fonte da TV não tem emoji de bandeira).
+const BR_FLAG =
+  '<svg class="flag" width="24" height="17" viewBox="0 0 24 17"><rect width="24" height="17" rx="3" fill="#009C3B"/><path d="M12 2.2 21.4 8.5 12 14.8 2.6 8.5z" fill="#FFDF00"/><circle cx="12" cy="8.5" r="3.6" fill="#002776"/></svg>';
 
 export function openDetails(type, id, opts) {
   router.push(DetailsView(type, id, opts || {}));
@@ -336,6 +341,13 @@ function DetailsView(type, id, opts) {
   }
 
   // Estimativa da taxa do arquivo (tamanho ÷ duração): avisa o que pesa no Wi-Fi da TV (~34 Mbps medidos).
+  // Áudio em português: bandeira (Torrentio marca 🇧🇷/🇵🇹) ou palavras dos lançamentos brasileiros.
+  function isDubbed(s) {
+    const text = (s.name || '') + ' ' + (s.title || s.description || '') + ' ' + ((s.behaviorHints && s.behaviorHints.filename) || '');
+    if (/\uD83C\uDDE7\uD83C\uDDF7|\uD83C\uDDF5\uD83C\uDDF9/.test(text)) return true;
+    return /dublad[oa]|\bdub(?:lagem)?[ ._-]?(?:pt|br)\b|\bpt[ ._-]?br\b|\bnacional\b|portugu[eê]s|\bdual\b[^\n]*\b(?:pt|br|por)\b|\b(?:pt|br|por)\b[^\n]*\bdual\b/i.test(text);
+  }
+
   function streamBadges(s) {
     const text = (s.name || '') + ' ' + (s.title || s.description || '');
     const out = [];
@@ -394,7 +406,7 @@ function DetailsView(type, id, opts) {
       sub.textContent = srv + (pendingCount > 0 ? '  ·  ' + t('{n} addon(s) ainda carregando', { n: pendingCount }) : '  ·  ' + t('{n} fontes', { n: all.length }));
       barFill.style.width = Math.round(((srcs.length - pendingCount) / srcs.length) * 100) + '%';
       const g = groups.find((x) => x.addon.transportUrl === filter);
-      filterBtn.textContent = (g ? g.addon.manifest.name : t('Todos')) + ' ▾';
+      filterBtn.textContent = (g ? g.addon.manifest.name : filter === 'dub' ? t('Dublados') : t('Todos')) + ' ▾';
     }
 
     function firstVisibleItem() {
@@ -404,7 +416,8 @@ function DetailsView(type, id, opts) {
     }
 
     function applyFilter() {
-      groups.forEach((g) => (g.el.style.display = filter === 'all' || filter === g.addon.transportUrl ? '' : 'none'));
+      groups.forEach((g) => (g.el.style.display = filter === 'all' || filter === 'dub' || filter === g.addon.transportUrl ? '' : 'none'));
+      list.classList.toggle('only-dub', filter === 'dub');
       list.scrollTop = 0;
       status();
       const first = firstVisibleItem();
@@ -412,7 +425,11 @@ function DetailsView(type, id, opts) {
     }
 
     function filterMenu() {
-      const opts = [{ label: t('Todos'), sub: t('{n} fontes', { n: all.length }), value: 'all', checked: filter === 'all' }].concat(
+      const dubs = all.filter(isDubbed).length;
+      const opts = [
+        { label: t('Todos'), sub: t('{n} fontes', { n: all.length }), value: 'all', checked: filter === 'all' },
+        { label: t('Só dublados em português'), sub: t('{n} fontes', { n: dubs }), value: 'dub', checked: filter === 'dub' },
+      ].concat(
         groups.map((g) => ({
           label: g.addon.manifest.name || g.addon.manifest.id,
           sub: g.done ? t('{n} fontes', { n: g.count }) : t('carregando...'),
@@ -470,12 +487,14 @@ function DetailsView(type, id, opts) {
     if (!playableType) tags.push(h('span.s-tag.warn', { text: t('Não suportado na TV') }));
     else if (needs) tags.push(h('span.s-tag', { cls: serverOk ? '' : 'warn', text: serverOk ? t('Torrent · via PC') : t('Torrent · precisa do PC') }));
     else tags.push(h('span.s-tag.ok', { text: t('Direto') }));
+    const dub = isDubbed(s);
+    if (dub) tags.unshift(h('span.s-tag.dub', { html: BR_FLAG + t('Dublado') }));
     streamBadges(s).forEach((b) => tags.push(h('span.s-tag', { cls: b.warn ? 'warn' : '', text: b.t })));
     return h(
       'div.stream',
       {
         focusable: true,
-        cls: disabled ? 'disabled' : '',
+        cls: (disabled ? 'disabled' : '') + (dub ? ' dub' : ''),
         onSelect: () => {
           if (!playableType) return toast(t('Esse tipo de fonte não abre na TV.'));
           if (needs && !serverOk) return toast(t('Torrent precisa do stremio-service rodando no PC. Configure em Ajustes.'), 5000);
@@ -544,10 +563,25 @@ function DetailsView(type, id, opts) {
       if (!opts.autoStreams) nav.focus(watchBtn);
     })
     .catch((e) => {
+      if (!alive) return;
+      log.warn('Detalhes falharam', type, id, e && e.message);
       clear(info);
       info.appendChild(h('div.details-title', { text: t('Não foi possível abrir') }));
-      info.appendChild(h('div.details-desc', { text: e.message }));
-      info.appendChild(h('div.btn', { focusable: true, 'data-autofocus': '', text: t('Voltar'), onSelect: () => router.pop() }));
+      info.appendChild(h('div.details-desc', { text: (e && e.message) || '' }));
+      info.appendChild(
+        h('div.details-buttons', { 'data-group': '' }, [
+          h('div.btn.primary', {
+            focusable: true,
+            'data-autofocus': '',
+            text: t('Tentar de novo'),
+            onSelect: () => {
+              router.pop();
+              openDetails(type, id, opts);
+            },
+          }),
+          h('div.btn', { focusable: true, text: t('Voltar'), onSelect: () => router.pop() }),
+        ])
+      );
       nav.focusFirst(el);
     });
 

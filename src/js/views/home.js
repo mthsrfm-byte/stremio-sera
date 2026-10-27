@@ -92,7 +92,11 @@ export function HomeView() {
     pending = [];
     clear(rows);
     if (reco.available()) {
-      pending = reco.HOME_ROWS.map((def) => {
+      // Depois do Top 10, até duas fileiras "Porque você viu X" com o que a pessoa assistiu por último.
+      const defs = reco.HOME_ROWS.slice();
+      const seeds = recentlyWatched().slice(0, 2);
+      seeds.forEach((it, i) => defs.splice(1 + i, 0, reco.becauseYouWatched(it._id, it.name)));
+      pending = defs.map((def) => {
         const r = simpleRow(def, 'Início');
         rows.appendChild(r.row);
         return Object.assign(r, { state: 'idle' });
@@ -146,6 +150,14 @@ export function HomeView() {
     },
   };
   return view;
+}
+
+// Títulos (com id do IMDb) que a pessoa assistiu por último, do mais recente.
+function recentlyWatched() {
+  return stremio
+    .cachedLibrary()
+    .filter((it) => /^tt\d+$/.test(it._id) && it.name && it.state && it.state.lastWatched && (it.type === 'movie' || it.type === 'series'))
+    .sort((a, b) => String(b.state.lastWatched).localeCompare(String(a.state.lastWatched)));
 }
 
 function episodeLabel(videoId, metaId) {

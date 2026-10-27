@@ -1,7 +1,7 @@
 // Metadados extras no estilo do Kai (Metadata/ e details-enhancer):
 // - notas de várias fontes (IMDb do Cinemeta; MDBList com chave; AniList para animes, sem chave);
 // - sinopse/título em PT-BR, logo e elenco com fotos via TMDB (com chave).
-import { cachedJSON } from '../lib/http.js';
+import { cachedJSON, getJSON } from '../lib/http.js';
 import * as store from '../lib/store.js';
 import { getJSONViaProxy } from './server.js';
 import { apiLang } from '../lib/i18n.js';
@@ -27,6 +27,11 @@ function keyOf(name) {
 
 function tmdbKey() {
   return keyOf('tmdbKey');
+}
+
+// Teste direto (sem cache) para o diagnóstico de rede.
+export function tmdbPing() {
+  return getJSON(TMDB + 'configuration?api_key=' + encodeURIComponent(tmdbKey()), { timeout: 10000, quiet: true });
 }
 
 export function hasTmdb() {

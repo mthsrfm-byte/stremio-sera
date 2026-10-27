@@ -1,7 +1,7 @@
 // Aba "Recomendado": fileiras montadas no TMDB (chave embutida no build).
 // Cada item: { tmdbId, mediaType: 'movie'|'tv', name, poster, backdrop, overview, year, rating }.
 // Para abrir no Seraflix (addons do Stremio) é preciso o id do IMDb: resolvido só ao escolher.
-import { tmdb, hasTmdb } from './extras.js';
+import { tmdb, hasTmdb, tmdbFind } from './extras.js';
 
 const IMG = 'https://image.tmdb.org/t/p/';
 const TRUE_CRIME_KEYWORD = 33722; // keyword "true crime" do TMDB
@@ -59,14 +59,12 @@ const lang = { language: 'pt-BR' };
 function trending(page) {
   const today = isoDaysAgo(0);
   const since = isoDaysAgo(180);
-  return pages((p) => tmdb('trending/all/week', Object.assign({ page: p }, lang)).then((r) => r.results || []), (page - 1) * 3 + 1, 3).then((rs) =>
-    dedupe(
-      rs
-        .filter((r) => r.media_type === 'movie' || r.media_type === 'tv')
-        .map((r) => toItem(r))
-        .filter((it) => it.date && it.date >= since && it.date <= today)
-    )
-  );
+  return pages((p) => tmdb('trending/all/week', Object.assign({ page: p }, lang)).then((r) => r.results || []), (page - 1) * 3 + 1, 3).then((rs) => {
+    const all = dedupe(rs.filter((r) => r.media_type === 'movie' || r.media_type === 'tv').map((r) => toItem(r)));
+    const recent = all.filter((it) => it.date && it.date >= since && it.date <= today);
+    // Relógio da TV muito errado deixaria a fileira vazia: aí vale o "em alta" sem filtro de data.
+    return recent.length >= 6 ? recent : all;
+  });
 }
 
 // True crime: documentários (filmes e séries) com a keyword "true crime", do mais bem avaliado.
@@ -201,10 +199,57 @@ function modernClassics(page) {
   return discover('movie', Object.assign({ page: page, sort_by: 'vote_average.desc', 'vote_count.gte': 5000, 'primary_release_date.gte': '1995-01-01', 'primary_release_date.lte': '2019-12-31' }, lang)).then(dedupe);
 }
 
+// Top 10 do dia (filmes e séries juntos), com o número grande ao lado do pôster.
+function topToday(page) {
+  return tmdb('trending/all/day', Object.assign({ page: page }, lang)).then((r) =>
+    dedupe((r.results || []).filter((x) => x.media_type === 'movie' || x.media_type === 'tv').map((x) => toItem(x))).slice(0, page === 1 ? 10 : 20)
+  );
+}
+
+// "Porque você viu X": recomendações do TMDB a partir de algo que a pessoa assistiu.
+export function becauseYouWatched(imdb, name) {
+  return {
+    id: 'because-' + imdb,
+    title: 'Porque você viu ' + name,
+    caption: 'Parecidos com o que você curtiu',
+    optional: true,
+    load: (page) =>
+      tmdbFind(imdb).then((f) =>
+        f ? tmdb(f.type + '/' + f.id + '/recommendations', Object.assign({ page: page }, lang)).then((r) => dedupe((r.results || []).map((x) => toItem(x, x.media_type || f.type)))) : []
+      ),
+  };
+}
+
+// Explore por clima: atalhos que abrem uma categoria inteira (filmes e séries do gênero).
+function mood(id, title, caption, movieGenre, tvGenre, colors) {
+  const q = (type, genre, page) =>
+    discover(type, Object.assign({ page: page, with_genres: genre, sort_by: 'popularity.desc', 'vote_average.gte': 6.5, 'vote_count.gte': type === 'tv' ? 150 : 400 }, lang));
+  return {
+    id: 'mood-' + id,
+    title: title,
+    caption: caption,
+    colors: colors,
+    load: (page) => Promise.all([q('movie', movieGenre, page), tvGenre ? q('tv', tvGenre, page) : Promise.resolve([])]).then((both) => dedupe(interleave(both[0], both[1]))),
+  };
+}
+
+export const MOODS = [
+  mood('laugh', 'Pra rir', 'Comédias', 35, 35, ['#FF8A3D', '#FF3D7F']),
+  mood('adrenaline', 'Adrenalina', 'Ação e aventura', 28, 10759, ['#FF4D4D', '#7A1FFF']),
+  mood('mystery', 'Mistério', 'Pra desconfiar de todo mundo', 9648, 9648, ['#3347FF', '#0B1640']),
+  mood('feels', 'Pra se emocionar', 'Dramas bem avaliados', 18, 18, ['#2BB3A6', '#1B4D8C']),
+  mood('scifi', 'Outros mundos', 'Ficção científica e fantasia', 878, 10765, ['#7A5CFF', '#00C2FF']),
+  mood('love', 'Romance', 'Pra ver agarradinho', 10749, null, ['#FF5C8A', '#9B1B4A']),
+  mood('animation', 'Animação', 'Pra todas as idades', 16, 16, ['#FFC83D', '#FF7A3D']),
+  mood('docs', 'Documentários', 'Histórias reais', 99, 99, ['#4CAF7A', '#1E4D3A']),
+];
+
 export const HOME_ROWS = [
-  { id: 'hm-movies', title: 'Filmes em alta', caption: 'Os mais vistos da semana', load: trendingType('movie') },
-  { id: 'hm-series', title: 'Séries em alta', caption: 'As mais vistas da semana', load: trendingType('tv') },
+  { id: 'hm-top', title: 'Top 10 de hoje', caption: 'O que mais estão vendo agora', load: topToday, ranked: true },
   { id: 'hm-news', title: 'Chegou nos streamings', caption: 'Netflix, Prime Video, Disney+, HBO Max e Apple TV+', load: streamingNews },
+  { id: 'hm-moods', title: 'Explore por clima', caption: 'Escolha a vibe e veja tudo', moods: true },
+  { id: 'hm-series', title: 'Séries em alta', caption: 'As mais vistas da semana', load: trendingType('tv') },
+  { id: 'hm-movies', title: 'Filmes em alta', caption: 'Os mais vistos da semana', load: trendingType('movie') },
   { id: 'hm-acclaimed', title: 'Aclamados do último ano', caption: 'Filmes recentes com nota alta', load: acclaimedRecent },
   { id: 'hm-tvbest', title: 'Séries obrigatórias', caption: 'As mais bem avaliadas de todos os tempos', load: acclaimedSeries },
   { id: 'hm-classics', title: 'Clássicos modernos', caption: 'Filmes de 1995 a 2019 que todo mundo ama', load: modernClassics },
