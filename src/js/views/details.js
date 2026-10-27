@@ -13,7 +13,6 @@ import { smallThumb } from '../lib/img.js';
 import { t } from '../lib/i18n.js';
 import { log } from '../lib/log.js';
 import * as si from '../lib/streaminfo.js';
-import * as reviews from '../api/reviews.js';
 import * as nsfwSaved from '../lib/nsfwSaved.js';
 import * as store from '../lib/store.js';
 import { genreName } from '../lib/genres.js';
@@ -259,33 +258,6 @@ function DetailsView(type, id, opts) {
     const fav = isAdult() ? nsfwSaved.has(meta.id) : stremio.isInLibrary(meta.id);
     libBtn.classList.toggle('faved', fav);
     libBtn.innerHTML = fav ? '<span class="ico fav">♥</span>' + t('Favoritado') : '<span class="ico">♡</span>' + t('Favoritar');
-  }
-
-  // O que a crítica diz (Rotten Tomatoes): consenso e até 3 críticos, à direita, onde ficava a lista de fontes.
-  const reviewsEl = h('div.reviews-panel');
-  function loadReviews() {
-    if (reviewsEl.parentNode) return;
-    reviews.forTitle(meta).then((r) => {
-      if (!alive || !r) return;
-      clear(reviewsEl);
-      reviewsEl.appendChild(h('div.rv-head', null, [h('span.rv-rt', { html: RT_SVG }), h('span', { text: t('O que a crítica diz') })]));
-      if (r.consensus) reviewsEl.appendChild(h('p.rv-consensus', { text: r.consensus }));
-      r.critics.forEach((c) =>
-        reviewsEl.appendChild(
-          h('div.rv-critic', { cls: c.fresh ? 'fresh' : 'rotten' }, [
-            h('p.rv-quote', { text: '“' + c.quote + '”' }),
-            h('div.rv-by', null, [
-              h('i.rv-dot'),
-              h('b', { text: c.name || '' }),
-              c.outlet ? h('span', { text: ' · ' + c.outlet }) : null,
-              c.score ? h('span.rv-score', { text: c.score }) : null,
-            ]),
-          ])
-        )
-      );
-      reviewsEl.appendChild(h('div.rv-src', { text: 'Rotten Tomatoes' + (r.translated ? ' · ' + t('traduzido automaticamente') : '') }));
-      el.appendChild(reviewsEl);
-    });
   }
 
   // Vídeo adulto: os números que dizem se o vídeo é bom (aprovação, curtidas, visualizações, duração).
@@ -729,11 +701,7 @@ function DetailsView(type, id, opts) {
         }
       } else {
         // Smart Choice: sem lista de fontes à vista (nem ao voltar do player); trocar é no player.
-        // O lado direito fica com o que a crítica diz.
-        if (smartOn()) {
-          panel.style.display = 'none';
-          if (!isAdult()) loadReviews();
-        }
+        if (smartOn()) panel.style.display = 'none';
         if (opts.autoStreams) watch({ id: movieVideoId(), title: meta.name });
         else if (!smartOn()) showStreams({ id: movieVideoId(), title: meta.name }, false);
       }
