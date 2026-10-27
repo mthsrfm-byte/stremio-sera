@@ -9,6 +9,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
     private let ui = UIBundle()
     private let server = ServerSupervisor()
     private var player: MPVPlayer?
+    private var playerStartupError: String?
+    private var smokeRenderer = ""
     private let media = MediaIntegration()
     private var updater: SPUStandardUpdaterController?
     private let launchTime = Date()
@@ -27,7 +29,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         guard let i = args.firstIndex(of: "--smoke-test"), args.indices.contains(i + 1) else { return nil }
         return args[i + 1]
     }
+    private var smokeVideoOpened = false
+    private var smokeTorrentFile: String? {
+        let args = CommandLine.arguments
+        guard let i = args.firstIndex(of: "--smoke-torrent-file"), args.indices.contains(i + 1) else { return nil }
+        return args[i + 1]
+    }
     private var smokeVideo: String? {
+        if let gate = smokeTorrentFile {
+            return (try? String(contentsOfFile: gate, encoding: .utf8))?.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
         let args = CommandLine.arguments
         guard let i = args.firstIndex(of: "--smoke-video"), args.indices.contains(i + 1) else { return nil }
         return args[i + 1]
@@ -94,30 +105,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
                 }
             }
         }
-        do {
-            let player = try MPVPlayer()
-            self.player = player
-            installNativeView(player.view)
-            player.onEvent = { [weak self] event, data in
-                self?.media.receive(event, data)
-                if self?.smokeResult != nil {
-                    if event == "tracks" { self?.testSmokeTracks(data) }
-                    if event == "loaded" { self?.smokeLoaded = true }
-                    if event == "rendered", data["pixelNonBlack"] as? Bool == true { self?.smokeRendered = true }
-                    if event == "time", (data["position"] as? Double ?? 0) > 0.3 { self?.smokeAdvanced = true }
-                    if event == "error" { self?.finishSmoke(error: data["message"] as? String ?? "Erro libmpv") }
-                    self?.checkSmokeComplete()
-                }
-                self?.emit(event, data)
-            }
-        } catch { NSLog("Player indisponível: %@", error.localizedDescription) }
         commandHandler = { [weak self] command, args in
             guard let self = self else { return }
             if command == "serverStatus" || command == "appReady" {
                 self.emit("server", self.server.state)
                 return
             }
-            guard let player = self.player else { throw UIError.invalid("Player nativo indisponível. Reinstale o app.") }
+            if command == "load" { try self.preparePlayer() }
+            guard let player = self.player else { throw UIError.invalid("Abra um vídeo antes de controlar a reprodução.") }
             if command == "load" { self.media.setTitle(args["title"] as? String ?? "Seraflix") }
             try player.handle(command: command, args: args)
         }
@@ -149,6 +144,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
                     if !self.interacted { self.load(updated) }
                 }
             } catch { NSLog("UI remota indisponível; mantendo cache/fallback: %@", error.localizedDescription) }
+        }
+    }
+
+    private func preparePlayer() throws {
+        guard player == nil else { return }
+        // A home abre antes de inicializar driver/GPU. O player só custa ao abrir mídia.
+        do {
+            let player = try MPVPlayer()
+            self.player = player
+            installNativeView(player.view)
+            player.onEvent = { [weak self] event, data in
+                self?.media.receive(event, data)
+                if self?.smokeResult != nil {
+                    if event == "tracks" { self?.testSmokeTracks(data) }
+                    if event == "loaded" { self?.smokeLoaded = true }
+                    if event == "rendered", data["pixelNonBlack"] as? Bool == true {
+                        self?.smokeRendered = true
+                        self?.smokeRenderer = data["renderer"] as? String ?? ""
+                    }
+                    if event == "time", (data["position"] as? Double ?? 0) > 0.3 { self?.smokeAdvanced = true }
+                    if event == "error" { self?.finishSmoke(error: data["message"] as? String ?? "Erro libmpv") }
+                    self?.checkSmokeComplete()
+                }
+                self?.emit(event, data)
+            }
+        } catch {
+            playerStartupError = error.localizedDescription
+            throw error
         }
     }
 
@@ -189,11 +212,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
             guard let self = self, self.smokeResult != nil else { return }
             if let error = error { self.finishSmoke(error: error.localizedDescription); return }
             if result as? Bool == true {
-                self.smokeHome = true
-                self.smokeHomeSeconds = Date().timeIntervalSince(self.launchTime)
-                if let url = self.smokeVideo,
+                if !self.smokeHome {
+                    self.smokeHome = true
+                    self.smokeHomeSeconds = Date().timeIntervalSince(self.launchTime)
+                }
+                if self.smokeTorrentFile != nil && self.smokeVideo == nil {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in self?.pollSmokeHome() }
+                    return
+                }
+                if !self.smokeVideoOpened, let url = self.smokeVideo,
                    let bytes = try? JSONSerialization.data(withJSONObject: [url]),
                    let json = String(data: bytes, encoding: .utf8) {
+                    self.smokeVideoOpened = true
                     self.web.evaluateJavaScript("window.dispatchEvent(new CustomEvent('seraflix-open-url',{detail:\(json)[0]}))")
                 }
                 self.checkSmokeComplete()
@@ -205,6 +235,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
 
     private func checkSmokeComplete() {
         guard smokeResult != nil, smokeHome, player != nil else { return }
+        guard smokeTorrentFile == nil || smokeVideoOpened else { return }
         guard !CommandLine.arguments.contains("--smoke-server") || smokeServerRestarted else { return }
         guard !CommandLine.arguments.contains("--smoke-tracks") || smokeTracksSelected else { return }
         if smokeVideo == nil || (smokeLoaded && smokeAdvanced && smokeRendered) { finishSmoke(error: nil) }
@@ -233,6 +264,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         smokeFinished = true
         let result: [String: Any] = ["ok": error == nil, "home": smokeHome, "player": player != nil,
                                      "loaded": smokeLoaded, "advanced": smokeAdvanced, "rendered": smokeRendered,
+                                     "renderer": smokeRenderer, "playerStartupError": playerStartupError ?? "",
                                      "homeSeconds": smokeHomeSeconds, "serverRestarts": max(0, smokeServerReadyCount - 1),
                                      "serverRestarted": smokeServerRestarted, "tracksSelected": smokeTracksSelected, "error": error ?? ""]
         if let bytes = try? JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys]) {
@@ -273,7 +305,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
                 try handler(command, args)
             }
             emit("response", ["id": id, "ok": true])
-        } catch { emit("response", ["id": id, "ok": false, "error": error.localizedDescription]) }
+        } catch {
+            emit("response", ["id": id, "ok": false, "error": error.localizedDescription])
+            if command == "load", smokeResult != nil { finishSmoke(error: error.localizedDescription) }
+        }
     }
 
     func emit(_ event: String, _ data: [String: Any]) {

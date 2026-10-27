@@ -40,8 +40,8 @@ for path in files:
         temporary = path.with_name(path.name + '.thin')
         subprocess.run(['lipo', str(path), '-thin', args.arch, '-output', str(temporary)], check=True)
         os.replace(temporary, path)
-    # Qualquer alteração posterior à assinatura invalida o selo anterior.
-    subprocess.run(['codesign', '--remove-signature', str(path)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    # codesign --force substituirá a assinatura ao final. Não retirar o selo aqui:
+    # ferramentas Apple antigas podem alterar __LINKEDIT de dylibs de SDK mais novo.
 
 # Reescreve apenas caminhos de desenvolvimento; referências Apple não são copiadas.
 for path in files:
@@ -56,7 +56,10 @@ for path in files:
         else:
             raise SystemExit(f'Dependência fora do app: {path}: {dependency}')
     if path.suffix == '.dylib':
-        subprocess.run(['install_name_tool', '-id', '@rpath/' + path.name, str(path)], check=True)
+        current_id = run('otool', '-D', str(path)).splitlines()[1:]
+        expected_id = '@rpath/' + path.name
+        if not current_id or current_id[0].strip() != expected_id:
+            subprocess.run(['install_name_tool', '-id', expected_id, str(path)], check=True)
     commands = run('otool', '-l', str(path))
     minimums = re.findall(r'\bminos\s+(\d+(?:\.\d+){0,2})', commands)
     # Mach-O antigos usam LC_VERSION_MIN_MACOSX.

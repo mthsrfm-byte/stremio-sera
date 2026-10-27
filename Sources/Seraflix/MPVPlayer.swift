@@ -47,8 +47,11 @@ final class MPVPlayer {
     init() throws {
         // libmpv exige decimal com ponto mesmo em sistemas configurados em pt-BR.
         setlocale(LC_NUMERIC, "C")
-        guard let surface = MPVSurface(videoSurface: true), let mpv = mpv_create() else {
-            throw Failure.message("Não foi possível criar o player OpenGL/libmpv.")
+        guard let surface = MPVSurface(videoSurface: true) else {
+            throw Failure.message("Formato OpenGL 3.2 indisponível nesta máquina (GPU e fallback de software).")
+        }
+        guard let mpv = mpv_create() else {
+            throw Failure.message("Não foi possível criar o contexto libmpv.")
         }
         self.surface = surface
         self.handle = mpv
@@ -66,9 +69,11 @@ final class MPVPlayer {
                 "sub-auto": "no", "ytdl": "no", "network-timeout": "30"
             ]
             for (name, value) in options {
-                try check(mpv_set_option_string(mpv, name, value))
+                do { try check(mpv_set_option_string(mpv, name, value)) }
+                catch { throw Failure.message("Ao configurar \(name)=\(value): \(error.localizedDescription)") }
             }
-            try check(mpv_initialize(mpv))
+            do { try check(mpv_initialize(mpv)) }
+            catch { throw Failure.message("Ao inicializar libmpv: \(error.localizedDescription)") }
             // Contexto fraco retido enquanto callbacks C podem existir.
             let callback = MPVCallbacks(self)
             let context = Unmanaged.passRetained(callback).toOpaque()
@@ -239,7 +244,12 @@ final class MPVPlayer {
             if !renderedForSession && (!smokeRendering || pixelNonBlack) {
                 renderedForSession = true
                 var data: [String: Any] = ["frameCount": frameCount]
-                if smokeRendering { data["pixelNonBlack"] = pixelNonBlack }
+                if smokeRendering {
+                    data["pixelNonBlack"] = pixelNonBlack
+                    if let name = glGetString(GLenum(GL_RENDERER)) {
+                        data["renderer"] = String(cString: UnsafeRawPointer(name).assumingMemoryBound(to: CChar.self))
+                    }
+                }
                 emit("rendered", data)
             }
         } else if status < 0 {
@@ -457,12 +467,16 @@ private final class MPVSurface: NSOpenGLView {
     override var isOpaque: Bool { true }
 
     init?(videoSurface: Bool) {
-        let attributes: [NSOpenGLPixelFormatAttribute] = [
+        let base: [NSOpenGLPixelFormatAttribute] = [
             UInt32(NSOpenGLPFAOpenGLProfile), UInt32(NSOpenGLProfileVersion3_2Core),
-            UInt32(NSOpenGLPFAAccelerated), UInt32(NSOpenGLPFADoubleBuffer),
-            UInt32(NSOpenGLPFAColorSize), 24, UInt32(NSOpenGLPFAAlphaSize), 8, 0
+            UInt32(NSOpenGLPFADoubleBuffer), UInt32(NSOpenGLPFAColorSize), 24,
+            UInt32(NSOpenGLPFAAlphaSize), 8, 0
         ]
-        guard let format = NSOpenGLPixelFormat(attributes: attributes) else { return nil }
+        // Sempre preferir a GPU dos Macs M1/M3. Algumas VMs de CI só oferecem
+        // renderer de software; manter o mesmo perfil 3.2 nesse fallback.
+        let accelerated = [UInt32(NSOpenGLPFAAccelerated)] + base
+        guard let format = NSOpenGLPixelFormat(attributes: accelerated)
+            ?? NSOpenGLPixelFormat(attributes: base) else { return nil }
         super.init(frame: .zero, pixelFormat: format)
         wantsBestResolutionOpenGLSurface = true
     }

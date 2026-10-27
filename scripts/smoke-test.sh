@@ -35,3 +35,12 @@ PY
 }
 run_smoke mpeg4 http://127.0.0.1:18765/sample.mp4
 run_smoke hevc-4k http://127.0.0.1:18765/hevc-4k-tracks.mkv --smoke-tracks
+
+# O terceiro vídeo vem de um torrent privado sem depender de seeders da Internet.
+"$ROOT/scripts/setup-torrent-test.sh"
+GATE="$ROOT/build/torrent-url.txt"
+RESULT="$ROOT/build/smoke-$ARCH-torrent.json"
+rm -f "$GATE" "$RESULT"
+open -n "$APP" --args --smoke-test "$RESULT" --smoke-torrent-file "$GATE" --smoke-tracks
+node "$ROOT/scripts/test-server-torrent.mjs" "$GATE" "$RESULT"
+cat "$RESULT"

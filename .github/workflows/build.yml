@@ -91,6 +91,7 @@ jobs:
           path: |
             artifacts/
             build/smoke-*.json
+            build/torrent-range.json
           if-no-files-found: warn
           retention-days: 30
       # Não publicar binários GPL obtidos de snapshots sem corresponding source exata.
