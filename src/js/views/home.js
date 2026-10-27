@@ -6,7 +6,8 @@ import { KEY } from '../lib/nav.js';
 import * as addons from '../api/addons.js';
 import * as stremio from '../api/stremio.js';
 import * as hero from '../api/hero.js';
-import { topbar, card, spinnerLine, skeletonCards, retrying } from '../ui.js';
+import { topbar, card, spinnerLine, skeletonCards, retrying, agendaPanel, dayLabel, eventTime, eventSoon } from '../ui.js';
+import * as calendar from '../api/calendar.js';
 import * as router from '../router.js';
 import { openDetails } from './details.js';
 import { t } from '../lib/i18n.js';
@@ -21,10 +22,12 @@ export function HomeView() {
   const scroller = h('div.scroll-y', { 'data-scroll-y': '' });
   const bar = topbar('home', router.goTab);
   const heroUi = buildHero();
+  const calRow = h('div.row.cal-row', { 'data-anchor': '30' });
   const cwRow = h('div.row', { 'data-anchor': '30' });
   const rows = h('div.rows');
   scroller.appendChild(bar);
   scroller.appendChild(heroUi.el);
+  scroller.appendChild(calRow);
   scroller.appendChild(cwRow);
   scroller.appendChild(rows);
   el.appendChild(scroller);
@@ -61,6 +64,42 @@ export function HomeView() {
     cwRow.appendChild(track);
     loadVisibleImages(cwRow);
   }
+
+  // Sua agenda: cartões pequenos de hoje e de amanhã, cada dia com o seu rótulo. Abre o painel.
+  function renderAgenda() {
+    clear(calRow);
+    if (!calendar.enabled()) {
+      calRow.style.display = 'none';
+      return;
+    }
+    calRow.style.display = '';
+    calRow.appendChild(h('div.row-title', null, [t('Sua agenda'), h('small', { text: t('Google Agenda') })]));
+    const d = calendar.days();
+    const today = new Date();
+    const track = h('div.row-track.cal-track', { 'data-scroll-x': '', 'data-group': '', 'data-trap': '' });
+    const now = Date.now();
+    const group = (label, date, events) => {
+      const cards = events.map((e) => {
+        const soon = eventSoon(e);
+        const sub = e.location || e.calendar || '';
+        return h('div.cal-card', { focusable: true, cls: (e.end.getTime() <= now ? 'past' : '') + (soon ? ' soon' : ''), onSelect: () => agendaPanel() }, [
+          h('div.cal-card-top', null, [h('span.cal-card-time', null, [h('i', { style: { background: e.color } }), eventTime(e)]), soon ? h('span.cal-badge', { text: soon }) : null]),
+          h('div.cal-card-title', { text: e.title }),
+          h('div.cal-card-sub', { text: e.end.getTime() <= now ? t('Terminou') + (sub ? ' · ' + sub : '') : sub }),
+        ]);
+      });
+      if (!cards.length) cards.push(h('div.cal-card.empty', { focusable: true, onSelect: () => agendaPanel(), text: t('Nada na agenda') }));
+      return h('div.cal-group', null, [h('div.cal-day', null, [h('b', { text: label }), dayLabel(date, true)]), h('div.cal-cards', null, cards)]);
+    };
+    track.appendChild(group(t('HOJE'), today, d.today));
+    track.appendChild(h('div.cal-sep'));
+    track.appendChild(group(t('AMANHÃ'), new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1), d.tomorrow));
+    calRow.appendChild(track);
+  }
+  const offCalendar = calendar.onChange(() => {
+    // Não redesenha com o foco dentro da fileira (o cartão focado sumiria).
+    if (!calRow.contains(nav.current())) renderAgenda();
+  });
 
   // Fileiras sob demanda: só busca o catálogo quando a fileira chega perto da tela,
   // no máximo 2 ao mesmo tempo. Antes eram todas de uma vez e a TV ficava sem memória.
@@ -126,6 +165,7 @@ export function HomeView() {
   const view = {
     el: el,
     onShow: () => {
+      renderAgenda();
       renderContinue();
       if (!loadedBoard) renderBoard();
       else loadNearby(); // fileiras que ficaram esperando enquanto a tela estava escondida
@@ -146,6 +186,7 @@ export function HomeView() {
       renderBoard();
     },
     destroy: () => {
+      offCalendar();
       heroUi.pause();
       if (bar.__destroy) bar.__destroy();
     },

@@ -14,7 +14,7 @@ var urlLib = require('url');
 
 var PORT = 8090;
 var ADDON_PORT = 8092; // addons XVideos/Pornhub e vídeo (porta nova a cada mudança que versões antigas não sabem largar)
-var SERVICE_VERSION = 7;
+var SERVICE_VERSION = 8;
 var PAGE_BASE = 'https://cdn.jsdelivr.net/gh/mthsrfm-byte/stremio-sera/remote/';
 var APP_NAME = 'Seraflix Controle';
 var TOKEN_FILE = '/home/owner/share/seraflixRemote.json';
@@ -678,6 +678,27 @@ function proxyRoute(req, res, query) {
   go(target);
 }
 
+// ---------- Agenda (iCal) ----------
+// O app não consegue ler o .ics do Google direto (sem CORS): o serviço baixa e repassa. Só de
+// serviços de agenda conhecidos (o serviço escuta na rede de casa e não pode virar proxy aberto).
+var CAL_HOSTS = /(^|\.)(calendar\.google\.com|icloud\.com|outlook\.office365\.com|outlook\.live\.com)$/i;
+function calendarRoute(res, query) {
+  var target = String(query.u || '');
+  var parsed = urlLib.parse(target);
+  if (parsed.protocol !== 'https:' || !CAL_HOSTS.test(parsed.hostname || '')) {
+    res.writeHead(400, { 'Content-Type': 'text/plain', 'Access-Control-Allow-Origin': '*' });
+    return res.end('endereço de agenda não permitido');
+  }
+  fetchText(target, function (err, text) {
+    if (err) {
+      res.writeHead(502, { 'Content-Type': 'text/plain', 'Access-Control-Allow-Origin': '*' });
+      return res.end(String(err.message || err));
+    }
+    res.writeHead(200, { 'Content-Type': 'text/calendar; charset=utf-8', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' });
+    res.end(text);
+  });
+}
+
 function addonRoute(url, res) {
   var r = parseAddonUrl(url);
   if (!r) return false;
@@ -935,6 +956,7 @@ var addonServer = http.createServer(guarded(function (req, res) {
   if (url === '/api/version') return json(res, 200, { version: SERVICE_VERSION });
   if (url === '/api/quit' && req.method === 'POST') return quit(res);
   if (url === '/api/pxlog') return json(res, 200, pxLog);
+  if (url === '/api/cal') return calendarRoute(res, urlLib.parse(req.url, true).query);
   if (addonRoute(url, res)) return;
   res.writeHead(404, { 'Content-Type': 'text/plain' });
   res.end('404');
