@@ -98,7 +98,7 @@ export function SettingsView() {
     const list = h('div.diag-list');
     const box = h('div.modal-box.center.diag-box', null, [
       h('h3', { text: t('Teste de conexão') }),
-      h('p.modal-text', { text: t('Relógio da TV: {now}', { now: new Date().toLocaleString('pt-BR') }) }),
+      h('p.modal-text', { text: t(IS_WEB ? 'Relógio deste aparelho: {now}' : 'Relógio da TV: {now}', { now: new Date().toLocaleString('pt-BR') }) }),
       list,
       h('div.modal-actions', null, [h('div.btn.primary', { focusable: true, 'data-autofocus': '', text: t('Fechar'), onSelect: () => close() })]),
     ]);
@@ -317,7 +317,7 @@ export function SettingsView() {
         )
       );
     }
-    if (device) body.appendChild(row(t('TV'), '', device, null));
+    if (device && !IS_WEB) body.appendChild(row(t('TV'), '', device, null));
 
     // ---- Perfil (cada perfil tem sua conta Stremio, histórico e preferências) ----
     const prof = store.activeProfile();
@@ -462,7 +462,7 @@ export function SettingsView() {
         })
       )
     );
-    body.appendChild(row(t('Testar torrent na TV (sem o PC)'), t('Mede se a própria TV aguenta baixar torrent: Node, memória, rede e disco'), '', () => torrentTest()));
+    if (!IS_WEB) body.appendChild(row(t('Testar torrent na TV (sem o PC)'), t('Mede se a própria TV aguenta baixar torrent: Node, memória, rede e disco'), '', () => torrentTest()));
 
     body.appendChild(h('div.set-section', { text: t('Aparência (Kai)') }));
     const heroName = t((hero.SOURCES.find((x) => x.id === s.heroSource) || hero.SOURCES[0]).name);
@@ -498,7 +498,7 @@ export function SettingsView() {
     );
     const ssMin = screensaver.minutes();
     body.appendChild(
-      row(t('Protetor de tela'), t('Os lançamentos passando na tela quando o controle fica parado'), ssMin ? t('{n} min', { n: ssMin }) : t('Desligado'), () =>
+      row(t('Protetor de tela'), t(IS_WEB ? 'Os lançamentos passando na tela quando você fica sem mexer' : 'Os lançamentos passando na tela quando o controle fica parado'), ssMin ? t('{n} min', { n: ssMin }) : t('Desligado'), () =>
         menu(
           t('Protetor de tela'),
           screensaver.OPTIONS.map((m) => ({ label: m ? t('Depois de {n} min parado', { n: m }) : t('Desligado'), value: m, checked: m === ssMin })).concat([
@@ -673,7 +673,7 @@ export function SettingsView() {
         menu(t('Addons ativos'), list.map((a) => ({ label: a.manifest.name || a.manifest.id, sub: a.transportUrl })), {})
       )
     );
-    nsfwSection(list);
+    if (!IS_WEB) nsfwSection(list); // os addons adultos vêm do serviço da TV
     // Addons recomendados (só aparecem se ainda não estiverem instalados).
     RECOMMENDED.filter((r) => !list.some((a) => a.transportUrl === r.url || (a.manifest && a.manifest.id === r.id))).forEach((r) =>
       body.appendChild(row(t('Instalar {name}', { name: r.name }), t(r.desc), '', () => installFromUrl(r.url, r.name)))
@@ -706,7 +706,7 @@ export function SettingsView() {
 
 
     body.appendChild(h('div.set-section', { text: t('Sobre e depuração') }));
-    body.appendChild(row(t('Testar conexão'), t('Coisas não carregam? Veja qual servidor a TV não alcança'), '', () => showNetworkCheck()));
+    body.appendChild(row(t('Testar conexão'), t(IS_WEB ? 'Coisas não carregam? Veja qual servidor este aparelho não alcança' : 'Coisas não carregam? Veja qual servidor a TV não alcança'), '', () => showNetworkCheck()));
     body.appendChild(row(t('Último trailer'), t('Resultado do trailer na aba Recomendado'), reco.getTrailerReport() || t('nenhum ainda'), null));
     const logInput = h('input.input', { type: 'text', value: s.devlogUrl || '', placeholder: 'http://IP-DO-PC:8099/log' });
     logInput.__submit = (v) => {
@@ -715,7 +715,7 @@ export function SettingsView() {
       log.info(t('Log remoto ligado'));
       toast(v.trim() ? t('Enviando logs para o PC') : t('Log remoto desligado'));
     };
-    body.appendChild(
+    if (!IS_WEB) body.appendChild(
       h('div.set-row', { focusable: true, onSelect: () => nav.select(logInput) }, [
         h('div.label', null, [t('Log remoto'), h('small', { text: t('npm run logs no PC') })]),
         logInput,

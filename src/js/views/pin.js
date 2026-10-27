@@ -6,6 +6,7 @@ import * as nav from '../lib/nav.js';
 import { KEY } from '../lib/nav.js';
 import * as store from '../lib/store.js';
 import { t } from '../lib/i18n.js';
+import { IS_WEB } from '../lib/platform.js';
 import * as router from '../router.js';
 
 export const DEFAULT_PIN = '7789';
@@ -73,7 +74,7 @@ export function askPin(title, onDone) {
     dots,
     pad,
     msg,
-    h('div.pin-hint', { text: t('Os números do controle também funcionam') }),
+    h('div.pin-hint', { text: t(IS_WEB ? 'Os números do teclado também funcionam' : 'Os números do controle também funcionam') }),
   ]);
   const modal = h('div.modal.pin-screen', null, box);
   const want = pin();

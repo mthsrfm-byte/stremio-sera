@@ -20,6 +20,7 @@ import { menu, toast, fmtTime, timeHM, choiceDialog, eventTime, isFavorite, togg
 import * as router from '../router.js';
 import { sortedVideos, openDetails } from './details.js';
 import { t } from '../lib/i18n.js';
+import { IS_WEB } from '../lib/platform.js';
 
 const HIDE_MS = 5000;
 const SLOW_MS = 40000; // sem começar a tocar depois disso: oferece outro provedor
@@ -80,6 +81,8 @@ function PlayerView(opts) {
   const settings = store.settings();
 
   const videoEl = h('video', { preload: 'auto' });
+  // No navegador, clicar no vídeo pausa e toca (como nos players da web).
+  if (IS_WEB) videoEl.addEventListener('click', () => togglePlay());
   const subsEl = h('div.subs');
   const titleEl = h('div.p-title');
   const clockEl = h('div.p-clock');
@@ -282,7 +285,7 @@ function PlayerView(opts) {
       ]),
       h('div.cal-notice-title', { text: e.title }),
       h('div.cal-notice-sub', null, [h('i', { style: { background: e.color } }), [eventTime(e, true), e.location].filter(Boolean).join(' · ')]),
-      h('div.cal-notice-hint', { text: t('OK fecha · some sozinho em 15 s') }),
+      h('div.cal-notice-hint', { text: t(IS_WEB ? 'Enter fecha · some sozinho em 15 s' : 'OK fecha · some sozinho em 15 s') }),
       h('div.cal-notice-bar', null, fill),
     ]);
     el.appendChild(box);
@@ -1327,7 +1330,7 @@ function PlayerView(opts) {
       val,
       hint,
       h('div.ss-track', null, [h('div.ss-mid'), knob, h('span.ss-end.l', { text: t('antes') }), h('span.ss-end.r', { text: t('depois') })]),
-      h('div.ss-keys', null, [keyHint(LR, '0,5 s'), keyHint(UD, '0,1 s'), keyHint('OK', t('salvar')), keyHint(t('Voltar'), t('desfazer'))]),
+      h('div.ss-keys', null, [keyHint(LR, '0,5 s'), keyHint(UD, '0,1 s'), keyHint(IS_WEB ? 'Enter' : 'OK', t('salvar')), keyHint(IS_WEB ? 'Esc' : t('Voltar'), t('desfazer'))]),
     ]);
     function draw() {
       val.textContent = fmtOff(cur);
@@ -1637,6 +1640,13 @@ function PlayerView(opts) {
         videoEl.play();
         showControls();
         return true;
+      case KEY.SPACE: // teclado: espaço e K tocam/pausam (como no YouTube)
+      case 75:
+        togglePlay();
+        return true;
+      case 77: // M: silencia
+        videoEl.muted = !videoEl.muted;
+        return true;
       case KEY.PAUSE:
         videoEl.pause();
         return true;
@@ -1668,6 +1678,13 @@ function PlayerView(opts) {
       }
     }
     if (!controlsOn) {
+      if (IS_WEB && (k === KEY.UP || k === KEY.DOWN)) {
+        // Teclado: seta para cima/baixo mexe no volume (sem abrir a barra).
+        videoEl.muted = false;
+        videoEl.volume = Math.max(0, Math.min(1, videoEl.volume + (k === KEY.UP ? 0.1 : -0.1)));
+        toast(t('Volume {n}%', { n: Math.round(videoEl.volume * 100) }), 1200);
+        return true;
+      }
       if (k === KEY.LEFT) seekBy(-1);
       else if (k === KEY.RIGHT) seekBy(1);
       else if (k === KEY.ENTER) togglePlay();

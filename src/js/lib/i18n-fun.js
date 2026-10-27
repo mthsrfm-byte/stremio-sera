@@ -1,3 +1,5 @@
+import { IS_WEB } from './platform.js';
+
 // Versão Seraflix dos textos: chave = texto original, valor = texto com mais personalidade.
 // O que não está aqui aparece como está no código.
 export const FUN = {
@@ -20,7 +22,7 @@ export const FUN = {
   'Já existe um perfil com esse nome.': 'Já tem alguém com esse nome. Criatividade, por favor.',
   'Nome do perfil salvo': 'Nome novo, quem é você?',
   'Este perfil usa a conta Stremio abaixo': 'Este perfil usa a conta logo aqui embaixo',
-  'Para outra pessoa, com outra conta Stremio': 'Para aquela pessoa que vive roubando o controle',
+  'Para outra pessoa, com outra conta Stremio': IS_WEB ? 'Para aquela pessoa que vive roubando o mouse' : 'Para aquela pessoa que vive roubando o controle',
   'Remove deste aparelho a conta e as preferências do perfil (a conta Stremio continua existindo)': 'Some só desta TV. A conta continua vivinha da silva lá fora.',
   'Apagar o perfil "{name}" desta TV?': 'Mandar "{name}" para o espaço? Sem volta, hein.',
 

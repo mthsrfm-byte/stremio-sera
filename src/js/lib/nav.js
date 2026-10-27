@@ -2,7 +2,7 @@
 // Elementos navegáveis têm [data-focus]. Fileiras usam [data-group] para lembrar a última posição.
 // Contêineres com [data-scroll-x] / [data-scroll-y] rolam para manter o foco visível.
 import { $$ } from './dom.js';
-import { isTizen } from './platform.js';
+import { isTizen, IS_WEB } from './platform.js';
 
 const TIZEN = isTizen();
 
@@ -12,6 +12,7 @@ export const KEY = {
   RIGHT: 39,
   DOWN: 40,
   ENTER: 13,
+  SPACE: 32,
   BACK: 10009, // Samsung Return (no PC: Esc ou Backspace)
   ESC: 27,
   BACKSPACE: 8,
@@ -307,6 +308,7 @@ function onKeyDown(e) {
       move('down');
       break;
     case KEY.ENTER:
+    case KEY.SPACE: // no navegador, a barra de espaço também aperta o item em foco
       select();
       break;
     case KEY.BACK:
@@ -346,9 +348,27 @@ function onWheel(e) {
   move(e.deltaY > 0 ? 'down' : 'up');
 }
 
+// No navegador a roda rola o que está embaixo do ponteiro (como em qualquer site): fileira na
+// horizontal (ou Shift + roda), lista na vertical. O foco continua onde estava.
+function onWebWheel(e) {
+  const layer = top();
+  const track = e.target.closest ? e.target.closest('[data-scroll-x]') : null;
+  // Fora de uma lista (ex.: em cima, sobre o destaque), rola a lista principal da tela.
+  const box = (e.target.closest ? e.target.closest('[data-scroll-y]') : null) || (layer && layer.root.querySelector('[data-scroll-y]'));
+  if (track && (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY))) {
+    e.preventDefault();
+    track.scrollLeft += e.deltaX || e.deltaY;
+  } else if (box) {
+    e.preventDefault();
+    box.scrollTop += e.deltaY;
+    if (scrollHook) scrollHook(box);
+  }
+}
+
 export function install() {
   document.addEventListener('keydown', onKeyDown, true);
   document.addEventListener('mouseover', onMouseOver);
   document.addEventListener('click', onClick);
-  document.addEventListener('mousewheel', onWheel);
+  if (IS_WEB) document.addEventListener('wheel', onWebWheel, { passive: false });
+  else document.addEventListener('mousewheel', onWheel);
 }

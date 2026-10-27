@@ -6,6 +6,7 @@ import { smallPoster, smallBackground } from './lib/img.js';
 import * as store from './lib/store.js';
 import { avatar, switchProfile, createProfile } from './views/profiles.js';
 import { t } from './lib/i18n.js';
+import { IS_WEB } from './lib/platform.js';
 import * as addons from './api/addons.js';
 import { requirePin } from './views/pin.js';
 import * as calendar from './api/calendar.js';
@@ -255,7 +256,7 @@ export function agendaPanel() {
     h('h3', { text: t('Sua agenda') }),
     h('p.agenda-head', { text: t('Hoje e amanhã') }),
     list,
-    h('div.agenda-foot', null, [h('span', { text: updated ? t('Atualizado às {h}', { h: timeHM(new Date(updated)) }) : t('Atualizando...') }), h('span', { text: t('Voltar fecha') })]),
+    h('div.agenda-foot', null, [h('span', { text: updated ? t('Atualizado às {h}', { h: timeHM(new Date(updated)) }) : t('Atualizando...') }), h('span', { text: t(IS_WEB ? 'Esc fecha' : 'Voltar fecha') })]),
   ]);
   const modal = h('div.modal', null, box);
   document.getElementById('app').appendChild(modal);

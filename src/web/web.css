@@ -1,7 +1,11 @@
 /* Refinamentos da versão web (navegador). Carrega depois do app.css; a TV não usa este arquivo. */
-/* Palco de 1920×1080 escalado por fitStage() (main.js): nada de barra de rolagem. */
+/* Palco escalado por stage.js para caber na tela: nada de barra de rolagem da página. */
 html, body { width: 100%; height: 100%; overflow: hidden; background: #0d0b14; }  /* o app.css fixa 1920×1080 */
 #app { position: fixed; left: 0; top: 0; transform-origin: 0 0; }  /* fixed: não estica a página no celular */
+/* O tamanho do palco vem de stage.js (1920×1080 na tela deitada; mais estreito na tela em pé). */
+.view { width: 100%; height: 100%; }
+/* Com mouse, o que se clica (cartões, botões, linhas) mostra a mãozinha. */
+[data-focus] { cursor: pointer; }
 
 :root {
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
@@ -54,3 +58,104 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #0d0b14; }
   }
   *, *::before, *::after { transition-duration: 0.01ms !important; }
 }
+
+/* ---------- Tela em pé (celular e tablet) ----------
+   stage.js deixa o palco mais estreito (640px lógicos no celular, 960px no tablet). Aqui cada tela
+   vira uma coluna: barra de cima rolando na horizontal, hero e detalhes empilhados, fileiras com
+   pôsteres menores, modais e formulários na largura da tela. */
+.stage-portrait .topbar { height: auto; padding: 22px 12px 4px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.stage-portrait .topbar::-webkit-scrollbar { display: none; }
+.stage-portrait .topbar > * { flex-shrink: 0; }
+.stage-portrait .topbar .spacer { flex: 0 0 12px; }
+.stage-portrait .brand { font-size: 26px; margin-right: 14px; }
+.stage-portrait .tab { font-size: 19px; padding: 8px 16px; margin-right: 6px; }
+.stage-portrait .tab.icon { width: 46px; height: 46px; }
+.stage-portrait .tab.icon svg { width: 22px; height: 22px; flex: none; }
+.stage-portrait .topbar .tab.icon[data-tab="settings"] { margin-right: 6px; }
+
+/* Hero (início, recomendados, streamings): o texto desce para baixo da arte, na largura toda. */
+.stage-portrait .hero, .stage-portrait .reco-bill { height: 600px; margin-top: -40px; }
+.stage-portrait .hero-bg, .stage-portrait .reco-bill .hero-bg { width: 100%; height: 100%; }
+.stage-portrait .hero-shade-left, .stage-portrait .reco-shade-left { width: 100%; height: 100%; background: linear-gradient(to bottom, rgba(13,11,20,0.15) 0%, #0d0b14 78%); }
+.stage-portrait .hero-shade-bottom, .stage-portrait .reco-shade-bottom { width: 100%; }
+.stage-portrait .hero-info, .stage-portrait .reco-info { left: 16px; right: 16px; top: 220px; width: auto; }
+.stage-portrait .hero-logo, .stage-portrait .reco-info .hero-logo { max-width: 300px; max-height: 100px; margin-bottom: 14px; }
+.stage-portrait .hero-title { font-size: 40px; max-height: 84px; margin-bottom: 12px; }
+.stage-portrait .hero-meta { font-size: 17px; margin-bottom: 10px; }
+.stage-portrait .hero-desc { font-size: 18px; max-height: 80px; margin-bottom: 18px; }
+.stage-portrait .hero-buttons .btn { height: 56px; padding: 0 24px; font-size: 21px; margin-right: 12px; }
+.stage-portrait .hero-dots { margin-top: 16px; }
+
+/* Fileiras: título com a margem da tela e pôsteres menores (a rolagem continua na horizontal). */
+.stage-portrait .row-title { padding: 0 16px; font-size: 24px; margin-bottom: 12px; }
+.stage-portrait .row-title small { font-size: 16px; }
+.stage-portrait .row-track { padding: 14px 16px 20px; }
+.stage-portrait .card { width: 150px; margin-right: 14px; }
+.stage-portrait .card .poster-wrap { width: 150px; height: 225px; }
+.stage-portrait .card .name { font-size: 17px; margin-top: 8px; }
+.stage-portrait .card.wide { width: 260px; }
+.stage-portrait .card.wide .poster-wrap { width: 260px; height: 146px; }
+.stage-portrait .chip { font-size: 19px; padding: 6px 16px; }
+.stage-portrait .nsfw-section { padding-left: 16px; }
+
+/* Busca e formulários: campo ocupa a largura, botão ao lado. */
+.stage-portrait .search-box { margin: 10px 16px 20px; }
+.stage-portrait .search-box .input { width: auto; flex: 1; min-width: 0; height: 58px; font-size: 20px; padding: 0 22px; }
+.stage-portrait .search-go { height: 58px; padding: 0 20px; font-size: 20px; }
+.stage-portrait .input { max-width: 100%; }
+.stage-portrait .settings { width: auto; padding: 0 16px 160px; }
+.stage-portrait .set-section { font-size: 22px; }
+.stage-portrait .set-row { padding: 14px 16px; flex-direction: column; align-items: stretch; }
+.stage-portrait .set-row .label { font-size: 20px; min-width: 0; }
+.stage-portrait .set-row .label small { font-size: 16px; }
+.stage-portrait .set-row .value { font-size: 18px; max-width: 100%; margin-top: 6px; }
+.stage-portrait .set-row .input { width: 100%; height: 52px; margin-top: 10px; }
+
+/* Detalhes: arte em cima, informações e fontes embaixo (em vez de dois painéis lado a lado). */
+.stage-portrait .details-bg { width: 100%; height: 48%; }
+.stage-portrait .details-shade { width: 100%; height: 48%; background: linear-gradient(to bottom, rgba(13,11,20,0.2) 0%, #0d0b14 100%); }
+.stage-portrait .details-info { left: 16px; right: 16px; top: 24px; width: auto; }
+.stage-portrait .details-logo { max-width: 280px; max-height: 100px; }
+.stage-portrait .details-panel { left: 0; right: 0; top: 48%; bottom: 0; width: auto; height: auto; padding: 12px 0 0; background: #0d0b14; }
+.stage-portrait .list { padding-bottom: 60px; }
+
+/* Caixas de diálogo: largura da tela, com margem. */
+.stage-portrait .modal-box { left: 12px; right: 12px; width: auto; bottom: 12px; }
+.stage-portrait .modal-box.center { left: 50%; right: auto; width: calc(100% - 24px); bottom: auto; }
+.stage-portrait .modal-box.ev-box, .stage-portrait .modal-box.agenda-box, .stage-portrait .modal-box.sync-box { left: 12px; right: 12px; top: 12px; bottom: auto; width: auto; margin: 0; }
+.stage-portrait .cal-notice { left: 12px; right: 12px; top: 12px; width: auto; }
+.stage-portrait .sub-sync { left: 12px; right: 12px; top: 12px; width: auto; margin: 0; }
+.stage-portrait .pi-info, .stage-portrait .sv-info { left: 16px; right: 16px; width: auto; }
+.stage-portrait .sv-logo { max-width: 360px; }
+
+/* Login, assistente, PIN e perfis: cartões que cabem na tela. */
+.stage-portrait .login-card { width: auto; margin: 0 16px; flex-direction: column; padding: 28px 22px; }
+.stage-portrait .qr-box { width: auto; }
+.stage-portrait .qr-big { width: 260px; height: 260px; }
+.stage-portrait .wizard-card { width: auto; margin: 0 16px; padding: 36px 26px; }
+.stage-portrait .pin-box { width: 100%; }
+.stage-portrait .pin-pad { width: 100%; }
+.stage-portrait .pin-key { width: 28%; height: 76px; margin: 0 2% 12px; }
+.stage-portrait .profile-card { width: 150px; margin: 0 10px; }
+.stage-portrait .avatar.big { width: 140px; height: 140px; line-height: 140px; font-size: 64px; }
+
+/* Filmografia (ator/diretor): foto em cima, filmes embaixo. */
+.stage-portrait .fp-side { left: 16px; right: 16px; top: 20px; width: auto; }
+.stage-portrait .fp-photo { width: 120px; height: 180px; }
+.stage-portrait .fp-panel { left: 0; right: 0; top: 46%; bottom: 0; width: auto; height: auto; padding: 16px 0 0; background: #0d0b14; }
+.stage-portrait .fp-grid { padding: 0 16px 120px; }
+.stage-portrait .fp-item { width: 110px; margin: 0 12px 20px 0; }
+.stage-portrait .fp-poster { width: 110px; height: 165px; }
+
+/* Player: o vídeo cabe na largura (sem cortar) e a barra de controle usa a largura da tela. */
+.stage-portrait .player video { width: 100%; height: 100%; object-fit: contain; }
+.stage-portrait .p-top:after { width: 100%; }
+.stage-portrait .p-logo { display: none; }
+
+/* Biblioteca e outras telas com cabeçalho: título em cima, filtros rolando na horizontal. */
+.stage-portrait .page-head { display: block; padding: 24px 16px 14px; }
+.stage-portrait .page-title { font-size: 34px; margin-bottom: 12px; }
+.stage-portrait .filters, .stage-portrait .page-head .filters { padding: 0 0 12px; overflow-x: auto; scrollbar-width: none; white-space: nowrap; }
+.stage-portrait .filters::-webkit-scrollbar { display: none; }
+.stage-portrait .filters .chip { flex-shrink: 0; }
+.stage-portrait .grid { padding: 10px 16px 160px; }

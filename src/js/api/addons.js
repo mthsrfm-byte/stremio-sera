@@ -240,9 +240,10 @@ export function adultAddons() {
     .map((x) => x.a);
 }
 
-// Aba NSFW fica sempre disponível; só some se o perfil desativar em Ajustes.
+// Aba NSFW fica sempre disponível; só some se o perfil desativar em Ajustes. No navegador não
+// existe: os addons adultos vêm do serviço da TV.
 export function nsfwEnabled() {
-  return store.settings().nsfwTab !== false;
+  return !IS_WEB && store.settings().nsfwTab !== false;
 }
 
 // Prefixos de id dos addons adultos ("tt" do IMDb fica de fora: é de filme comum).
