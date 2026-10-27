@@ -8369,9 +8369,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "f861df7e872eb24f5bb4ed9a94907e3bb40be452",
-    date: "2026-10-26T22:03:32-03:00",
-    message: "Controle remoto pelo celular (GitHub Pages)"
+    commit: "84c76e0193df06cce08df6f02b9a4fdfeb12fbab",
+    date: "2026-10-26T22:08:09-03:00",
+    message: "Controle mais simples, no estilo do One Remote da Samsung, e favicon"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
