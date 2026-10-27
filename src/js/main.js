@@ -10,6 +10,7 @@ import * as server from './api/server.js';
 import * as addons from './api/addons.js';
 import * as router from './router.js';
 import { HomeView } from './views/home.js';
+import { RecommendedView } from './views/recommended.js';
 import { SearchView } from './views/search.js';
 import { LibraryView } from './views/library.js';
 import { SettingsView } from './views/settings.js';
@@ -46,6 +47,7 @@ function boot() {
   });
 
   router.registerTab('home', HomeView);
+  router.registerTab('recommended', RecommendedView);
   router.registerTab('search', SearchView);
   router.registerTab('library', LibraryView);
   router.registerTab('settings', SettingsView);
