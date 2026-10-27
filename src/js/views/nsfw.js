@@ -6,7 +6,7 @@ import { h, clear, loadVisibleImages } from '../lib/dom.js';
 import * as nav from '../lib/nav.js';
 import * as addons from '../api/addons.js';
 import * as stremio from '../api/stremio.js';
-import { topbar, card, skeletonCards, retrying, toast } from '../ui.js';
+import { topbar, card, skeletonCards, retrying, pagedGrid } from '../ui.js';
 import * as router from '../router.js';
 import { openDetails as openDetailsRaw } from './details.js';
 import { showRetry } from './recommended.js';
@@ -268,54 +268,27 @@ function catalogRow(entry, parent) {
   return { row: row, load: load };
 }
 
-// Grade com o catálogo inteiro (opcionalmente filtrado por categoria), paginada.
+// Grade com o catálogo inteiro (opcionalmente filtrado por categoria), paginada pelo "skip".
 function GridView(entry, extra) {
   const el = h('div.view.nsfw-view');
   const scroller = h('div.scroll-y', { 'data-scroll-y': '' });
   const crumb = [h('span', { text: 'NSFW › ' + (entry.addon.manifest.name || '') }), ' › ', h('b', { text: extra.genre ? tr.genre(extra.genre) : catName(entry) })];
-  const grid = h('div.grid');
-  const more = h('div.btn.reco-more', { focusable: true, text: t('Carregar mais'), onSelect: () => loadPage() });
-  scroller.appendChild(h('div.reco-crumb', null, crumb));
-  scroller.appendChild(grid);
-  scroller.appendChild(h('div.reco-more-wrap', null, more));
-  el.appendChild(scroller);
-
   let skip = 0;
-  let busy = false;
-  const seen = {};
-  function loadPage() {
-    if (busy) return;
-    busy = true;
-    more.textContent = t('Carregando...');
-    const first = skip === 0;
-    addons
-      .fetchCatalog(entry, Object.assign({ skip: skip || undefined }, extra))
-      .then((metas) => {
+  const pg = pagedGrid({
+    load: () =>
+      addons.fetchCatalog(entry, Object.assign({ skip: skip || undefined }, extra)).then((metas) => {
         skip += metas.length;
         return tr.titles(metas);
-      })
-      .then((metas) => {
-        const fresh = metas.filter((m) => !seen[m.id]);
-        fresh.forEach((m) => {
-          seen[m.id] = true;
-          grid.appendChild(itemCard(m, entry));
-        });
-        if (!fresh.length) more.style.display = 'none';
-        if (first && !fresh.length) grid.appendChild(h('div.hint', { text: t('Nada por aqui.') }));
-        loadVisibleImages(el, 400);
-        if (first && grid.firstChild) nav.focus(grid.firstChild);
-      })
-      .catch(() => toast(t('Não foi possível carregar')))
-      .then(() => {
-        busy = false;
-        more.textContent = t('Carregar mais');
-      });
-  }
-
+      }),
+    key: (m) => m.id,
+    card: (m) => itemCard(m, entry),
+    onEmpty: () => pg.el.insertBefore(h('div.hint', { text: t('Nada por aqui.') }), pg.el.firstChild),
+  });
+  scroller.appendChild(h('div.reco-crumb', null, crumb));
+  scroller.appendChild(pg.el);
+  el.appendChild(scroller);
   return {
     el: el,
-    onShow: () => {
-      if (!skip) loadPage();
-    },
+    onShow: () => pg.start(),
   };
 }

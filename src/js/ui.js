@@ -1,6 +1,6 @@
 // Componentes compartilhados: toast, menus modais, barra superior, cartões.
 import { LOGO_HTML } from './lib/logo.js';
-import { h, clear } from './lib/dom.js';
+import { h, clear, loadVisibleImages } from './lib/dom.js';
 import * as nav from './lib/nav.js';
 import { smallPoster, smallBackground } from './lib/img.js';
 import * as store from './lib/store.js';
@@ -251,6 +251,101 @@ export function rowRetry(onRetry, onFocus) {
     h('span', { text: t('Essa fileira não carregou agora.') }),
     h('div.btn.small', { focusable: true, text: t('Tentar de novo'), onSelect: onRetry, onFocus: onFocus }),
   ]);
+}
+
+// Grade do "Ver tudo": centralizada, linhas sempre com o mesmo número de capas (as que sobram
+// esperam a próxima página) e a página seguinte carrega sozinha quando o foco chega na última
+// linha. Pelo botão "Carregar mais", o foco volta ao primeiro título da última linha de antes.
+// opts: { load(page) -> Promise<itens>, key(item), card(item) -> elemento, onEmpty() }
+export function pagedGrid(opts) {
+  const grid = h('div.grid.paged');
+  const more = h('div.btn.reco-more', { focusable: true, text: t('Carregar mais'), onSelect: () => loadMore(true) });
+  const moreWrap = h('div.reco-more-wrap.paged-more', null, more);
+  const el = h('div.paged-wrap', null, [grid, moreWrap]);
+  const GAP = 26;
+  const seen = {};
+  let page = 0;
+  let busy = false;
+  let ended = false;
+  let cols = 0;
+  let buffer = [];
+  let count = 0;
+
+  // Quantas capas cabem e quanto sobra de cada lado para centralizar.
+  function layout(sample) {
+    if (cols) return;
+    const width = el.clientWidth || window.innerWidth;
+    const cw = sample.offsetWidth || 210;
+    cols = Math.max(1, Math.floor((width - 2 * 96 + GAP) / (cw + GAP)));
+    const side = Math.floor((width - (cols * (cw + GAP) - GAP)) / 2);
+    grid.style.paddingLeft = side + 'px';
+    grid.style.paddingRight = Math.max(0, side - GAP) + 'px'; // o último cartão também tem margem à direita
+    moreWrap.style.paddingLeft = side + 'px';
+  }
+
+  function add(item) {
+    const c = opts.card(item);
+    const idx = count++;
+    const prev = c.__focus;
+    c.__focus = (x) => {
+      if (prev) prev(x);
+      // Chegou na última linha: já busca a próxima página.
+      if (!ended && idx >= count - cols) loadMore(false);
+    };
+    grid.appendChild(c);
+    return c;
+  }
+
+  // Renderiza só linhas cheias; o resto fica no buffer. No fim do catálogo vai tudo.
+  function flush() {
+    const pool = buffer;
+    buffer = [];
+    if (!pool.length) return;
+    if (!cols) layout(add(pool.shift()));
+    const total = count + pool.length;
+    const target = ended ? total : Math.floor(total / cols) * cols;
+    const n = Math.max(0, target - count);
+    pool.slice(0, n).forEach(add);
+    buffer = pool.slice(n);
+  }
+
+  function loadMore(byButton) {
+    if (busy || ended) return;
+    busy = true;
+    more.textContent = t('Carregando...');
+    const lastRowFirst = count ? grid.children[count - (count % cols || cols)] : null;
+    const first = page === 0;
+    opts
+      .load(++page)
+      .then((items) => {
+        const fresh = (items || []).filter((it) => {
+          const k = opts.key(it);
+          if (seen[k]) return false;
+          seen[k] = true;
+          return true;
+        });
+        if (!fresh.length) ended = true;
+        buffer = buffer.concat(fresh);
+        const before = count;
+        flush();
+        busy = false;
+        more.textContent = t('Carregar mais');
+        moreWrap.style.display = ended ? 'none' : '';
+        loadVisibleImages(el, 400);
+        if (first && !count && opts.onEmpty) opts.onEmpty();
+        if (first && grid.firstChild) nav.focus(grid.firstChild);
+        else if (byButton && lastRowFirst) nav.focus(lastRowFirst);
+        // Página que não fechou nem uma linha nova: busca a próxima já.
+        if (!ended && count === before) loadMore(byButton);
+      })
+      .catch(() => {
+        busy = false;
+        more.textContent = t('Carregar mais');
+        toast(t('Não foi possível carregar'));
+      });
+  }
+
+  return { el: el, start: () => page === 0 && loadMore(false), started: () => page > 0 };
 }
 
 export function spinnerLine(text) {

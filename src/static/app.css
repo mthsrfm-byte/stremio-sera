@@ -824,3 +824,7 @@ body.light .fp-panel { background: rgba(255,255,255,0.5); }
 .slow-box .modal-actions .btn { margin-right: 16px; }
 .cast .ph { -webkit-transform-origin: 50% 90%; transform-origin: 50% 90%; }
 .cast.focused .nm { margin-top: 4px; }
+
+/* Grade paginada do "Ver tudo": centralizada pelo JS, botão logo abaixo da última linha */
+.grid.paged { padding-bottom: 10px; }
+.paged-more { padding-bottom: 160px; }

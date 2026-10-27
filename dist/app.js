@@ -7166,7 +7166,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var hh = Math.floor(sec / 3600);
     return (hh ? hh + ":" + ("0" + m).slice(-2) : m) + ":" + ("0" + s).slice(-2);
   }
-  function card(item, opts) {
+  function _card(item, opts) {
     var o = opts || {};
     var wrap = h("div.poster-wrap");
     var src = o.wide ? smallBackground(o.image || item.background || item.poster) : smallPoster(item.poster);
@@ -7243,6 +7243,97 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       onSelect: onRetry,
       onFocus: onFocus
     })]);
+  }
+  function pagedGrid(opts) {
+    var grid = h("div.grid.paged");
+    var more = h("div.btn.reco-more", {
+      focusable: true,
+      text: t("Carregar mais"),
+      onSelect: function onSelect() {
+        return loadMore(true);
+      }
+    });
+    var moreWrap = h("div.reco-more-wrap.paged-more", null, more);
+    var el = h("div.paged-wrap", null, [grid, moreWrap]);
+    var GAP = 26;
+    var seen = {};
+    var page = 0;
+    var busy = false;
+    var ended = false;
+    var cols = 0;
+    var buffer2 = [];
+    var count = 0;
+    function layout(sample) {
+      if (cols) return;
+      var width = el.clientWidth || window.innerWidth;
+      var cw = sample.offsetWidth || 210;
+      cols = Math.max(1, Math.floor((width - 2 * 96 + GAP) / (cw + GAP)));
+      var side = Math.floor((width - (cols * (cw + GAP) - GAP)) / 2);
+      grid.style.paddingLeft = side + "px";
+      grid.style.paddingRight = Math.max(0, side - GAP) + "px";
+      moreWrap.style.paddingLeft = side + "px";
+    }
+    function add(item) {
+      var c = opts.card(item);
+      var idx = count++;
+      var prev = c.__focus;
+      c.__focus = function (x) {
+        if (prev) prev(x);
+        if (!ended && idx >= count - cols) loadMore(false);
+      };
+      grid.appendChild(c);
+      return c;
+    }
+    function flush3() {
+      var pool = buffer2;
+      buffer2 = [];
+      if (!pool.length) return;
+      if (!cols) layout(add(pool.shift()));
+      var total = count + pool.length;
+      var target = ended ? total : Math.floor(total / cols) * cols;
+      var n = Math.max(0, target - count);
+      pool.slice(0, n).forEach(add);
+      buffer2 = pool.slice(n);
+    }
+    function loadMore(byButton) {
+      if (busy || ended) return;
+      busy = true;
+      more.textContent = t("Carregando...");
+      var lastRowFirst = count ? grid.children[count - (count % cols || cols)] : null;
+      var first = page === 0;
+      opts.load(++page).then(function (items) {
+        var fresh = (items || []).filter(function (it) {
+          var k = opts.key(it);
+          if (seen[k]) return false;
+          seen[k] = true;
+          return true;
+        });
+        if (!fresh.length) ended = true;
+        buffer2 = buffer2.concat(fresh);
+        var before = count;
+        flush3();
+        busy = false;
+        more.textContent = t("Carregar mais");
+        moreWrap.style.display = ended ? "none" : "";
+        loadVisibleImages(el, 400);
+        if (first && !count && opts.onEmpty) opts.onEmpty();
+        if (first && grid.firstChild) focus(grid.firstChild);else if (byButton && lastRowFirst) focus(lastRowFirst);
+        if (!ended && count === before) loadMore(byButton);
+      }).catch(function () {
+        busy = false;
+        more.textContent = t("Carregar mais");
+        toast(t("Não foi possível carregar"));
+      });
+    }
+    return {
+      el: el,
+      start: function start() {
+        return page === 0 && loadMore(false);
+      },
+      started: function started() {
+        return page > 0;
+      }
+    };
   }
   function spinnerLine(text2) {
     return h("div.loading-line", null, [h("div.spinner.small"), text2]);
@@ -10631,7 +10722,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         track.classList.remove("pending");
         if (!items.length) return failed();
         items.slice(0, ROW_LIMIT).forEach(function (it) {
-          return track.appendChild(card(it, {
+          return track.appendChild(_card(it, {
             onSelect: function onSelect() {
               return openItem(it);
             },
@@ -10911,7 +11002,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           return failed();
         }
         items.slice(0, def.ranked ? 10 : ROW_LIMIT).forEach(function (it, i) {
-          return track.appendChild(card(it, {
+          return track.appendChild(_card(it, {
             onSelect: function onSelect() {
               return openItem(it);
             },
@@ -10985,52 +11076,28 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }), " › ", h("b", {
       text: t(def.title)
     })]);
-    var grid = h("div.grid");
-    var more = h("div.btn.reco-more", {
-      focusable: true,
-      text: t("Carregar mais"),
-      onSelect: function onSelect() {
-        return loadPage();
+    var pg = pagedGrid({
+      load: function load(page) {
+        return def.load(page);
+      },
+      key: function key(it) {
+        return it.mediaType + ":" + it.tmdbId;
+      },
+      card: function card(it) {
+        return _card(it, {
+          onSelect: function onSelect() {
+            return openItem(it);
+          }
+        });
       }
     });
     scroller.appendChild(header);
-    scroller.appendChild(grid);
-    scroller.appendChild(h("div.reco-more-wrap", null, more));
+    scroller.appendChild(pg.el);
     el.appendChild(scroller);
-    var page = 0;
-    var busy = false;
-    var seen = {};
-    function loadPage() {
-      if (busy) return;
-      busy = true;
-      more.textContent = t("Carregando...");
-      var firstPage = page === 0;
-      def.load(++page).then(function (items) {
-        var fresh = items.filter(function (it) {
-          return !seen[it.mediaType + ":" + it.tmdbId];
-        });
-        fresh.forEach(function (it) {
-          seen[it.mediaType + ":" + it.tmdbId] = true;
-          grid.appendChild(card(it, {
-            onSelect: function onSelect() {
-              return openItem(it);
-            }
-          }));
-        });
-        if (!fresh.length) more.style.display = "none";
-        loadVisibleImages(el, 400);
-        if (firstPage && grid.firstChild) focus(grid.firstChild);
-      }).catch(function () {
-        return toast(t("Não foi possível carregar"));
-      }).then(function () {
-        busy = false;
-        more.textContent = t("Carregar mais");
-      });
-    }
     return {
       el: el,
       onShow: function onShow() {
-        if (!page) loadPage();
+        return pg.start();
       }
     };
   }
@@ -12237,7 +12304,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         var s = it.state;
         var ep = episodeLabel(s.video_id, it._id);
         var bg = /^tt\d+/.test(it._id) ? background(it._id) : it.poster;
-        track.appendChild(card({
+        track.appendChild(_card({
           name: it.name,
           poster: it.poster
         }, {
@@ -12405,7 +12472,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           return;
         }
         metas.slice(0, ROW_LIMIT2).forEach(function (m) {
-          track.appendChild(card(m, {
+          track.appendChild(_card(m, {
             onSelect: function onSelect() {
               return openDetails(m.type || entry.catalog.type, m.id);
             }
@@ -12596,7 +12663,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
   function itemCard(m, entry) {
     var wide = m.posterShape === "landscape" || entry && entry.catalog.posterShape === "landscape";
-    return card(m, {
+    return _card(m, {
       wide: wide,
       image: wide ? m.poster || m.background : void 0,
       onSelect: function onSelect() {
@@ -12732,7 +12799,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         return !it.removed && !it.temp && watching.indexOf(it) < 0;
       });
       if (watching.length) staticRow(t("Continuar assistindo"), watching.slice(0, ROW_LIMIT3).map(function (it) {
-        return card({
+        return _card({
           name: it.name,
           poster: it.poster
         }, {
@@ -12748,7 +12815,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         });
       }));
       if (saved.length) staticRow(t("Minha lista"), saved.slice(0, ROW_LIMIT3).map(function (it) {
-        return card({
+        return _card({
           name: it.name,
           poster: it.poster
         }, {
@@ -12965,56 +13032,35 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }), " › ", h("b", {
       text: extra2.genre ? genre(extra2.genre) : catName(entry)
     })];
-    var grid = h("div.grid");
-    var more = h("div.btn.reco-more", {
-      focusable: true,
-      text: t("Carregar mais"),
-      onSelect: function onSelect() {
-        return loadPage();
+    var skip = 0;
+    var pg = pagedGrid({
+      load: function load() {
+        return fetchCatalog(entry, Object.assign({
+          skip: skip || void 0
+        }, extra2)).then(function (metas) {
+          skip += metas.length;
+          return titles(metas);
+        });
+      },
+      key: function key(m) {
+        return m.id;
+      },
+      card: function card(m) {
+        return itemCard(m, entry);
+      },
+      onEmpty: function onEmpty() {
+        return pg.el.insertBefore(h("div.hint", {
+          text: t("Nada por aqui.")
+        }), pg.el.firstChild);
       }
     });
     scroller.appendChild(h("div.reco-crumb", null, crumb));
-    scroller.appendChild(grid);
-    scroller.appendChild(h("div.reco-more-wrap", null, more));
+    scroller.appendChild(pg.el);
     el.appendChild(scroller);
-    var skip = 0;
-    var busy = false;
-    var seen = {};
-    function loadPage() {
-      if (busy) return;
-      busy = true;
-      more.textContent = t("Carregando...");
-      var first = skip === 0;
-      fetchCatalog(entry, Object.assign({
-        skip: skip || void 0
-      }, extra2)).then(function (metas) {
-        skip += metas.length;
-        return titles(metas);
-      }).then(function (metas) {
-        var fresh = metas.filter(function (m) {
-          return !seen[m.id];
-        });
-        fresh.forEach(function (m) {
-          seen[m.id] = true;
-          grid.appendChild(itemCard(m, entry));
-        });
-        if (!fresh.length) more.style.display = "none";
-        if (first && !fresh.length) grid.appendChild(h("div.hint", {
-          text: t("Nada por aqui.")
-        }));
-        loadVisibleImages(el, 400);
-        if (first && grid.firstChild) focus(grid.firstChild);
-      }).catch(function () {
-        return toast(t("Não foi possível carregar"));
-      }).then(function () {
-        busy = false;
-        more.textContent = t("Carregar mais");
-      });
-    }
     return {
       el: el,
       onShow: function onShow() {
-        if (!skip) loadPage();
+        return pg.start();
       }
     };
   }
@@ -13093,7 +13139,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             if (my !== token || !metas.length) return;
             found++;
             metas.slice(0, 30).forEach(function (m) {
-              return track.appendChild(card(m, {
+              return track.appendChild(_card(m, {
                 onSelect: function onSelect() {
                   return openDetails(m.type || entry.catalog.type, m.id);
                 }
@@ -13185,7 +13231,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         return;
       }
       items.forEach(function (it) {
-        return grid.appendChild(card({
+        return grid.appendChild(_card({
           name: it.name,
           poster: it.poster
         }, {
@@ -13217,9 +13263,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "1cc5df2300364f4d3ae405d2da59b5c758124a0f",
-    date: "2026-10-27T06:04:20+00:00",
-    message: "Actor profile: age, birthplace, Portuguese bio (auto-translated when missing), Instagram with QR code, poster grid filmography with newest/oldest order"
+    commit: "e80432540e0727c17af3128c4b2e41cfef2330d5",
+    date: "2026-10-27T06:05:30+00:00",
+    message: "Details: buttons before cast, focus starts on Watch, ring-and-grow cast focus instead of a box"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
