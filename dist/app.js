@@ -7725,8 +7725,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return m ? m[0] : null;
   }
   var BUILTIN_KEYS = {
-    tmdbKey: true ? "" : "",
-    mdblistKey: true ? "" : ""
+    tmdbKey: true ? "9c57ed7ea044b2f01eea2fcc2e954c2e" : "",
+    mdblistKey: true ? "t9e4f1z29b3c36i1j25rul1wx" : ""
   };
   function keyOf(name) {
     return (settings()[name] || "").trim() || BUILTIN_KEYS[name];
@@ -13400,9 +13400,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "b104a1296531b85954b3e40cb01afef6428b35e5",
-    date: "2026-10-27T06:29:23+00:00",
-    message: "Intro: back to the blue sweep reveal, white aligned logo, aurora borealis background instead of the glow"
+    commit: "72446dd8e825393020b82029faf94e52ec8e25c3",
+    date: "2026-10-27T03:33:21-03:00",
+    message: "Abertura com aurora boreal e trilho de provedores na aba NSFW"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
