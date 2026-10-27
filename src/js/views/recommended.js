@@ -5,6 +5,7 @@
 // "Ver tudo" no fim de cada fileira abre a categoria inteira (Recomendado › Suspense).
 import { h, clear, loadVisibleImages } from '../lib/dom.js';
 import * as nav from '../lib/nav.js';
+import { KEY } from '../lib/nav.js';
 import { topbar, card, spinnerLine, toast } from '../ui.js';
 import * as router from '../router.js';
 import { openDetails } from './details.js';
@@ -22,7 +23,7 @@ const NOCOOKIE = 'www.youtube-nocookie.com';
 const YOUTUBE = 'www.youtube.com';
 
 // Abre o título no Seraflix: os addons do Stremio usam o id do IMDb.
-function openItem(it) {
+export function openItem(it) {
   toast(t('Abrindo {name}...', { name: it.name }), 2000);
   reco
     .imdbId(it)
@@ -287,12 +288,18 @@ function Billboard() {
 // ---------- Trilho de categorias ----------
 // Mostra todas as categorias da aba, com a atual em destaque, e a frase dela embaixo.
 function Rail(defs) {
-  const items = defs.map((d) =>
-    h('div.rail-item', null, [d.logo ? h('img.rail-logo', { src: d.logo, alt: '' }) : null, h('span', { text: t(d.short) })])
-  );
+  const list = h('div.rail-items');
   const caption = h('div.rail-caption');
-  const el = h('div.reco-rail', null, [h('div.rail-items', null, items), caption]);
+  const el = h('div.reco-rail', null, [list, caption]);
+  let items = [];
   let active = -1;
+  function setDefs(d) {
+    defs = d;
+    clear(list);
+    items = defs.map((x) => h('div.rail-item', null, h('span', { text: t(x.short) })));
+    items.forEach((x) => list.appendChild(x));
+    active = -1;
+  }
   function set(i) {
     if (i === active || !defs[i]) return;
     if (items[active]) items[active].classList.remove('on');
@@ -300,7 +307,8 @@ function Rail(defs) {
     items[i].classList.add('on');
     caption.textContent = t(defs[i].caption);
   }
-  return { el: el, set: set };
+  setDefs(defs);
+  return { el: el, set: set, setDefs: setDefs };
 }
 
 // ---------- Fileiras ----------
@@ -410,8 +418,148 @@ export function RecommendedView() {
   return CuratedView({ tabId: 'recommended', crumb: 'Recomendado', defs: reco.ROWS });
 }
 
+// ---------- Streamings: trilho de logos no topo e uma "home" para cada serviço ----------
+// Passar pelos logos troca a home (novidades, filmes, séries, aclamados); "Ver tudo" de Filmes ou
+// Séries percorre o catálogo inteiro do serviço.
+const SWITCH_MS = 450;
+
+// Logo do serviço: esqueleto com brilho até carregar inteiro.
+function providerLogo(p) {
+  const im = h('img', { alt: p.name });
+  im.onload = () => {
+    im.classList.add('ready');
+    if (im.parentNode) im.parentNode.classList.add('img-loaded');
+  };
+  im.onerror = () => im.parentNode && im.parentNode.classList.add('img-loaded');
+  im.src = p.logo;
+  return im;
+}
+
 export function StreamingsView() {
-  return CuratedView({ tabId: 'streamings', crumb: 'Streamings', defs: reco.STREAMINGS });
+  const el = h('div.view.reco.streamings');
+  const bar = topbar('streamings', router.goTab);
+  const billboard = Billboard();
+  const rail = Rail([]);
+  const rows = h('div.reco-rows.scroll-y', { 'data-scroll-y': '', 'data-pad-y': '40' });
+  const logos = reco.STREAMINGS.map((p) =>
+    h('div.provider', { focusable: true, title: p.name, onFocus: () => scheduleSwitch(p), onSelect: () => switchTo(p, true) }, [providerLogo(p)])
+  );
+  const providerRail = h('div.provider-rail', { 'data-group': '', 'data-trap': '' }, logos);
+  el.appendChild(billboard.el);
+  el.appendChild(h('div.reco-top', null, [bar, providerRail]));
+  el.appendChild(rail.el);
+  el.appendChild(rows);
+
+  let current = null;
+  let switchTimer = null;
+  let firstItemOf = null;
+
+  function scheduleSwitch(p) {
+    clearTimeout(switchTimer);
+    switchTimer = setTimeout(() => switchTo(p), SWITCH_MS);
+  }
+
+  function switchTo(p, enterRows) {
+    clearTimeout(switchTimer);
+    if (current === p) {
+      if (enterRows) focusFirstCard();
+      return;
+    }
+    current = p;
+    logos.forEach((l, i) => l.classList.toggle('on', reco.STREAMINGS[i] === p));
+    billboard.stop();
+    rail.setDefs(p.rows);
+    rail.set(0);
+    clear(rows);
+    rows.scrollTop = 0;
+    const ctx = { billboard: billboard, rail: rail, crumb: 'Streamings › ' + p.name };
+    const built = p.rows.map((def, i) => buildRow(def, i, ctx));
+    built.forEach((b) => rows.appendChild(b.row));
+    firstItemOf = p;
+    built[0].load().then(() => {
+      // Prévia no destaque: o primeiro título da home do serviço (sem tirar o foco dos logos).
+      const first = rows.querySelector('.card');
+      if (current === p && first && first.__focus && !nav.current().closest('.reco-rows')) first.__focus(first);
+      if (enterRows && current === p) focusFirstCard();
+    });
+    built.slice(1).forEach((b) => b.load());
+  }
+
+  function focusFirstCard() {
+    const first = rows.querySelector('.card');
+    if (first) nav.focus(first);
+  }
+
+  const onVisibility = () => (document.hidden ? billboard.stop() : null);
+  document.addEventListener('visibilitychange', onVisibility);
+
+  // Navegação: a seta ↓ da barra de cima vai para os logos (e não para os filmes lá embaixo),
+  // e a ↑ da primeira fileira volta para eles.
+  function onKey(e) {
+    const cur = nav.current();
+    if (!cur) return false;
+    const onLogo = () => nav.focus(providerRail.querySelector('.provider.on') || logos[0]);
+    if (e.keyCode === KEY.DOWN && cur.closest('.topbar')) {
+      onLogo();
+      return true;
+    }
+    if (e.keyCode === KEY.UP && cur.closest('.reco-rows') && cur.closest('.row') === rows.firstChild) {
+      onLogo();
+      return true;
+    }
+    return false;
+  }
+
+  return {
+    el: el,
+    onKey: onKey,
+    onShow: () => {
+      if (!reco.available()) {
+        if (!rows.firstChild) rows.appendChild(h('div.hint', { text: t('Essa aba precisa da chave do TMDB (Ajustes → Metadados extras).') }));
+        return;
+      }
+      if (!current) switchTo(reco.STREAMINGS[0]);
+      const cur = nav.current();
+      if (cur && cur.classList.contains('card') && !cur.classList.contains('see-all')) billboard.resume();
+    },
+    onHide: () => billboard.stop(),
+    destroy: () => {
+      clearTimeout(switchTimer);
+      billboard.destroy();
+      document.removeEventListener('visibilitychange', onVisibility);
+      if (bar.__destroy) bar.__destroy();
+    },
+  };
+}
+
+// ---------- Fileira simples (Início): título + frase, cartões e "Ver tudo" ----------
+export function simpleRow(def, crumb) {
+  const row = h('div.row', { 'data-anchor': '30' });
+  row.appendChild(h('div.row-title', null, [t(def.title), h('small', { text: t(def.caption) })]));
+  const track = h('div.row-track.pending', { 'data-scroll-x': '', 'data-group': '', 'data-trap': '' }, spinnerLine(t('Carregando...')));
+  row.appendChild(track);
+  const load = () =>
+    def
+      .load(1)
+      .then((items) => {
+        clear(track);
+        track.classList.remove('pending');
+        if (!items.length) {
+          if (row.parentNode) row.parentNode.removeChild(row);
+          return;
+        }
+        items.slice(0, ROW_LIMIT).forEach((it) => track.appendChild(card(it, { onSelect: () => openItem(it) })));
+        track.appendChild(
+          h('div.card.see-all', { focusable: true, onSelect: () => openCategory(crumb, def) }, [
+            h('div.poster-wrap', null, h('div.see-all-label', null, [h('b', { text: t('Ver tudo') }), h('span', { text: t(def.title) })])),
+          ])
+        );
+        loadVisibleImages(row);
+      })
+      .catch(() => {
+        if (row.parentNode) row.parentNode.removeChild(row);
+      });
+  return { row: row, load: load };
 }
 
 // ---------- Ver tudo (Recomendado › Categoria) ----------

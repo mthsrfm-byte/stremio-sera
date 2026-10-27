@@ -94,6 +94,9 @@ export function boardCatalogs() {
       const extras = cat.extra || [];
       const required = extras.some((e) => e.isRequired) || (cat.extraRequired && cat.extraRequired.length);
       if (required) return;
+      // Fora da tela inicial: canais (YouTube etc.), TV e filmes de domínio público.
+      const label = (addon.manifest.name || '') + ' ' + (cat.name || '') + ' ' + (cat.id || '');
+      if (cat.type === 'channel' || cat.type === 'tv' || /youtube|public ?domain/i.test(label)) return;
       out.push({ addon: addon, catalog: cat });
     });
   });

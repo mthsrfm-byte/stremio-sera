@@ -101,33 +101,64 @@ export const ROWS = [
   { id: 'horror', short: 'Terror', title: 'Terror', caption: 'Filmes de terror populares e bem avaliados', load: genreMovies(HORROR) },
 ];
 
-// ---------- Streamings: principais novidades de cada serviço no Brasil ----------
-// Filmes que estrearam nos últimos 6 meses e séries dos últimos 4 meses, disponíveis na
-// assinatura (flatrate) do serviço, do mais popular ao menos.
-function providerNews(providerId) {
+// ---------- Streamings: uma "home" por serviço (Brasil, só o que está na assinatura) ----------
+function providerQuery(providerId, extra, page) {
+  return Object.assign(
+    { page: page, watch_region: 'BR', with_watch_providers: providerId, with_watch_monetization_types: 'flatrate' },
+    extra,
+    lang
+  );
+}
+
+// Intercala duas listas mantendo a ordem de cada uma.
+function interleave(a, b) {
+  const out = [];
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    if (a[i]) out.push(a[i]);
+    if (b[i]) out.push(b[i]);
+  }
+  return out;
+}
+
+function discover(type, query) {
+  return tmdb('discover/' + type, query)
+    .then((r) => (r.results || []).map((x) => toItem(x, type)))
+    .catch(() => []);
+}
+
+// Novidades: filmes dos últimos 6 meses e séries dos últimos 4, do mais popular ao menos.
+function providerNews(id) {
   return (page) => {
     const today = isoDaysAgo(0);
-    const common = { page: page, watch_region: 'BR', with_watch_providers: providerId, with_watch_monetization_types: 'flatrate', sort_by: 'popularity.desc' };
-    const movies = tmdb('discover/movie', Object.assign({ 'primary_release_date.gte': isoDaysAgo(180), 'primary_release_date.lte': today }, common, lang))
-      .then((r) => (r.results || []).map((x) => toItem(x, 'movie')))
-      .catch(() => []);
-    const shows = tmdb('discover/tv', Object.assign({ 'first_air_date.gte': isoDaysAgo(120), 'first_air_date.lte': today }, common, lang))
-      .then((r) => (r.results || []).map((x) => toItem(x, 'tv')))
-      .catch(() => []);
-    return Promise.all([movies, shows]).then((both) => {
-      // Intercala filmes e séries mantendo a ordem de popularidade de cada lista.
-      const out = [];
-      for (let i = 0; i < Math.max(both[0].length, both[1].length); i++) {
-        if (both[1][i]) out.push(both[1][i]);
-        if (both[0][i]) out.push(both[0][i]);
-      }
-      return dedupe(out);
-    });
+    return Promise.all([
+      discover('tv', providerQuery(id, { sort_by: 'popularity.desc', 'first_air_date.gte': isoDaysAgo(120), 'first_air_date.lte': today }, page)),
+      discover('movie', providerQuery(id, { sort_by: 'popularity.desc', 'primary_release_date.gte': isoDaysAgo(180), 'primary_release_date.lte': today }, page)),
+    ]).then((both) => dedupe(interleave(both[0], both[1])));
   };
 }
 
+// Catálogo inteiro de filmes ou séries do serviço, do mais popular (o "Ver tudo" pagina por ele todo).
+function providerCatalog(id, type) {
+  return (page) => discover(type, providerQuery(id, { sort_by: 'popularity.desc' }, page)).then(dedupe);
+}
+
+// Aclamados: filmes e séries do serviço com nota alta e muitos votos.
+function providerAcclaimed(id) {
+  return (page) =>
+    Promise.all([
+      discover('movie', providerQuery(id, { sort_by: 'vote_average.desc', 'vote_count.gte': 800 }, page)),
+      discover('tv', providerQuery(id, { sort_by: 'vote_average.desc', 'vote_count.gte': 300 }, page)),
+    ]).then((both) => dedupe(interleave(both[0], both[1])).sort((a, b) => score(b) - score(a)));
+}
+
 function provider(id, name, de, logo) {
-  return { id: 'p' + id, short: name, title: name, caption: 'Principais novidades ' + de + ' ' + name, logo: IMG + 'w92' + logo, load: providerNews(id) };
+  const rows = [
+    { id: 'news', short: 'Novidades', title: 'Novidades', caption: 'Lançamentos recentes ' + de + ' ' + name, load: providerNews(id) },
+    { id: 'movies', short: 'Filmes', title: 'Filmes', caption: 'Catálogo de filmes ' + de + ' ' + name + ', dos mais populares', load: providerCatalog(id, 'movie') },
+    { id: 'series', short: 'Séries', title: 'Séries', caption: 'Catálogo de séries ' + de + ' ' + name + ', das mais populares', load: providerCatalog(id, 'tv') },
+    { id: 'acclaimed', short: 'Aclamados', title: 'Aclamados', caption: 'Os mais bem avaliados ' + de + ' ' + name, load: providerAcclaimed(id) },
+  ];
+  return { id: 'p' + id, name: name, logo: IMG + 'w154' + logo, rows: rows };
 }
 
 export const STREAMINGS = [
@@ -138,6 +169,48 @@ export const STREAMINGS = [
   provider(350, 'Apple TV+', 'do', '/9icYBfYFcwgCbky5VdGUIKJ4C5i.png'),
   provider(531, 'Paramount+', 'do', '/pkx3klJlwW5JdtaulvDx6hDNtch.png'),
   provider(307, 'Globoplay', 'do', '/9A6Oxd3F7iXm7mds7CxYOBicojs.png'),
+  provider(11, 'MUBI', 'do', '/k7iSlvgWzZuO4zU5PcBjhABMuia.png'),
+  provider(283, 'Crunchyroll', 'da', '/uFL3c4Cq8M6WoLymlC5Y8bmGytV.png'),
+];
+
+// ---------- Início: o que vale a pena ver agora (no lugar dos catálogos genéricos dos addons) ----------
+function trendingType(type) {
+  return (page) => tmdb('trending/' + type + '/week', Object.assign({ page: page }, lang)).then((r) => dedupe((r.results || []).map((x) => toItem(x, type))));
+}
+
+// Filmes do último ano bem avaliados, dos mais populares.
+function acclaimedRecent(page) {
+  return discover('movie', Object.assign({ page: page, sort_by: 'popularity.desc', 'primary_release_date.gte': isoDaysAgo(365), 'primary_release_date.lte': isoDaysAgo(0), 'vote_average.gte': 7, 'vote_count.gte': 300 }, lang)).then(dedupe);
+}
+
+// Novidades de vários streamings juntas (Netflix, Prime, Disney+, HBO Max, Apple TV+).
+function streamingNews(page) {
+  const ids = '8|119|337|1899|350';
+  const today = isoDaysAgo(0);
+  const q = (type, dates) => discover(type, Object.assign({ page: page, watch_region: 'BR', with_watch_providers: ids, with_watch_monetization_types: 'flatrate', sort_by: 'popularity.desc' }, dates, lang));
+  return Promise.all([
+    q('tv', { 'first_air_date.gte': isoDaysAgo(90), 'first_air_date.lte': today }),
+    q('movie', { 'primary_release_date.gte': isoDaysAgo(150), 'primary_release_date.lte': today }),
+  ]).then((both) => dedupe(interleave(both[0], both[1])));
+}
+
+// Séries muito bem avaliadas (as "obrigatórias").
+function acclaimedSeries(page) {
+  return discover('tv', Object.assign({ page: page, sort_by: 'vote_average.desc', 'vote_count.gte': 2000, without_genres: '16' }, lang)).then(dedupe);
+}
+
+// Clássicos modernos: filmes de 1995 a 2019 com nota alta e muitos votos.
+function modernClassics(page) {
+  return discover('movie', Object.assign({ page: page, sort_by: 'vote_average.desc', 'vote_count.gte': 5000, 'primary_release_date.gte': '1995-01-01', 'primary_release_date.lte': '2019-12-31' }, lang)).then(dedupe);
+}
+
+export const HOME_ROWS = [
+  { id: 'hm-movies', title: 'Filmes em alta', caption: 'Os mais vistos da semana', load: trendingType('movie') },
+  { id: 'hm-series', title: 'Séries em alta', caption: 'As mais vistas da semana', load: trendingType('tv') },
+  { id: 'hm-news', title: 'Chegou nos streamings', caption: 'Netflix, Prime Video, Disney+, HBO Max e Apple TV+', load: streamingNews },
+  { id: 'hm-acclaimed', title: 'Aclamados do último ano', caption: 'Filmes recentes com nota alta', load: acclaimedRecent },
+  { id: 'hm-tvbest', title: 'Séries obrigatórias', caption: 'As mais bem avaliadas de todos os tempos', load: acclaimedSeries },
+  { id: 'hm-classics', title: 'Clássicos modernos', caption: 'Filmes de 1995 a 2019 que todo mundo ama', load: modernClassics },
 ];
 
 export function available() {
