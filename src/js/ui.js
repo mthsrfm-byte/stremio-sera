@@ -6,6 +6,8 @@ import { smallPoster, smallBackground } from './lib/img.js';
 import * as store from './lib/store.js';
 import { avatar, switchProfile, createProfile } from './views/profiles.js';
 import { t } from './lib/i18n.js';
+import * as addons from './api/addons.js';
+import { requirePin } from './views/pin.js';
 
 let toastTimer = null;
 export function toast(msg, ms) {
@@ -83,6 +85,7 @@ export const TABS = [
   { id: 'search', label: 'Buscar' },
   { id: 'library', label: 'Biblioteca' },
   { id: 'streamings', label: 'Streamings' },
+  { id: 'nsfw', label: 'NSFW', when: () => addons.nsfwEnabled() },
   { id: 'settings', label: 'Ajustes' },
 ];
 
@@ -96,9 +99,11 @@ export function topbar(activeId, onTab) {
     TABS.map((tab) =>
       h('div.tab', {
         focusable: true,
-        cls: tab.id === activeId ? 'active' : '',
+        'data-tab': tab.id,
+        cls: (tab.id === activeId ? 'active' : '') + (tab.id === 'nsfw' ? ' tab-nsfw' : ''),
+        style: tab.when && !tab.when() ? { display: 'none' } : null,
         text: t(tab.label),
-        onSelect: () => onTab(tab.id),
+        onSelect: () => (tab.id === 'nsfw' ? requirePin(() => onTab(tab.id)) : onTab(tab.id)),
       })
     ),
     h('div.spacer'),
@@ -106,7 +111,17 @@ export function topbar(activeId, onTab) {
     clock,
   ]);
   bar.__destroy = () => clearInterval(timer);
+  // Abas condicionais (NSFW) dependem dos addons, que podem chegar depois da barra.
+  addons.load().then(refreshTabs).catch(() => {});
   return bar;
+}
+
+// Mostra/esconde as abas condicionais em todas as barras (addons mudaram, ajuste trocado).
+export function refreshTabs() {
+  TABS.filter((tab) => tab.when).forEach((tab) => {
+    const show = tab.when();
+    Array.prototype.forEach.call(document.querySelectorAll('.topbar .tab[data-tab="' + tab.id + '"]'), (el) => (el.style.display = show ? '' : 'none'));
+  });
 }
 
 // Avatar do perfil ativo na barra superior: troca rápida de perfil.

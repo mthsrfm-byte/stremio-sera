@@ -9,7 +9,7 @@ export function registerTizenKeys() {
   const input = window.tizen && window.tizen.tvinputdevice;
   if (!input) return;
   ['MediaPlayPause', 'MediaPlay', 'MediaPause', 'MediaStop', 'MediaFastForward', 'MediaRewind',
-    'ColorF0Red', 'ColorF1Green', 'ColorF2Yellow', 'ColorF3Blue', 'ChannelUp', 'ChannelDown'].forEach((k) => {
+    'ColorF0Red', 'ColorF1Green', 'ColorF2Yellow', 'ColorF3Blue', 'ChannelUp', 'ChannelDown', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'].forEach((k) => {
     try {
       input.registerKey(k);
     } catch (e) {

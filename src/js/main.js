@@ -11,6 +11,7 @@ import * as addons from './api/addons.js';
 import * as router from './router.js';
 import { HomeView } from './views/home.js';
 import { RecommendedView, StreamingsView } from './views/recommended.js';
+import { NsfwView } from './views/nsfw.js';
 import { SearchView } from './views/search.js';
 import { LibraryView } from './views/library.js';
 import { SettingsView } from './views/settings.js';
@@ -56,6 +57,7 @@ function boot() {
   router.registerTab('library', LibraryView);
   router.registerTab('settings', SettingsView);
   router.registerTab('streamings', StreamingsView);
+  router.registerTab('nsfw', NsfwView);
 
   // "Quem está assistindo?" (com mais de um perfil) antes de carregar a conta.
   if (profiles.needsPicker()) {

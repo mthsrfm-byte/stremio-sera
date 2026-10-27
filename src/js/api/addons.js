@@ -86,10 +86,90 @@ function url(addon, resource, type, id, extra) {
   return addon.base + path + '.json' + addon.query;
 }
 
+// ---------- Conteúdo adulto (aba NSFW) ----------
+// Addon adulto: o próprio manifest diz (behaviorHints.adult), o nome/descrição entrega, ou a
+// pessoa marcou à mão em Ajustes. O conteúdo dele só aparece na aba NSFW.
+const ADULT_RE = /\b(porn\w*|xxx|nsfw|adult[oa]?s?|hentai|18\+|onlyfans|erotic\w*|er[oó]tic[oa]s?)\b/i;
+
+export function adultByManifest(addon) {
+  const m = addon.manifest || {};
+  if (m.behaviorHints && m.behaviorHints.adult) return true;
+  return ADULT_RE.test([m.id, m.name, m.description].join(' '));
+}
+
+export function isAdult(addon) {
+  const s = store.settings();
+  const id = addon.manifest && addon.manifest.id;
+  if ((s.sfwAddons || []).indexOf(id) >= 0) return false;
+  return (s.nsfwAddons || []).indexOf(id) >= 0 || adultByManifest(addon);
+}
+
+export function adultAddons() {
+  return list().filter(isAdult);
+}
+
+// Aba NSFW aparece com addon adulto instalado, a não ser que o perfil tenha escondido.
+export function nsfwEnabled() {
+  return store.settings().nsfwTab !== false && adultAddons().length > 0;
+}
+
+// Prefixos de id dos addons adultos ("tt" do IMDb fica de fora: é de filme comum).
+function adultPrefixes() {
+  const out = [];
+  adultAddons().forEach((a) => {
+    const m = a.manifest;
+    const lists = [m.idPrefixes || []].concat((m.resources || []).map((r) => (typeof r === 'object' && r.idPrefixes) || []));
+    lists.forEach((l) => l.forEach((p) => p && p !== 'tt' && out.indexOf(p) < 0 && out.push(p)));
+  });
+  return out;
+}
+
+// Ids abertos pela aba NSFW: cobre addon adulto sem idPrefixes (o id não diz de onde veio).
+let adultIds = null;
+function seenIds() {
+  if (!adultIds) adultIds = store.get('nsfwIds', []) || [];
+  return adultIds;
+}
+
+export function markAdult(id) {
+  const list = seenIds();
+  if (!id || list.indexOf(id) >= 0) return;
+  list.push(id);
+  if (list.length > 2000) list.splice(0, list.length - 2000);
+  store.set('nsfwIds', list);
+}
+
+// Item (biblioteca, continuar assistindo) que veio de um addon adulto.
+export function isAdultId(id) {
+  const s = String(id || '');
+  return seenIds().indexOf(s) >= 0 || adultPrefixes().some((p) => s.indexOf(p) === 0);
+}
+
+// Catálogos de um addon adulto, separados em fileiras (sem extra obrigatório) e busca.
+export function adultCatalogs(addon) {
+  return (addon.manifest.catalogs || []).map((cat) => ({ addon: addon, catalog: cat }));
+}
+
+export function isBoardable(cat) {
+  const extras = cat.extra || [];
+  return !(extras.some((e) => e.isRequired) || (cat.extraRequired && cat.extraRequired.length));
+}
+
+export function supportsSearch(cat) {
+  return (cat.extra || []).some((e) => e.name === 'search') || (cat.extraSupported || []).indexOf('search') >= 0;
+}
+
+// Gêneros/categorias que o catálogo aceita como filtro (extra "genre" com opções).
+export function genreOptions(cat) {
+  const g = (cat.extra || []).filter((e) => e.name === 'genre')[0];
+  return (g && g.options) || cat.genres || [];
+}
+
 // Catálogos que aparecem na tela inicial (sem "extra" obrigatório), como no Stremio.
 export function boardCatalogs() {
   const out = [];
   list().forEach((addon) => {
+    if (isAdult(addon)) return;
     (addon.manifest.catalogs || []).forEach((cat) => {
       const extras = cat.extra || [];
       const required = extras.some((e) => e.isRequired) || (cat.extraRequired && cat.extraRequired.length);
@@ -106,6 +186,7 @@ export function boardCatalogs() {
 export function searchCatalogs() {
   const out = [];
   list().forEach((addon) => {
+    if (isAdult(addon)) return;
     (addon.manifest.catalogs || []).forEach((cat) => {
       const extras = cat.extra || [];
       const supports = extras.some((e) => e.name === 'search') || (cat.extraSupported || []).indexOf('search') >= 0;

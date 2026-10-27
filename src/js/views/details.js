@@ -12,6 +12,10 @@ import * as extras from '../api/extras.js';
 import { smallThumb } from '../lib/img.js';
 import { t } from '../lib/i18n.js';
 import { log } from '../lib/log.js';
+import * as si from '../lib/streaminfo.js';
+import * as store from '../lib/store.js';
+import { genreName } from '../lib/genres.js';
+import { openFilmography } from './filmography.js';
 
 // Logos das notas (SVG pequeno, sem depender de imagem externa).
 const IMDB_SVG =
@@ -94,7 +98,7 @@ function DetailsView(type, id, opts) {
       const i = vids.findIndex((v) => v.id === li.state.video_id);
       if (i >= 0) return vids[i];
     }
-    return vids.filter((v) => v.season !== 0)[0] || vids[0];
+    return vids.filter((v) => v.season !== 0 && !isUpcoming(v))[0] || vids[0];
   }
 
   function renderInfo() {
@@ -120,7 +124,7 @@ function DetailsView(type, id, opts) {
     const genres = h(
       'div.details-genres',
       null,
-      (meta.genres || meta.genre || []).slice(0, 5).map((g) => h('span', { text: g }))
+      (meta.genres || meta.genre || []).slice(0, 5).map((g) => h('span', { text: genreName(g) }))
     );
     const desc = h('div.details-desc', { text: meta.description || '' });
     const cast = (meta.cast || []).slice(0, 5);
@@ -169,8 +173,10 @@ function DetailsView(type, id, opts) {
       .then((r) => alive && renderRatings(ui.ratingsEl, r))
       .catch(() => alive && renderRatings(ui.ratingsEl, { imdb: meta.imdbRating ? String(meta.imdbRating) : null, critic: null, audience: null }));
     if (!extras.hasTmdb()) return;
-    extras
+    tmdbReady = extras
       .localized(meta)
+      .then((loc) => loc, () => null);
+    tmdbReady
       .then((loc) => {
         if (!alive || !loc) return;
         tmdbInfo = loc;
@@ -184,9 +190,9 @@ function DetailsView(type, id, opts) {
         if (loc.cast.length) {
           const row = h(
             'div.cast-row',
-            null,
+            { 'data-group': '' },
             loc.cast.slice(0, 7).map((c) =>
-              h('div.cast', null, [
+              h('div.cast', { focusable: !!c.id, onSelect: () => openFilmography(c) }, [
                 castPhoto(c.photo),
                 h('div.nm', { text: c.name }),
                 h('div.ch', { text: c.character }),
@@ -200,6 +206,20 @@ function DetailsView(type, id, opts) {
       .catch(() => {});
   }
 
+  // Episódio em PT-BR pelo TMDB; guarda em video.namePt (o player usa no título).
+  let tmdbReady = null;
+  function ptEpisode(v) {
+    if (!extras.hasTmdb() || !v || v.season === undefined) return Promise.resolve(null);
+    return (tmdbReady || Promise.resolve(tmdbInfo))
+      .then((info) => (info && info.tmdbType === 'tv' ? extras.seasonPt(info.tmdbId, v.season) : null))
+      .then((map) => {
+        const ep = map && map[v.episode];
+        if (ep && ep.name) v.namePt = ep.name;
+        return ep || null;
+      })
+      .catch(() => null);
+  }
+
   // Troca títulos/sinopses dos episódios visíveis pelos do TMDB em PT-BR.
   function localizeEpisodes() {
     if (!tmdbInfo || tmdbInfo.tmdbType !== 'tv' || season === null) return;
@@ -211,7 +231,10 @@ function DetailsView(type, id, opts) {
         Array.prototype.forEach.call(panel.querySelectorAll('.episode'), (row) => {
           const ep = map[row.__episode];
           if (!ep) return;
-          if (ep.name) row.querySelector('.ep-title').textContent = row.__episode + '. ' + ep.name;
+          if (ep.name) {
+            row.querySelector('.ep-title').lastChild.textContent = row.__episode + '. ' + ep.name;
+            if (row.__video) row.__video.namePt = ep.name;
+          }
           if (ep.overview) row.querySelector('.ep-desc').textContent = ep.overview;
         });
       })
@@ -232,9 +255,9 @@ function DetailsView(type, id, opts) {
   function onWatch() {
     if (isSeries()) {
       const v = nextUpVideo();
-      if (v) showStreams(v, true);
+      if (v) showStreams(v, true, true);
     } else {
-      showStreams({ id: movieVideoId(), title: meta.name }, true);
+      showStreams({ id: movieVideoId(), title: meta.name }, true, true);
     }
   }
 
@@ -304,15 +327,17 @@ function DetailsView(type, id, opts) {
         if (v.released) sub += ' · ' + formatDate(v.released);
         const inProgress = li && li.state && li.state.video_id === v.id && li.state.timeOffset > 0;
         if (inProgress) sub += ' · ' + t('parou em {time}', { time: fmtTime(li.state.timeOffset / 1000) });
-        const row = h('div.episode', { focusable: true, onSelect: () => showStreams(v, true) }, [
+        const soon = isUpcoming(v);
+        const row = h('div.episode', { focusable: true, cls: soon ? 'upcoming' : '', onSelect: () => (soon ? toast(t('Esse episódio ainda não saiu. Estreia em {date}.', { date: formatDate(v.released) })) : showStreams(v, true, true)) }, [
           thumb,
           h('div.ep-info', null, [
-            h('div.ep-title', { text: (v.episode ? v.episode + '. ' : '') + (v.name || v.title || t('Episódio')) }),
+            h('div.ep-title', null, [soon ? h('span.soon-tag', { text: t('Em breve') }) : null, (v.episode ? v.episode + '. ' : '') + (v.name || v.title || t('Episódio'))]),
             h('div.ep-sub', { text: sub }),
             h('div.ep-desc', { text: v.overview || v.description || '' }),
           ]),
         ]);
         row.__episode = v.episode;
+        row.__video = v;
         if (v.id === focusVideoId || (!focusVideoId && inProgress)) focusEl = row;
         list.appendChild(row);
       });
@@ -340,41 +365,31 @@ function DetailsView(type, id, opts) {
     return mins || (isSeries() ? 45 : 110);
   }
 
-  // Estimativa da taxa do arquivo (tamanho ÷ duração): avisa o que pesa no Wi-Fi da TV (~34 Mbps medidos).
-  // Áudio em português: bandeira (Torrentio marca 🇧🇷/🇵🇹) ou palavras dos lançamentos brasileiros.
-  function isDubbed(s) {
-    const text = (s.name || '') + ' ' + (s.title || s.description || '') + ' ' + ((s.behaviorHints && s.behaviorHints.filename) || '');
-    if (/\uD83C\uDDE7\uD83C\uDDF7|\uD83C\uDDF5\uD83C\uDDF9/.test(text)) return true;
-    return /dublad[oa]|\bdub(?:lagem)?[ ._-]?(?:pt|br)\b|\bpt[ ._-]?br\b|\bnacional\b|portugu[eê]s|\bdual\b[^\n]*\b(?:pt|br|por)\b|\b(?:pt|br|por)\b[^\n]*\bdual\b/i.test(text);
+  // Taxa estimada do arquivo (tamanho ÷ duração): só aparece quando pesa no Wi-Fi da TV (~34 Mbps).
+  function heavyMbps(info) {
+    if (!info.sizeMb) return 0;
+    const mbps = Math.round((info.sizeMb * 8) / (runtimeMinutes() * 60));
+    return mbps > 30 ? mbps : 0;
   }
 
-  function streamBadges(s) {
-    const text = (s.name || '') + ' ' + (s.title || s.description || '');
-    const out = [];
-    if (/2160p|\b4k\b|uhd/i.test(text)) out.push({ t: '4K' });
-    if (/dolby.?vision|\bdovi\b|\bdv\b/i.test(text)) out.push({ t: 'Dolby Vision', warn: true });
-    else if (/hdr/i.test(text)) out.push({ t: 'HDR' });
-    if (/remux/i.test(text)) out.push({ t: 'REMUX', warn: true });
-    const m = text.match(/(\d+(?:[.,]\d+)?)\s*(GB|MB)\b/i);
-    if (m) {
-      const mb = parseFloat(m[1].replace(',', '.')) * (m[2].toUpperCase() === 'GB' ? 1024 : 1);
-      const mbps = Math.round((mb * 8) / (runtimeMinutes() * 60));
-      if (mbps > 0) out.push({ t: '~' + mbps + ' Mbps', warn: mbps > 30 });
-    }
-    return out;
-  }
-
-  function showStreams(video, focusFirst) {
+  function showStreams(video, focusFirst, smart) {
     mode = 'streams';
     streamsVideo = video;
     clear(panel);
-    const head = isSeries() ? 'T' + video.season + 'E' + video.episode + ' · ' + (video.name || video.title || '') : t('Fontes');
+    const headText = (name) => 'T' + video.season + 'E' + video.episode + ' · ' + (name || '');
+    const head = isSeries() ? headText(video.namePt || video.name || video.title) : t('Fontes');
     const filterBtn = h('div.btn.small', { focusable: true, text: t('Todos ▾'), onSelect: () => filterMenu() });
-    panel.appendChild(h('div.panel-head', { 'data-group': '' }, [h('h2', { text: head }), filterBtn]));
+    const headEl = h('h2', { text: head });
+    panel.appendChild(h('div.panel-head', { 'data-group': '' }, [headEl, filterBtn]));
+    if (isSeries() && !video.namePt)
+      ptEpisode(video).then((ep) => {
+        if (ep && ep.name && streamsVideo === video) headEl.textContent = headText(ep.name);
+      });
     const sub = h('div.panel-sub');
     const barFill = h('i');
     panel.appendChild(sub);
-    panel.appendChild(h('div.load-bar', null, barFill));
+    const loadBar = h('div.load-bar', null, barFill);
+    panel.appendChild(loadBar);
     const list = h('div.list', { 'data-scroll-y': '', 'data-pad-y': '120', 'data-group': '', 'data-vertical': '' });
     list.style.top = '178px';
     panel.appendChild(list);
@@ -400,11 +415,35 @@ function DetailsView(type, id, opts) {
     const all = [];
     let autoFocused = null;
     let serverOk = server.isAvailable();
+    // Smart Choice: espera os addons (no máximo ~12s) e abre sozinho a melhor fonte, a não ser
+    // que a pessoa mexa no controle antes.
+    let smartOn = !!(smart && focusFirst && store.settings().smartChoice !== false);
+    const smartTimer = smartOn ? setTimeout(() => runSmart(), 12000) : null;
+    function runSmart() {
+      if (!smartOn) return;
+      smartOn = false;
+      clearTimeout(smartTimer);
+      if (!alive || streamsVideo !== video || mode !== 'streams') return;
+      if (autoFocused && nav.current() !== autoFocused) return; // a pessoa já está escolhendo
+      if (router.currentView() !== view) return;
+      const pick = si.smartPick(all, serverOk);
+      status();
+      if (!pick) return;
+      const info = si.parse(pick.stream);
+      toast(t('Smart Choice: {what}', { what: si.summary(info) || info.addon }), 3500);
+      play(video, pick.stream, all);
+    }
 
     function status() {
+      if (smartOn) {
+        sub.textContent = t('Smart Choice escolhendo a melhor fonte...  ·  aperte qualquer seta para escolher você');
+        barFill.style.width = Math.round(((srcs.length - pendingCount) / srcs.length) * 100) + '%';
+        return;
+      }
       const srv = serverOk ? t('Servidor do PC conectado') : t('Servidor do PC não conectado: só links diretos');
       sub.textContent = srv + (pendingCount > 0 ? '  ·  ' + t('{n} addon(s) ainda carregando', { n: pendingCount }) : '  ·  ' + t('{n} fontes', { n: all.length }));
       barFill.style.width = Math.round(((srcs.length - pendingCount) / srcs.length) * 100) + '%';
+      loadBar.classList.toggle('done', pendingCount <= 0);
       const g = groups.find((x) => x.addon.transportUrl === filter);
       filterBtn.textContent = (g ? g.addon.manifest.name : filter === 'dub' ? t('Dublados') : t('Todos')) + ' ▾';
     }
@@ -425,7 +464,7 @@ function DetailsView(type, id, opts) {
     }
 
     function filterMenu() {
-      const dubs = all.filter(isDubbed).length;
+      const dubs = all.filter((x) => si.parse(x).dub).length;
       const opts = [
         { label: t('Todos'), sub: t('{n} fontes', { n: all.length }), value: 'all', checked: filter === 'all' },
         { label: t('Só dublados em português'), sub: t('{n} fontes', { n: dubs }), value: 'dub', checked: filter === 'dub' },
@@ -470,6 +509,7 @@ function DetailsView(type, id, opts) {
             }
           }
           if (pendingCount <= 0) {
+            if (smartOn) setTimeout(runSmart, 0);
             if (loadingLine.parentNode) list.removeChild(loadingLine);
             if (!all.length) list.appendChild(h('div.loading-line', { text: t('Nenhuma fonte encontrada.') }));
           }
@@ -479,32 +519,41 @@ function DetailsView(type, id, opts) {
       .catch(() => {});
   }
 
+  // Fonte enxuta: nome do arquivo e só o que decide a escolha (qualidade, HDR/DV, dublado,
+  // sinal de seeders, tamanho). Sem a fileira de bandeirinhas.
   function streamItem(s, video, serverOk, all) {
     const playableType = server.isPlayableType(s);
     const needs = server.needsServer(s);
     const disabled = !playableType || (needs && !serverOk);
+    const info = si.parse(s);
     const tags = [];
+    if (info.res) tags.push(h('span.s-tag.res', { cls: info.res === '4K' ? 'uhd' : '', text: info.res }));
+    if (info.dv) tags.push(h('span.s-tag.dv', { text: 'Dolby Vision' }));
+    else if (info.hdr) tags.push(h('span.s-tag.hdr', { text: 'HDR' }));
+    if (info.dub) tags.push(h('span.s-tag.dub', { html: BR_FLAG + (info.original ? t('Original + Dublado') : t('Dublado')) }));
+    if (info.remux) tags.push(h('span.s-tag', { text: 'REMUX' }));
+    const heavy = heavyMbps(info);
+    if (heavy) tags.push(h('span.s-tag.warn', { text: t('Pesado · ~{n} Mbps', { n: heavy }) }));
     if (!playableType) tags.push(h('span.s-tag.warn', { text: t('Não suportado na TV') }));
-    else if (needs) tags.push(h('span.s-tag', { cls: serverOk ? '' : 'warn', text: serverOk ? t('Torrent · via PC') : t('Torrent · precisa do PC') }));
-    else tags.push(h('span.s-tag.ok', { text: t('Direto') }));
-    const dub = isDubbed(s);
-    if (dub) tags.unshift(h('span.s-tag.dub', { html: BR_FLAG + t('Dublado') }));
-    streamBadges(s).forEach((b) => tags.push(h('span.s-tag', { cls: b.warn ? 'warn' : '', text: b.t })));
+    else if (needs && !serverOk) tags.push(h('span.s-tag.warn', { text: t('Precisa do PC') }));
+    const stats = h('div.s-stats', null, [
+      info.seeders !== null ? h('span.s-seed', { cls: 'lv' + si.signal(info.seeders), html: si.signalSvg(si.signal(info.seeders)) + '<b>' + info.seeders + '</b>' }) : null,
+      info.cached ? h('span.s-seed.lv4', { html: si.signalSvg(4) + '<b>' + t('Instantâneo') + '</b>' }) : null,
+      info.sizeMb ? h('span.s-size', { text: si.sizeText(info.sizeMb) }) : null,
+      h('span.s-src', { text: info.addon + (needs ? ' · torrent' : playableType ? ' · ' + t('direto') : '') }),
+    ]);
     return h(
       'div.stream',
       {
         focusable: true,
-        cls: (disabled ? 'disabled' : '') + (dub ? ' dub' : ''),
+        cls: (disabled ? 'disabled' : '') + (info.dub ? ' dub' : ''),
         onSelect: () => {
           if (!playableType) return toast(t('Esse tipo de fonte não abre na TV.'));
           if (needs && !serverOk) return toast(t('Torrent precisa do stremio-service rodando no PC. Configure em Ajustes.'), 5000);
           play(video, s, all);
         },
       },
-      [
-        h('div.s-addon', { text: (s.name || s.addon || '').trim() }),
-        h('div.s-body', null, [h('div.s-title', { text: (s.title || s.description || '').trim() }), h('div.s-tags', null, tags)]),
-      ]
+      [h('div.s-body', null, [h('div.s-title', { text: info.file || (s.title || s.description || '').split('\n')[0] }), h('div.s-tags', null, tags), stats])]
     );
   }
 
@@ -522,6 +571,11 @@ function DetailsView(type, id, opts) {
         { center: true, onPick: (v) => start(v) }
       );
     } else start(0);
+  }
+
+  function isUpcoming(v) {
+    const d = v && v.released ? new Date(v.released).getTime() : NaN;
+    return !isNaN(d) && d > Date.now();
   }
 
   function formatDate(iso) {
@@ -547,18 +601,18 @@ function DetailsView(type, id, opts) {
           const v = sortedVideos(meta).find((x) => x.id === opts.videoId);
           if (v) season = v.season || 0;
           if (v && opts.autoStreams) {
-            showStreams(v, true);
+            showStreams(v, true, true);
             return;
           }
         }
         showEpisodes(opts.videoId);
         if (opts.autoStreams) {
           const v = nextUpVideo();
-          if (v) showStreams(v, true);
+          if (v) showStreams(v, true, true);
           return;
         }
       } else {
-        showStreams({ id: movieVideoId(), title: meta.name }, !!opts.autoStreams);
+        showStreams({ id: movieVideoId(), title: meta.name }, !!opts.autoStreams, !!opts.autoStreams);
       }
       if (!opts.autoStreams) nav.focus(watchBtn);
     })
@@ -585,7 +639,7 @@ function DetailsView(type, id, opts) {
       nav.focusFirst(el);
     });
 
-  return {
+  const view = {
     el: el,
     onShow: () => {
       if (meta && watchBtn) updateButtons();
@@ -603,4 +657,5 @@ function DetailsView(type, id, opts) {
       alive = false;
     },
   };
+  return view;
 }

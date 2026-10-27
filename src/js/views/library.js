@@ -2,6 +2,7 @@
 import { h, clear, loadVisibleImages } from '../lib/dom.js';
 import * as nav from '../lib/nav.js';
 import * as stremio from '../api/stremio.js';
+import * as addons from '../api/addons.js';
 import { topbar, card, spinnerLine } from '../ui.js';
 import * as router from '../router.js';
 import { openDetails } from './details.js';
@@ -50,7 +51,7 @@ export function LibraryView() {
     clear(grid);
     const items = stremio
       .cachedLibrary()
-      .filter((it) => !it.removed && (filter === 'all' || it.type === filter))
+      .filter((it) => !it.removed && (filter === 'all' || it.type === filter) && !addons.isAdultId(it._id))
       .sort((a, b) => String(b._mtime || '').localeCompare(String(a._mtime || '')));
     if (!items.length) {
       grid.appendChild(h('div.hint', { text: stremio.isLoggedIn() ? t('Sua biblioteca está vazia.') : t('Entre na sua conta em Ajustes para ver a biblioteca.') }));
