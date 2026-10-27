@@ -6303,9 +6303,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "d5b63b6a70ab1d9e6f448ce12c2e70f4a825c3cc",
-    date: "2026-10-27T05:24:27-03:00",
-    message: "NSFW: vídeo do Pornhub no Node 4 da TV e diagnóstico no erro do player"
+    commit: "5c3ca88aa7bb3ac82ffed6c514a5b6b4de36c247",
+    date: "2026-10-27T08:31:48Z",
+    message: "Web: palco 1920×1080 escalado para caber em qualquer tela"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
