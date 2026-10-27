@@ -160,6 +160,7 @@ function DetailsView(type, id, opts) {
   function renderRatings(el, r, loading) {
     clear(el);
     if (r.imdb) el.appendChild(h('span.rating.imdb', { html: IMDB_SVG }, h('span.rv', { text: r.imdb })));
+    if (isAdult()) return; // vídeo adulto não tem nota no Rotten Tomatoes: o selo só mostraria "--"
     const pct = (v) => (v === null || v === undefined ? (loading ? '··' : '--') : v + '%');
     el.appendChild(
       h('span.rating.rt', { title: t('Rotten Tomatoes: crítica e público') }, [

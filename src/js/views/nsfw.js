@@ -37,9 +37,10 @@ function openDetails(type, id, opts, item) {
 }
 
 // Cartão do catálogo: vídeos com capa deitada (posterShape "landscape") usam o cartão largo.
+// Sem prévia (capa que não abre), o vídeo sai da fileira; Salvos, Continuar e Minha lista ficam sempre.
 function itemCard(m, entry) {
   const wide = m.posterShape === 'landscape' || (entry && entry.catalog.posterShape === 'landscape');
-  return card(m, { wide: wide, image: wide ? m.poster || m.background : undefined, onSelect: () => openDetails(m.type || entry.catalog.type, m.id, null, m) });
+  return card(m, { wide: wide, image: wide ? m.poster || m.background : undefined, dropWithoutImage: true, onSelect: () => openDetails(m.type || entry.catalog.type, m.id, null, m) });
 }
 
 export function NsfwView() {

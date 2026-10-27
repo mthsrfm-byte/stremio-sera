@@ -14,7 +14,7 @@ var urlLib = require('url');
 
 var PORT = 8090;
 var ADDON_PORT = 8092; // addons XVideos/Pornhub e vídeo (porta nova a cada mudança que versões antigas não sabem largar)
-var SERVICE_VERSION = 6;
+var SERVICE_VERSION = 7;
 var PAGE_BASE = 'https://cdn.jsdelivr.net/gh/mthsrfm-byte/stremio-sera/remote/';
 var APP_NAME = 'Seraflix Controle';
 var TOKEN_FILE = '/home/owner/share/seraflixRemote.json';
@@ -260,12 +260,34 @@ function withCa(opts) {
   return opts;
 }
 
+// Cookies de sessão que os sites mandam. O Pornhub só entrega links de vídeo que funcionam para
+// quem já tem sessão: no primeiro pedido, a página às vezes vem com links que respondem 410.
+var jar = {};
+var BASE_COOKIES = { platform: 'pc', age_verified: '1', accessAgeDisclaimerPH: '1' };
+function siteOf(host) { return String(host || '').split('.').slice(-2).join('.'); }
+function keepCookies(host, list) {
+  if (!list) return;
+  var c = jar[siteOf(host)] || (jar[siteOf(host)] = {});
+  (Array.isArray(list) ? list : [list]).forEach(function (line) {
+    var kv = String(line).split(';')[0];
+    var i = kv.indexOf('=');
+    if (i > 0 && !BASE_COOKIES[kv.slice(0, i).trim()]) c[kv.slice(0, i).trim()] = kv.slice(i + 1).trim();
+  });
+}
+function cookieHeader(host) {
+  var all = {};
+  var c = jar[siteOf(host)] || {};
+  Object.keys(BASE_COOKIES).forEach(function (k) { all[k] = BASE_COOKIES[k]; });
+  Object.keys(c).forEach(function (k) { all[k] = c[k]; });
+  return Object.keys(all).map(function (k) { return k + '=' + all[k]; }).join('; ');
+}
+
 function fetchText(url, cb, hops) {
   var done = false;
   function end(err, text) { if (!done) { done = true; cb(err, text); } }
   // Node 4 (o da TV) não aceita https.get(url, opções, cb): as opções vão num objeto só.
   var opts = urlLib.parse(url);
-  opts.headers = { 'User-Agent': UA, 'Accept-Language': 'en-US,en;q=0.8', Cookie: 'platform=pc; age_verified=1; accessAgeDisclaimerPH=1' };
+  opts.headers = { 'User-Agent': UA, 'Accept-Language': 'en-US,en;q=0.8', Cookie: cookieHeader(opts.hostname) };
   var req;
   try {
     req = https.get(withCa(opts), onResponse);
@@ -273,6 +295,7 @@ function fetchText(url, cb, hops) {
     return end(e);
   }
   function onResponse(r) {
+    keepCookies(opts.hostname, r.headers['set-cookie']);
     if (r.statusCode >= 300 && r.statusCode < 400 && r.headers.location && (hops || 0) < 4) {
       r.resume();
       var next = r.headers.location.indexOf('http') === 0 ? r.headers.location : url.split('/').slice(0, 3).join('/') + r.headers.location;
@@ -292,6 +315,29 @@ function fetchText(url, cb, hops) {
     end(e);
   });
   req.setTimeout(15000, function () { req.abort(); end(new Error('tempo esgotado')); });
+}
+
+// O link responde? (só o status; a playlist HLS é pequena e o corpo é descartado)
+function urlOk(url, cb) {
+  var done = false;
+  function end(ok) { if (!done) { done = true; cb(ok); } }
+  var opts = urlLib.parse(url);
+  opts.headers = { 'User-Agent': UA, Accept: '*/*' };
+  var req;
+  try {
+    req = https.get(withCa(opts), function (r) { r.resume(); end(r.statusCode === 200); });
+  } catch (e) {
+    return end(false);
+  }
+  req.on('error', function (e) {
+    if (isCertError(e) && !extraCaHosts[opts.hostname] && !done) {
+      extraCaHosts[opts.hostname] = true;
+      done = true;
+      return urlOk(url, cb);
+    }
+    end(false);
+  });
+  req.setTimeout(10000, function () { req.abort(); end(false); });
 }
 
 var ENTITIES = { amp: '&', quot: '"', apos: "'", lt: '<', gt: '>', nbsp: ' ', period: '.', comma: ',', excl: '!', quest: '?', colon: ':', semi: ';', lpar: '(', rpar: ')', num: '#', percnt: '%', plus: '+', equals: '=', sol: '/', hyphen: '-', lowbar: '_', ast: '*', commat: '@', mdash: '—', ndash: '–', hellip: '…', rsquo: '’', lsquo: '‘', ldquo: '“', rdquo: '”', laquo: '«', raquo: '»', trade: '™', copy: '©', reg: '®', deg: '°', times: '×', bull: '•', middot: '·', eacute: 'é', aacute: 'á', iacute: 'í', oacute: 'ó', uacute: 'ú', atilde: 'ã', otilde: 'õ', ccedil: 'ç', ecirc: 'ê', acirc: 'â', ocirc: 'ô', agrave: 'à', ntilde: 'ñ', uuml: 'ü' };
@@ -456,15 +502,53 @@ var TUBES = {
     parseMeta: function (id, html) {
       return { id: id, type: 'movie', name: ogTag(html, 'title') || 'Pornhub', poster: ogTag(html, 'image'), background: ogTag(html, 'image'), posterShape: 'landscape', description: ogTag(html, 'description') };
     },
-    // Direto primeiro (o link vale para o IP da TV, que abriu a página); a melhor qualidade pelo
-    // serviço fica no fim, de reserva.
-    parseStreams: function (html) {
-      var list = jsonArrayAfter(html, 'mediaDefinitions')
-        .filter(function (d) { return d.format === 'hls' && d.videoUrl && /^\d+$/.test(String(d.quality)); })
-        .sort(function (a, b) { return Number(b.quality) - Number(a.quality); });
-      var out = list.map(function (d) { return { name: 'Pornhub\n' + d.quality + 'p', title: 'HLS ' + d.quality + 'p', url: d.videoUrl }; });
-      if (list.length) out.push({ name: 'Pornhub\n' + list[0].quality + 'p pela TV', title: 'HLS ' + list[0].quality + 'p passando pelo serviço da TV', url: proxied(list[0].videoUrl, 'hls.m3u8') });
-      return out;
+    // Pornhub: na primeira visita a página às vezes traz links que respondem 410. O serviço confere
+    // a playlist e, se ela não abre, pede a página de novo já com os cookies de sessão. A ordem:
+    // HLS na melhor qualidade (não depende do IP), MP4 (o próprio site, toca sem hls.js, mas vale só
+    // para o IP que abriu a página) e, de reserva, o HLS passando pelo serviço.
+    streams: function (id, cb) {
+      var page = this.pageUrl(id);
+      function hlsOf(html) {
+        return jsonArrayAfter(html, 'mediaDefinitions')
+          .filter(function (d) { return d.format === 'hls' && d.videoUrl && /^\d+$/.test(String(d.quality)); })
+          .sort(function (a, b) { return Number(b.quality) - Number(a.quality); });
+      }
+      function mp4Url(html) {
+        var d = jsonArrayAfter(html, 'mediaDefinitions').filter(function (x) { return x.format === 'mp4' && x.videoUrl; })[0];
+        return d ? urlLib.resolve('https://www.pornhub.com/', d.videoUrl) : '';
+      }
+      // Até 3 visitas: a sessão nova às vezes só vale a partir da segunda ou terceira.
+      function load(tries) {
+        fetchText(page, function (err, html) {
+          if (err) return cb(err);
+          var hls;
+          try { hls = hlsOf(html); } catch (e) { return cb(e); }
+          var last = tries >= 2;
+          if (!hls.length) return last ? finish(hls, html) : load(tries + 1);
+          urlOk(hls[0].videoUrl, function (ok) { ok || last ? finish(hls, html) : load(tries + 1); });
+        });
+      }
+      function finish(hls, html) {
+        var gm = '';
+        try { gm = mp4Url(html); } catch (e) {}
+        if (!gm) return cb(null, build(hls, []));
+        fetchText(gm, function (err, text) {
+          var mp4 = [];
+          try { mp4 = err ? [] : JSON.parse(text); } catch (e) {}
+          try { cb(null, build(hls, Array.isArray(mp4) ? mp4 : [])); } catch (e) { cb(e); }
+        });
+      }
+      function build(hls, mp4) {
+        var out = [];
+        if (hls.length) out.push({ name: 'Pornhub\n' + hls[0].quality + 'p', title: 'HLS ' + hls[0].quality + 'p', url: hls[0].videoUrl });
+        mp4.filter(function (d) { return d && d.videoUrl && /^\d+$/.test(String(d.quality)); })
+          .sort(function (a, b) { return Number(b.quality) - Number(a.quality); })
+          .slice(0, 2)
+          .forEach(function (d) { out.push({ name: 'Pornhub\n' + d.quality + 'p MP4', title: 'MP4 ' + d.quality + 'p', url: d.videoUrl }); });
+        if (hls.length) out.push({ name: 'Pornhub\n' + hls[0].quality + 'p pela TV', title: 'HLS ' + hls[0].quality + 'p passando pelo serviço da TV', url: proxied(hls[0].videoUrl, 'hls.m3u8') });
+        return out;
+      }
+      load(0);
     }
   }
 };
@@ -607,6 +691,10 @@ function addonRoute(url, res) {
     return true;
   }
   var empty = r.resource === 'meta' ? { meta: null } : { streams: [] };
+  if (r.resource === 'stream' && tube.streams) {
+    tube.streams(r.id, safe(res, empty, function (err, list) { json(res, 200, { streams: err ? [] : list }); }));
+    return true;
+  }
   fetchText(tube.pageUrl(r.id), safe(res, empty, function (err, html) {
     if (err) return json(res, 200, empty);
     if (r.resource === 'meta') return json(res, 200, { meta: tube.parseMeta(r.id, html) });

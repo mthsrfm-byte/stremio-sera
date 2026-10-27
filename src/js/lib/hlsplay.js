@@ -1,21 +1,34 @@
+import { t } from './i18n.js';
+
 // HLS (.m3u8) no <video>: o player da TV não abre HLS pelo <video> (dá erro 4 na hora). O hls.js
 // lê a playlist e entrega os pedaços pelo MediaSource, como o Stremio faz no navegador e no Mac.
-// O hls.js (~400 KB) fica fora do app.js e só é baixado na primeira vez que um vídeo HLS abre.
+// O hls.js (~400 KB) fica fora do app.js e só é baixado na primeira vez que um vídeo HLS abre:
+// primeiro do jsDelivr numa versão fixa (não muda, então nunca vem de cache velho) e, se falhar,
+// a cópia do próprio app (dist/hls.js).
+const SOURCES = ['https://cdn.jsdelivr.net/npm/hls.js@1.5.20/dist/hls.min.js', 'hls.js'];
 let loading = null;
+// Por que o hls.js não está disponível (para o aviso de erro); vazio quando carregou.
+export let unavailable = '';
+
+function loadScript(src) {
+  return new Promise((ok, fail) => {
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = () => (window.Hls ? ok(window.Hls) : fail(new Error('hls.js não carregou')));
+    s.onerror = () => fail(new Error('hls.js não baixou'));
+    document.head.appendChild(s);
+  });
+}
 
 function loadHls() {
   if (window.Hls) return Promise.resolve(window.Hls);
   if (!loading) {
-    loading = new Promise((ok, fail) => {
-      const s = document.createElement('script');
-      s.src = 'hls.js';
-      s.onload = () => (window.Hls ? ok(window.Hls) : fail(new Error('hls.js não carregou')));
-      s.onerror = () => fail(new Error('hls.js não baixou'));
-      document.head.appendChild(s);
-    }).catch((e) => {
-      loading = null; // tenta de novo no próximo vídeo
-      throw e;
-    });
+    loading = loadScript(SOURCES[0])
+      .catch(() => loadScript(SOURCES[1]))
+      .catch((e) => {
+        loading = null; // tenta de novo no próximo vídeo
+        throw e;
+      });
   }
   return loading;
 }
@@ -29,7 +42,11 @@ export function isHls(url) {
 export function attach(videoEl, url, onFatal) {
   return loadHls().then(
     (Hls) => {
-      if (!Hls.isSupported()) return null;
+      if (!Hls.isSupported()) {
+        unavailable = t('sem suporte a hls.js nesta TV');
+        return null;
+      }
+      unavailable = '';
       const hls = new Hls({
         // Worker de blob esbarra no Content-Security-Policy do app; na thread principal dá conta.
         enableWorker: false,
@@ -65,6 +82,9 @@ export function attach(videoEl, url, onFatal) {
         },
       };
     },
-    () => null
+    (e) => {
+      unavailable = e.message;
+      return null;
+    }
   );
 }

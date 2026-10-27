@@ -219,22 +219,36 @@ export function card(item, opts) {
     const im = h('img', { alt: '' });
     im.setAttribute('data-lazy', src);
     im.onerror = () => {
+      if (o.dropWithoutImage) return dropCard();
       im.style.display = 'none';
       wrap.classList.add('img-loaded'); // sem imagem: para o esqueleto e mostra o nome
       wrap.appendChild(h('div.ph', { text: item.name || '' }));
     };
     wrap.appendChild(im);
-  } else {
+  } else if (!o.dropWithoutImage) {
     wrap.classList.add('img-loaded');
     wrap.appendChild(h('div.ph', { text: item.name || '' }));
   }
   if (o.progress) wrap.appendChild(h('div.progress', null, h('i', { style: { width: Math.round(o.progress * 100) + '%' } })));
   if (o.badge) wrap.appendChild(h('div.badge', { text: o.badge }));
-  return h('div.card', { focusable: true, cls: o.wide ? 'wide' : o.rank ? 'ranked' : '', onSelect: o.onSelect, onFocus: o.onFocus }, [
+  const el = h('div.card', { focusable: true, cls: o.wide ? 'wide' : o.rank ? 'ranked' : '', onSelect: o.onSelect, onFocus: o.onFocus }, [
     o.rank ? h('div.rank', { text: String(o.rank) }) : null,
     wrap,
     h('div.name', { text: o.title || item.name || '' }),
   ]);
+  // dropWithoutImage: cartão sem capa sai da fileira e o próximo toma o lugar (foco junto).
+  function dropCard() {
+    const parent = el.parentNode;
+    if (!parent) return;
+    if (nav.current() === el) {
+      const next = el.nextElementSibling || el.previousElementSibling;
+      if (next) nav.focus(next);
+    }
+    parent.removeChild(el);
+    loadVisibleImages(parent);
+  }
+  if (o.dropWithoutImage && !src) setTimeout(dropCard, 0);
+  return el;
 }
 
 // Cartões de esqueleto (com brilho) no lugar de uma fileira que ainda está carregando.

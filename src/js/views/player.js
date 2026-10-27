@@ -467,6 +467,8 @@ function PlayerView(opts) {
       /* ignore */
     }
     const parts = [why || t('erro {c}', { c: (code || '?') + (MEDIA_ERR[code] ? ' (' + MEDIA_ERR[code] + ')' : '') })];
+    // HLS que caiu no <video> porque o hls.js não carregou: o motivo de verdade é esse.
+    if (!why && hlsplay.isHls(sourceUrl) && !hlsCtl && hlsplay.unavailable) parts[0] += ' · ' + hlsplay.unavailable;
     parts.push((stream && stream.name ? String(stream.name).split('\n').join(' ') + ' · ' : '') + (host || '?') + (target !== mediaUrl ? ' ' + t('via TV') : ''));
     if (target === mediaUrl) return Promise.resolve(parts.join(' · '));
     return getJSON(mediaUrl.replace(/\/px\/.*$/, '/api/pxlog'), { timeout: 3000, quiet: true })
