@@ -6313,9 +6313,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "5eb07021d6bd0a79d79e590e5183a207e55b90b3",
-    date: "2026-10-27T08:47:39-03:00",
-    message: "Foco: fileira nova no primeiro item, barra na aba atual e NSFW como cadeado"
+    commit: "92ba5985f688d5fa6f8e0ed69452355beb2da8b6",
+    date: "2026-10-27T08:52:03-03:00",
+    message: "Detalhes do filme: o que a crítica diz (Rotten Tomatoes)"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -6466,7 +6466,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
   var TUBES = ["xv", "ph"];
   var TUBE_PORT = 8092;
-  var SERVICE_MIN = 10;
+  var SERVICE_MIN = 11;
   var tubes = null;
   var tubeTries = 0;
   var tubeState = "searching";
@@ -11076,6 +11076,46 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
   }
 
+  // src/js/api/reviews.js
+  var SERVICE2 = "http://127.0.0.1:8092/api/rt";
+  function forTitle(meta) {
+    if (IS_WEB || !meta || !meta.name) return Promise.resolve(null);
+    var year = parseInt(String(meta.releaseInfo || meta.year || "").slice(0, 4), 10) || "";
+    var q = "title=" + encodeURIComponent(meta.name) + "&year=" + year + "&type=" + (meta.type === "series" ? "series" : "movie");
+    return getJSON(SERVICE2 + "?" + q, {
+      timeout: 25e3,
+      quiet: true
+    }).then(function (r) {
+      if (!r || !r.consensus && !(r.critics && r.critics.length)) return null;
+      var critics = (r.critics || []).slice(0, 3);
+      var pt = function pt(s) {
+        return s ? text(s).then(function (x) {
+          return x || s;
+        }, function () {
+          return s;
+        }) : Promise.resolve("");
+      };
+      return Promise.all([pt(r.consensus)].concat(critics.map(function (c) {
+        return pt(c.quote);
+      }))).then(function (out) {
+        return {
+          url: r.url,
+          consensus: out[0],
+          critics: critics.map(function (c, i) {
+            return Object.assign({}, c, {
+              quote: out[i + 1]
+            });
+          }),
+          translated: out[0] !== r.consensus || critics.some(function (c, i) {
+            return out[i + 1] !== c.quote;
+          })
+        };
+      });
+    }).catch(function () {
+      return null;
+    });
+  }
+
   // src/js/api/phoneRemote.js
   var import_qrcode_generator = __toESM(require_qrcode(), 1);
   var PORT = 8090;
@@ -12857,6 +12897,39 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       libBtn.classList.toggle("faved", fav);
       libBtn.innerHTML = fav ? '<span class="ico fav">♥</span>' + t("Favoritado") : '<span class="ico">♡</span>' + t("Favoritar");
     }
+    var reviewsEl = h("div.reviews-panel");
+    function loadReviews() {
+      if (reviewsEl.parentNode) return;
+      forTitle(meta).then(function (r) {
+        if (!alive || !r) return;
+        clear(reviewsEl);
+        reviewsEl.appendChild(h("div.rv-head", null, [h("span.rv-rt", {
+          html: RT_SVG
+        }), h("span", {
+          text: t("O que a crítica diz")
+        })]));
+        if (r.consensus) reviewsEl.appendChild(h("p.rv-consensus", {
+          text: r.consensus
+        }));
+        r.critics.forEach(function (c) {
+          return reviewsEl.appendChild(h("div.rv-critic", {
+            cls: c.fresh ? "fresh" : "rotten"
+          }, [h("p.rv-quote", {
+            text: "“" + c.quote + "”"
+          }), h("div.rv-by", null, [h("i.rv-dot"), h("b", {
+            text: c.name || ""
+          }), c.outlet ? h("span", {
+            text: " · " + c.outlet
+          }) : null, c.score ? h("span.rv-score", {
+            text: c.score
+          }) : null])]));
+        });
+        reviewsEl.appendChild(h("div.rv-src", {
+          text: "Rotten Tomatoes" + (r.translated ? " · " + t("traduzido automaticamente") : "")
+        }));
+        el.appendChild(reviewsEl);
+      });
+    }
     function adultStats(st) {
       var box = function box(label, value, extra2) {
         return h("div.astat", {
@@ -13401,7 +13474,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           return;
         }
       } else {
-        if (smartOn()) panel.style.display = "none";
+        if (smartOn()) {
+          panel.style.display = "none";
+          if (!isAdult2()) loadReviews();
+        }
         if (opts.autoStreams) watch({
           id: movieVideoId(),
           title: meta.name
