@@ -94,7 +94,8 @@ const ADULT_RE = /\b(porn\w*|xxx|nsfw|adult[oa]?s?|hentai|18\+|onlyfans|erotic\w
 export function adultByManifest(addon) {
   const m = addon.manifest || {};
   if (m.behaviorHints && m.behaviorHints.adult) return true;
-  return ADULT_RE.test([m.id, m.name, m.description].join(' '));
+  // A descrição só conta com termos inequívocos: addons de anime citam "NSFW"/"hentai" como opção.
+  return ADULT_RE.test([m.id, m.name].join(' ')) || /\b(porn\w*|xxx)\b/i.test(m.description || '');
 }
 
 export function isAdult(addon) {

@@ -406,7 +406,7 @@ function DetailsView(type, id, opts) {
     const groups = srcs.map((a) => {
       const el = h('div.stream-group');
       list.appendChild(el);
-      return { addon: a, el: el, count: 0, done: false };
+      return { addon: a, el: el, count: 0, done: false, streams: [] };
     });
     const loadingLine = spinnerLine(t('Buscando fontes nos addons...'));
     list.appendChild(loadingLine);
@@ -495,10 +495,12 @@ function DetailsView(type, id, opts) {
           if (g) {
             g.done = true;
             g.count = streams.length;
-            streams.forEach((s) => {
-              all.push(s);
-              g.el.appendChild(streamItem(s, video, serverOk, all));
-            });
+            g.streams = streams;
+            streams.forEach((s) => g.el.appendChild(streamItem(s, video, serverOk, all)));
+            // "all" segue a ordem da tela (addon de maior prioridade primeiro), não a de chegada:
+            // é nela que o Smart Choice e o player procuram a próxima fonte.
+            all.length = 0;
+            groups.forEach((x) => x.streams.forEach((s) => all.push(s)));
           }
           // Mantém o foco na primeira fonte (a de maior prioridade) enquanto o usuário não mexer.
           if (focusFirst && (!autoFocused || nav.current() === autoFocused)) {

@@ -181,22 +181,39 @@ function PlayerView(opts) {
     const forUrl = mediaUrl;
     addonSubs = null;
     subsSettled = false;
-    subpick.videoInfo(stream, mediaUrl, server).then((info) => {
-      if (!alive || forVideo !== video || forUrl !== mediaUrl) return;
-      fileInfo = info;
-      const settle = () => {
-        if (!alive || forVideo !== video || subsSettled) return;
-        subsSettled = true;
-        if (!addonSubs) addonSubs = [];
-        autoPick();
+    // Torrent pelo PC: o hash lê o fim do arquivo e faria o servidor baixar essa parte antes do
+    // começo. Espera o vídeo começar (ou 60s) para não atrasar o play.
+    const ready = viaServer && !hasPlayed ? untilPlaying(60000) : Promise.resolve();
+    ready
+      .then(() => subpick.videoInfo(stream, mediaUrl, server))
+      .then((info) => {
+        if (!alive || forVideo !== video || forUrl !== mediaUrl) return;
+        fileInfo = info;
+        const settle = () => {
+          if (!alive || forVideo !== video || subsSettled) return;
+          subsSettled = true;
+          if (!addonSubs) addonSubs = [];
+          autoPick();
+        };
+        setTimeout(settle, 6000);
+        addons
+          .fetchSubtitles(meta.type, video.id, subpick.extra(info), (list) => {
+            if (!alive || forVideo !== video) return;
+            addonSubs = (addonSubs || []).concat(list);
+          })
+          .then(settle, settle);
+      });
+  }
+
+  function untilPlaying(maxMs) {
+    return new Promise((ok) => {
+      const done = () => {
+        videoEl.removeEventListener('playing', done);
+        clearTimeout(timer);
+        ok();
       };
-      setTimeout(settle, 6000);
-      addons
-        .fetchSubtitles(meta.type, video.id, subpick.extra(info), (list) => {
-          if (!alive || forVideo !== video) return;
-          addonSubs = (addonSubs || []).concat(list);
-        })
-        .then(settle, settle);
+      const timer = setTimeout(done, maxMs);
+      videoEl.addEventListener('playing', done);
     });
   }
 
@@ -874,6 +891,7 @@ function PlayerView(opts) {
     saveProgress();
     if (videoEl.currentTime > 1) pendingStart = videoEl.currentTime * 1000;
     stream = s;
+    slowExtensions = 0;
     if (tried.indexOf(s) < 0) tried.push(s);
     triedTranscode = false;
     autoDone = { sub: false, audio: false };
@@ -912,8 +930,28 @@ function PlayerView(opts) {
     clearTimeout(slowTimer);
     closeSlow();
     slowTimer = setTimeout(() => {
-      if (alive && !hasPlayed) slowPrompt();
+      if (alive && !hasPlayed) checkSlow();
     }, SLOW_MS);
+  }
+
+  // Torrent que ainda está baixando (o progresso anda) ganha mais tempo, até 3 vezes:
+  // começar um torrent pelo PC pode passar de 40s, e trocar ali só recomeçaria do zero.
+  let slowExtensions = 0;
+  function checkSlow() {
+    if (!viaServer || slowExtensions >= 3) return slowPrompt();
+    server.streamProgress(mediaUrl).then((p1) => {
+      setTimeout(() => {
+        server.streamProgress(mediaUrl).then((p2) => {
+          if (!alive || hasPlayed) return;
+          if (p1 !== null && p2 !== null && p2 > p1) {
+            slowExtensions++;
+            message(t('Ainda baixando pelo PC ({pct}% do arquivo)...', { pct: Math.round(p2 * 100) }));
+            clearTimeout(slowTimer);
+            slowTimer = setTimeout(() => alive && !hasPlayed && checkSlow(), 20000);
+          } else slowPrompt();
+        });
+      }, 4000);
+    });
   }
 
   function closeSlow() {

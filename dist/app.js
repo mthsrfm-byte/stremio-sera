@@ -6394,7 +6394,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   function adultByManifest(addon) {
     var m = addon.manifest || {};
     if (m.behaviorHints && m.behaviorHints.adult) return true;
-    return ADULT_RE.test([m.id, m.name, m.description].join(" "));
+    return ADULT_RE.test([m.id, m.name].join(" ")) || /\b(porn\w*|xxx)\b/i.test(m.description || "");
   }
   function isAdult(addon) {
     var s = settings();
@@ -7301,8 +7301,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return m ? m[0] : null;
   }
   var BUILTIN_KEYS = {
-    tmdbKey: true ? "9c57ed7ea044b2f01eea2fcc2e954c2e" : "",
-    mdblistKey: true ? "t9e4f1z29b3c36i1j25rul1wx" : ""
+    tmdbKey: true ? "" : "",
+    mdblistKey: true ? "" : ""
   };
   function keyOf(name) {
     return (settings()[name] || "").trim() || BUILTIN_KEYS[name];
@@ -8007,7 +8007,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var MIN_SEEDERS = 15;
   function good(info) {
     var res = info.res === "4K" || info.res === "1080p";
-    var healthy = info.cached || info.seeders === null || info.seeders >= MIN_SEEDERS;
+    var healthy = info.cached || info.seeders !== null && info.seeders >= MIN_SEEDERS;
     return res && healthy;
   }
   function smartPick(list2, serverOk) {
@@ -8390,7 +8390,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var forUrl = mediaUrl;
       addonSubs = null;
       subsSettled = false;
-      videoInfo(stream, mediaUrl, server_exports).then(function (info) {
+      var ready = viaServer && !hasPlayed ? untilPlaying(6e4) : Promise.resolve();
+      ready.then(function () {
+        return videoInfo(stream, mediaUrl, server_exports);
+      }).then(function (info) {
         if (!alive || forVideo !== video || forUrl !== mediaUrl) return;
         fileInfo = info;
         var settle = function settle() {
@@ -8404,6 +8407,17 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           if (!alive || forVideo !== video) return;
           addonSubs = (addonSubs || []).concat(list2);
         }).then(settle, settle);
+      });
+    }
+    function untilPlaying(maxMs) {
+      return new Promise(function (ok) {
+        var _done = function done() {
+          videoEl.removeEventListener("playing", _done);
+          clearTimeout(timer2);
+          ok();
+        };
+        var timer2 = setTimeout(_done, maxMs);
+        videoEl.addEventListener("playing", _done);
       });
     }
     var autoDone = {
@@ -9110,6 +9124,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       saveProgress2();
       if (videoEl.currentTime > 1) pendingStart = videoEl.currentTime * 1e3;
       stream = s;
+      slowExtensions = 0;
       if (tried.indexOf(s) < 0) tried.push(s);
       triedTranscode = false;
       autoDone = {
@@ -9151,8 +9166,29 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       clearTimeout(slowTimer);
       closeSlow();
       slowTimer = setTimeout(function () {
-        if (alive && !hasPlayed) slowPrompt();
+        if (alive && !hasPlayed) checkSlow();
       }, SLOW_MS);
+    }
+    var slowExtensions = 0;
+    function checkSlow() {
+      if (!viaServer || slowExtensions >= 3) return slowPrompt();
+      _streamProgress(mediaUrl).then(function (p1) {
+        setTimeout(function () {
+          _streamProgress(mediaUrl).then(function (p2) {
+            if (!alive || hasPlayed) return;
+            if (p1 !== null && p2 !== null && p2 > p1) {
+              slowExtensions++;
+              message(t("Ainda baixando pelo PC ({pct}% do arquivo)...", {
+                pct: Math.round(p2 * 100)
+              }));
+              clearTimeout(slowTimer);
+              slowTimer = setTimeout(function () {
+                return alive && !hasPlayed && checkSlow();
+              }, 2e4);
+            } else slowPrompt();
+          });
+        }, 4e3);
+      });
     }
     function closeSlow() {
       if (!slowModal) return;
@@ -11231,7 +11267,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           addon: a,
           el: el2,
           count: 0,
-          done: false
+          done: false,
+          streams: []
         };
       });
       var loadingLine = spinnerLine(t("Buscando fontes nos addons..."));
@@ -11344,9 +11381,15 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           if (g) {
             g.done = true;
             g.count = streams.length;
+            g.streams = streams;
             streams.forEach(function (s) {
-              all.push(s);
-              g.el.appendChild(streamItem(s, video, serverOk, all));
+              return g.el.appendChild(streamItem(s, video, serverOk, all));
+            });
+            all.length = 0;
+            groups.forEach(function (x) {
+              return x.streams.forEach(function (s) {
+                return all.push(s);
+              });
             });
           }
           if (focusFirst2 && (!autoFocused || current2() === autoFocused)) {
@@ -12740,9 +12783,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "9bba80533d70eb49f68a44013185655c0d2d7929",
-    date: "2026-10-27T02:43:24-03:00",
-    message: "Aba NSFW com PIN, fontes enxutas, Smart Choice, qualidade no player e filmografia"
+    commit: "506798317237d1bc93503bbbe0451bc88fd4fe39",
+    date: "2026-10-27T05:43:37+00:00",
+    message: "Build da dist/ para a TV"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {

@@ -90,10 +90,11 @@ export function canPlay(s, serverOk) {
 
 const MIN_SEEDERS = 15;
 
-// "Boa": 1080p ou 4K, com sinal suficiente (ou link direto/em cache, que não depende de seeders).
+// "Boa": 1080p ou 4K, com sinal suficiente ou em cache no debrid. Link direto sem informação
+// (sites de anime, scrapers) não conta: muitos não tocam na TV.
 export function good(info) {
   const res = info.res === '4K' || info.res === '1080p';
-  const healthy = info.cached || info.seeders === null || info.seeders >= MIN_SEEDERS;
+  const healthy = info.cached || (info.seeders !== null && info.seeders >= MIN_SEEDERS);
   return res && healthy;
 }
 
