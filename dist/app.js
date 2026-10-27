@@ -9886,9 +9886,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "4493f6b97df714354b84440b7dbf89a5a5b96582",
-    date: "2026-10-27T01:18:37+00:00",
-    message: "Build da dist/ para a TV"
+    commit: "061f0eeb834f2f53385007a9961d31cfeac26eed",
+    date: "2026-10-26T22:21:36-03:00",
+    message: "QR code na TV para abrir o controle no celular sem digitar IP"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
