@@ -6327,9 +6327,74 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
     return addon.base + path + ".json" + addon.query;
   }
+  var ADULT_RE = /\b(porn\w*|xxx|nsfw|adult[oa]?s?|hentai|18\+|onlyfans|erotic\w*|er[oó]tic[oa]s?)\b/i;
+  function adultByManifest(addon) {
+    var m = addon.manifest || {};
+    if (m.behaviorHints && m.behaviorHints.adult) return true;
+    return ADULT_RE.test([m.id, m.name, m.description].join(" "));
+  }
+  function isAdult(addon) {
+    var s = settings();
+    var id = addon.manifest && addon.manifest.id;
+    if ((s.sfwAddons || []).indexOf(id) >= 0) return false;
+    return (s.nsfwAddons || []).indexOf(id) >= 0 || adultByManifest(addon);
+  }
+  function adultAddons() {
+    return list().filter(isAdult);
+  }
+  function nsfwEnabled() {
+    return settings().nsfwTab !== false && adultAddons().length > 0;
+  }
+  function adultPrefixes() {
+    var out = [];
+    adultAddons().forEach(function (a) {
+      var m = a.manifest;
+      var lists = [m.idPrefixes || []].concat((m.resources || []).map(function (r) {
+        return _typeof(r) === "object" && r.idPrefixes || [];
+      }));
+      lists.forEach(function (l) {
+        return l.forEach(function (p) {
+          return p && p !== "tt" && out.indexOf(p) < 0 && out.push(p);
+        });
+      });
+    });
+    return out;
+  }
+  function isAdultId(id) {
+    var s = String(id || "");
+    return adultPrefixes().some(function (p) {
+      return s.indexOf(p) === 0;
+    });
+  }
+  function adultCatalogs(addon) {
+    return (addon.manifest.catalogs || []).map(function (cat) {
+      return {
+        addon: addon,
+        catalog: cat
+      };
+    });
+  }
+  function isBoardable(cat) {
+    var extras = cat.extra || [];
+    return !(extras.some(function (e) {
+      return e.isRequired;
+    }) || cat.extraRequired && cat.extraRequired.length);
+  }
+  function supportsSearch(cat) {
+    return (cat.extra || []).some(function (e) {
+      return e.name === "search";
+    }) || (cat.extraSupported || []).indexOf("search") >= 0;
+  }
+  function genreOptions(cat) {
+    var g = (cat.extra || []).filter(function (e) {
+      return e.name === "genre";
+    })[0];
+    return g && g.options || cat.genres || [];
+  }
   function boardCatalogs() {
     var out = [];
     list().forEach(function (addon) {
+      if (isAdult(addon)) return;
       (addon.manifest.catalogs || []).forEach(function (cat) {
         var extras = cat.extra || [];
         var required = extras.some(function (e) {
@@ -6349,6 +6414,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   function searchCatalogs() {
     var out = [];
     list().forEach(function (addon) {
+      if (isAdult(addon)) return;
       (addon.manifest.catalogs || []).forEach(function (cat) {
         var extras = cat.extra || [];
         var supports = extras.some(function (e) {
@@ -6711,6 +6777,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     id: "streamings",
     label: "Streamings"
   }, {
+    id: "nsfw",
+    label: "NSFW",
+    when: function when() {
+      return nsfwEnabled();
+    }
+  }, {
     id: "settings",
     label: "Ajustes"
   }];
@@ -6728,7 +6800,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }), TABS.map(function (tab) {
       return h("div.tab", {
         focusable: true,
-        cls: tab.id === activeId ? "active" : "",
+        "data-tab": tab.id,
+        cls: (tab.id === activeId ? "active" : "") + (tab.id === "nsfw" ? " tab-nsfw" : ""),
+        style: tab.when && !tab.when() ? {
+          display: "none"
+        } : null,
         text: t(tab.label),
         onSelect: function onSelect() {
           return onTab(tab.id);
@@ -6738,7 +6814,18 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     bar.__destroy = function () {
       return clearInterval(timer2);
     };
+    load().then(refreshTabs).catch(function () {});
     return bar;
+  }
+  function refreshTabs() {
+    TABS.filter(function (tab) {
+      return tab.when;
+    }).forEach(function (tab) {
+      var show2 = tab.when();
+      Array.prototype.forEach.call(document.querySelectorAll('.topbar .tab[data-tab="' + tab.id + '"]'), function (el) {
+        return el.style.display = show2 ? "" : "none";
+      });
+    });
   }
   function profileButton(onTab) {
     var chip = h("div.profile-chip", {
@@ -6993,8 +7080,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return m ? m[0] : null;
   }
   var BUILTIN_KEYS = {
-    tmdbKey: true ? "9c57ed7ea044b2f01eea2fcc2e954c2e" : "",
-    mdblistKey: true ? "t9e4f1z29b3c36i1j25rul1wx" : ""
+    tmdbKey: true ? "" : "",
+    mdblistKey: true ? "" : ""
   };
   function keyOf(name) {
     return (settings()[name] || "").trim() || BUILTIN_KEYS[name];
@@ -10490,7 +10577,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var loadedBoard = false;
     function renderContinue() {
       clear(cwRow);
-      var items = continueWatching().slice(0, 20);
+      var items = continueWatching().filter(function (it) {
+        return !isAdultId(it._id);
+      }).slice(0, 20);
       if (!items.length) {
         cwRow.style.display = "none";
         return;
@@ -10859,6 +10948,424 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
   }
 
+  // src/js/views/nsfw.js
+  var ROW_LIMIT3 = 20;
+  function NsfwView() {
+    var el = h("div.view.nsfw-view");
+    var scroller = h("div.scroll-y", {
+      "data-scroll-y": ""
+    });
+    var bar = topbar("nsfw", goTab);
+    var filters = h("div.filters", {
+      "data-group": ""
+    });
+    var body = h("div.rows");
+    scroller.appendChild(bar);
+    scroller.appendChild(h("div.page-head", null, [h("h1.page-title", null, [t("NSFW"), h("span.nsfw-badge", {
+      text: "18+"
+    })]), filters]));
+    scroller.appendChild(body);
+    el.appendChild(scroller);
+    var scope = "all";
+    var pending = [];
+    var active = 0;
+    function scopes() {
+      var list2 = adultAddons();
+      var out = [{
+        id: "all",
+        label: t("Tudo")
+      }];
+      if (list2.length > 1) list2.forEach(function (a) {
+        return out.push({
+          id: a.manifest.id,
+          label: a.manifest.name || a.manifest.id
+        });
+      });
+      if (list2.some(function (a) {
+        return adultCatalogs(a).some(function (e) {
+          return supportsSearch(e.catalog);
+        });
+      })) out.push({
+        id: "search",
+        label: t("Buscar")
+      });
+      return out;
+    }
+    function renderFilters() {
+      clear(filters);
+      var list2 = scopes();
+      list2.forEach(function (f, i) {
+        return filters.appendChild(h("div.chip", {
+          focusable: true,
+          cls: f.id === scope ? "active" : "",
+          text: f.label,
+          onSelect: function onSelect() {
+            scope = f.id;
+            renderFilters();
+            renderBody();
+            focus(filters.children[i]);
+          }
+        }));
+      });
+    }
+    function loadNearby() {
+      if (el.offsetParent === null) return;
+      var limit = window.innerHeight * 2.2;
+      var _loop6 = function _loop6() {
+          var p = pending[i];
+          if (p.state !== "idle") return 0; // continue
+          if (!p.row.parentNode) {
+            p.state = "done";
+            return 0; // continue
+          }
+          if (p.row.getBoundingClientRect().top > limit) return 1; // break
+          p.state = "loading";
+          active++;
+          p.load().then(function () {
+            p.state = "done";
+            active--;
+            loadNearby();
+          });
+        },
+        _ret4;
+      for (var i = 0; i < pending.length && active < 2; i++) {
+        _ret4 = _loop6();
+        if (_ret4 === 0) continue;
+        if (_ret4 === 1) break;
+      }
+    }
+    function renderBody() {
+      pending = [];
+      clear(body);
+      if (scope === "search") return renderSearch();
+      var list2 = adultAddons().filter(function (a) {
+        return scope === "all" || a.manifest.id === scope;
+      });
+      if (!list2.length) {
+        body.appendChild(h("div.hint", {
+          text: t("Nenhum addon adulto encontrado. Marque um addon em Ajustes › NSFW.")
+        }));
+        return;
+      }
+      personalRows();
+      list2.forEach(function (addon) {
+        if (scope === "all" && adultAddons().length > 1) body.appendChild(h("div.nsfw-section", {
+          text: addon.manifest.name || addon.manifest.id
+        }));
+        var entries = adultCatalogs(addon);
+        entries.filter(function (e) {
+          return isBoardable(e.catalog);
+        }).forEach(function (e) {
+          return pending.push(Object.assign(catalogRow(e, body), {
+            state: "idle"
+          }));
+        });
+        genreStrip(entries);
+      });
+      loadVisibleImages(el);
+      loadNearby();
+    }
+    function personalRows() {
+      var lib = cachedLibrary().filter(function (it) {
+        return isAdultId(it._id) && it.name;
+      });
+      var watching = lib.filter(function (it) {
+        return (!it.removed || it.temp) && it.state && it.state.timeOffset > 0;
+      }).sort(function (a, b) {
+        return String(b.state.lastWatched || "").localeCompare(String(a.state.lastWatched || ""));
+      });
+      var saved = lib.filter(function (it) {
+        return !it.removed && !it.temp && watching.indexOf(it) < 0;
+      });
+      if (watching.length) staticRow(t("Continuar assistindo"), watching.slice(0, ROW_LIMIT3).map(function (it) {
+        return card({
+          name: it.name,
+          poster: it.poster
+        }, {
+          wide: true,
+          image: it.background || it.poster,
+          progress: it.state.duration ? it.state.timeOffset / it.state.duration : 0,
+          onSelect: function onSelect() {
+            return openDetails(it.type, it._id, {
+              videoId: it.state.video_id,
+              autoStreams: true
+            });
+          }
+        });
+      }));
+      if (saved.length) staticRow(t("Minha lista"), saved.slice(0, ROW_LIMIT3).map(function (it) {
+        return card({
+          name: it.name,
+          poster: it.poster
+        }, {
+          onSelect: function onSelect() {
+            return openDetails(it.type, it._id);
+          }
+        });
+      }));
+    }
+    function staticRow(title, cards) {
+      var track = h("div.row-track", {
+        "data-scroll-x": "",
+        "data-group": "",
+        "data-trap": ""
+      }, cards);
+      body.appendChild(h("div.row", {
+        "data-anchor": "30"
+      }, [h("div.row-title", {
+        text: title
+      }), track]));
+    }
+    function genreStrip(entries) {
+      var seen = {};
+      var chips = [];
+      entries.forEach(function (e) {
+        return genreOptions(e.catalog).forEach(function (g) {
+          if (seen[g]) return;
+          seen[g] = true;
+          chips.push(h("div.chip", {
+            focusable: true,
+            text: g,
+            onSelect: function onSelect() {
+              return push(GridView(e, {
+                genre: g
+              }));
+            }
+          }));
+        });
+      });
+      if (!chips.length) return;
+      body.appendChild(h("div.row.nsfw-genres", {
+        "data-anchor": "30"
+      }, [h("div.row-title", {
+        text: t("Categorias")
+      }), h("div.chip-track", {
+        "data-scroll-x": "",
+        "data-group": "",
+        "data-trap": ""
+      }, chips)]));
+    }
+    function renderSearch() {
+      var input = h("input.input", {
+        type: "text",
+        placeholder: t("Buscar..."),
+        focusable: true
+      });
+      var go = h("div.btn.primary.search-go", {
+        focusable: true,
+        text: t("Buscar"),
+        onSelect: function onSelect() {
+          return run(input.value);
+        }
+      });
+      var results = h("div.rows");
+      input.__submit = function (q) {
+        return run(q);
+      };
+      body.appendChild(h("div.search-box", {
+        "data-group": ""
+      }, [input, go]));
+      body.appendChild(results);
+      var token = 0;
+      function run(q) {
+        var query = (q || "").trim();
+        clear(results);
+        if (query.length < 2) return results.appendChild(h("div.hint", {
+          text: t("Digite pelo menos 2 letras e aperte Buscar.")
+        }));
+        var my = ++token;
+        var cats = [];
+        adultAddons().forEach(function (a) {
+          return adultCatalogs(a).forEach(function (e) {
+            return supportsSearch(e.catalog) && cats.push(e);
+          });
+        });
+        var left = cats.length;
+        var found = 0;
+        cats.forEach(function (entry) {
+          var track = h("div.row-track", {
+            "data-scroll-x": "",
+            "data-group": "",
+            "data-trap": ""
+          });
+          var row = h("div.row", {
+            "data-anchor": "30"
+          }, [h("div.row-title", null, [entry.catalog.name || entry.catalog.id, h("small", {
+            text: entry.addon.manifest.name || ""
+          })]), track]);
+          fetchCatalog(entry, {
+            search: query
+          }).then(function (metas) {
+            if (my !== token || !metas.length) return;
+            found++;
+            metas.slice(0, 30).forEach(function (m) {
+              return track.appendChild(card(m, {
+                onSelect: function onSelect() {
+                  return openDetails(m.type || entry.catalog.type, m.id);
+                }
+              }));
+            });
+            results.appendChild(row);
+            loadVisibleImages(row);
+          }).catch(function () {}).then(function () {
+            if (--left === 0 && my === token && !found) results.appendChild(h("div.hint", {
+              text: t('Nada encontrado para "{q}".', {
+                q: query
+              })
+            }));
+          });
+        });
+      }
+      focus(input);
+    }
+    function render() {
+      if (!scopes().some(function (f) {
+        return f.id === scope;
+      })) scope = "all";
+      renderFilters();
+      renderBody();
+    }
+    body.appendChild(h("div.hint", {
+      text: t("Carregando addons...")
+    }));
+    var ready = false;
+    return {
+      el: el,
+      onShow: function onShow() {
+        if (ready) return loadNearby();
+        load().then(function () {
+          ready = true;
+          render();
+        });
+      },
+      onScroll: function onScroll() {
+        return loadNearby();
+      },
+      destroy: function destroy() {
+        return bar.__destroy && bar.__destroy();
+      }
+    };
+  }
+  function catalogRow(entry, parent) {
+    var row = h("div.row", {
+      "data-anchor": "30"
+    });
+    var typeName = catalogTitle(entry).split(" · ").pop();
+    var track = h("div.row-track.pending", {
+      "data-scroll-x": "",
+      "data-group": "",
+      "data-trap": ""
+    }, skeletonCards());
+    row.appendChild(h("div.row-title", null, [entry.catalog.name || entry.catalog.id, h("small", {
+      text: typeName + " · " + (entry.addon.manifest.name || "")
+    })]));
+    row.appendChild(track);
+    parent.appendChild(row);
+    var _load = function load4() {
+      return retrying(function () {
+        return fetchCatalog(entry);
+      }).then(function (metas) {
+        clear(track);
+        track.classList.remove("pending");
+        if (!metas.length) {
+          if (row.parentNode) row.parentNode.removeChild(row);
+          return;
+        }
+        metas.slice(0, ROW_LIMIT3).forEach(function (m) {
+          return track.appendChild(card(m, {
+            onSelect: function onSelect() {
+              return openDetails(m.type || entry.catalog.type, m.id);
+            }
+          }));
+        });
+        if (metas.length > ROW_LIMIT3) track.appendChild(h("div.card.see-all", {
+          focusable: true,
+          onSelect: function onSelect() {
+            return push(GridView(entry, {}));
+          }
+        }, [h("div.poster-wrap", null, h("div.see-all-label", null, [h("b", {
+          text: t("Ver tudo")
+        }), h("span", {
+          text: entry.catalog.name || ""
+        })]))]));
+        loadVisibleImages(row);
+      }).catch(function () {
+        return showRetry(track, function () {
+          return _load();
+        });
+      });
+    };
+    return {
+      row: row,
+      load: _load
+    };
+  }
+  function GridView(entry, extra) {
+    var el = h("div.view");
+    var scroller = h("div.scroll-y", {
+      "data-scroll-y": ""
+    });
+    var crumb = [h("span", {
+      text: "NSFW › " + (entry.addon.manifest.name || "")
+    }), " › ", h("b", {
+      text: extra.genre || entry.catalog.name || entry.catalog.id
+    })];
+    var grid = h("div.grid");
+    var more = h("div.btn.reco-more", {
+      focusable: true,
+      text: t("Carregar mais"),
+      onSelect: function onSelect() {
+        return loadPage();
+      }
+    });
+    scroller.appendChild(h("div.reco-crumb", null, crumb));
+    scroller.appendChild(grid);
+    scroller.appendChild(h("div.reco-more-wrap", null, more));
+    el.appendChild(scroller);
+    var skip = 0;
+    var busy = false;
+    var seen = {};
+    function loadPage() {
+      if (busy) return;
+      busy = true;
+      more.textContent = t("Carregando...");
+      var first = skip === 0;
+      fetchCatalog(entry, Object.assign({
+        skip: skip || void 0
+      }, extra)).then(function (metas) {
+        skip += metas.length;
+        var fresh = metas.filter(function (m) {
+          return !seen[m.id];
+        });
+        fresh.forEach(function (m) {
+          seen[m.id] = true;
+          grid.appendChild(card(m, {
+            onSelect: function onSelect() {
+              return openDetails(m.type || entry.catalog.type, m.id);
+            }
+          }));
+        });
+        if (!fresh.length) more.style.display = "none";
+        if (first && !fresh.length) grid.appendChild(h("div.hint", {
+          text: t("Nada por aqui.")
+        }));
+        loadVisibleImages(el, 400);
+        if (first && grid.firstChild) focus(grid.firstChild);
+      }).catch(function () {
+        return toast(t("Não foi possível carregar"));
+      }).then(function () {
+        busy = false;
+        more.textContent = t("Carregar mais");
+      });
+    }
+    return {
+      el: el,
+      onShow: function onShow() {
+        if (!skip) loadPage();
+      }
+    };
+  }
+
   // src/js/views/search.js
   function SearchView() {
     var el = h("div.view");
@@ -11014,7 +11521,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     function renderGrid() {
       clear(grid);
       var items = cachedLibrary().filter(function (it) {
-        return !it.removed && (filter === "all" || it.type === filter);
+        return !it.removed && (filter === "all" || it.type === filter) && !isAdultId(it._id);
       }).sort(function (a, b) {
         return String(b._mtime || "").localeCompare(String(a._mtime || ""));
       });
@@ -11057,9 +11564,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "2400d758755fe58f1fdcaa79024f32799c3e82a2",
-    date: "2026-10-27T01:54:56-03:00",
-    message: "Home como hub de descoberta, bandeira de dublado, teste de conexão"
+    commit: "cc77b948ec39b843e1aa1c76e6c28cb1fb713d98",
+    date: "2026-10-27T04:55:12+00:00",
+    message: "Build da dist/ para a TV"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -11632,6 +12139,52 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         });
       });
     }
+    function nsfwSection(list2) {
+      var s = settings();
+      var adult = list2.filter(isAdult);
+      body.appendChild(row(t("Mostrar aba NSFW"), adult.length ? t("Conteúdo adulto fica só nela, fora do Início, Busca e Biblioteca") : t("Aparece quando houver um addon adulto"), "", function () {
+        saveSettings({
+          nsfwTab: settings().nsfwTab === false
+        });
+        refreshTabs();
+        dropTab("nsfw");
+        render();
+      }, toggle(s.nsfwTab !== false)));
+      body.appendChild(row(t("Addons adultos"), t("Detectados sozinhos; marque ou desmarque à mão"), adult.map(function (a) {
+        return a.manifest.name || a.manifest.id;
+      }).join(", ") || t("nenhum"), function () {
+        return menu(t("Addons adultos"), list2.map(function (a) {
+          return {
+            label: a.manifest.name || a.manifest.id,
+            sub: adultByManifest(a) ? t("Detectado como adulto") : "",
+            value: a.manifest.id,
+            checked: isAdult(a)
+          };
+        }), {
+          onPick: function onPick(id) {
+            var a = list2.filter(function (x) {
+              return x.manifest.id === id;
+            })[0];
+            var cur = settings();
+            var without = function without(arr) {
+              return (arr || []).filter(function (x) {
+                return x !== id;
+              });
+            };
+            var nowAdult = !isAdult(a);
+            var auto = adultByManifest(a);
+            saveSettings({
+              nsfwAddons: nowAdult && !auto ? without(cur.nsfwAddons).concat(id) : without(cur.nsfwAddons),
+              sfwAddons: !nowAdult && auto ? without(cur.sfwAddons).concat(id) : without(cur.sfwAddons)
+            });
+            dropTab("home");
+            dropTab("nsfw");
+            refreshTabs();
+            render();
+          }
+        });
+      }));
+    }
     function toggle(on) {
       return h("div.toggle", {
         cls: on ? "on" : ""
@@ -12024,6 +12577,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           };
         }), {});
       }));
+      nsfwSection(list2);
       RECOMMENDED.filter(function (r) {
         return !list2.some(function (a) {
           return a.transportUrl === r.url || a.manifest && a.manifest.id === r.id;
@@ -12369,6 +12923,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     registerTab("library", LibraryView);
     registerTab("settings", SettingsView);
     registerTab("streamings", StreamingsView);
+    registerTab("nsfw", NsfwView);
     if (needsPicker()) {
       introDone.then(function () {
         var bootEl = document.getElementById("boot");

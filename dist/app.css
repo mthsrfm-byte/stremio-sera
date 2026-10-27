@@ -663,3 +663,10 @@ body.light .card.ranked .rank { color: #F5F4EF; -webkit-text-stroke-color: rgba(
 .mood-tile b { font-family: 'Bricolage Grotesque', 'Geist', sans-serif; font-size: 34px; font-weight: 800; letter-spacing: -0.5px; line-height: 1.05; }
 .mood-tile span { margin-top: 6px; font-size: 19px; font-weight: 600; opacity: 0.85; }
 .card.mood.focused .mood-tile { border-color: #F5F4EF; }
+
+/* Aba NSFW */
+.nsfw-badge { display: inline-block; margin-left: 16px; padding: 2px 12px; border-radius: 8px; background: #e55353; color: #fff; font-size: 20px; font-weight: 800; vertical-align: middle; }
+.nsfw-section { padding: 30px 96px 6px; font-size: 30px; font-weight: 800; color: #c9bbff; }
+.chip-track { display: -webkit-flex; display: flex; padding: 0 96px 10px; white-space: nowrap; overflow: hidden; }
+.chip-track .chip { -webkit-flex-shrink: 0; flex-shrink: 0; }
+.nsfw-genres { height: auto; }

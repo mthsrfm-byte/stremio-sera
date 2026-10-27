@@ -15,7 +15,7 @@ import * as extras from '../api/extras.js';
 import * as reco from '../api/recommend.js';
 import * as intro from '../lib/intro.js';
 import { getJSON, recentErrors } from '../lib/http.js';
-import { topbar, toast, menu, confirmDialog, refreshProfileChips } from '../ui.js';
+import { topbar, toast, menu, confirmDialog, refreshProfileChips, refreshTabs } from '../ui.js';
 import * as router from '../router.js';
 import { openLogin } from './login.js';
 import { avatar, switchProfile, createProfile } from './profiles.js';
@@ -206,6 +206,46 @@ export function SettingsView() {
         })
         .catch((e) => toast(t('Não foi possível instalar: {msg}', { msg: e.message }), 5000));
     });
+  }
+
+  // NSFW: a aba própria (por perfil) e quais addons contam como adultos.
+  function nsfwSection(list) {
+    const s = store.settings();
+    const adult = list.filter(addons.isAdult);
+    body.appendChild(
+      row(t('Mostrar aba NSFW'), adult.length ? t('Conteúdo adulto fica só nela, fora do Início, Busca e Biblioteca') : t('Aparece quando houver um addon adulto'), '', () => {
+        store.saveSettings({ nsfwTab: store.settings().nsfwTab === false });
+        refreshTabs();
+        router.dropTab('nsfw');
+        render();
+      }, toggle(s.nsfwTab !== false))
+    );
+    body.appendChild(
+      row(t('Addons adultos'), t('Detectados sozinhos; marque ou desmarque à mão'), adult.map((a) => a.manifest.name || a.manifest.id).join(', ') || t('nenhum'), () =>
+        menu(
+          t('Addons adultos'),
+          list.map((a) => ({ label: a.manifest.name || a.manifest.id, sub: addons.adultByManifest(a) ? t('Detectado como adulto') : '', value: a.manifest.id, checked: addons.isAdult(a) })),
+          {
+            onPick: (id) => {
+              const a = list.filter((x) => x.manifest.id === id)[0];
+              const cur = store.settings();
+              const without = (arr) => (arr || []).filter((x) => x !== id);
+              const nowAdult = !addons.isAdult(a);
+              // Marca à mão só o que difere da detecção automática.
+              const auto = addons.adultByManifest(a);
+              store.saveSettings({
+                nsfwAddons: nowAdult && !auto ? without(cur.nsfwAddons).concat(id) : without(cur.nsfwAddons),
+                sfwAddons: !nowAdult && auto ? without(cur.sfwAddons).concat(id) : without(cur.sfwAddons),
+              });
+              router.dropTab('home');
+              router.dropTab('nsfw');
+              refreshTabs();
+              render();
+            },
+          }
+        )
+      )
+    );
   }
 
   function toggle(on) {
@@ -519,6 +559,7 @@ export function SettingsView() {
         menu(t('Addons ativos'), list.map((a) => ({ label: a.manifest.name || a.manifest.id, sub: a.transportUrl })), {})
       )
     );
+    nsfwSection(list);
     // Addons recomendados (só aparecem se ainda não estiverem instalados).
     RECOMMENDED.filter((r) => !list.some((a) => a.transportUrl === r.url || (a.manifest && a.manifest.id === r.id))).forEach((r) =>
       body.appendChild(row(t('Instalar {name}', { name: r.name }), t(r.desc), '', () => installFromUrl(r.url, r.name)))

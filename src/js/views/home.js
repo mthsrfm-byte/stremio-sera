@@ -32,7 +32,7 @@ export function HomeView() {
 
   function renderContinue() {
     clear(cwRow);
-    const items = stremio.continueWatching().slice(0, 20);
+    const items = stremio.continueWatching().filter((it) => !addons.isAdultId(it._id)).slice(0, 20);
     if (!items.length) {
       cwRow.style.display = 'none';
       return;

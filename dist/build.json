@@ -1,6 +1,6 @@
 {
   "version": "1.2.0",
-  "commit": "2400d758755fe58f1fdcaa79024f32799c3e82a2",
-  "date": "2026-10-27T01:54:56-03:00",
-  "message": "Home como hub de descoberta, bandeira de dublado, teste de conexão"
+  "commit": "cc77b948ec39b843e1aa1c76e6c28cb1fb713d98",
+  "date": "2026-10-27T04:55:12+00:00",
+  "message": "Build da dist/ para a TV"
 }
