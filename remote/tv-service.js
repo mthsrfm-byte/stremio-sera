@@ -14,7 +14,7 @@ var urlLib = require('url');
 
 var PORT = 8090;
 var ADDON_PORT = 8092; // addons XVideos/Pornhub e vídeo (porta nova a cada mudança que versões antigas não sabem largar)
-var SERVICE_VERSION = 10;
+var SERVICE_VERSION = 11;
 var PAGE_BASE = 'https://cdn.jsdelivr.net/gh/mthsrfm-byte/stremio-sera/remote/';
 var APP_NAME = 'Seraflix Controle';
 var TOKEN_FILE = '/home/owner/share/seraflixRemote.json';
@@ -842,6 +842,78 @@ function calendarRoute(res, query) {
   });
 }
 
+// ---------- Críticas (Rotten Tomatoes) ----------
+// A tela do filme mostra o "Critics Consensus" e alguns trechos de críticos. O Rotten Tomatoes não tem
+// API: o serviço busca pelo título, confere o ano e lê a página (só texto; o app traduz).
+var rtCache = {};
+function normTitle(t) { return unhtml(t).toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]+/g, ''); }
+
+// Linha da busca com o mesmo título e ano (±1); sem ano batendo, só o título exato. Na dúvida, nada.
+function rtPick(html, title, year, kind) {
+  var want = normTitle(title);
+  var exact = null;
+  var byTitle = null;
+  html.split('<search-page-media-row').slice(1).forEach(function (chunk) {
+    var href = m1(/href="(https:\/\/www\.rottentomatoes\.com\/(?:m|tv)\/[^"]+)"/, chunk);
+    if (!href || href.indexOf('/' + kind + '/') < 0) return;
+    var name = m1(/<img[^>]*\salt="([^"]*)"/, chunk);
+    if (normTitle(name) !== want) return;
+    var y = parseInt(m1(/release-year="(\d+)"/, chunk) || m1(/start-year="(\d+)"/, chunk), 10);
+    if (!byTitle) byTitle = href;
+    if (!exact && year && y && Math.abs(y - year) <= 1) exact = href;
+  });
+  return exact || (!year ? byTitle : null);
+}
+
+function rtParse(page, url) {
+  var consensus = '';
+  var ci = page.indexOf('id="critics-consensus"');
+  if (ci < 0) ci = page.indexOf('data-qa="critics-consensus"');
+  if (ci >= 0) consensus = unhtml(m1(/<p>([\s\S]*?)<\/p>/, page.slice(ci, ci + 3000)).replace(/<[^>]+>/g, ''));
+  var critics = [];
+  page.split('<review-card-critic').slice(1, 30).forEach(function (chunk) {
+    chunk = chunk.split('</review-card-critic>')[0];
+    var quote = unhtml(m1(/<span slot="review">([\s\S]*?)<\/span>/, chunk).replace(/<[^>]+>/g, ''));
+    if (!quote) return;
+    critics.push({
+      name: unhtml(m1(/slot="name"[^>]*>([^<]+)</, chunk)),
+      outlet: unhtml(m1(/slot="publication"[^>]*>([^<]+)</, chunk)),
+      fresh: /sentiment="POSITIVE"/.test(chunk),
+      score: unhtml(m1(/<div slot="rating">[\s\S]*?<span>([^<]*)<\/span>/, chunk)),
+      top: /\btop-critic\b/.test(chunk.slice(0, 300)),
+      quote: quote
+    });
+  });
+  // Críticos de destaque primeiro; no máximo 4.
+  critics.sort(function (a, b) { return (b.top ? 1 : 0) - (a.top ? 1 : 0); });
+  return compact({ url: url, consensus: consensus, critics: critics.slice(0, 4) });
+}
+
+function rtRoute(res, q) {
+  var title = String(q.title || '').slice(0, 120);
+  var year = parseInt(q.year, 10) || 0;
+  var kind = q.type === 'series' ? 'tv' : 'm';
+  if (!title) return json(res, 400, { error: 'sem título' });
+  var key = kind + '|' + normTitle(title) + '|' + year;
+  var hit = rtCache[key];
+  if (hit && Date.now() - hit.at < 6 * 3600 * 1000) return json(res, 200, hit.data);
+  function done(data) {
+    rtCache[key] = { at: Date.now(), data: data };
+    json(res, 200, data);
+  }
+  fetchText('https://www.rottentomatoes.com/search?search=' + encodeURIComponent(title), function (err, html) {
+    if (err) return json(res, 200, {});
+    var url = '';
+    try { url = rtPick(html, title, year, kind); } catch (e) {}
+    if (!url) return done({});
+    fetchText(url, function (err2, page) {
+      var data = {};
+      try { data = err2 ? {} : rtParse(page, url); } catch (e) {}
+      done(data);
+    });
+  });
+}
+
 function addonRoute(url, res) {
   var r = parseAddonUrl(url);
   if (!r) return false;
@@ -1100,6 +1172,7 @@ var addonServer = http.createServer(guarded(function (req, res) {
   if (url === '/api/quit' && req.method === 'POST') return quit(res);
   if (url === '/api/pxlog') return json(res, 200, pxLog);
   if (url === '/api/cal') return calendarRoute(res, urlLib.parse(req.url, true).query);
+  if (url === '/api/rt') return rtRoute(res, urlLib.parse(req.url, true).query);
   if (addonRoute(url, res)) return;
   res.writeHead(404, { 'Content-Type': 'text/plain' });
   res.end('404');
