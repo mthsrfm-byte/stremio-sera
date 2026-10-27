@@ -26,42 +26,34 @@ jobs:
           mkdir -p artifacts
           set -o pipefail
           scripts/test-player-init.sh 2>&1 | tee artifacts/player-probe.log
-      - name: Decodificar MPEG4 por HTTP com Range e verificar pixels
+      - name: Decodificar MPEG4 e HEVC 4K com um servidor HTTP Range
         if: always() && steps.init.outcome == 'success'
         run: |
           set -o pipefail
-          python3 scripts/serve-fixtures.py 18766 --bind 127.0.0.1 --directory tests/fixtures > artifacts/player-probe-mpeg4-http.log 2>&1 &
+          python3 scripts/serve-fixtures.py 18766 --bind 127.0.0.1 --directory tests/fixtures > artifacts/player-probe-http.log 2>&1 &
           PROBE_HTTP_PID=$!
           cleanup() {
+            PROBE_EXIT_STATUS=$?
+            if [ "$PROBE_EXIT_STATUS" != 0 ]; then cat artifacts/player-probe-http.log; fi
             kill "$PROBE_HTTP_PID" 2>/dev/null || true
             wait "$PROBE_HTTP_PID" 2>/dev/null || true
           }
           trap cleanup EXIT
-          HTTP_STATUS="$(curl --fail --silent --show-error --retry 5 --retry-connrefused --retry-delay 1 --max-time 5 --range 0-15 --dump-header artifacts/player-probe-mpeg4-http.headers --output artifacts/player-probe-mpeg4-range.bin --write-out '%{http_code}' http://127.0.0.1:18766/mpeg4-smoke.mp4)"
-          if [ "$HTTP_STATUS" != 206 ] || [ "$(wc -c < artifacts/player-probe-mpeg4-range.bin | tr -d ' ')" != 16 ]; then
-            cat artifacts/player-probe-mpeg4-http.log
-            printf 'Servidor de teste não respondeu Range/206 corretamente: HTTP %s\n' "$HTTP_STATUS"
-            exit 1
-          fi
-          scripts/test-player-init.sh http://127.0.0.1:18766/mpeg4-smoke.mp4 mpeg4 2>&1 | tee artifacts/player-probe-mpeg4.log
-      - name: Decodificar HEVC 4K por HTTP com Range e verificar pixels
-        if: always() && steps.init.outcome == 'success'
-        run: |
-          set -o pipefail
-          python3 scripts/serve-fixtures.py 18767 --bind 127.0.0.1 --directory tests/fixtures > artifacts/player-probe-hevc-http.log 2>&1 &
-          PROBE_HTTP_PID=$!
-          cleanup() {
-            kill "$PROBE_HTTP_PID" 2>/dev/null || true
-            wait "$PROBE_HTTP_PID" 2>/dev/null || true
+          verify_range() {
+            PROBE_LABEL="$1"
+            PROBE_MEDIA="$2"
+            PROBE_HTTP_STATUS="$(curl --fail --silent --show-error --retry 5 --retry-connrefused --retry-delay 1 --max-time 5 --range 0-15 --dump-header "artifacts/player-probe-$PROBE_LABEL-http.headers" --output "artifacts/player-probe-$PROBE_LABEL-range.bin" --write-out '%{http_code}' "http://127.0.0.1:18766/$PROBE_MEDIA")"
+            if [ "$PROBE_HTTP_STATUS" != 206 ] || [ "$(wc -c < "artifacts/player-probe-$PROBE_LABEL-range.bin" | tr -d ' ')" != 16 ]; then
+              printf 'Servidor de teste não respondeu Range/206 corretamente: HTTP %s\n' "$PROBE_HTTP_STATUS"
+              return 1
+            fi
           }
-          trap cleanup EXIT
-          HTTP_STATUS="$(curl --fail --silent --show-error --retry 5 --retry-connrefused --retry-delay 1 --max-time 5 --range 0-15 --dump-header artifacts/player-probe-hevc-http.headers --output artifacts/player-probe-hevc-range.bin --write-out '%{http_code}' http://127.0.0.1:18767/hevc-4k-tracks.mkv)"
-          if [ "$HTTP_STATUS" != 206 ] || [ "$(wc -c < artifacts/player-probe-hevc-range.bin | tr -d ' ')" != 16 ]; then
-            cat artifacts/player-probe-hevc-http.log
-            printf 'Servidor de teste não respondeu Range/206 corretamente: HTTP %s\n' "$HTTP_STATUS"
-            exit 1
-          fi
-          scripts/test-player-init.sh http://127.0.0.1:18767/hevc-4k-tracks.mkv hevc 2>&1 | tee artifacts/player-probe-hevc.log
+          verify_range mpeg4 mpeg4-smoke.mp4
+          verify_range hevc hevc-4k-tracks.mkv
+          PROBE_FAILED=0
+          scripts/test-player-init.sh http://127.0.0.1:18766/mpeg4-smoke.mp4 mpeg4 2>&1 | tee artifacts/player-probe-mpeg4.log || PROBE_FAILED=1
+          scripts/test-player-init.sh http://127.0.0.1:18766/hevc-4k-tracks.mkv hevc 2>&1 | tee artifacts/player-probe-hevc.log || PROBE_FAILED=1
+          exit "$PROBE_FAILED"
       - name: Guardar diagnóstico mesmo em falha
         if: always()
         uses: actions/upload-artifact@v4
