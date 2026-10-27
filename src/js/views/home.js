@@ -6,12 +6,12 @@ import { KEY } from '../lib/nav.js';
 import * as addons from '../api/addons.js';
 import * as stremio from '../api/stremio.js';
 import * as hero from '../api/hero.js';
-import { topbar, card, spinnerLine } from '../ui.js';
+import { topbar, card, spinnerLine, skeletonCards, retrying } from '../ui.js';
 import * as router from '../router.js';
 import { openDetails } from './details.js';
 import { t } from '../lib/i18n.js';
 import * as reco from '../api/recommend.js';
-import { simpleRow } from './recommended.js';
+import { simpleRow, showRetry } from './recommended.js';
 
 const ROTATE_MS = 8000;
 
@@ -123,6 +123,7 @@ export function HomeView() {
     onShow: () => {
       renderContinue();
       if (!loadedBoard) renderBoard();
+      else loadNearby(); // fileiras que ficaram esperando enquanto a tela estava escondida
       heroUi.resume();
       loadVisibleImages(el);
     },
@@ -158,17 +159,18 @@ const ROW_LIMIT = 20;
 function buildRow(entry, parent) {
   const row = h('div.row', { 'data-anchor': '30' });
   const title = h('div.row-title', null, [entry.catalog.name || entry.catalog.id, h('small', { text: typeLabel(entry.catalog.type) + ' · ' + (entry.addon.manifest.name || '') })]);
-  const track = h('div.row-track.pending', { 'data-scroll-x': '', 'data-group': '', 'data-trap': '' }, spinnerLine(t('Carregando...')));
+  const track = h('div.row-track.pending', { 'data-scroll-x': '', 'data-group': '', 'data-trap': '' }, skeletonCards());
   row.appendChild(title);
   row.appendChild(track);
   parent.appendChild(row);
+  const failed = () => showRetry(track, () => load());
   const load = () =>
-    addons
-      .fetchCatalog(entry)
+    retrying(() => addons.fetchCatalog(entry))
       .then((metas) => {
         clear(track);
         track.classList.remove('pending');
         if (!metas.length) {
+          // Catálogo de addon vazio de verdade: some (não é falha de rede).
           if (row.parentNode) parent.removeChild(row);
           return;
         }
@@ -181,9 +183,7 @@ function buildRow(entry, parent) {
         });
         loadVisibleImages(row);
       })
-      .catch(() => {
-        if (row.parentNode) parent.removeChild(row);
-      });
+      .catch(failed);
   return { row: row, load: load };
 }
 

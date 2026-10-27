@@ -167,9 +167,6 @@ export const STREAMINGS = [
   provider(337, 'Disney+', 'do', '/5eZ872CghnHFLB1j8grszbrx0dx.png'),
   provider(1899, 'HBO Max', 'da', '/skypuy7SXuugIQeYg0IglmzoKaS.png'),
   provider(350, 'Apple TV+', 'do', '/9icYBfYFcwgCbky5VdGUIKJ4C5i.png'),
-  provider(531, 'Paramount+', 'do', '/pkx3klJlwW5JdtaulvDx6hDNtch.png'),
-  provider(307, 'Globoplay', 'do', '/9A6Oxd3F7iXm7mds7CxYOBicojs.png'),
-  provider(11, 'MUBI', 'do', '/k7iSlvgWzZuO4zU5PcBjhABMuia.png'),
   provider(283, 'Crunchyroll', 'da', '/uFL3c4Cq8M6WoLymlC5Y8bmGytV.png'),
 ];
 
