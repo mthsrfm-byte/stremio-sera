@@ -18,6 +18,13 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            .build/downloads
+            .build/native-deps
+          key: native-v2-${{ runner.os }}-arm64-binary-${{ hashFiles('scripts/dependency-lock.json', 'scripts/build-ffmpeg.sh', 'scripts/build-dependencies-source.sh') }}
+          restore-keys: native-v2-${{ runner.os }}-arm64-binary-
       - name: Baixar dylibs e headers fixados, sem compilar FFmpeg
         run: python3 scripts/prepare-dependencies.py
       - name: Compilar e inicializar somente AppKit e libmpv

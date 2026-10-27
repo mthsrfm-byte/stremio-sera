@@ -22,7 +22,7 @@ def download(item):
     expected = item['sha256']
     if not target.exists() or hashlib.sha256(target.read_bytes()).hexdigest() != expected:
         temporary = target.with_name(target.name + '.download')
-        subprocess.run(['curl', '--fail', '--location', '--retry', '3', '--silent', '--show-error', '--max-time', '120', item['url'], '-o', str(temporary)], check=True)
+        subprocess.run(['curl', '--fail', '--location', '--retry', '3', '--retry-all-errors', '--retry-delay', '2', '--max-time', '120', '--silent', '--show-error', '--max-time', '120', item['url'], '-o', str(temporary)], check=True)
         if hashlib.sha256(temporary.read_bytes()).hexdigest() != expected:
             temporary.unlink()
             raise RuntimeError('SHA-256 incorreto: ' + name)
@@ -30,7 +30,7 @@ def download(item):
     return target
 
 if __name__ == '__main__':
-    with ThreadPoolExecutor(max_workers=8) as pool:
+    with ThreadPoolExecutor(max_workers=4) as pool:
         paths = list(pool.map(download, lock['libraries']))
     for path in paths:
         shutil.copy2(path, deps / 'lib' / path.name)
