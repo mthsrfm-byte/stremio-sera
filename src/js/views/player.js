@@ -895,8 +895,8 @@ function PlayerView(opts) {
     updateTimes();
     const withPreview = showPreview(seekTarget, d);
     clearTimeout(seekCommitTimer);
-    // Com prévia, espera um pouco mais antes de pular: dá tempo de ver o quadro.
-    seekCommitTimer = setTimeout(commitSeek, withPreview ? 1400 : 700);
+    // Com prévia, espera um pouco mais antes de pular: dá tempo de ver o quadro (o do PC demora mais).
+    seekCommitTimer = setTimeout(commitSeek, withPreview === 'pc' ? 1800 : withPreview ? 1400 : 700);
   }
 
   // Prévia ao avançar/voltar: o quadro daquele ponto, das miniaturas da linha do tempo que o
@@ -907,10 +907,8 @@ function PlayerView(opts) {
   const sheetCache = {};
   function showPreview(time, duration) {
     const th = stream && stream.thumbs;
-    if (!th || !th.urls || !th.urls.length || !(th.every > 0) || !(th.cols > 0) || !(th.rows > 0)) {
-      preview.classList.remove('on');
-      return false;
-    }
+    if (!th || !th.urls || !th.urls.length || !(th.every > 0) || !(th.cols > 0) || !(th.rows > 0)) return pcPreview(time, duration);
+    preview.classList.remove('pc');
     const per = th.cols * th.rows;
     let i = Math.floor(time / th.every);
     let sheet = Math.floor(i / per);
@@ -939,6 +937,40 @@ function PlayerView(opts) {
     return true;
   }
 
+  // Fontes sem miniaturas do site (filmes, séries, TPB...): o servidor do PC tira o quadro com o
+  // ffmpeg (thumb.jpg do stremio-service), pedido só quando a posição para de mudar. Leva 1–3 s,
+  // então o quadro anterior fica na tela até o novo chegar. Sem o PC, não tem prévia.
+  let pcTimer = null;
+  let pcWanted = '';
+  function pcPreview(time, duration) {
+    const src = mediaUrl;
+    if (!server.isAvailable() || !/^https?:/.test(src) || !(duration > 0)) {
+      preview.classList.remove('on');
+      return false;
+    }
+    const w = bar.offsetWidth || 1;
+    preview.style.left = Math.max(PREVIEW_W / 2, Math.min(w - PREVIEW_W / 2, (time / duration) * w)) + 'px';
+    preview.classList.add('on');
+    preview.classList.add('pc');
+    if (!pcWanted) previewImg.style.backgroundImage = '';
+    clearTimeout(pcTimer);
+    pcTimer = setTimeout(() => {
+      // O stremio-service decodifica o "from" duas vezes: vai codificado duas vezes.
+      const url = server.baseUrl() + 'thumb.jpg?from=' + encodeURIComponent(encodeURIComponent(src)) + '&at=' + Math.round(time);
+      pcWanted = url;
+      preview.classList.add('loading');
+      const img = new Image();
+      img.onload = () => {
+        if (pcWanted !== url) return;
+        previewImg.style.backgroundImage = 'url("' + url + '")';
+        preview.classList.remove('loading');
+      };
+      img.onerror = () => pcWanted === url && preview.classList.remove('loading');
+      img.src = url;
+    }, 300);
+    return 'pc';
+  }
+
   function commitSeek() {
     if (seekTarget === null) return;
     try {
@@ -949,6 +981,8 @@ function PlayerView(opts) {
     seekTarget = null;
     bar.classList.remove('seeking');
     preview.classList.remove('on');
+    clearTimeout(pcTimer);
+    pcWanted = '';
     if (videoEl.paused) videoEl.play();
     scheduleHide();
   }
@@ -958,6 +992,8 @@ function PlayerView(opts) {
     seekTarget = null;
     bar.classList.remove('seeking');
     preview.classList.remove('on');
+    clearTimeout(pcTimer);
+    pcWanted = '';
     updateTimes();
   }
 
