@@ -9886,9 +9886,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "061f0eeb834f2f53385007a9961d31cfeac26eed",
-    date: "2026-10-26T22:21:36-03:00",
-    message: "QR code na TV para abrir o controle no celular sem digitar IP"
+    commit: "53aae493e437c642c6057f115e9a6e734888c2c1",
+    date: "2026-10-26T22:59:35-03:00",
+    message: "Controle liga sozinho junto com o TizenBrew"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
