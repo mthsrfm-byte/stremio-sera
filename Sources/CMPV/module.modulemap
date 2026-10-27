@@ -1,0 +1,6 @@
+module CMPV [system] {
+    header "umbrella.h"
+    link "mpv"
+    link framework "OpenGL"
+    export *
+}

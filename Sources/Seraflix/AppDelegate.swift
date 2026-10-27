@@ -1,5 +1,6 @@
 import AppKit
 import WebKit
+import Sparkle
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigationDelegate, WKScriptMessageHandler {
@@ -7,6 +8,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
     private var web: WKWebView!
     private let ui = UIBundle()
     private let server = ServerSupervisor()
+    private var player: MPVPlayer?
+    private let media = MediaIntegration()
+    private var updater: SPUStandardUpdaterController?
+    private let launchTime = Date()
+    private var smokeHome = false
+    private var smokeLoaded = false
+    private var smokeAdvanced = false
+    private var smokeHomeSeconds: Double = 0
+    private var smokeResult: String? {
+        let args = CommandLine.arguments
+        guard let i = args.firstIndex(of: "--smoke-test"), args.indices.contains(i + 1) else { return nil }
+        return args[i + 1]
+    }
+    private var smokeVideo: String? {
+        let args = CommandLine.arguments
+        guard let i = args.firstIndex(of: "--smoke-video"), args.indices.contains(i + 1) else { return nil }
+        return args[i + 1]
+    }
     private var activeUI: URL!
     private var interacted = false
     private var inputMonitor: Any?
@@ -45,18 +64,53 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
             return event
         }
         server.onState = { [weak self] state in self?.emit("server", state) }
-        commandHandler = { [weak self] command, _ in
+        do {
+            let player = try MPVPlayer()
+            self.player = player
+            installNativeView(player.view)
+            player.onEvent = { [weak self] event, data in
+                self?.media.receive(event, data)
+                if self?.smokeResult != nil {
+                    if event == "loaded" { self?.smokeLoaded = true }
+                    if event == "time", (data["position"] as? Double ?? 0) > 0.3 { self?.smokeAdvanced = true }
+                    if event == "error" { self?.finishSmoke(error: data["message"] as? String ?? "Erro libmpv") }
+                    self?.checkSmokeComplete()
+                }
+                self?.emit(event, data)
+            }
+        } catch { NSLog("Player indisponível: %@", error.localizedDescription) }
+        commandHandler = { [weak self] command, args in
             guard let self = self else { return }
-            guard command == "serverStatus" || command == "appReady" else { throw UIError.invalid("Comando desconhecido") }
-            self.emit("server", self.server.state)
+            if command == "serverStatus" || command == "appReady" {
+                self.emit("server", self.server.state)
+                return
+            }
+            guard let player = self.player else { throw UIError.invalid("Player nativo indisponível. Reinstale o app.") }
+            if command == "load" { self.media.setTitle(args["title"] as? String ?? "Seraflix") }
+            try player.handle(command: command, args: args)
         }
-        shutdownHandler = { [weak self] in self?.server.stop() }
+        media.command = { [weak self] command, args in
+            do { try self?.commandHandler?(command, args) }
+            catch { self?.emit("error", ["message": error.localizedDescription]) }
+        }
+        shutdownHandler = { [weak self] in
+            self?.media.stop()
+            self?.player?.shutdown()
+            self?.server.stop()
+        }
+        // Sparkle exige chave Ed25519 antes de atualizar; builds ad hoc não simulam assinatura de release.
+        if let key = Bundle.main.object(forInfoDictionaryKey: "SUPublicEDKey") as? String, !key.isEmpty {
+            updater = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
+        }
         server.start()
         load(ui.initial())
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+        if smokeResult != nil {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 60) { [weak self] in self?.finishSmoke(error: "Timeout no smoke test") }
+        }
         Task { [weak self] in
-            guard let self = self else { return }
+            guard let self = self, self.smokeResult == nil else { return }
             do {
                 if let updated = try await self.ui.refresh() {
                     // Não interrompe login/navegação: se já houve interação, usa o cache na próxima abertura.
@@ -85,6 +139,62 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
             }
             decisionHandler(.cancel)
         }
+    }
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        emit("server", server.state)
+        if smokeResult != nil { pollSmokeHome() }
+    }
+
+    private func pollSmokeHome() {
+        web.evaluateJavaScript("!!document.querySelector('.home-view:not(.hidden) .topbar')") { [weak self] result, error in
+            guard let self = self, self.smokeResult != nil else { return }
+            if let error = error { self.finishSmoke(error: error.localizedDescription); return }
+            if result as? Bool == true {
+                self.smokeHome = true
+                self.smokeHomeSeconds = Date().timeIntervalSince(self.launchTime)
+                if let url = self.smokeVideo,
+                   let bytes = try? JSONSerialization.data(withJSONObject: [url]),
+                   let json = String(data: bytes, encoding: .utf8) {
+                    self.web.evaluateJavaScript("window.dispatchEvent(new CustomEvent('seraflix-open-url',{detail:\(json)[0]}))")
+                }
+                self.checkSmokeComplete()
+            } else {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in self?.pollSmokeHome() }
+            }
+        }
+    }
+
+    private func checkSmokeComplete() {
+        guard smokeResult != nil, smokeHome, player != nil else { return }
+        if smokeVideo == nil || (smokeLoaded && smokeAdvanced) { finishSmoke(error: nil) }
+    }
+
+    private var smokeFinished = false
+    private func finishSmoke(error: String?) {
+        guard let path = smokeResult, !smokeFinished else { return }
+        smokeFinished = true
+        let result: [String: Any] = ["ok": error == nil, "home": smokeHome, "player": player != nil,
+                                     "loaded": smokeLoaded, "advanced": smokeAdvanced,
+                                     "homeSeconds": smokeHomeSeconds, "error": error ?? ""]
+        if let bytes = try? JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys]) {
+            try? bytes.write(to: URL(fileURLWithPath: path), options: .atomic)
+        }
+        NSApp.terminate(nil)
+    }
+
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        navigationFailed(error)
+    }
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        navigationFailed(error)
+    }
+    private func navigationFailed(_ error: Error) {
+        if smokeResult != nil { finishSmoke(error: error.localizedDescription); return }
+        let alert = NSAlert()
+        alert.messageText = "Não foi possível carregar a interface"
+        alert.informativeText = "Reinstale o Seraflix para recuperar o bundle local. " + error.localizedDescription
+        alert.beginSheetModal(for: window)
     }
 
     private func trusted(_ url: URL) -> Bool {
@@ -123,6 +233,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         contentView.addSubview(view, positioned: .below, relativeTo: web)
     }
 
+    @objc private func checkUpdates(_ sender: Any?) {
+        if let updater = updater { updater.checkForUpdates(sender) }
+        else {
+            let alert = NSAlert()
+            alert.messageText = "Versão de desenvolvimento"
+            alert.informativeText = "Este pacote ad hoc não tem chave de atualização Sparkle. Instale novas versões pela página de releases. A UI continua atualizando da main."
+            alert.runModal()
+        }
+    }
+
     @objc private func toggleFullscreen(_ sender: Any?) { window?.toggleFullScreen(sender) }
     @objc private func openURL(_ sender: Any?) {
         let alert = NSAlert()
@@ -145,6 +265,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         let app = NSMenuItem(); menu.addItem(app)
         let appMenu = NSMenu(); app.submenu = appMenu
         appMenu.addItem(withTitle: "Sobre o Seraflix", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        appMenu.addItem(withTitle: "Buscar atualizações…", action: #selector(checkUpdates(_:)), keyEquivalent: "").target = self
         appMenu.addItem(.separator())
         appMenu.addItem(withTitle: "Ocultar Seraflix", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
         appMenu.addItem(withTitle: "Sair do Seraflix", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
