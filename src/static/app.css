@@ -52,25 +52,28 @@ img { display: block; }
    pulsa; no fim, a tela some em fade com leve zoom e o app aparece por baixo. */
 .boot { z-index: 200; background: #111110; }
 body.light .boot { background: #F5F4EF; }
-.intro-mark { display: -webkit-flex; display: flex; -webkit-align-items: baseline; align-items: baseline; font-size: 96px; position: relative; z-index: 2; }
+.intro-mark { display: -webkit-flex; display: flex; -webkit-align-items: flex-end; align-items: flex-end; position: relative; z-index: 2; }
 .intro-logo { position: relative; overflow: hidden; padding: 6px 4px; color: #F5F4EF; } /* folga: a cortina cobre além das bordas do logo (sem fiozinhos no zoom) */
 body.light .intro-logo { color: #111110; }
-.intro-logo .sera-logo { height: 1em; width: 3.09em; margin: 0; display: block; }
+.intro-logo .sera-logo { height: 96px; width: 296px; margin: 0; display: block; }
 /* Cortina com a cor do fundo; sua borda esquerda é a linha azul que "escreve" o logo. */
 .intro-sweep { position: absolute; left: 0; top: 0; bottom: 0; right: 0; background: #111110; border-left: 3px solid #3347FF; box-shadow: -10px 0 24px rgba(51,71,255,0.55); }
 body.light .intro-sweep { background: #F5F4EF; }
-.intro-flix { font-family: 'Bricolage Grotesque', 'Geist', sans-serif; font-size: 1.3em; font-weight: 800; line-height: 1; letter-spacing: -2px; color: #F5F4EF; margin-left: 0.16em; opacity: 0; -webkit-transform: translateY(18px); transform: translateY(18px); }
-body.light .intro-flix { color: #111110; }
+.intro-flix { font-family: 'Bricolage Grotesque', 'Geist', sans-serif; font-size: 92px; font-weight: 800; line-height: 0.82; letter-spacing: -2px; color: #A9B4F5; margin-left: 14px; margin-bottom: 6px; opacity: 0; -webkit-transform: translateY(18px); transform: translateY(18px); }
+body.light .intro-flix { color: #3347FF; }
+.intro-glow { position: absolute; left: 50%; top: 50%; width: 900px; height: 900px; margin: -450px 0 0 -450px; border-radius: 50%; background: radial-gradient(circle, rgba(51,71,255,0.28) 0%, rgba(51,71,255,0) 60%); opacity: 0; -webkit-transform: scale(0.6); transform: scale(0.6); }
 .intro-bar { position: absolute; left: 50%; top: 50%; margin: 110px 0 0 -90px; width: 180px; height: 2px; border-radius: 1px; overflow: hidden; background: rgba(245,244,239,0.08); opacity: 0; -webkit-transition: opacity 0.4s; transition: opacity 0.4s; }
 .intro-bar i { display: block; width: 60px; height: 2px; background: #A9B4F5; -webkit-animation: introbar 1.1s ease-in-out infinite; animation: introbar 1.1s ease-in-out infinite; }
 
 .boot.run .intro-mark { -webkit-animation: intro-zoom 2.2s cubic-bezier(0.2, 0.7, 0.2, 1) both; animation: intro-zoom 2.2s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
 .boot.run .intro-sweep { -webkit-animation: intro-sweep 0.9s cubic-bezier(0.65, 0, 0.35, 1) 0.15s both; animation: intro-sweep 0.9s cubic-bezier(0.65, 0, 0.35, 1) 0.15s both; }
 .boot.run .intro-flix { -webkit-animation: intro-flix 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) 0.95s both; animation: intro-flix 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) 0.95s both; }
-.boot.run /* Carregando depois da animação: a barrinha aparece só se o app ainda não estiver pronto. */
+.boot.run .intro-glow { -webkit-animation: intro-glow 1.6s ease-out 0.85s both; animation: intro-glow 1.6s ease-out 0.85s both; }
+/* Carregando depois da animação: a barrinha aparece só se o app ainda não estiver pronto. */
 .boot.run .intro-bar { -webkit-animation: intro-fadein 0.4s ease 2.3s both; animation: intro-fadein 0.4s ease 2.3s both; }
 /* Mostrar parada (ex.: depois de escolher o perfil): estado final, sem repetir. */
-.boot.done .intro-mark, .boot.done .intro-sweep, .boot.done .intro-flix, .boot.done .boot.out { opacity: 0; -webkit-transform: scale(1.04); transform: scale(1.04); -webkit-transition: opacity 0.5s ease, -webkit-transform 0.6s ease; transition: opacity 0.5s ease, transform 0.6s ease; pointer-events: none; }
+.boot.done .intro-mark, .boot.done .intro-sweep, .boot.done .intro-flix, .boot.done .intro-glow { -webkit-animation-duration: 0.01s; animation-duration: 0.01s; -webkit-animation-delay: 0s; animation-delay: 0s; }
+.boot.out { opacity: 0; -webkit-transform: scale(1.04); transform: scale(1.04); -webkit-transition: opacity 0.5s ease, -webkit-transform 0.6s ease; transition: opacity 0.5s ease, transform 0.6s ease; pointer-events: none; }
 
 @-webkit-keyframes intro-zoom { from { -webkit-transform: scale(1.06); } to { -webkit-transform: scale(1); } }
 @keyframes intro-zoom { from { transform: scale(1.06); } to { transform: scale(1); } }
@@ -78,29 +81,12 @@ body.light .intro-flix { color: #111110; }
 @keyframes intro-sweep { from { transform: translateX(0); } to { transform: translateX(102%); } }
 @-webkit-keyframes intro-flix { from { opacity: 0; -webkit-transform: translateY(18px); } to { opacity: 1; -webkit-transform: translateY(0); } }
 @keyframes intro-flix { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
+@-webkit-keyframes intro-glow { 0% { opacity: 0; -webkit-transform: scale(0.6); } 35% { opacity: 1; } 100% { opacity: 0.35; -webkit-transform: scale(1.15); } }
+@keyframes intro-glow { 0% { opacity: 0; transform: scale(0.6); } 35% { opacity: 1; } 100% { opacity: 0.35; transform: scale(1.15); } }
 @-webkit-keyframes intro-fadein { to { opacity: 1; } }
 @keyframes intro-fadein { to { opacity: 1; } }
 @-webkit-keyframes introbar { from { -webkit-transform: translateX(-60px); } to { -webkit-transform: translateX(180px); } }
 @keyframes introbar { from { transform: translateX(-60px); } to { transform: translateX(180px); } }
-/* Aurora boreal ao fundo: faixas de luz verde, azul e violeta que ondulam devagar (só transform/opacity). */
-.intro-aurora { position: absolute; left: 0; top: 0; right: 0; bottom: 0; overflow: hidden; z-index: 1; opacity: 0; }
-.intro-aurora i { position: absolute; border-radius: 50%; opacity: 0.55; }
-.intro-aurora i:nth-child(1) { left: -10%; top: -18%; width: 75%; height: 70%; background: radial-gradient(ellipse at center, rgba(43,228,160,0.55) 0%, rgba(43,228,160,0) 65%); -webkit-animation: aur1 9s ease-in-out infinite alternate; animation: aur1 9s ease-in-out infinite alternate; }
-.intro-aurora i:nth-child(2) { left: 30%; top: -25%; width: 70%; height: 75%; background: radial-gradient(ellipse at center, rgba(51,71,255,0.6) 0%, rgba(51,71,255,0) 65%); -webkit-animation: aur2 11s ease-in-out infinite alternate; animation: aur2 11s ease-in-out infinite alternate; }
-.intro-aurora i:nth-child(3) { left: 50%; top: 5%; width: 60%; height: 60%; background: radial-gradient(ellipse at center, rgba(138,92,255,0.5) 0%, rgba(138,92,255,0) 65%); -webkit-animation: aur3 8s ease-in-out infinite alternate; animation: aur3 8s ease-in-out infinite alternate; }
-.intro-aurora i:nth-child(4) { left: 5%; top: 30%; width: 55%; height: 55%; background: radial-gradient(ellipse at center, rgba(34,193,195,0.4) 0%, rgba(34,193,195,0) 65%); -webkit-animation: aur4 10s ease-in-out infinite alternate; animation: aur4 10s ease-in-out infinite alternate; }
-/* Entra depois da linha azul: a cortina que esconde o logo tem a cor do fundo e apareceria sobre a aurora. */
-.boot.run .intro-aurora { -webkit-animation: intro-fadein 1.8s ease 0.95s both; animation: intro-fadein 1.8s ease 0.95s both; }
-.boot.done .intro-aurora { -webkit-animation: none; animation: none; opacity: 1; }
-body.light .intro-aurora i { opacity: 0.35; }
-@-webkit-keyframes aur1 { from { -webkit-transform: translate(0, 0) scale(1, 0.8) rotate(-8deg); } to { -webkit-transform: translate(12%, 6%) scale(1.25, 1.1) rotate(6deg); } }
-@keyframes aur1 { from { transform: translate(0, 0) scale(1, 0.8) rotate(-8deg); } to { transform: translate(12%, 6%) scale(1.25, 1.1) rotate(6deg); } }
-@-webkit-keyframes aur2 { from { -webkit-transform: translate(0, 0) scale(1.1, 0.9) rotate(10deg); } to { -webkit-transform: translate(-14%, 8%) scale(0.9, 1.2) rotate(-6deg); } }
-@keyframes aur2 { from { transform: translate(0, 0) scale(1.1, 0.9) rotate(10deg); } to { transform: translate(-14%, 8%) scale(0.9, 1.2) rotate(-6deg); } }
-@-webkit-keyframes aur3 { from { -webkit-transform: translate(0, 0) scale(0.9); } to { -webkit-transform: translate(-10%, -8%) scale(1.2, 1); } }
-@keyframes aur3 { from { transform: translate(0, 0) scale(0.9); } to { transform: translate(-10%, -8%) scale(1.2, 1); } }
-@-webkit-keyframes aur4 { from { -webkit-transform: translate(0, 0) scale(1); } to { -webkit-transform: translate(16%, -10%) scale(1.3, 0.85); } }
-@keyframes aur4 { from { transform: translate(0, 0) scale(1); } to { transform: translate(16%, -10%) scale(1.3, 0.85); } }
 
 .boot-logo { font-size: 72px; font-weight: 400; letter-spacing: 2px; margin-bottom: 48px; }
 .boot-logo b { font-weight: 800; color: #9d85ff; }
@@ -741,7 +727,8 @@ body.light .cast.focused .nm { color: #111110; }
 body.light .cast.focused .ch { color: #2236E0; }
 
 /* Aba NSFW: brilho discreto no topo, seções com marcador e categorias em destaque */
-.nsfw-view .scroll-y { background: radial-gradient(1200px 420px at 15% 0, rgba(229,80,140,0.16), rgba(229,80,140,0) 70%), radial-gradient(900px 380px at 85% 0, rgba(123,91,245,0.14), rgba(123,91,245,0) 70%); }
+/* Brilho do topo fixo atrás da rolagem (pintado uma vez; no fundo da área que rola, a TV repintava a cada passo). */
+.nsfw-view:before { content: ''; position: absolute; left: 0; top: 0; right: 0; height: 420px; pointer-events: none; background: radial-gradient(1200px 420px at 15% 0, rgba(229,80,140,0.16), rgba(229,80,140,0) 70%), radial-gradient(900px 380px at 85% 0, rgba(123,91,245,0.14), rgba(123,91,245,0) 70%); }
 .nsfw-section { position: relative; padding-left: 116px; }
 .nsfw-section:before { content: ''; position: absolute; left: 96px; top: 36px; width: 6px; height: 30px; border-radius: 3px; background: #e5508c; }
 .nsfw-genres .chip { background: rgba(229,80,140,0.14); }
@@ -869,6 +856,4 @@ body.light .fp-panel { background: rgba(255,255,255,0.5); }
 .nsfw-rail .provider.on { background-color: rgba(229,80,140,0.22); }
 .nsfw-rail .provider.on.focused { background-color: rgba(229,80,140,0.4); }
 .nsfw-rail .provider.focused { box-shadow: 0 0 0 4px #e5508c; }
-.nsfw-view .rows { -webkit-transition: opacity 0.4s ease, -webkit-transform 0.4s ease; transition: opacity 0.4s ease, transform 0.4s ease; }
-.nsfw-view .rows.sw { opacity: 0; -webkit-transform: translateY(30px); transform: translateY(30px); -webkit-transition: none; transition: none; }
 body.light .nsfw-now { color: rgba(17,17,16,0.6); }

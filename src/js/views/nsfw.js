@@ -29,15 +29,16 @@ function initialsOf(name) {
 }
 
 // Tudo que abre daqui fica marcado como adulto (some do resto do app).
-function openDetails(type, id, opts) {
+// Muitos addons adultos não têm "meta": os detalhes usam o próprio item do catálogo.
+function openDetails(type, id, opts, item) {
   addons.markAdult(id);
-  openDetailsRaw(type, id, opts);
+  openDetailsRaw(type, id, Object.assign({ fallbackMeta: item || null }, opts));
 }
 
 // Cartão do catálogo: vídeos com capa deitada (posterShape "landscape") usam o cartão largo.
 function itemCard(m, entry) {
   const wide = m.posterShape === 'landscape' || (entry && entry.catalog.posterShape === 'landscape');
-  return card(m, { wide: wide, image: wide ? m.poster || m.background : undefined, onSelect: () => openDetails(m.type || entry.catalog.type, m.id) });
+  return card(m, { wide: wide, image: wide ? m.poster || m.background : undefined, onSelect: () => openDetails(m.type || entry.catalog.type, m.id, null, m) });
 }
 
 export function NsfwView() {
@@ -117,7 +118,7 @@ export function NsfwView() {
   // Parar o foco num provedor troca o conteúdo (como em Streamings); OK entra nas fileiras.
   function scheduleSwitch(id) {
     clearTimeout(switchTimer);
-    switchTimer = setTimeout(() => pick(id), 450);
+    switchTimer = setTimeout(() => pick(id), 700);
   }
 
   function pick(id, enter) {
@@ -133,9 +134,7 @@ export function NsfwView() {
       .map((f) => f.id)
       .indexOf(id);
     renderFilters();
-    body.classList.add('sw');
     renderBody();
-    requestAnimationFrame(() => requestAnimationFrame(() => body.classList.remove('sw')));
     if (filters.children[idx]) nav.focus(filters.children[idx], { noScroll: true });
   }
 
@@ -201,7 +200,7 @@ export function NsfwView() {
               wide: true,
               image: it.background || it.poster,
               progress: it.state.duration ? it.state.timeOffset / it.state.duration : 0,
-              onSelect: () => openDetails(it.type, it._id, { videoId: it.state.video_id, autoStreams: true }),
+              onSelect: () => openDetails(it.type, it._id, { videoId: it.state.video_id, autoStreams: true }, { name: it.name, poster: it.poster }),
             }
           )
         )
@@ -209,7 +208,7 @@ export function NsfwView() {
     if (saved.length)
       staticRow(
         t('Minha lista'),
-        saved.slice(0, ROW_LIMIT).map((it) => card({ name: it.name, poster: it.poster }, { onSelect: () => openDetails(it.type, it._id) }))
+        saved.slice(0, ROW_LIMIT).map((it) => card({ name: it.name, poster: it.poster }, { onSelect: () => openDetails(it.type, it._id, null, { name: it.name, poster: it.poster }) }))
       );
   }
 
@@ -261,7 +260,6 @@ export function NsfwView() {
         const row = h('div.row', { 'data-anchor': '30' }, [h('div.row-title', null, [catName(entry), h('small', { text: entry.addon.manifest.name || '' })]), track]);
         addons
           .fetchCatalog(entry, { search: query })
-          .then((metas) => tr.titles(metas.slice(0, 30)))
           .then((metas) => {
             if (my !== token || !metas.length) return;
             found++;
@@ -343,7 +341,6 @@ function catalogRow(entry, parent) {
   parent.appendChild(row);
   const load = () =>
     retrying(() => addons.fetchCatalog(entry))
-      .then((metas) => tr.titles(metas.slice(0, ROW_LIMIT)).then((list) => list.concat(metas.slice(ROW_LIMIT))))
       .then((metas) => {
         clear(track);
         track.classList.remove('pending');
@@ -374,7 +371,7 @@ function GridView(entry, extra) {
     load: () =>
       addons.fetchCatalog(entry, Object.assign({ skip: skip || undefined }, extra)).then((metas) => {
         skip += metas.length;
-        return tr.titles(metas);
+        return metas;
       }),
     key: (m) => m.id,
     card: (m) => itemCard(m, entry),

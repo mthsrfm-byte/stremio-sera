@@ -7623,71 +7623,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var key = String(name || "").trim().toLowerCase();
     return GENRES[key] || GENRES[key.replace(/[-_]+/g, " ")] || genreName(name);
   }
-  var CACHE_KEY = "nsfwTitles";
-  var CACHE_MAX = 3e3;
-  var cache2 = null;
-  function mem() {
-    if (!cache2) cache2 = get(CACHE_KEY, {}) || {};
-    return cache2;
-  }
-  var saveTimer = null;
-  function save() {
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(function () {
-      var c = mem();
-      var keys = Object.keys(c);
-      if (keys.length > CACHE_MAX) keys.slice(0, keys.length - CACHE_MAX).forEach(function (k) {
-        return delete c[k];
-      });
-      set(CACHE_KEY, c);
-    }, 1500);
-  }
-  function enabled() {
-    return settings().nsfwTranslate !== false;
-  }
-  function looksPt(s) {
-    return /[ãõçáéíóúâêô]/i.test(s) || /\b(com|uma|para|gostosa|novinha|esposa|não)\b/i.test(s);
-  }
-  function translateBatch(lines) {
-    var u = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=pt&dt=t&q=" + encodeURIComponent(lines.join("\n"));
-    return getJSON(u, {
-      timeout: 8e3
-    }).then(function (r) {
-      var text2 = (r && r[0] || []).map(function (p) {
-        return p[0] || "";
-      }).join("");
-      var out = text2.split("\n");
-      return out.length === lines.length ? out : null;
-    });
-  }
-  function titles(items) {
-    if (!enabled() || !items.length) return Promise.resolve(items);
-    var c = mem();
-    var todo = [];
-    items.forEach(function (it) {
-      var n = it && it.name;
-      if (!n || looksPt(n) || c[n] !== void 0 || todo.indexOf(n) >= 0) return;
-      todo.push(n.replace(/\n/g, " "));
-    });
-    var batches = [];
-    for (var i = 0; i < todo.length; i += 25) batches.push(todo.slice(i, i + 25));
-    return Promise.all(batches.map(function (b) {
-      return translateBatch(b).then(function (out) {
-        if (!out) return;
-        b.forEach(function (n, i) {
-          return c[n] = out[i].trim() || n;
-        });
-        save();
-      }).catch(function () {});
-    })).then(function () {
-      return items.map(function (it) {
-        return it && c[it.name] && c[it.name] !== it.name ? Object.assign({}, it, {
-          name: c[it.name],
-          originalName: it.name
-        }) : it;
-      });
-    });
-  }
   function text(str) {
     var src = String(str || "").trim();
     if (!src) return Promise.resolve(null);
@@ -7725,8 +7660,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return m ? m[0] : null;
   }
   var BUILTIN_KEYS = {
-    tmdbKey: true ? "9c57ed7ea044b2f01eea2fcc2e954c2e" : "",
-    mdblistKey: true ? "t9e4f1z29b3c36i1j25rul1wx" : ""
+    tmdbKey: true ? "" : "",
+    mdblistKey: true ? "" : ""
   };
   function keyOf(name) {
     return (settings()[name] || "").trim() || BUILTIN_KEYS[name];
@@ -8746,7 +8681,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var controlsOn = false;
     var hideTimer = null;
     var ticker = null;
-    var saveTimer2 = null;
+    var saveTimer = null;
     var watchTimer = null;
     var statusTimer = null;
     var mediaUrl = "";
@@ -9913,7 +9848,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             checkSkip();
             if (currentSub.extracted) ensureSegments();
           }, 250);
-          saveTimer2 = setInterval(function () {
+          saveTimer = setInterval(function () {
             if (!videoEl.paused) saveProgress2();
           }, SAVE_MS);
           watchTimer = setInterval(watchdog, 2e3);
@@ -9930,7 +9865,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       destroy: function destroy() {
         alive = false;
         clearInterval(ticker);
-        clearInterval(saveTimer2);
+        clearInterval(saveTimer);
         clearInterval(watchTimer);
         clearInterval(statusTimer);
         clearTimeout(hideTimer);
@@ -11906,7 +11841,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         });
       }).then(finish2, finish2);
       pick2.then(function (st) {
-        if (!st && alive) showStreams(video, true);
+        if (st || !alive) return;
+        showStreams(video, true);
+        var torrentsOnly = all.length && all.every(function (x) {
+          return _needsServer(x);
+        });
+        setTimeout(function () {
+          return toast(!all.length ? t("Nenhuma fonte encontrada para este título.") : torrentsOnly && !_isAvailable() ? t("As fontes deste título são torrent: precisam do servidor do PC ligado.") : t("Nenhuma fonte deste título abre na TV."), 6e3);
+        }, 400);
       });
       play2(video, null, all, pick2);
     }
@@ -12188,7 +12130,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return ("0" + d.getDate()).slice(-2) + "/" + ("0" + (d.getMonth() + 1)).slice(-2) + "/" + d.getFullYear();
     }
     load().then(function () {
-      return fetchMeta(type, id);
+      return fetchMeta(type, id).catch(function (e) {
+        if (opts.fallbackMeta) return Object.assign({
+          type: type
+        }, opts.fallbackMeta, {
+          id: id
+        });
+        throw e;
+      });
     }).then(function (m) {
       if (!alive) return;
       meta = m;
@@ -12682,9 +12631,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var words = String(name || "?").replace(/[^A-Za-z0-9À-ú+ ]/g, " ").trim().split(/\s+/);
     return (words.length > 1 ? words[0][0] + words[1][0] : words[0].slice(0, 2)).toUpperCase();
   }
-  function openDetails2(type, id, opts) {
+  function openDetails2(type, id, opts, item) {
     markAdult(id);
-    openDetails(type, id, opts);
+    openDetails(type, id, Object.assign({
+      fallbackMeta: item || null
+    }, opts));
   }
   function itemCard(m, entry) {
     var wide = m.posterShape === "landscape" || entry && entry.catalog.posterShape === "landscape";
@@ -12692,7 +12643,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       wide: wide,
       image: wide ? m.poster || m.background : void 0,
       onSelect: function onSelect() {
-        return openDetails2(m.type || entry.catalog.type, m.id);
+        return openDetails2(m.type || entry.catalog.type, m.id, null, m);
       }
     });
   }
@@ -12817,7 +12768,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       clearTimeout(switchTimer);
       switchTimer = setTimeout(function () {
         return pick2(id);
-      }, 450);
+      }, 700);
     }
     function pick2(id, enter) {
       clearTimeout(switchTimer);
@@ -12832,13 +12783,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         return f.id;
       }).indexOf(id);
       renderFilters();
-      body.classList.add("sw");
       renderBody();
-      requestAnimationFrame(function () {
-        return requestAnimationFrame(function () {
-          return body.classList.remove("sw");
-        });
-      });
       if (filters.children[idx]) focus(filters.children[idx], {
         noScroll: true
       });
@@ -12924,6 +12869,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             return openDetails2(it.type, it._id, {
               videoId: it.state.video_id,
               autoStreams: true
+            }, {
+              name: it.name,
+              poster: it.poster
             });
           }
         });
@@ -12934,7 +12882,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           poster: it.poster
         }, {
           onSelect: function onSelect() {
-            return openDetails2(it.type, it._id);
+            return openDetails2(it.type, it._id, null, {
+              name: it.name,
+              poster: it.poster
+            });
           }
         });
       }));
@@ -13031,8 +12982,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           fetchCatalog(entry, {
             search: query
           }).then(function (metas) {
-            return titles(metas.slice(0, 30));
-          }).then(function (metas) {
             if (my !== token || !metas.length) return;
             found++;
             metas.slice(0, 30).forEach(function (m) {
@@ -13124,10 +13073,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return retrying(function () {
         return fetchCatalog(entry);
       }).then(function (metas) {
-        return titles(metas.slice(0, ROW_LIMIT3)).then(function (list2) {
-          return list2.concat(metas.slice(ROW_LIMIT3));
-        });
-      }).then(function (metas) {
         clear(track);
         track.classList.remove("pending");
         if (!metas.length) {
@@ -13176,7 +13121,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           skip: skip || void 0
         }, extra2)).then(function (metas) {
           skip += metas.length;
-          return titles(metas);
+          return metas;
         });
       },
       key: function key(m) {
@@ -13400,9 +13345,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "72446dd8e825393020b82029faf94e52ec8e25c3",
-    date: "2026-10-27T03:33:21-03:00",
-    message: "Abertura com aurora boreal e trilho de provedores na aba NSFW"
+    commit: "e7735260f7613ffc3cedccacd45f9b813c9d72ca",
+    date: "2026-10-27T06:50:46+00:00",
+    message: "Restore the pre-Netflix intro exactly; remove NSFW title translation (and its setting)"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -13988,13 +13933,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }, [h("div.label", null, [t("PIN da aba NSFW"), h("small", {
         text: t("Pedido ao entrar na aba; vale até o app fechar ou ir para segundo plano")
       })]), pinInput]));
-      body.appendChild(row(t("Traduzir títulos NSFW"), t("Nomes dos vídeos em português (precisa de internet; sem tradução fica o original)"), "", guarded(function () {
-        saveSettings({
-          nsfwTranslate: settings().nsfwTranslate === false
-        });
-        dropTab("nsfw");
-        render();
-      }), toggle(s.nsfwTranslate !== false)));
       body.appendChild(row(t("Addons adultos"), t("Detectados sozinhos; marque ou desmarque à mão"), adult.length ? t("{n} addon(s)", {
         n: adult.length
       }) : t("nenhum"), guarded(function () {
@@ -14029,6 +13967,60 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           }
         });
       })));
+    }
+    function torrentTest() {
+      toast(t("Testando a TV... leva até 40 segundos"), 6e3);
+      getJSON("http://127.0.0.1:8090/api/torrent-test", {
+        timeout: 45e3,
+        quiet: true
+      }).then(function (r) {
+        var yes = function yes(ok) {
+          return ok ? "✓ " : "✗ ";
+        };
+        var nodeMajor = parseInt(String(r.node || "v0").slice(1), 10) || 0;
+        var disk = r.disk || {};
+        var writable = Object.keys(disk).filter(function (d) {
+          return disk[d] === true;
+        });
+        var lines = [{
+          label: yes(nodeMajor >= 8) + "Node " + r.node,
+          sub: nodeMajor >= 8 ? t("Dá para rodar um motor de torrent") : t("Muito antigo para os motores de torrent atuais")
+        }, {
+          label: yes(r.memFreeMB >= 150) + t("Memória livre: {n} MB", {
+            n: r.memFreeMB
+          }),
+          sub: t("de {n} MB · {c} núcleos", {
+            n: r.memTotalMB,
+            c: r.cpus
+          })
+        }, {
+          label: yes(r.udp && r.udp.ok) + t("UDP (trackers e DHT)"),
+          sub: r.udp && r.udp.ok ? r.udp.ms + " ms" : r.udp && r.udp.why || "-"
+        }, {
+          label: yes(r.tcp && r.tcp.ok) + t("TCP de saída (peers)"),
+          sub: r.tcp && r.tcp.ok ? r.tcp.ms + " ms" : r.tcp && r.tcp.why || "-"
+        }, {
+          label: yes(r.speed && r.speed.ok) + t("Download: {n} Mbps", {
+            n: r.speed && r.speed.mbps || 0
+          }),
+          sub: r.speed && r.speed.ok ? t("{mb} MB em {s} s", {
+            mb: r.speed.MB,
+            s: r.speed.s
+          }) : r.speed && r.speed.why || "-"
+        }, {
+          label: yes(writable.length > 0) + t("Gravar no disco"),
+          sub: writable.length ? writable.join(", ") : t("nenhuma pasta gravável")
+        }];
+        var viable = nodeMajor >= 8 && r.memFreeMB >= 150 && r.tcp && r.tcp.ok && r.speed && r.speed.ok;
+        lines.push({
+          label: viable ? t("Veredito: dá para tentar torrent na TV") : t("Veredito: a TV não aguenta torrent sozinha"),
+          sub: viable ? t("Me mande uma foto desta tela") : t("Continue com o PC ou use debrid")
+        });
+        log.info("Teste de torrent na TV", JSON.stringify(r));
+        menu(t("Torrent na TV"), lines, {});
+      }).catch(function () {
+        return toast(t("O serviço da TV não respondeu. Abra o Seraflix pelo TizenBrew e tente de novo."), 6e3);
+      });
     }
     function toggle(on) {
       return h("div.toggle", {
@@ -14217,6 +14209,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           }));
           render();
         });
+      }));
+      body.appendChild(row(t("Testar torrent na TV (sem o PC)"), t("Mede se a própria TV aguenta baixar torrent: Node, memória, rede e disco"), "", function () {
+        return torrentTest();
       }));
       body.appendChild(h("div.set-section", {
         text: t("Aparência (Kai)")
@@ -14597,7 +14592,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         focusable: true,
         "data-autofocus": ""
       });
-      var save2 = function save2() {
+      var save = function save() {
         var name = String(input.value || "").trim();
         if (!name) {
           err.textContent = t("Digite um nome para o perfil.");
@@ -14610,12 +14605,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         refreshProfileChips();
         next();
       };
-      input.__submit = save2;
+      input.__submit = save;
       card2.appendChild(input);
       card2.appendChild(err);
       card2.appendChild(h("div.actions", {
         "data-group": ""
-      }, [btn(t("Continuar"), true, save2)]));
+      }, [btn(t("Continuar"), true, save)]));
     }
     function stepAccount() {
       card2.appendChild(h("h1", {

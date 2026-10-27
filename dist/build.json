@@ -1,6 +1,6 @@
 {
   "version": "1.2.0",
-  "commit": "72446dd8e825393020b82029faf94e52ec8e25c3",
-  "date": "2026-10-27T03:33:21-03:00",
-  "message": "Abertura com aurora boreal e trilho de provedores na aba NSFW"
+  "commit": "e7735260f7613ffc3cedccacd45f9b813c9d72ca",
+  "date": "2026-10-27T06:50:46+00:00",
+  "message": "Restore the pre-Netflix intro exactly; remove NSFW title translation (and its setting)"
 }
