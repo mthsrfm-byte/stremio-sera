@@ -4775,6 +4775,21 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     log.error("ERRO JS:", msg, (src || "") + ":" + line + ":" + col, err && err.stack ? err.stack : "");
   };
 
+  // src/js/lib/platform.js
+  var IS_WEB = false;
+  function isTizen() {
+    return _typeof(window.tizen) === "object" || /Tizen/i.test(navigator.userAgent || "");
+  }
+  function registerTizenKeys() {
+    var input = window.tizen && window.tizen.tvinputdevice;
+    if (!input) return;
+    ["MediaPlayPause", "MediaPlay", "MediaPause", "MediaStop", "MediaFastForward", "MediaRewind", "ColorF0Red", "ColorF1Green", "ColorF2Yellow", "ColorF3Blue", "ChannelUp", "ChannelDown", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"].forEach(function (k) {
+      try {
+        input.registerKey(k);
+      } catch (e) {}
+    });
+  }
+
   // src/js/lib/i18n-fun.js
   var FUN = {
     // Navegação e geral
@@ -4795,7 +4810,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     "Já existe um perfil com esse nome.": "Já tem alguém com esse nome. Criatividade, por favor.",
     "Nome do perfil salvo": "Nome novo, quem é você?",
     "Este perfil usa a conta Stremio abaixo": "Este perfil usa a conta logo aqui embaixo",
-    "Para outra pessoa, com outra conta Stremio": "Para aquela pessoa que vive roubando o controle",
+    "Para outra pessoa, com outra conta Stremio": IS_WEB ? "Para aquela pessoa que vive roubando o mouse" : "Para aquela pessoa que vive roubando o controle",
     "Remove deste aparelho a conta e as preferências do perfil (a conta Stremio continua existindo)": "Some só desta TV. A conta continua vivinha da silva lá fora.",
     'Apagar o perfil "{name}" desta TV?': 'Mandar "{name}" para o espaço? Sem volta, hein.',
     // Assistente
@@ -5171,21 +5186,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
   }
 
-  // src/js/lib/platform.js
-  var IS_WEB = false;
-  function isTizen() {
-    return _typeof(window.tizen) === "object" || /Tizen/i.test(navigator.userAgent || "");
-  }
-  function registerTizenKeys() {
-    var input = window.tizen && window.tizen.tvinputdevice;
-    if (!input) return;
-    ["MediaPlayPause", "MediaPlay", "MediaPause", "MediaStop", "MediaFastForward", "MediaRewind", "ColorF0Red", "ColorF1Green", "ColorF2Yellow", "ColorF3Blue", "ChannelUp", "ChannelDown", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"].forEach(function (k) {
-      try {
-        input.registerKey(k);
-      } catch (e) {}
-    });
-  }
-
   // src/js/lib/nav.js
   var TIZEN = isTizen();
   var KEY = {
@@ -5194,6 +5194,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     RIGHT: 39,
     DOWN: 40,
     ENTER: 13,
+    SPACE: 32,
     BACK: 10009,
     // Samsung Return (no PC: Esc ou Backspace)
     ESC: 27,
@@ -5462,6 +5463,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         move("down");
         break;
       case KEY.ENTER:
+      case KEY.SPACE:
         select();
         break;
       case KEY.BACK:
@@ -5501,11 +5503,26 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     wheelLock = now;
     move(e.deltaY > 0 ? "down" : "up");
   }
+  function onWebWheel(e) {
+    var layer = top();
+    var track = e.target.closest ? e.target.closest("[data-scroll-x]") : null;
+    var box = (e.target.closest ? e.target.closest("[data-scroll-y]") : null) || layer && layer.root.querySelector("[data-scroll-y]");
+    if (track && (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY))) {
+      e.preventDefault();
+      track.scrollLeft += e.deltaX || e.deltaY;
+    } else if (box) {
+      e.preventDefault();
+      box.scrollTop += e.deltaY;
+      if (scrollHook) scrollHook(box);
+    }
+  }
   function install() {
     document.addEventListener("keydown", onKeyDown, true);
     document.addEventListener("mouseover", onMouseOver);
     document.addEventListener("click", onClick);
-    document.addEventListener("mousewheel", onWheel);
+    if (IS_WEB) document.addEventListener("wheel", onWebWheel, {
+      passive: false
+    });else document.addEventListener("mousewheel", onWheel);
   }
 
   // src/js/lib/store.js
@@ -6316,9 +6333,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "c88b3a790591717ece45b203cb042c67b696ff34",
-    date: "2026-10-27T21:20:05Z",
-    message: "Agenda: convidados aparecem só pelo nome"
+    commit: "b387815f1e837c7e9f74538b7b4820635287cf91",
+    date: "2026-10-27T21:49:17Z",
+    message: "Web: celular e tablet, sem controles de TV, mouse e teclado"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -6653,7 +6670,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
   }
   function nsfwEnabled() {
-    return settings().nsfwTab !== false;
+    return !IS_WEB && settings().nsfwTab !== false;
   }
   function adultPrefixes() {
     var out = [];
@@ -7041,7 +7058,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }), h("div.pin-sub", {
       text: t("Digite a senha para continuar")
     }), dots, pad, msg, h("div.pin-hint", {
-      text: t("Os números do controle também funcionam")
+      text: t(IS_WEB ? "Os números do teclado também funcionam" : "Os números do controle também funcionam")
     })]);
     var modal = h("div.modal.pin-screen", null, box);
     var want = pin();
@@ -7844,7 +7861,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         h: timeHM(new Date(updated))
       }) : t("Atualizando...")
     }), h("span", {
-      text: t("Voltar fecha")
+      text: t(IS_WEB ? "Esc fecha" : "Voltar fecha")
     })])]);
     var modal = h("div.modal", null, box);
     document.getElementById("app").appendChild(modal);
@@ -9689,6 +9706,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var videoEl = h("video", {
       preload: "auto"
     });
+    if (IS_WEB) videoEl.addEventListener("click", function () {
+      return togglePlay();
+    });
     var subsEl = h("div.subs");
     var titleEl = h("div.p-title");
     var clockEl = h("div.p-clock");
@@ -9947,7 +9967,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           background: e.color
         }
       }), [eventTime(e, true), e.location].filter(Boolean).join(" · ")]), h("div.cal-notice-hint", {
-        text: t("OK fecha · some sozinho em 15 s")
+        text: t(IS_WEB ? "Enter fecha · some sozinho em 15 s" : "OK fecha · some sozinho em 15 s")
       }), h("div.cal-notice-bar", null, fill)]);
       el2.appendChild(box);
       var layer = pushLayer(box, {
@@ -11028,7 +11048,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         text: t("antes")
       }), h("span.ss-end.r", {
         text: t("depois")
-      })]), h("div.ss-keys", null, [keyHint(LR, "0,5 s"), keyHint(UD, "0,1 s"), keyHint("OK", t("salvar")), keyHint(t("Voltar"), t("desfazer"))])]);
+      })]), h("div.ss-keys", null, [keyHint(LR, "0,5 s"), keyHint(UD, "0,1 s"), keyHint(IS_WEB ? "Enter" : "OK", t("salvar")), keyHint(IS_WEB ? "Esc" : t("Voltar"), t("desfazer"))])]);
       function draw() {
         val.textContent = fmtOff(cur);
         val.className = "ss-val" + (cur > 0.05 ? " later" : cur < -0.05 ? " sooner" : "");
@@ -11407,6 +11427,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           videoEl.play();
           showControls();
           return true;
+        case KEY.SPACE:
+        // teclado: espaço e K tocam/pausam (como no YouTube)
+        case 75:
+          togglePlay();
+          return true;
+        case 77:
+          videoEl.muted = !videoEl.muted;
+          return true;
         case KEY.PAUSE:
           videoEl.pause();
           return true;
@@ -11435,6 +11463,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         }
       }
       if (!controlsOn) {
+        if (IS_WEB && (k === KEY.UP || k === KEY.DOWN)) {
+          videoEl.muted = false;
+          videoEl.volume = Math.max(0, Math.min(1, videoEl.volume + (k === KEY.UP ? 0.1 : -0.1)));
+          toast(t("Volume {n}%", {
+            n: Math.round(videoEl.volume * 100)
+          }), 1200);
+          return true;
+        }
         if (k === KEY.LEFT) seekBy(-1);else if (k === KEY.RIGHT) seekBy(1);else if (k === KEY.ENTER) togglePlay();else if (k === KEY.DOWN) showControls(playBtn);else showControls(bar);
         return true;
       }
@@ -16010,7 +16046,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var box = h("div.modal-box.center.diag-box", null, [h("h3", {
         text: t("Teste de conexão")
       }), h("p.modal-text", {
-        text: t("Relógio da TV: {now}", {
+        text: t(IS_WEB ? "Relógio deste aparelho: {now}" : "Relógio da TV: {now}", {
           now: (/* @__PURE__ */new Date()).toLocaleString("pt-BR")
         })
       }), list3, h("div.modal-actions", null, [h("div.btn.primary", {
@@ -16317,7 +16353,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           date: formatDate(b.date)
         }) + (b.message ? " · " + b.message : "") : t("Build local"), "v" + VERSION + (b.commit ? " · " + shortCommit(b.commit) : ""), null));
       }
-      if (device) body.appendChild(row(t("TV"), "", device, null));
+      if (device && !IS_WEB) body.appendChild(row(t("TV"), "", device, null));
       var prof = activeProfile();
       var allProfiles = profiles();
       body.appendChild(h("div.set-section", {
@@ -16496,7 +16532,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           render();
         });
       }));
-      body.appendChild(row(t("Testar torrent na TV (sem o PC)"), t("Mede se a própria TV aguenta baixar torrent: Node, memória, rede e disco"), "", function () {
+      if (!IS_WEB) body.appendChild(row(t("Testar torrent na TV (sem o PC)"), t("Mede se a própria TV aguenta baixar torrent: Node, memória, rede e disco"), "", function () {
         return torrentTest();
       }));
       body.appendChild(h("div.set-section", {
@@ -16538,7 +16574,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         render();
       }, toggle2(s.smoothScroll)));
       var ssMin = minutes();
-      body.appendChild(row(t("Protetor de tela"), t("Os lançamentos passando na tela quando o controle fica parado"), ssMin ? t("{n} min", {
+      body.appendChild(row(t("Protetor de tela"), t(IS_WEB ? "Os lançamentos passando na tela quando você fica sem mexer" : "Os lançamentos passando na tela quando o controle fica parado"), ssMin ? t("{n} min", {
         n: ssMin
       }) : t("Desligado"), function () {
         return menu(t("Protetor de tela"), OPTIONS.map(function (m) {
@@ -16767,7 +16803,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           };
         }), {});
       }));
-      nsfwSection(list3);
+      if (!IS_WEB) nsfwSection(list3);
       RECOMMENDED.filter(function (r) {
         return !list3.some(function (a) {
           return a.transportUrl === r.url || a.manifest && a.manifest.id === r.id;
@@ -16816,7 +16852,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       body.appendChild(h("div.set-section", {
         text: t("Sobre e depuração")
       }));
-      body.appendChild(row(t("Testar conexão"), t("Coisas não carregam? Veja qual servidor a TV não alcança"), "", function () {
+      body.appendChild(row(t("Testar conexão"), t(IS_WEB ? "Coisas não carregam? Veja qual servidor este aparelho não alcança" : "Coisas não carregam? Veja qual servidor a TV não alcança"), "", function () {
         return showNetworkCheck();
       }));
       body.appendChild(row(t("Último trailer"), t("Resultado do trailer na aba Recomendado"), getTrailerReport() || t("nenhum ainda"), null));
@@ -16833,7 +16869,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         log.info(t("Log remoto ligado"));
         toast(v.trim() ? t("Enviando logs para o PC") : t("Log remoto desligado"));
       };
-      body.appendChild(h("div.set-row", {
+      if (!IS_WEB) body.appendChild(h("div.set-row", {
         focusable: true,
         onSelect: function onSelect() {
           return select(logInput);
@@ -17075,6 +17111,32 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     timer2 = setTimeout(_tick, FAST);
   }
 
+  // src/js/lib/webkeys.js
+  function isFull() {
+    return !!(document.fullscreenElement || document.webkitFullscreenElement);
+  }
+  function toggleFullscreen() {
+    try {
+      if (isFull()) (document.exitFullscreen || document.webkitExitFullscreen).call(document);else {
+        var el2 = document.documentElement;
+        (el2.requestFullscreen || el2.webkitRequestFullscreen).call(el2);
+      }
+    } catch (e) {}
+  }
+  function install4() {
+    document.addEventListener("keydown", function (e) {
+      var typing = e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA");
+      if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.keyCode === 70) {
+        e.preventDefault();
+        toggleFullscreen();
+      }
+    });
+    document.addEventListener("dblclick", function (e) {
+      if (e.target && e.target.tagName === "VIDEO") toggleFullscreen();
+    });
+  }
+
   // src/js/main.js
   var introDone = Promise.resolve();
   function boot() {
@@ -17086,6 +17148,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     log.info("Iniciando", navigator.userAgent);
     registerTizenKeys();
     install();
+    if (IS_WEB) install4();
     setSmooth(s.smoothScroll);
     var scrollTimer = null;
     onScroll(function (node) {
