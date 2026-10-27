@@ -6304,6 +6304,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var listeners = [];
   function onChange(fn) {
     listeners.push(fn);
+    return function () {
+      var i = listeners.indexOf(fn);
+      if (i >= 0) listeners.splice(i, 1);
+    };
   }
   function changed(list3) {
     addons = list3;
@@ -6343,9 +6347,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return list3.filter(Boolean);
     });
   }
-  var TUBE_URLS = ["http://127.0.0.1:8090/xv/manifest.json", "http://127.0.0.1:8090/ph/manifest.json"];
+  var TUBES = ["xv", "ph"];
+  var TUBE_PORTS = [8091, 8090];
   var tubes = null;
   var tubeTries = 0;
+  var tubeState = "searching";
+  function tubeStatus() {
+    return tubeState;
+  }
   function withTubes(list3) {
     if (!tubes || !tubes.length) return list3;
     return list3.concat(tubes.filter(function (t2) {
@@ -6354,34 +6363,53 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       });
     }));
   }
+  function fetchTube(name, i) {
+    if (i >= TUBE_PORTS.length) return Promise.resolve(null);
+    var u = "http://127.0.0.1:" + TUBE_PORTS[i] + "/" + name + "/manifest.json";
+    return getJSON(u, {
+      timeout: 3e3,
+      quiet: true
+    }).then(function (m) {
+      return m && m.id ? {
+        transportUrl: u,
+        manifest: m
+      } : fetchTube(name, i + 1);
+    }, function () {
+      return fetchTube(name, i + 1);
+    });
+  }
   var tubeTimer = null;
   function attachTubes() {
     if (tubes && tubes.length || tubeTimer) return;
-    Promise.all(TUBE_URLS.map(function (u) {
-      return getJSON(u, {
-        timeout: 3e3,
-        quiet: true
-      }).then(function (m) {
-        return m && m.id ? {
-          transportUrl: u,
-          manifest: m
-        } : null;
-      }, function () {
-        return null;
-      });
+    tubeTimer = true;
+    Promise.all(TUBES.map(function (n) {
+      return fetchTube(n, 0);
     })).then(function (list3) {
       var found = normalize(list3.filter(Boolean));
       tubeTries++;
+      tubeTimer = null;
       if (found.length) {
         tubes = found;
+        tubeState = "ok";
         if (addons) changed(withTubes(addons));
         return;
       }
       tubes = [];
+      var before = tubeState;
+      getJSON("http://127.0.0.1:8090/api/ip", {
+        timeout: 3e3,
+        quiet: true
+      }).then(function () {
+        return tubeState = "old";
+      }, function () {
+        return tubeState = "off";
+      }).then(function () {
+        return tubeState !== before && addons && changed(addons);
+      });
       tubeTimer = setTimeout(function () {
         tubeTimer = null;
         attachTubes();
-      }, tubeTries < 20 ? 4e3 : 6e4);
+      }, tubeTries < 20 ? 4e3 : 3e4);
     });
   }
   function load(force) {
@@ -6874,9 +6902,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
     function renderPad() {
       clear(pad);
-      var digits = shuffle(["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]);
-      var _loop3 = function _loop3() {
-        var pair = [digits[i], digits[i + 1]];
+      var rest = shuffle(["0", "1", "2", "3", "4", "5", "6"]);
+      var pairs = [["8", "9"], ["7", rest[0]]];
+      for (var i = 1; i < 7; i += 2) pairs.push([rest[i], rest[i + 1]]);
+      shuffle(pairs).forEach(function (pair) {
+        shuffle(pair);
         pad.appendChild(h("div.pin-key", {
           focusable: true,
           onSelect: function onSelect() {
@@ -6887,10 +6917,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         }), h("i"), h("b", {
           text: pair[1]
         })]));
-      };
-      for (var i = 0; i < 10; i += 2) {
-        _loop3();
-      }
+      });
       pad.appendChild(h("div.pin-key.erase", {
         focusable: true,
         html: ERASE_SVG,
@@ -7713,8 +7740,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return m ? m[0] : null;
   }
   var BUILTIN_KEYS = {
-    tmdbKey: true ? "9c57ed7ea044b2f01eea2fcc2e954c2e" : "",
-    mdblistKey: true ? "t9e4f1z29b3c36i1j25rul1wx" : ""
+    tmdbKey: true ? "" : "",
+    mdblistKey: true ? "" : ""
   };
   function keyOf(name) {
     return (settings()[name] || "").trim() || BUILTIN_KEYS[name];
@@ -7760,7 +7787,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
   function pickLogo(logos) {
     var pref = ["pt", "en", null];
-    var _loop4 = function _loop4(i) {
+    var _loop3 = function _loop3(i) {
         var l = (logos || []).find(function (x) {
           return x.iso_639_1 === pref[i];
         });
@@ -7770,7 +7797,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       },
       _ret;
     for (var i = 0; i < pref.length; i++) {
-      _ret = _loop4(i);
+      _ret = _loop3(i);
       if (_ret) return _ret.v;
     }
     return null;
@@ -8856,8 +8883,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var forUrl = mediaUrl;
       addonSubs = null;
       subsSettled = false;
-      var ready = viaServer && !hasPlayed ? untilPlaying(6e4) : Promise.resolve();
-      ready.then(function () {
+      var ready2 = viaServer && !hasPlayed ? untilPlaying(6e4) : Promise.resolve();
+      ready2.then(function () {
         return videoInfo(stream, mediaUrl, server_exports);
       }).then(function (info) {
         if (!alive || forVideo !== video || forUrl !== mediaUrl) return;
@@ -12388,7 +12415,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     function loadNearby() {
       if (el.offsetParent === null) return;
       var limit = window.innerHeight * 2.2;
-      var _loop5 = function _loop5() {
+      var _loop4 = function _loop4() {
           var p = pending[i];
           if (p.state !== "idle") return 0; // continue
           if (!p.row.parentNode) {
@@ -12406,7 +12433,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         },
         _ret2;
       for (var i = 0; i < pending.length && active < 2; i++) {
-        _ret2 = _loop5();
+        _ret2 = _loop4();
         if (_ret2 === 0) continue;
         if (_ret2 === 1) break;
       }
@@ -12883,7 +12910,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     function loadNearby() {
       if (el.offsetParent === null) return;
       var limit = window.innerHeight * 2.2;
-      var _loop6 = function _loop6() {
+      var _loop5 = function _loop5() {
           var p = pending[i];
           if (p.state !== "idle") return 0; // continue
           if (!p.row.parentNode) {
@@ -12901,7 +12928,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         },
         _ret3;
       for (var i = 0; i < pending.length && active < 2; i++) {
-        _ret3 = _loop6();
+        _ret3 = _loop5();
         if (_ret3 === 0) continue;
         if (_ret3 === 1) break;
       }
@@ -12915,7 +12942,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       });
       if (!list3.length) {
         body.appendChild(h("div.hint", {
-          text: t("Nenhum provedor adulto disponível ainda. Eles aparecem aqui quando estiverem instalados ou com o serviço da TV no ar.")
+          text: emptyHint()
         }));
         return;
       }
@@ -13122,18 +13149,41 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       focus(input);
     }
     function render() {
+      lastKey = providersKey();
       if (!scopes().some(function (f) {
         return f.id === scope;
-      })) scope = "all";
+      })) scope = get("nsfwScope", null) || "all";
       renderFilters();
       renderBody();
     }
     body.appendChild(h("div.hint", {
       text: t("Carregando addons...")
     }));
-    var ready = false;
+    var ready2 = false;
+    function emptyHint() {
+      var st = tubeStatus();
+      if (st === "searching") return t("Procurando os provedores no serviço da TV...");
+      if (st === "old") return t("O serviço da TV está numa versão antiga e não tem os provedores. Desligue a TV da tomada por 30 segundos e abra o Seraflix de novo.");
+      return t("O serviço do Seraflix na TV não respondeu. Abra o TizenBrew, confira se o Seraflix está na lista de serviços e abra o app de novo. Continuo procurando.");
+    }
+    var lastKey = null;
+    var providersKey = function providersKey() {
+      return tubeStatus() + "|" + adultAddons().map(function (a) {
+        return a.manifest.id;
+      }).join(",");
+    };
+    var stopWatch = onChange(function () {
+      if (!ready2) return;
+      var key = providersKey();
+      if (key === lastKey) return;
+      var cur = current2();
+      var hadFocus = cur && el.contains(cur);
+      render();
+      if (hadFocus) onRail();
+    });
     var onRail = function onRail() {
-      return focus(filters.querySelector(".provider.on") || filters.firstChild);
+      var target = filters.querySelector(".provider.on") || filters.firstChild;
+      if (target) focus(target);
     };
     function onKey(e) {
       var cur = current2();
@@ -13156,12 +13206,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       el: el,
       onKey: onKey,
       onShow: function onShow() {
-        if (ready) {
+        if (ready2) {
           renderSaved();
           return loadNearby();
         }
         load().then(function () {
-          ready = true;
+          ready2 = true;
           render();
           onRail();
         });
@@ -13170,6 +13220,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         return loadNearby();
       },
       destroy: function destroy() {
+        stopWatch();
         clearTimeout(switchTimer);
         if (bar.__destroy) bar.__destroy();
       }
@@ -13469,9 +13520,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "2dabcc9d6d677734a5969a09e08a6990ab1534fb",
-    date: "2026-10-27T04:23:25-03:00",
-    message: "Aba NSFW sempre disponível e busca do serviço da TV até responder"
+    commit: "1eaec11253bdc58f2f95b6ab7d7d8dc6e300f13b",
+    date: "2026-10-27T07:23:38+00:00",
+    message: "Build da dist/ para a TV"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -14156,6 +14207,19 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var keep = current2();
       var keepIndex = keep ? Array.prototype.indexOf.call(body.querySelectorAll(".set-row"), keep) : -1;
       clear(body);
+      body.appendChild(h("div.set-section", {
+        text: t("Atualizações")
+      }));
+      body.appendChild(row(t("Procurar atualização"), updateStatus || t("Busca a versão mais nova no GitHub ({repo})", {
+        repo: REPO
+      }), "", function () {
+        return checkForUpdate();
+      }));
+      var b = BUILD;
+      body.appendChild(row(t("Versão instalada"), b.date ? t("Publicada em {date}", {
+        date: formatDate(b.date)
+      }) + (b.message ? " · " + b.message : "") : t("Build local"), "v" + VERSION + (b.commit ? " · " + shortCommit(b.commit) : ""), null));
+      if (device) body.appendChild(row(t("TV"), "", device, null));
       var prof = activeProfile();
       var allProfiles = profiles();
       body.appendChild(h("div.set-section", {
@@ -14595,19 +14659,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         return showPhoneRemote();
       }));
       body.appendChild(h("div.set-section", {
-        text: t("Atualizações")
-      }));
-      var b = BUILD;
-      body.appendChild(row(t("Versão instalada"), b.date ? t("Publicada em {date}", {
-        date: formatDate(b.date)
-      }) + (b.message ? " · " + b.message : "") : t("Build local"), "v" + VERSION + (b.commit ? " · " + shortCommit(b.commit) : ""), null));
-      body.appendChild(row(t("Procurar atualização"), updateStatus || t("Busca a versão mais nova no GitHub ({repo})", {
-        repo: REPO
-      }), "", function () {
-        return checkForUpdate();
-      }));
-      if (device) body.appendChild(row(t("TV"), "", device, null));
-      body.appendChild(h("div.set-section", {
         text: t("Sobre e depuração")
       }));
       body.appendChild(row(t("Testar conexão"), t("Coisas não carregam? Veja qual servidor a TV não alcança"), "", function () {
@@ -14954,5 +15005,27 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       autoStreams: true
     } : {});
   }
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);else boot();
+  var FONTS2 = ["600", "700", "800"].map(function (w) {
+    return w + " 40px 'Bricolage Grotesque'";
+  }).concat(["400", "500", "600", "700"].map(function (w) {
+    return w + " 24px 'Geist'";
+  }));
+  function loadFonts() {
+    if (!document.fonts || !document.fonts.load) return Promise.resolve();
+    var all = Promise.all(FONTS2.map(function (f) {
+      return document.fonts.load(f, "Seraflix ÁÉçã").catch(function () {
+        return null;
+      });
+    }));
+    return Promise.race([all, new Promise(function (r) {
+      return setTimeout(r, 3e3);
+    })]);
+  }
+  function ready() {
+    loadFonts().then(function () {
+      document.body.classList.remove("fonts-pending");
+      boot();
+    });
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", ready);else ready();
 })();

@@ -128,5 +128,23 @@ function openFromPhone(req) {
   openDetails(req.type, req.id, req.play && req.type === 'movie' ? { autoStreams: true } : {});
 }
 
-if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
-else boot();
+// Fontes do app baixadas antes de qualquer coisa aparecer: sem isso a abertura e os títulos
+// piscam (aparecem na fonte reserva e trocam quando a Bricolage Grotesque chega).
+// Limite de 3s: se algo der errado, o app abre mesmo assim.
+const FONTS = ['600', '700', '800'].map((w) => w + " 40px 'Bricolage Grotesque'").concat(['400', '500', '600', '700'].map((w) => w + " 24px 'Geist'"));
+
+function loadFonts() {
+  if (!document.fonts || !document.fonts.load) return Promise.resolve();
+  const all = Promise.all(FONTS.map((f) => document.fonts.load(f, 'Seraflix ÁÉçã').catch(() => null)));
+  return Promise.race([all, new Promise((r) => setTimeout(r, 3000))]);
+}
+
+function ready() {
+  loadFonts().then(() => {
+    document.body.classList.remove('fonts-pending');
+    boot();
+  });
+}
+
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ready);
+else ready();

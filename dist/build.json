@@ -1,6 +1,6 @@
 {
   "version": "1.2.0",
-  "commit": "2dabcc9d6d677734a5969a09e08a6990ab1534fb",
-  "date": "2026-10-27T04:23:25-03:00",
-  "message": "Aba NSFW sempre disponível e busca do serviço da TV até responder"
+  "commit": "1eaec11253bdc58f2f95b6ab7d7d8dc6e300f13b",
+  "date": "2026-10-27T07:23:38+00:00",
+  "message": "Build da dist/ para a TV"
 }

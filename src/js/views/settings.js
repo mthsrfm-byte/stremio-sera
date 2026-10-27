@@ -300,6 +300,20 @@ export function SettingsView() {
     const keepIndex = keep ? Array.prototype.indexOf.call(body.querySelectorAll('.set-row'), keep) : -1;
     clear(body);
 
+    // ---- Atualizações (direto do GitHub, sem fechar o app) ----
+    body.appendChild(h('div.set-section', { text: t('Atualizações') }));
+    body.appendChild(row(t('Procurar atualização'), updateStatus || t('Busca a versão mais nova no GitHub ({repo})', { repo: update.REPO }), '', () => checkForUpdate()));
+    const b = update.BUILD;
+    body.appendChild(
+      row(
+        t('Versão instalada'),
+        b.date ? t('Publicada em {date}', { date: update.formatDate(b.date) }) + (b.message ? ' · ' + b.message : '') : t('Build local'),
+        'v' + update.VERSION + (b.commit ? ' · ' + update.shortCommit(b.commit) : ''),
+        null
+      )
+    );
+    if (device) body.appendChild(row(t('TV'), '', device, null));
+
     // ---- Perfil (cada perfil tem sua conta Stremio, histórico e preferências) ----
     const prof = store.activeProfile();
     const allProfiles = store.profiles();
@@ -639,19 +653,6 @@ export function SettingsView() {
     body.appendChild(h('div.set-section', { text: t('Controle no celular') }));
     body.appendChild(row(t('Abrir o controle no celular'), t('Mostra um QR code: é só apontar a câmera'), '', () => showPhoneRemote()));
 
-    // ---- Atualizações (direto do GitHub, sem fechar o app) ----
-    body.appendChild(h('div.set-section', { text: t('Atualizações') }));
-    const b = update.BUILD;
-    body.appendChild(
-      row(
-        t('Versão instalada'),
-        b.date ? t('Publicada em {date}', { date: update.formatDate(b.date) }) + (b.message ? ' · ' + b.message : '') : t('Build local'),
-        'v' + update.VERSION + (b.commit ? ' · ' + update.shortCommit(b.commit) : ''),
-        null
-      )
-    );
-    body.appendChild(row(t('Procurar atualização'), updateStatus || t('Busca a versão mais nova no GitHub ({repo})', { repo: update.REPO }), '', () => checkForUpdate()));
-    if (device) body.appendChild(row(t('TV'), '', device, null));
 
     body.appendChild(h('div.set-section', { text: t('Sobre e depuração') }));
     body.appendChild(row(t('Testar conexão'), t('Coisas não carregam? Veja qual servidor a TV não alcança'), '', () => showNetworkCheck()));

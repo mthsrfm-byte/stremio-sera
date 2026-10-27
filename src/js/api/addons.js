@@ -12,8 +12,13 @@ let addons = null; // [{ transportUrl, manifest, base }]
 const listeners = [];
 
 // Avisa quando a lista de addons muda (ex.: a da conta chegou depois do cache).
+// Devolve a função que cancela o aviso.
 export function onChange(fn) {
   listeners.push(fn);
+  return () => {
+    const i = listeners.indexOf(fn);
+    if (i >= 0) listeners.splice(i, 1);
+  };
 }
 
 function changed(list) {
@@ -53,13 +58,31 @@ function defaultAddons() {
 
 // Addons que o serviço do Seraflix na TV serve (XVideos e Pornhub pedidos pela própria TV).
 // Entram sozinhos quando o serviço responde; fora da TV (PC, testes) simplesmente não aparecem.
-const TUBE_URLS = ['http://127.0.0.1:8090/xv/manifest.json', 'http://127.0.0.1:8090/ph/manifest.json'];
+// Porta 8091 primeiro: se uma versão antiga do serviço ainda segura a 8090 (o TizenBrew só a
+// desliga quando a TV reinicia), a nova responde lá.
+const TUBES = ['xv', 'ph'];
+const TUBE_PORTS = [8091, 8090];
 let tubes = null; // null: ainda procurando; [] ou lista: já respondeu
 let tubeTries = 0;
+// 'searching' | 'ok' | 'old' (serviço antigo, sem os addons) | 'off' (serviço não responde)
+let tubeState = 'searching';
+
+export function tubeStatus() {
+  return tubeState;
+}
 
 function withTubes(list) {
   if (!tubes || !tubes.length) return list;
   return list.concat(tubes.filter((t) => !list.some((a) => a.transportUrl === t.transportUrl)));
+}
+
+function fetchTube(name, i) {
+  if (i >= TUBE_PORTS.length) return Promise.resolve(null);
+  const u = 'http://127.0.0.1:' + TUBE_PORTS[i] + '/' + name + '/manifest.json';
+  return getJSON(u, { timeout: 3000, quiet: true }).then(
+    (m) => (m && m.id ? { transportUrl: u, manifest: m } : fetchTube(name, i + 1)),
+    () => fetchTube(name, i + 1)
+  );
 }
 
 // O serviço da TV pode ligar depois do app (TizenBrew): procura de novo a cada poucos segundos,
@@ -67,26 +90,30 @@ function withTubes(list) {
 let tubeTimer = null;
 function attachTubes() {
   if ((tubes && tubes.length) || tubeTimer) return;
-  Promise.all(
-    TUBE_URLS.map((u) =>
-      getJSON(u, { timeout: 3000, quiet: true }).then(
-        (m) => (m && m.id ? { transportUrl: u, manifest: m } : null),
-        () => null
-      )
-    )
-  ).then((list) => {
+  tubeTimer = true; // uma procura por vez
+  Promise.all(TUBES.map((n) => fetchTube(n, 0))).then((list) => {
     const found = normalize(list.filter(Boolean));
     tubeTries++;
+    tubeTimer = null;
     if (found.length) {
       tubes = found;
+      tubeState = 'ok';
       if (addons) changed(withTubes(addons));
       return;
     }
     tubes = [];
+    // O serviço responde mas não tem os addons: é a versão antiga ainda rodando.
+    const before = tubeState;
+    getJSON('http://127.0.0.1:8090/api/ip', { timeout: 3000, quiet: true })
+      .then(
+        () => (tubeState = 'old'),
+        () => (tubeState = 'off')
+      )
+      .then(() => tubeState !== before && addons && changed(addons));
     tubeTimer = setTimeout(() => {
       tubeTimer = null;
       attachTubes();
-    }, tubeTries < 20 ? 4000 : 60000);
+    }, tubeTries < 20 ? 4000 : 30000);
   });
 }
 
