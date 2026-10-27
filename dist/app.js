@@ -13458,9 +13458,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "516bfd13f8dec18aca0c64d17f3348d94012f44f",
-    date: "2026-10-27T07:11:10+00:00",
-    message: "Build da dist/ para a TV"
+    commit: "9378b08af3dae61fd98236f0558235107e5422c8",
+    date: "2026-10-27T07:12:48+00:00",
+    message: "Player intro: title and episode as the main left-aligned block, loading row secondary below it, floating background art"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {

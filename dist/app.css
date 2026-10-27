@@ -876,3 +876,4 @@ body.light .fp-panel { background: rgba(255,255,255,0.5); }
 .nsfw-rail .provider.on.focused { background-color: rgba(229,80,140,0.4); }
 .nsfw-rail .provider.focused { box-shadow: 0 0 0 4px #e5508c; }
 body.light .nsfw-now { color: rgba(17,17,16,0.6); }
+.nsfw-rail .provider:not(.on):not(.focused) .provider-logo { opacity: 0.6; }
