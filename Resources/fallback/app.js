@@ -6414,9 +6414,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "290afac2a8985303b6e85650bf9b38783f6cbba5",
-    date: "2026-10-27T22:37:20Z",
-    message: "Restringe publicação à main e mostra falhas imediatas do load nativo"
+    commit: "ec3b67d7cf672e2cb3866a6fccab52f5361b7fa0",
+    date: "2026-10-27T22:56:29Z",
+    message: "Preserva publicação TV quando o bundle Mac avança a main"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {

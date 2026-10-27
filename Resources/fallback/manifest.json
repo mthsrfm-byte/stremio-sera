@@ -1,12 +1,12 @@
 {
   "version": 1,
   "bridgeVersion": 1,
-  "commit": "290afac2a8985303b6e85650bf9b38783f6cbba5",
+  "commit": "ec3b67d7cf672e2cb3866a6fccab52f5361b7fa0",
   "files": {
     "app.css": "c5f112bab89743c151ed978ccd4c96ef97094f4de5aa206d8092b4c2b5470edc",
-    "app.js": "e87f080be74e3e8439ff8cfd54c61cb1f0418d3bf185e3be171f6ecdb76efbab",
+    "app.js": "bb013393fb393cdf5118cfedc49e04204e3bb94ed003c475a2a95c901190b7e2",
     "appinfo.json": "9d84122ef4bf55c10b4d1a826a19f4c95d67d305aa010c6308231816edf33619",
-    "build.json": "378c79da5beb55b22882118be37260e85ad5d47e917158892ebc51d9864504e1",
+    "build.json": "fb87d9d9ecae4c9093fe4e51ba00ac8032c70ef72d564495c76436b755175395",
     "fonts/bricolage-grotesque-latin-600-normal.woff": "6d533e946cc12466e18387bf06dd23db8f8e465de2aecfbc12e77d99ce0b9c5e",
     "fonts/bricolage-grotesque-latin-600-normal.woff2": "b34fc8c1ef0ac8798455ac2979eae4b4f90f0d327e3584d1032fa77a8a9a66ca",
     "fonts/bricolage-grotesque-latin-700-normal.woff": "77b16e49fd9b26fd9150c33f2015ba1d10f8c075f98f36c4a44eee68394747cc",
