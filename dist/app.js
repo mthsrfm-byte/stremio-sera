@@ -6907,8 +6907,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return m ? m[0] : null;
   }
   var BUILTIN_KEYS = {
-    tmdbKey: true ? "9c57ed7ea044b2f01eea2fcc2e954c2e" : "",
-    mdblistKey: true ? "t9e4f1z29b3c36i1j25rul1wx" : ""
+    tmdbKey: true ? "" : "",
+    mdblistKey: true ? "" : ""
   };
   function keyOf(name) {
     return (settings()[name] || "").trim() || BUILTIN_KEYS[name];
@@ -9698,6 +9698,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       })).slice(0, 6);
     });
   }
+  var trailerReport = "";
+  function setTrailerReport(text) {
+    trailerReport = text;
+  }
+  function getTrailerReport() {
+    return trailerReport;
+  }
 
   // src/js/views/recommended.js
   var ROW_LIMIT2 = 20;
@@ -9705,6 +9712,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var TRAILER_MS = 3e3;
   var ATTEMPT_MS = 8e3;
   var MAX_TRAILERS = 4;
+  var NOCOOKIE = "www.youtube-nocookie.com";
+  var YOUTUBE = "www.youtube.com";
   function openItem(it) {
     toast(t("Abrindo {name}...", {
       name: it.name
@@ -9732,6 +9741,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var token = 0;
     var queue = [];
     var attemptTimer = null;
+    var attempt = {
+      key: "",
+      host: ""
+    };
+    var unmutedAt = 0;
     var frameWin = null;
     function stopTrailer() {
       clearTimeout(trailerTimer);
@@ -9772,9 +9786,39 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var state = msg.event === "onStateChange" ? msg.info : msg.info && msg.info.playerState;
       if (state === 1) {
         clearTimeout(attemptTimer);
-        el.classList.add("playing");
+        if (!el.classList.contains("playing")) {
+          el.classList.add("playing");
+          report("tocou (" + attempt.host + ")");
+          command("unMute");
+          command("setVolume", [100]);
+          unmutedAt = Date.now();
+        }
+      } else if (state === 2 && unmutedAt && Date.now() - unmutedAt < 1500) {
+        unmutedAt = 0;
+        command("mute");
+        command("playVideo");
       } else if (state === 0) stopTrailer();
-      if (msg.event === "onError") nextTrailer(token);
+      if (msg.event === "onError") {
+        var code = msg.info;
+        if ((code === 152 || code === 153) && attempt.host === NOCOOKIE) {
+          report("erro " + code + ", tentando youtube.com");
+          return load4(attempt.key, YOUTUBE, token);
+        }
+        report("erro " + code);
+        nextTrailer(token);
+      }
+    }
+    function command(func, args) {
+      if (frameWin) frameWin.postMessage(JSON.stringify({
+        event: "command",
+        func: func,
+        args: args || [],
+        id: 1,
+        channel: "widget"
+      }), "*");
+    }
+    function report(what) {
+      setTrailerReport((current3 ? current3.name + ": " : "") + what);
     }
     window.addEventListener("message", onYouTubeMessage);
     function playTrailer(it, tk) {
@@ -9785,17 +9829,34 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       });
     }
     function nextTrailer(tk) {
-      clearTimeout(attemptTimer);
       var key = queue.shift();
+      if (!key) {
+        clearTimeout(attemptTimer);
+        el.classList.remove("playing");
+        frameWin = null;
+        clear(frameBox);
+        return;
+      }
+      load4(key, NOCOOKIE, tk);
+    }
+    function load4(key, host, tk) {
+      clearTimeout(attemptTimer);
       el.classList.remove("playing");
       frameWin = null;
+      unmutedAt = 0;
       clear(frameBox);
-      if (!key || tk !== token) return;
+      if (tk !== token) return;
+      attempt = {
+        key: key,
+        host: host
+      };
       attemptTimer = setTimeout(function () {
-        return tk === token && !el.classList.contains("playing") && nextTrailer(tk);
+        if (tk !== token || el.classList.contains("playing")) return;
+        report("não começou em " + ATTEMPT_MS / 1e3 + "s");
+        nextTrailer(tk);
       }, ATTEMPT_MS);
       var origin = window.location.protocol + "//" + window.location.host;
-      var src = "https://www.youtube-nocookie.com/embed/" + key + "?autoplay=1&controls=0&rel=0&modestbranding=1&playsinline=1&iv_load_policy=3&disablekb=1&fs=0&enablejsapi=1&origin=" + encodeURIComponent(origin);
+      var src = "https://" + host + "/embed/" + key + "?autoplay=1&mute=1&controls=0&rel=0&modestbranding=1&playsinline=1&iv_load_policy=3&disablekb=1&fs=0&enablejsapi=1&origin=" + encodeURIComponent(origin) + "&widget_referrer=" + encodeURIComponent(origin);
       var frame = h("iframe", {
         src: src,
         allow: "autoplay; encrypted-media",
@@ -9811,15 +9872,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           id: 1,
           channel: "widget"
         }), "*");
-        ["onStateChange", "onError"].forEach(function (name) {
-          return frameWin.postMessage(JSON.stringify({
-            event: "command",
-            func: "addEventListener",
-            args: [name],
-            id: 1,
-            channel: "widget"
-          }), "*");
-        });
+        command("addEventListener", ["onStateChange"]);
+        command("addEventListener", ["onError"]);
       };
       frameBox.appendChild(frame);
     }
@@ -10200,9 +10254,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "fa44ff60f4badc7c4a21d7618fd478be85c82e9c",
-    date: "2026-10-27T00:19:05-03:00",
-    message: "Trailer: até 4 tentativas, sem mostrar nada até tocar"
+    commit: "4ae731a1d1b5543055c379504b1596203574b43b",
+    date: "2026-10-27T03:19:18+00:00",
+    message: "Build da dist/ para a TV"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -11012,6 +11066,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       body.appendChild(h("div.set-section", {
         text: t("Sobre e depuração")
       }));
+      body.appendChild(row(t("Último trailer"), t("Resultado do trailer na aba Recomendado"), getTrailerReport() || t("nenhum ainda"), null));
       var logInput = h("input.input", {
         type: "text",
         value: s.devlogUrl || "",

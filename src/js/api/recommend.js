@@ -122,3 +122,12 @@ export function trailerKeys(it) {
     (both) => both[0].concat(both[1].filter((k) => both[0].indexOf(k) < 0)).slice(0, 6)
   );
 }
+
+// Último resultado de trailer, para diagnóstico em Ajustes.
+let trailerReport = '';
+export function setTrailerReport(text) {
+  trailerReport = text;
+}
+export function getTrailerReport() {
+  return trailerReport;
+}
