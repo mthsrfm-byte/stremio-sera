@@ -7740,8 +7740,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return m ? m[0] : null;
   }
   var BUILTIN_KEYS = {
-    tmdbKey: true ? "" : "",
-    mdblistKey: true ? "" : ""
+    tmdbKey: true ? "9c57ed7ea044b2f01eea2fcc2e954c2e" : "",
+    mdblistKey: true ? "t9e4f1z29b3c36i1j25rul1wx" : ""
   };
   function keyOf(name) {
     return (settings()[name] || "").trim() || BUILTIN_KEYS[name];
@@ -13520,9 +13520,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "94629c42a4d05ce342122dafea6868736209295d",
-    date: "2026-10-27T07:37:12+00:00",
-    message: "Build da dist/ para a TV"
+    commit: "bbaaef8507dc919280e199f085d3150398b904d9",
+    date: "2026-10-27T04:44:40-03:00",
+    message: "Corrige tela cinza ao abrir o app"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
