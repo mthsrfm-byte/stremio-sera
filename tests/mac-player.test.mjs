@@ -76,3 +76,24 @@ test('expõe erro nativo e encerra playback ao remover a fonte', () => {
   assert.equal(classes.has('mac-playing'), false);
   video.destroyNative();
 });
+
+
+test('mostra rejeição síncrona do load atual e ignora resposta de fonte anterior', () => {
+  const { dispatch, messages } = setup();
+  const video = createMacVideo('Filme');
+  let errors = 0;
+  video.addEventListener('error', () => errors++);
+  video.src = 'https://example.org/old.mkv';
+  const previous = messages.at(-1).id;
+  video.src = 'https://example.org/current.mkv';
+  const current = messages.at(-1).id;
+  dispatch('response', { id: previous, ok: false, error: 'Fonte anterior' });
+  assert.equal(errors, 0);
+  dispatch('response', { id: current, ok: false, error: 'Renderização indisponível' });
+  assert.equal(errors, 1);
+  assert.equal(video.error.message, 'Renderização indisponível');
+  dispatch('state', { volume: 25, mute: true });
+  assert.equal(video.volume, 0.25);
+  assert.equal(video.muted, true);
+  video.destroyNative();
+});

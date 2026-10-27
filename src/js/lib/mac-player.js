@@ -3,8 +3,9 @@
 export function nativeCommand(command, args = {}) {
   const handler = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.seraflix;
   if (!handler) return false;
-  handler.postMessage({ version: 1, id: String(Date.now()) + '-' + Math.random().toString(36).slice(2), command, args });
-  return true;
+  const id = String(Date.now()) + '-' + Math.random().toString(36).slice(2);
+  handler.postMessage({ version: 1, id, command, args });
+  return id;
 }
 
 export function createMacVideo(title) {
@@ -15,13 +16,22 @@ export function createMacVideo(title) {
   let subtitles = [];
   let bufferEnd = 0;
   let active = true;
+  let loadRequestId = null;
   const emit = (name) => el.dispatchEvent(new Event(name));
   const number = (value, fallback) => typeof value === 'number' && isFinite(value) ? value : fallback;
   function onNative(event) {
     const packet = event.detail || {};
     const data = packet.data || {};
     if (!active || !state.src) return;
-    if (packet.event === 'time') {
+    if (packet.event === 'response') {
+      if (data.id === loadRequestId && data.ok === false) {
+        state.error = { code: 4, message: data.error || 'Não foi possível abrir a mídia.' };
+        emit('error');
+      }
+    } else if (packet.event === 'state') {
+      if (typeof data.volume === 'number') state.volume = Math.max(0, Math.min(1, data.volume / 100));
+      if (typeof data.mute === 'boolean') state.muted = data.mute;
+    } else if (packet.event === 'time') {
       const wasPaused = state.paused;
       const wasBuffering = state.buffering;
       state.currentTime = Math.max(0, number(data.position, state.currentTime));
@@ -74,7 +84,8 @@ export function createMacVideo(title) {
         state.paused = true;
         state.buffering = true;
         document.documentElement.classList.add('mac-playing');
-        if (!nativeCommand('load', { url: value, title: title || 'Seraflix', startTime: 0 })) {
+        loadRequestId = nativeCommand('load', { url: value, title: title || 'Seraflix', startTime: 0 });
+        if (!loadRequestId) {
           state.error = { code: 4, message: 'A ponte do Mac não está disponível.' };
           setTimeout(() => emit('error'), 0);
         }
