@@ -4774,6 +4774,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     // Navegação e geral
     "Nada por aqui.": "Nada por aqui. Só um vento e uma pipoca perdida.",
     "Carregando...": "Carregando... respira fundo.",
+    "Essa fileira não carregou agora.": "Essa fileira tropeçou no caminho.",
     "carregando...": "carregando... calma, calabreso.",
     "Sair do Stremio Kai?": "Já vai embora do Seraflix?",
     "Desconhecido": "Mistério",
@@ -4817,7 +4818,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     "Carregando catálogos...": "Arrumando a prateleira...",
     "Nenhum catálogo. Entre na sua conta em Ajustes.": "Prateleira vazia. Entra na conta em Ajustes que ela enche.",
     "Buscar filmes e séries...": "O que vamos maratonar hoje?",
-    "Digite pelo menos 2 letras e confirme no teclado.": "Pelo menos 2 letrinhas, vai.",
+    "Digite pelo menos 2 letras e aperte Buscar.": "Pelo menos 2 letrinhas e aperta Buscar, vai.",
     'Buscando "{q}"...': 'Revirando tudo atrás de "{q}"...',
     'Nada encontrado para "{q}".': 'Procurei "{q}" até embaixo do sofá. Nada.',
     "Sua biblioteca está vazia.": "Biblioteca vazia. Bora mudar isso?",
@@ -5395,11 +5396,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var active = document.activeElement;
     var typing = active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA");
     if (typing) {
-      if (code === KEY.ENTER) {
+      if (code === KEY.ENTER || code === 65376) {
         e.preventDefault();
         active.blur();
         if (active.__submit) active.__submit(active.value);
-      } else if (code === KEY.BACK || code === KEY.ESC) {
+      } else if (code === KEY.BACK || code === KEY.ESC || code === 65385) {
         e.preventDefault();
         active.blur();
       } else if (code === KEY.UP || code === KEY.DOWN) {
@@ -6807,6 +6808,41 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       onFocus: o.onFocus
     }, [wrap, h("div.name", {
       text: o.title || item.name || ""
+    })]);
+  }
+  function skeletonCards(n) {
+    var list2 = [];
+    for (var i = 0; i < (n || 8); i++) list2.push(h("div.card.skeleton", null, [h("div.poster-wrap"), h("div.name-sk")]));
+    return list2;
+  }
+  function retrying(fn) {
+    var delays = [1500, 4e3];
+    var later = function later(n) {
+      return new Promise(function (ok) {
+        return setTimeout(ok, delays[n]);
+      });
+    };
+    var _attempt = function attempt(n) {
+      return fn().then(function (items) {
+        return items && items.length || n >= delays.length ? items || [] : later(n).then(function () {
+          return _attempt(n + 1);
+        });
+      }, function (err) {
+        if (n >= delays.length) throw err;
+        return later(n).then(function () {
+          return _attempt(n + 1);
+        });
+      });
+    };
+    return _attempt(0);
+  }
+  function rowRetry(onRetry) {
+    return h("div.row-fail", null, [h("span", {
+      text: t("Essa fileira não carregou agora.")
+    }), h("div.btn.small", {
+      focusable: true,
+      text: t("Tentar de novo"),
+      onSelect: onRetry
     })]);
   }
   function spinnerLine(text) {
@@ -9440,7 +9476,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       rows: rows
     };
   }
-  var STREAMINGS = [provider(8, "Netflix", "da", "/rK1KljqmbvO9HQa1PBFLILWah72.png"), provider(119, "Prime Video", "do", "/gMZdpavHmxFNnLpMHwVxfqeux2g.png"), provider(337, "Disney+", "do", "/5eZ872CghnHFLB1j8grszbrx0dx.png"), provider(1899, "HBO Max", "da", "/skypuy7SXuugIQeYg0IglmzoKaS.png"), provider(350, "Apple TV+", "do", "/9icYBfYFcwgCbky5VdGUIKJ4C5i.png"), provider(531, "Paramount+", "do", "/pkx3klJlwW5JdtaulvDx6hDNtch.png"), provider(307, "Globoplay", "do", "/9A6Oxd3F7iXm7mds7CxYOBicojs.png"), provider(11, "MUBI", "do", "/k7iSlvgWzZuO4zU5PcBjhABMuia.png"), provider(283, "Crunchyroll", "da", "/uFL3c4Cq8M6WoLymlC5Y8bmGytV.png")];
+  var STREAMINGS = [provider(8, "Netflix", "da", "/rK1KljqmbvO9HQa1PBFLILWah72.png"), provider(119, "Prime Video", "do", "/gMZdpavHmxFNnLpMHwVxfqeux2g.png"), provider(337, "Disney+", "do", "/5eZ872CghnHFLB1j8grszbrx0dx.png"), provider(1899, "HBO Max", "da", "/skypuy7SXuugIQeYg0IglmzoKaS.png"), provider(350, "Apple TV+", "do", "/9icYBfYFcwgCbky5VdGUIKJ4C5i.png"), provider(283, "Crunchyroll", "da", "/uFL3c4Cq8M6WoLymlC5Y8bmGytV.png")];
   function trendingType(type) {
     return function (page) {
       return tmdb("trending/" + type + "/week", Object.assign({
@@ -9858,6 +9894,20 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       setDefs: setDefs
     };
   }
+  function showRetry(track, load4) {
+    clear(track);
+    track.appendChild(rowRetry(function () {
+      clear(track);
+      track.classList.add("pending");
+      skeletonCards().forEach(function (c) {
+        return track.appendChild(c);
+      });
+      load4().then(function () {
+        var first = track.querySelector(".card");
+        if (first) focus(first);
+      });
+    }));
+  }
   function buildRow(def, index, ctx) {
     var row = h("div.row.reco-row", {
       "data-anchor": "0"
@@ -9866,21 +9916,25 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       "data-scroll-x": "",
       "data-group": "",
       "data-trap": ""
-    }, spinnerLine(t("Carregando...")));
+    }, skeletonCards());
     row.appendChild(track);
     var focusRow = function focusRow() {
-      return ctx.rail.set(index);
+      ctx.rail.set(index);
+      var all = row.parentNode ? row.parentNode.children : [];
+      for (var i = 0; i < all.length; i++) all[i].classList.toggle("past", i < index);
+    };
+    var failed = function failed() {
+      return showRetry(track, function () {
+        return load4();
+      });
     };
     var load4 = function load4() {
-      return def.load(1).then(function (items) {
+      return retrying(function () {
+        return def.load(1);
+      }).then(function (items) {
         clear(track);
         track.classList.remove("pending");
-        if (!items.length) {
-          track.appendChild(h("div.row-empty", {
-            text: t("Nada por aqui.")
-          }));
-          return;
-        }
+        if (!items.length) return failed();
         items.slice(0, ROW_LIMIT).forEach(function (it) {
           return track.appendChild(card(it, {
             onSelect: function onSelect() {
@@ -9907,12 +9961,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           text: t(def.title)
         })]))]));
         loadVisibleImages(row);
-      }).catch(function () {
-        clear(track);
-        track.appendChild(h("div.row-empty", {
-          text: t("Não foi possível carregar")
-        }));
-      });
+      }).catch(failed);
     };
     return {
       row: row,
@@ -10024,7 +10073,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         onSelect: function onSelect() {
           return switchTo(p, true);
         }
-      }, [providerLogo(p)]);
+      }, [h("div.provider-logo", null, providerLogo(p)), h("div.provider-name", {
+        text: p.name
+      })]);
     });
     var providerRail = h("div.provider-rail", {
       "data-group": "",
@@ -10139,16 +10190,20 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       "data-scroll-x": "",
       "data-group": "",
       "data-trap": ""
-    }, spinnerLine(t("Carregando...")));
+    }, skeletonCards());
     row.appendChild(track);
+    var failed = function failed() {
+      return showRetry(track, function () {
+        return load4();
+      });
+    };
     var load4 = function load4() {
-      return def.load(1).then(function (items) {
+      return retrying(function () {
+        return def.load(1);
+      }).then(function (items) {
         clear(track);
         track.classList.remove("pending");
-        if (!items.length) {
-          if (row.parentNode) row.parentNode.removeChild(row);
-          return;
-        }
+        if (!items.length) return failed();
         items.slice(0, ROW_LIMIT).forEach(function (it) {
           return track.appendChild(card(it, {
             onSelect: function onSelect() {
@@ -10167,9 +10222,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           text: t(def.title)
         })]))]));
         loadVisibleImages(row);
-      }).catch(function () {
-        if (row.parentNode) row.parentNode.removeChild(row);
-      });
+      }).catch(failed);
     };
     return {
       row: row,
@@ -10367,7 +10420,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       el: el,
       onShow: function onShow() {
         renderContinue();
-        if (!loadedBoard) renderBoard();
+        if (!loadedBoard) renderBoard();else loadNearby();
         heroUi.resume();
         loadVisibleImages(el);
       },
@@ -10414,12 +10467,19 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       "data-scroll-x": "",
       "data-group": "",
       "data-trap": ""
-    }, spinnerLine(t("Carregando...")));
+    }, skeletonCards());
     row.appendChild(title);
     row.appendChild(track);
     parent.appendChild(row);
+    var failed = function failed() {
+      return showRetry(track, function () {
+        return load4();
+      });
+    };
     var load4 = function load4() {
-      return fetchCatalog(entry).then(function (metas) {
+      return retrying(function () {
+        return fetchCatalog(entry);
+      }).then(function (metas) {
         clear(track);
         track.classList.remove("pending");
         if (!metas.length) {
@@ -10434,9 +10494,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           }));
         });
         loadVisibleImages(row);
-      }).catch(function () {
-        if (row.parentNode) parent.removeChild(row);
-      });
+      }).catch(failed);
     };
     return {
       row: row,
@@ -10625,9 +10683,18 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       focusable: true,
       "data-autofocus": ""
     });
+    var go = h("div.btn.primary.search-go", {
+      focusable: true,
+      text: t("Buscar"),
+      onSelect: function onSelect() {
+        return run(input.value);
+      }
+    });
     var results = h("div.rows");
     scroller.appendChild(bar);
-    scroller.appendChild(h("div.search-box", null, input));
+    scroller.appendChild(h("div.search-box", {
+      "data-group": ""
+    }, [input, go]));
     scroller.appendChild(results);
     el.appendChild(scroller);
     var token = 0;
@@ -10639,14 +10706,16 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       clear(results);
       if (query.length < 2) {
         results.appendChild(h("div.hint", {
-          text: t("Digite pelo menos 2 letras e confirme no teclado.")
+          text: t("Digite pelo menos 2 letras e aperte Buscar.")
         }));
         return;
       }
       var my = ++token;
-      results.appendChild(spinnerLine(t('Buscando "{q}"...', {
-        q: query
-      })));
+      results.appendChild(h("div.row", null, [h("div.row-title", {
+        text: t('Buscando "{q}"...', {
+          q: query
+        })
+      }), h("div.row-track", null, skeletonCards())]));
       load().then(function () {
         if (my !== token) return;
         clear(results);
@@ -10799,9 +10868,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "637b82768d1b35de68e47f0eda18e4e6a3887817",
-    date: "2026-10-27T01:10:17-03:00",
-    message: "Abertura animada do Seraflix com som"
+    commit: "cdf470dfeb88d826f6cfd887c9e6ecbdbff51fb8",
+    date: "2026-10-27T01:43:17-03:00",
+    message: "Streamings mais limpo, esqueletos com nova tentativa, botão de busca"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
