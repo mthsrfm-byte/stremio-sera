@@ -23,6 +23,8 @@ final class MPVPlayer {
     private var lastGLError: GLenum = 0
     private var lastRenderStatus: Int32 = -9999
     private var appKitContextMatches = false
+    private var rendererName = ""
+    private var chosenHWDec = "auto-safe"
 
     /// Evidência de renderização para o diagnóstico; não passa pixels pela ponte.
     var renderDiagnostics: [String: Any] {
@@ -30,6 +32,7 @@ final class MPVPlayer {
          "contextHasView": surface.openGLContext?.view != nil,
          "contextIsCurrent": surface.openGLContext?.cglContextObj == CGLGetCurrentContext(),
          "appKitContextMatches": appKitContextMatches, "layerBacked": surface.wantsLayer,
+         "renderer": rendererName, "chosenHwdec": chosenHWDec,
          "visibleRect": NSStringFromRect(surface.visibleRect),
          "viewport": lastViewport.map { Int($0) }, "glError": Int(lastGLError),
          "lastRenderStatus": Int(lastRenderStatus), "fboBefore": Int(fboBefore),
@@ -233,6 +236,17 @@ final class MPVPlayer {
             throw Failure.message("Contexto OpenGL indisponível.")
         }
         context.makeCurrentContext()
+        if let name = glGetString(GLenum(GL_RENDERER)) {
+            rendererName = String(cString: UnsafeRawPointer(name).assumingMemoryBound(to: CChar.self))
+            let normalized = rendererName.lowercased()
+            if ["software", "llvmpipe", "softpipe", "swiftshader"].contains(where: { normalized.contains($0) }) {
+                // Renderers sem GPU não compartilham as superfícies VideoToolbox
+                // com a mesma confiabilidade. Copiar mantém o decode por hardware
+                // e entrega pixels CPU ao GL; no M1/M3 com GPU permanece zero-copy.
+                try check(mpv_set_property_string(mpv, "hwdec", "videotoolbox-copy"))
+                chosenHWDec = "videotoolbox-copy"
+            }
+        }
         try check(sera_mpv_render_create(&renderContext, mpv))
         if let renderer = renderContext {
             mpv_render_context_set_update_callback(renderer, { raw in
