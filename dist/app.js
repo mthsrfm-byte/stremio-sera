@@ -5352,6 +5352,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var el = pref || candidates(scope)[0];
     if (el) focus(el);
   }
+  function topbarTarget(bar) {
+    var active = bar.querySelector(".tab.active");
+    if (active && active.getAttribute("data-tab") !== "nsfw" && isVisible(active)) return active;
+    var home = bar.querySelector('.tab[data-tab="home"]');
+    return home && isVisible(home) ? home : null;
+  }
   function move(dir) {
     var layer = top();
     if (!layer) return false;
@@ -5379,7 +5385,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var best = pick(all, cur, dir);
     if (!best) return false;
     var bg = best.closest("[data-group]");
-    if (bg && bg !== group && bg.__last && bg.contains(bg.__last) && isVisible(bg.__last)) best = bg.__last;
+    if (bg && bg !== group) {
+      if (bg.classList.contains("topbar")) best = topbarTarget(bg) || best;else if (!horizontal && bg.hasAttribute("data-scroll-x")) best = all.filter(function (e) {
+        return bg.contains(e);
+      })[0] || best;else if (bg.__last && bg.contains(bg.__last) && isVisible(bg.__last)) best = bg.__last;
+    }
     focus(best);
     return true;
   }
@@ -6303,9 +6313,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "9fd5d5f79b17114cd142af78a785b77a709f95da",
-    date: "2026-10-27T08:44:33-03:00",
-    message: "Smart Choice sem lista de fontes, continuar na mesma fonte e perfil do artista"
+    commit: "5eb07021d6bd0a79d79e590e5183a207e55b90b3",
+    date: "2026-10-27T08:47:39-03:00",
+    message: "Foco: fileira nova no primeiro item, barra na aba atual e NSFW como cadeado"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -7580,6 +7590,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var ICONS = {
     home: '<svg viewBox="0 0 24 24"><path d="M3.5 10.5 12 3.5l8.5 7"/><path d="M5.5 9v11h4.5v-6h4v6h4.5V9"/></svg>',
     search: '<svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg>',
+    lock: '<svg viewBox="0 0 24 24"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg>',
     calendar: '<svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17"/><path d="M8 3v4"/><path d="M16 3v4"/></svg>',
     // Engrenagem no estilo do Feather Icons (licença MIT).
     settings: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>'
@@ -7601,9 +7612,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }, {
     id: "streamings",
     label: "Streamings"
-  }, {
+  },
+  // NSFW: só o cadeado, à esquerda da engrenagem.
+  {
     id: "nsfw",
     label: "NSFW",
+    icon: "lock",
+    right: true,
     when: function when() {
       return nsfwEnabled();
     }
@@ -8182,6 +8197,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
     if (view && view.tabId && view.tabId !== "home") {
       goTab("home");
+      var homeBtn = tabs.home && tabs.home.el.querySelector('.topbar .tab[data-tab="home"]');
+      if (homeBtn) focus(homeBtn, {
+        noScroll: true
+      });
       return;
     }
     if (IS_WEB) return;
