@@ -741,7 +741,8 @@ body.light .cast.focused .nm { color: #111110; }
 body.light .cast.focused .ch { color: #2236E0; }
 
 /* Aba NSFW: brilho discreto no topo, seções com marcador e categorias em destaque */
-.nsfw-view .scroll-y { background: radial-gradient(1200px 420px at 15% 0, rgba(229,80,140,0.16), rgba(229,80,140,0) 70%), radial-gradient(900px 380px at 85% 0, rgba(123,91,245,0.14), rgba(123,91,245,0) 70%); }
+/* Brilho do topo fixo atrás da rolagem (pintado uma vez; no fundo da área que rola, a TV repintava a cada passo). */
+.nsfw-view:before { content: ''; position: absolute; left: 0; top: 0; right: 0; height: 420px; pointer-events: none; background: radial-gradient(1200px 420px at 15% 0, rgba(229,80,140,0.16), rgba(229,80,140,0) 70%), radial-gradient(900px 380px at 85% 0, rgba(123,91,245,0.14), rgba(123,91,245,0) 70%); }
 .nsfw-section { position: relative; padding-left: 116px; }
 .nsfw-section:before { content: ''; position: absolute; left: 96px; top: 36px; width: 6px; height: 30px; border-radius: 3px; background: #e5508c; }
 .nsfw-genres .chip { background: rgba(229,80,140,0.14); }
@@ -869,6 +870,4 @@ body.light .fp-panel { background: rgba(255,255,255,0.5); }
 .nsfw-rail .provider.on { background-color: rgba(229,80,140,0.22); }
 .nsfw-rail .provider.on.focused { background-color: rgba(229,80,140,0.4); }
 .nsfw-rail .provider.focused { box-shadow: 0 0 0 4px #e5508c; }
-.nsfw-view .rows { -webkit-transition: opacity 0.4s ease, -webkit-transform 0.4s ease; transition: opacity 0.4s ease, transform 0.4s ease; }
-.nsfw-view .rows.sw { opacity: 0; -webkit-transform: translateY(30px); transform: translateY(30px); -webkit-transition: none; transition: none; }
 body.light .nsfw-now { color: rgba(17,17,16,0.6); }

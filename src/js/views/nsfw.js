@@ -29,15 +29,40 @@ function initialsOf(name) {
 }
 
 // Tudo que abre daqui fica marcado como adulto (some do resto do app).
-function openDetails(type, id, opts) {
+// Muitos addons adultos não têm "meta": os detalhes usam o próprio item do catálogo.
+function openDetails(type, id, opts, item) {
   addons.markAdult(id);
-  openDetailsRaw(type, id, opts);
+  openDetailsRaw(type, id, Object.assign({ fallbackMeta: item || null }, opts));
+}
+
+// Títulos em português sem segurar a fileira: os cartões aparecem já com o nome original e
+// trocam quando a tradução chega (antes a fileira esperava a tradução, até 8 s).
+// Pedidos do mesmo instante viram um só (a grade cria uma capa por vez).
+let queue = [];
+function translateCards(metas, cards) {
+  metas.forEach((m, i) => queue.push({ m: m, c: cards[i] }));
+  if (queue.length !== metas.length) return; // já tem um envio agendado
+  setTimeout(() => {
+    const batch = queue;
+    queue = [];
+    tr.titles(batch.map((x) => x.m)).then((list) =>
+      list.forEach((m, i) => {
+        const c = batch[i].c;
+        if (!c || !m.originalName) return;
+        batch[i].m.name = m.name; // os detalhes (sem addon de meta) usam este item
+        const name = c.querySelector('.name');
+        if (name) name.textContent = m.name;
+        const ph = c.querySelector('.ph');
+        if (ph) ph.textContent = m.name;
+      })
+    );
+  }, 0);
 }
 
 // Cartão do catálogo: vídeos com capa deitada (posterShape "landscape") usam o cartão largo.
 function itemCard(m, entry) {
   const wide = m.posterShape === 'landscape' || (entry && entry.catalog.posterShape === 'landscape');
-  return card(m, { wide: wide, image: wide ? m.poster || m.background : undefined, onSelect: () => openDetails(m.type || entry.catalog.type, m.id) });
+  return card(m, { wide: wide, image: wide ? m.poster || m.background : undefined, onSelect: () => openDetails(m.type || entry.catalog.type, m.id, null, m) });
 }
 
 export function NsfwView() {
@@ -117,7 +142,7 @@ export function NsfwView() {
   // Parar o foco num provedor troca o conteúdo (como em Streamings); OK entra nas fileiras.
   function scheduleSwitch(id) {
     clearTimeout(switchTimer);
-    switchTimer = setTimeout(() => pick(id), 450);
+    switchTimer = setTimeout(() => pick(id), 700);
   }
 
   function pick(id, enter) {
@@ -133,9 +158,7 @@ export function NsfwView() {
       .map((f) => f.id)
       .indexOf(id);
     renderFilters();
-    body.classList.add('sw');
     renderBody();
-    requestAnimationFrame(() => requestAnimationFrame(() => body.classList.remove('sw')));
     if (filters.children[idx]) nav.focus(filters.children[idx], { noScroll: true });
   }
 
@@ -201,7 +224,7 @@ export function NsfwView() {
               wide: true,
               image: it.background || it.poster,
               progress: it.state.duration ? it.state.timeOffset / it.state.duration : 0,
-              onSelect: () => openDetails(it.type, it._id, { videoId: it.state.video_id, autoStreams: true }),
+              onSelect: () => openDetails(it.type, it._id, { videoId: it.state.video_id, autoStreams: true }, { name: it.name, poster: it.poster }),
             }
           )
         )
@@ -209,7 +232,7 @@ export function NsfwView() {
     if (saved.length)
       staticRow(
         t('Minha lista'),
-        saved.slice(0, ROW_LIMIT).map((it) => card({ name: it.name, poster: it.poster }, { onSelect: () => openDetails(it.type, it._id) }))
+        saved.slice(0, ROW_LIMIT).map((it) => card({ name: it.name, poster: it.poster }, { onSelect: () => openDetails(it.type, it._id, null, { name: it.name, poster: it.poster }) }))
       );
   }
 
@@ -261,11 +284,14 @@ export function NsfwView() {
         const row = h('div.row', { 'data-anchor': '30' }, [h('div.row-title', null, [catName(entry), h('small', { text: entry.addon.manifest.name || '' })]), track]);
         addons
           .fetchCatalog(entry, { search: query })
-          .then((metas) => tr.titles(metas.slice(0, 30)))
           .then((metas) => {
             if (my !== token || !metas.length) return;
             found++;
-            metas.slice(0, 30).forEach((m) => track.appendChild(itemCard(m, entry)));
+            const shown = metas.slice(0, 30);
+            translateCards(
+              shown,
+              shown.map((m) => track.appendChild(itemCard(m, entry)))
+            );
             results.appendChild(row);
             loadVisibleImages(row);
           })
@@ -343,7 +369,6 @@ function catalogRow(entry, parent) {
   parent.appendChild(row);
   const load = () =>
     retrying(() => addons.fetchCatalog(entry))
-      .then((metas) => tr.titles(metas.slice(0, ROW_LIMIT)).then((list) => list.concat(metas.slice(ROW_LIMIT))))
       .then((metas) => {
         clear(track);
         track.classList.remove('pending');
@@ -351,7 +376,9 @@ function catalogRow(entry, parent) {
           if (row.parentNode) row.parentNode.removeChild(row);
           return;
         }
-        metas.slice(0, ROW_LIMIT).forEach((m) => track.appendChild(itemCard(m, entry)));
+        const shown = metas.slice(0, ROW_LIMIT);
+        const cards = shown.map((m) => track.appendChild(itemCard(m, entry)));
+        translateCards(shown, cards);
         if (metas.length > ROW_LIMIT)
           track.appendChild(
             h('div.card.see-all', { focusable: true, onSelect: () => router.push(GridView(entry, {})) }, [
@@ -374,10 +401,14 @@ function GridView(entry, extra) {
     load: () =>
       addons.fetchCatalog(entry, Object.assign({ skip: skip || undefined }, extra)).then((metas) => {
         skip += metas.length;
-        return tr.titles(metas);
+        return metas;
       }),
     key: (m) => m.id,
-    card: (m) => itemCard(m, entry),
+    card: (m) => {
+      const c = itemCard(m, entry);
+      translateCards([m], [c]);
+      return c;
+    },
     onEmpty: () => pg.el.insertBefore(h('div.hint', { text: t('Nada por aqui.') }), pg.el.firstChild),
   });
   scroller.appendChild(h('div.reco-crumb', null, crumb));

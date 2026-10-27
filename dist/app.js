@@ -7725,8 +7725,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return m ? m[0] : null;
   }
   var BUILTIN_KEYS = {
-    tmdbKey: true ? "9c57ed7ea044b2f01eea2fcc2e954c2e" : "",
-    mdblistKey: true ? "t9e4f1z29b3c36i1j25rul1wx" : ""
+    tmdbKey: true ? "" : "",
+    mdblistKey: true ? "" : ""
   };
   function keyOf(name) {
     return (settings()[name] || "").trim() || BUILTIN_KEYS[name];
@@ -10454,7 +10454,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var revealTimer = null;
     var fadeTimer = null;
     var token = 0;
-    var queue = [];
+    var queue2 = [];
     var attempt = {
       key: "",
       host: ""
@@ -10468,7 +10468,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       clearTimeout(revealTimer);
       clearInterval(fadeTimer);
       el.classList.remove("playing", "buffering");
-      queue = [];
+      queue2 = [];
       frameWin = null;
       revealed = false;
       clear(frameBox);
@@ -10589,12 +10589,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     function playTrailer(it, tk) {
       trailerKeys(it).then(function (keys) {
         if (tk !== token || document.hidden) return;
-        queue = keys.slice(0, MAX_TRAILERS);
+        queue2 = keys.slice(0, MAX_TRAILERS);
         nextTrailer(tk);
       });
     }
     function nextTrailer(tk) {
-      var key = queue.shift();
+      var key = queue2.shift();
       if (!key) {
         clearTimeout(attemptTimer);
         frameWin = null;
@@ -11906,7 +11906,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         });
       }).then(finish2, finish2);
       pick2.then(function (st) {
-        if (!st && alive) showStreams(video, true);
+        if (st || !alive) return;
+        showStreams(video, true);
+        var torrentsOnly = all.length && all.every(function (x) {
+          return _needsServer(x);
+        });
+        setTimeout(function () {
+          return toast(!all.length ? t("Nenhuma fonte encontrada para este título.") : torrentsOnly && !_isAvailable() ? t("As fontes deste título são torrent: precisam do servidor do PC ligado.") : t("Nenhuma fonte deste título abre na TV."), 6e3);
+        }, 400);
       });
       play2(video, null, all, pick2);
     }
@@ -12188,7 +12195,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return ("0" + d.getDate()).slice(-2) + "/" + ("0" + (d.getMonth() + 1)).slice(-2) + "/" + d.getFullYear();
     }
     load().then(function () {
-      return fetchMeta(type, id);
+      return fetchMeta(type, id).catch(function (e) {
+        if (opts.fallbackMeta) return Object.assign({
+          type: type
+        }, opts.fallbackMeta, {
+          id: id
+        });
+        throw e;
+      });
     }).then(function (m) {
       if (!alive) return;
       meta = m;
@@ -12682,9 +12696,38 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var words = String(name || "?").replace(/[^A-Za-z0-9À-ú+ ]/g, " ").trim().split(/\s+/);
     return (words.length > 1 ? words[0][0] + words[1][0] : words[0].slice(0, 2)).toUpperCase();
   }
-  function openDetails2(type, id, opts) {
+  function openDetails2(type, id, opts, item) {
     markAdult(id);
-    openDetails(type, id, opts);
+    openDetails(type, id, Object.assign({
+      fallbackMeta: item || null
+    }, opts));
+  }
+  var queue = [];
+  function translateCards(metas, cards) {
+    metas.forEach(function (m, i) {
+      return queue.push({
+        m: m,
+        c: cards[i]
+      });
+    });
+    if (queue.length !== metas.length) return;
+    setTimeout(function () {
+      var batch2 = queue;
+      queue = [];
+      titles(batch2.map(function (x) {
+        return x.m;
+      })).then(function (list2) {
+        return list2.forEach(function (m, i) {
+          var c = batch2[i].c;
+          if (!c || !m.originalName) return;
+          batch2[i].m.name = m.name;
+          var name = c.querySelector(".name");
+          if (name) name.textContent = m.name;
+          var ph = c.querySelector(".ph");
+          if (ph) ph.textContent = m.name;
+        });
+      });
+    }, 0);
   }
   function itemCard(m, entry) {
     var wide = m.posterShape === "landscape" || entry && entry.catalog.posterShape === "landscape";
@@ -12692,7 +12735,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       wide: wide,
       image: wide ? m.poster || m.background : void 0,
       onSelect: function onSelect() {
-        return openDetails2(m.type || entry.catalog.type, m.id);
+        return openDetails2(m.type || entry.catalog.type, m.id, null, m);
       }
     });
   }
@@ -12817,7 +12860,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       clearTimeout(switchTimer);
       switchTimer = setTimeout(function () {
         return pick2(id);
-      }, 450);
+      }, 700);
     }
     function pick2(id, enter) {
       clearTimeout(switchTimer);
@@ -12832,13 +12875,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         return f.id;
       }).indexOf(id);
       renderFilters();
-      body.classList.add("sw");
       renderBody();
-      requestAnimationFrame(function () {
-        return requestAnimationFrame(function () {
-          return body.classList.remove("sw");
-        });
-      });
       if (filters.children[idx]) focus(filters.children[idx], {
         noScroll: true
       });
@@ -12924,6 +12961,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             return openDetails2(it.type, it._id, {
               videoId: it.state.video_id,
               autoStreams: true
+            }, {
+              name: it.name,
+              poster: it.poster
             });
           }
         });
@@ -12934,7 +12974,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           poster: it.poster
         }, {
           onSelect: function onSelect() {
-            return openDetails2(it.type, it._id);
+            return openDetails2(it.type, it._id, null, {
+              name: it.name,
+              poster: it.poster
+            });
           }
         });
       }));
@@ -13031,13 +13074,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           fetchCatalog(entry, {
             search: query
           }).then(function (metas) {
-            return titles(metas.slice(0, 30));
-          }).then(function (metas) {
             if (my !== token || !metas.length) return;
             found++;
-            metas.slice(0, 30).forEach(function (m) {
+            var shown = metas.slice(0, 30);
+            translateCards(shown, shown.map(function (m) {
               return track.appendChild(itemCard(m, entry));
-            });
+            }));
             results.appendChild(row);
             loadVisibleImages(row);
           }).catch(function () {}).then(function () {
@@ -13124,19 +13166,17 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return retrying(function () {
         return fetchCatalog(entry);
       }).then(function (metas) {
-        return titles(metas.slice(0, ROW_LIMIT3)).then(function (list2) {
-          return list2.concat(metas.slice(ROW_LIMIT3));
-        });
-      }).then(function (metas) {
         clear(track);
         track.classList.remove("pending");
         if (!metas.length) {
           if (row.parentNode) row.parentNode.removeChild(row);
           return;
         }
-        metas.slice(0, ROW_LIMIT3).forEach(function (m) {
+        var shown = metas.slice(0, ROW_LIMIT3);
+        var cards = shown.map(function (m) {
           return track.appendChild(itemCard(m, entry));
         });
+        translateCards(shown, cards);
         if (metas.length > ROW_LIMIT3) track.appendChild(h("div.card.see-all", {
           focusable: true,
           onSelect: function onSelect() {
@@ -13176,14 +13216,16 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           skip: skip || void 0
         }, extra2)).then(function (metas) {
           skip += metas.length;
-          return titles(metas);
+          return metas;
         });
       },
       key: function key(m) {
         return m.id;
       },
       card: function card(m) {
-        return itemCard(m, entry);
+        var c = itemCard(m, entry);
+        translateCards([m], [c]);
+        return c;
       },
       onEmpty: function onEmpty() {
         return pg.el.insertBefore(h("div.hint", {
@@ -13400,9 +13442,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "72446dd8e825393020b82029faf94e52ec8e25c3",
-    date: "2026-10-27T03:33:21-03:00",
-    message: "Abertura com aurora boreal e trilho de provedores na aba NSFW"
+    commit: "34bb21ad34d3ab33bc028bb4377023add4e1ba22",
+    date: "2026-10-27T06:33:36+00:00",
+    message: "Build da dist/ para a TV"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {

@@ -407,9 +407,23 @@ function DetailsView(type, id, opts) {
         })
       )
       .then(finish, finish);
-    // Nada tocável: volta com a lista aberta para escolher na mão.
+    // Nada tocável: volta com a lista aberta para escolher na mão e diz o porquê.
     pick.then((st) => {
-      if (!st && alive) showStreams(video, true);
+      if (st || !alive) return;
+      showStreams(video, true);
+      const torrentsOnly = all.length && all.every((x) => server.needsServer(x));
+      setTimeout(
+        () =>
+          toast(
+            !all.length
+              ? t('Nenhuma fonte encontrada para este título.')
+              : torrentsOnly && !server.isAvailable()
+                ? t('As fontes deste título são torrent: precisam do servidor do PC ligado.')
+                : t('Nenhuma fonte deste título abre na TV.'),
+            6000
+          ),
+        400
+      );
     });
     play(video, null, all, pick);
   }
@@ -617,7 +631,13 @@ function DetailsView(type, id, opts) {
 
   addons
     .load()
-    .then(() => addons.fetchMeta(type, id))
+    .then(() =>
+      addons.fetchMeta(type, id).catch((e) => {
+        // Sem addon de detalhes (comum nos adultos): usa o item do catálogo e segue para as fontes.
+        if (opts.fallbackMeta) return Object.assign({ type: type }, opts.fallbackMeta, { id: id });
+        throw e;
+      })
+    )
     .then((m) => {
       if (!alive) return;
       meta = m;
