@@ -6345,6 +6345,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
   var TUBE_URLS = ["http://127.0.0.1:8090/xv/manifest.json", "http://127.0.0.1:8090/ph/manifest.json"];
   var tubes = null;
+  var tubeTries = 0;
   function withTubes(list3) {
     if (!tubes || !tubes.length) return list3;
     return list3.concat(tubes.filter(function (t2) {
@@ -6353,9 +6354,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       });
     }));
   }
+  var tubeTimer = null;
   function attachTubes() {
-    if (tubes) return;
-    tubes = [];
+    if (tubes && tubes.length || tubeTimer) return;
     Promise.all(TUBE_URLS.map(function (u) {
       return getJSON(u, {
         timeout: 3e3,
@@ -6369,8 +6370,18 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         return null;
       });
     })).then(function (list3) {
-      tubes = normalize(list3.filter(Boolean));
-      if (tubes.length && addons) changed(withTubes(addons));
+      var found = normalize(list3.filter(Boolean));
+      tubeTries++;
+      if (found.length) {
+        tubes = found;
+        if (addons) changed(withTubes(addons));
+        return;
+      }
+      tubes = [];
+      tubeTimer = setTimeout(function () {
+        tubeTimer = null;
+        attachTubes();
+      }, tubeTries < 20 ? 4e3 : 6e4);
     });
   }
   function load(force) {
@@ -7702,8 +7713,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return m ? m[0] : null;
   }
   var BUILTIN_KEYS = {
-    tmdbKey: true ? "9c57ed7ea044b2f01eea2fcc2e954c2e" : "",
-    mdblistKey: true ? "t9e4f1z29b3c36i1j25rul1wx" : ""
+    tmdbKey: true ? "" : "",
+    mdblistKey: true ? "" : ""
   };
   function keyOf(name) {
     return (settings()[name] || "").trim() || BUILTIN_KEYS[name];
@@ -13458,9 +13469,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "9f508ff4ea7e98b860458dc76ebe01de9720eeb6",
-    date: "2026-10-27T04:14:25-03:00",
-    message: "Tela de carregamento do player alinhada à esquerda e logos XVideos/Pornhub"
+    commit: "edef805f3f654f4263b9eaeb72c9e86c06d22399",
+    date: "2026-10-27T07:14:41+00:00",
+    message: "Build da dist/ para a TV"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
