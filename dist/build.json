@@ -1,6 +1,6 @@
 {
   "version": "1.2.0",
-  "commit": "fa44ff60f4badc7c4a21d7618fd478be85c82e9c",
-  "date": "2026-10-27T00:19:05-03:00",
-  "message": "Trailer: até 4 tentativas, sem mostrar nada até tocar"
+  "commit": "4ae731a1d1b5543055c379504b1596203574b43b",
+  "date": "2026-10-27T03:19:18+00:00",
+  "message": "Build da dist/ para a TV"
 }

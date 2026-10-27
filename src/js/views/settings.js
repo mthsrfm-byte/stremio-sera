@@ -12,6 +12,7 @@ import * as server from '../api/server.js';
 import * as addons from '../api/addons.js';
 import * as hero from '../api/hero.js';
 import * as extras from '../api/extras.js';
+import * as reco from '../api/recommend.js';
 import { topbar, toast, menu, confirmDialog, refreshProfileChips } from '../ui.js';
 import * as router from '../router.js';
 import { openLogin } from './login.js';
@@ -486,6 +487,7 @@ export function SettingsView() {
     if (device) body.appendChild(row(t('TV'), '', device, null));
 
     body.appendChild(h('div.set-section', { text: t('Sobre e depuração') }));
+    body.appendChild(row(t('Último trailer'), t('Resultado do trailer na aba Recomendado'), reco.getTrailerReport() || t('nenhum ainda'), null));
     const logInput = h('input.input', { type: 'text', value: s.devlogUrl || '', placeholder: 'http://IP-DO-PC:8099/log' });
     logInput.__submit = (v) => {
       store.saveSettings({ devlogUrl: v.trim() });

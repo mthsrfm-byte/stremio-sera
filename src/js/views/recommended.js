@@ -14,6 +14,8 @@ const PREVIEW_MS = 350; // parado no título: troca o destaque
 const TRAILER_MS = 3000; // parado mais um pouco: toca o trailer
 const ATTEMPT_MS = 8000; // trailer que não começa a tocar nesse tempo: tenta o próximo
 const MAX_TRAILERS = 4; // depois disso desiste e fica só a arte
+const NOCOOKIE = 'www.youtube-nocookie.com';
+const YOUTUBE = 'www.youtube.com';
 
 // Abre o título no Seraflix: os addons do Stremio usam o id do IMDb.
 function openItem(it) {
@@ -46,6 +48,8 @@ function Billboard() {
   let token = 0;
   let queue = []; // trailers que ainda dá para tentar
   let attemptTimer = null;
+  let attempt = { key: '', host: '' };
+  let unmutedAt = 0;
   let frameWin = null; // janela do iframe do trailer (para reconhecer as mensagens dele)
 
   function stopTrailer() {
@@ -89,10 +93,39 @@ function Billboard() {
     const state = msg.event === 'onStateChange' ? msg.info : msg.info && msg.info.playerState;
     if (state === 1) {
       clearTimeout(attemptTimer); // tocou: este é o trailer
-      el.classList.add('playing');
+      if (!el.classList.contains('playing')) {
+        el.classList.add('playing');
+        report('tocou (' + attempt.host + ')');
+        // Começou sem som (navegadores deixam tocar sozinho assim): agora liga o som.
+        command('unMute');
+        command('setVolume', [100]);
+        unmutedAt = Date.now();
+      }
+    } else if (state === 2 && unmutedAt && Date.now() - unmutedAt < 1500) {
+      // O navegador pausou ao ligar o som sem um clique: volta a tocar sem som.
+      unmutedAt = 0;
+      command('mute');
+      command('playVideo');
+    } else if (state === 0) stopTrailer(); // acabou: volta para a arte
+    if (msg.event === 'onError') {
+      const code = msg.info;
+      // 152/153: o YouTube não reconheceu quem está incorporando; tenta o mesmo trailer no youtube.com.
+      if ((code === 152 || code === 153) && attempt.host === NOCOOKIE) {
+        report('erro ' + code + ', tentando youtube.com');
+        return load(attempt.key, YOUTUBE, token);
+      }
+      report('erro ' + code);
+      nextTrailer(token);
     }
-    else if (state === 0) stopTrailer(); // acabou: volta para a arte
-    if (msg.event === 'onError') nextTrailer(token);
+  }
+
+  function command(func, args) {
+    if (frameWin) frameWin.postMessage(JSON.stringify({ event: 'command', func: func, args: args || [], id: 1, channel: 'widget' }), '*');
+  }
+
+  // Diagnóstico do último trailer (aparece em Ajustes → Sobre e depuração).
+  function report(what) {
+    reco.setTrailerReport((current ? current.name + ': ' : '') + what);
   }
   window.addEventListener('message', onYouTubeMessage);
 
@@ -107,27 +140,44 @@ function Billboard() {
   // Carrega o próximo trailer da fila (o anterior deu erro ou é o primeiro).
   // Enquanto não toca, nada aparece (a arte fica). Erro ou demora: próximo da fila; sem mais, para.
   function nextTrailer(tk) {
-    clearTimeout(attemptTimer);
     const key = queue.shift();
+    if (!key) {
+      clearTimeout(attemptTimer);
+      el.classList.remove('playing');
+      frameWin = null;
+      clear(frameBox);
+      return;
+    }
+    load(key, NOCOOKIE, tk);
+  }
+
+  function load(key, host, tk) {
+    clearTimeout(attemptTimer);
     el.classList.remove('playing');
     frameWin = null;
+    unmutedAt = 0;
     clear(frameBox);
-    if (!key || tk !== token) return;
-    attemptTimer = setTimeout(() => tk === token && !el.classList.contains('playing') && nextTrailer(tk), ATTEMPT_MS);
+    if (tk !== token) return;
+    attempt = { key: key, host: host };
+    attemptTimer = setTimeout(() => {
+      if (tk !== token || el.classList.contains('playing')) return;
+      report('não começou em ' + ATTEMPT_MS / 1000 + 's');
+      nextTrailer(tk);
+    }, ATTEMPT_MS);
     const origin = window.location.protocol + '//' + window.location.host;
+    // mute=1: vídeo sem som pode tocar sozinho em qualquer navegador; o som liga quando começa.
     const src =
-      'https://www.youtube-nocookie.com/embed/' + key +
-      '?autoplay=1&controls=0&rel=0&modestbranding=1&playsinline=1&iv_load_policy=3&disablekb=1&fs=0&enablejsapi=1&origin=' +
-      encodeURIComponent(origin);
+      'https://' + host + '/embed/' + key +
+      '?autoplay=1&mute=1&controls=0&rel=0&modestbranding=1&playsinline=1&iv_load_policy=3&disablekb=1&fs=0&enablejsapi=1&origin=' +
+      encodeURIComponent(origin) + '&widget_referrer=' + encodeURIComponent(origin);
     const frame = h('iframe', { src: src, allow: 'autoplay; encrypted-media', referrerpolicy: 'strict-origin-when-cross-origin', tabindex: '-1', frameborder: '0' });
     frame.onload = () => {
       if (tk !== token || !frame.contentWindow) return;
       frameWin = frame.contentWindow;
       // Pede para o player mandar os eventos (o mesmo que a IFrame API do YouTube faz).
       frameWin.postMessage(JSON.stringify({ event: 'listening', id: 1, channel: 'widget' }), '*');
-      ['onStateChange', 'onError'].forEach((name) =>
-        frameWin.postMessage(JSON.stringify({ event: 'command', func: 'addEventListener', args: [name], id: 1, channel: 'widget' }), '*')
-      );
+      command('addEventListener', ['onStateChange']);
+      command('addEventListener', ['onError']);
     };
     frameBox.appendChild(frame);
   }
