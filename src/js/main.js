@@ -16,7 +16,6 @@ import { SettingsView } from './views/settings.js';
 import { CalendarView } from './views/calendar.js';
 import { maybeShowWizard } from './views/wizard.js';
 import { openPlayer } from './views/player.js';
-import * as update from './api/update.js';
 import { toast } from './ui.js';
 import * as profiles from './views/profiles.js';
 import { applyTheme } from './lib/theme.js';
@@ -98,15 +97,6 @@ function start() {
       });
     } else maybeShowWizard();
     devLaunch();
-    // Aviso de versão nova (no máximo uma vez por dia).
-    if (update.shouldAutoCheck()) {
-      setTimeout(() => {
-        update
-          .check()
-          .then((info) => info && toast(t('Versão {v} disponível: Ajustes → Procurar atualização', { v: info.version }), 7000))
-          .catch(() => {});
-      }, 8000);
-    }
   });
 }
 

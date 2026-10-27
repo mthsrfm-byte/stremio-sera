@@ -59,36 +59,6 @@ export function SettingsView() {
     ]);
   }
 
-  function checkForUpdate() {
-    toast(t('Procurando atualização...'));
-    update
-      .check()
-      .then((info) => {
-        if (!info) return toast(t('Você já está na versão mais nova (v{v}).', { v: update.VERSION }));
-        return update.canSelfUpdate().then((can) => {
-          if (!can) {
-            // Sem Homebrew Channel (só modo desenvolvedor) o app não consegue se instalar sozinho.
-            menu(
-              t('Versão {v} disponível', { v: info.version }),
-              [
-                { label: t('Como atualizar'), sub: t('No PC: webOS Dev Manager → instalar o .ipk da release') },
-                { label: info.pageUrl, sub: t('Página da release') },
-              ],
-              { center: true }
-            );
-            return;
-          }
-          confirmDialog(t('Instalar a versão {v}? O app vai fechar e reabrir.', { v: info.version }), t('Atualizar'), () => {
-            update
-              .install(info, (st) => toast(st, 8000))
-              .then(() => toast(t('Atualizado! Reabrindo...')))
-              .catch((e) => toast(t('Não foi possível atualizar: {msg}', { msg: e.message }), 6000));
-          });
-        });
-      })
-      .catch((e) => toast(t('Não foi possível verificar: {msg}', { msg: e.message }), 5000));
-  }
-
   function installFromUrl(url, name) {
     if (!stremio.isLoggedIn()) return toast(t('Entre na conta primeiro'));
     confirmDialog(t('Instalar {name} na sua conta Stremio?', { name: name }), t('Instalar'), () => {
@@ -444,10 +414,7 @@ export function SettingsView() {
         logInput,
       ])
     );
-    body.appendChild(row(t('Versão'), device || 'Seraflix', 'v' + update.VERSION, null));
-    body.appendChild(
-      row(t('Procurar atualização'), t('Baixa a versão nova do GitHub ({repo})', { repo: update.REPO }), '', () => checkForUpdate())
-    );
+    body.appendChild(row(t('Versão'), device || t('Atualiza sozinho pelo TizenBrew'), 'v' + update.VERSION, null));
 
     const rows = body.querySelectorAll('.set-row');
     if (keepIndex >= 0 && rows[keepIndex]) nav.focus(rows[keepIndex]);
