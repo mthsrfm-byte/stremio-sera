@@ -1,0 +1,49 @@
+# A cada push na main: gera a dist/ (que é o que a TV roda), faz commit dela se mudou
+# e limpa o cache do jsDelivr, para o TizenBrew pegar a versão nova na próxima vez que abrir.
+name: Build e publicar na TV
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-main
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build
+
+      - name: Commit da dist/ se mudou
+        run: |
+          git add -A dist
+          if git diff --cached --quiet; then
+            echo "dist/ já está em dia."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "Build da dist/ para a TV"
+            git push
+          fi
+
+      - name: Limpar cache do jsDelivr
+        run: |
+          for f in package.json dist/index.html dist/app.js dist/app.css; do
+            for ref in "" "@main"; do
+              curl -fsS -o /dev/null "https://purge.jsdelivr.net/gh/${GITHUB_REPOSITORY}${ref}/$f" || echo "Falhou: $ref $f"
+            done
+          done
