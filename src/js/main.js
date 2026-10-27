@@ -133,17 +133,36 @@ function openFromPhone(req) {
 // Limite de 3s: se algo der errado, o app abre mesmo assim.
 const FONTS = ['600', '700', '800'].map((w) => w + " 40px 'Bricolage Grotesque'").concat(['400', '500', '600', '700'].map((w) => w + " 24px 'Geist'"));
 
-function loadFonts() {
-  if (!document.fonts || !document.fonts.load) return Promise.resolve();
-  const all = Promise.all(FONTS.map((f) => document.fonts.load(f, 'Seraflix ÁÉçã').catch(() => null)));
-  return Promise.race([all, new Promise((r) => setTimeout(r, 3000))]);
-}
-
+// Navegador antigo da TV pode não ter document.fonts, dar erro ou nunca responder: o app abre
+// de qualquer jeito (no máximo 3s depois), com um setTimeout simples que não depende de Promise.
 function ready() {
-  loadFonts().then(() => {
+  // A classe vem daqui (não do HTML): se o index.html e o app.js chegarem de versões diferentes
+  // pela atualização, a tela nunca fica escondida de vez.
+  document.body.classList.add('fonts-pending');
+  let started = false;
+  const go = () => {
+    if (started) return;
+    started = true;
     document.body.classList.remove('fonts-pending');
     boot();
-  });
+  };
+  setTimeout(go, 3000);
+  try {
+    if (!document.fonts || typeof document.fonts.load !== 'function') return go();
+    let left = FONTS.length;
+    const one = () => --left <= 0 && go();
+    FONTS.forEach((f) => {
+      try {
+        const p = document.fonts.load(f, 'Seraflix ÁÉçã');
+        if (p && typeof p.then === 'function') p.then(one, one);
+        else one();
+      } catch (e) {
+        one();
+      }
+    });
+  } catch (e) {
+    go();
+  }
 }
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ready);
