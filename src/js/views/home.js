@@ -12,6 +12,7 @@ import { openDetails } from './details.js';
 import { t } from '../lib/i18n.js';
 import * as reco from '../api/recommend.js';
 import { simpleRow, showRetry } from './recommended.js';
+import { genreName } from '../lib/genres.js';
 
 const ROTATE_MS = 8000;
 
@@ -272,7 +273,7 @@ function buildHero() {
     const parts = [];
     if (it.year) parts.push(it.year);
     if (it.runtime) parts.push(it.runtime);
-    if (it.genres && it.genres.length) parts.push(it.genres.slice(0, 3).join(', '));
+    if (it.genres && it.genres.length) parts.push(it.genres.slice(0, 3).map(genreName).join(', '));
     meta.innerHTML = (it.rating ? '<span class="imdb-mini">IMDb</span> ' + escapeHtml(it.rating) + ' · ' : '') + escapeHtml(parts.join(' · '));
     desc.textContent = it.description || '';
     clear(dots);

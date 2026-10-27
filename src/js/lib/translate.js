@@ -2,6 +2,7 @@
 // Google (endpoint gratuito), em lote e com cache. Se a tradução falhar, fica o original.
 import { getJSON } from './http.js';
 import * as store from './store.js';
+import { genreName } from './genres.js';
 
 const GENRES = {
   amateur: 'Amador', anal: 'Anal', asian: 'Asiáticas', babe: 'Gatas', babes: 'Gatas', bbw: 'Gordinhas',
@@ -33,7 +34,7 @@ export function isHiddenCategory(name) {
 
 export function genre(name) {
   const key = String(name || '').trim().toLowerCase();
-  return GENRES[key] || GENRES[key.replace(/[-_]+/g, ' ')] || name;
+  return GENRES[key] || GENRES[key.replace(/[-_]+/g, ' ')] || genreName(name);
 }
 
 // ---------- Títulos ----------

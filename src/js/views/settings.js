@@ -467,6 +467,14 @@ export function SettingsView() {
       }, toggle(s.introSound !== false))
     );
 
+    body.appendChild(h('div.set-section', { text: t('Reprodução') }));
+    body.appendChild(
+      row(t('Smart Choice'), t('Ao escolher um episódio, já abre a melhor fonte: original + dublado, boa qualidade e bem semeada'), '', () => {
+        store.saveSettings({ smartChoice: store.settings().smartChoice === false });
+        render();
+      }, toggle(s.smartChoice !== false))
+    );
+
     body.appendChild(h('div.set-section', { text: t('Legendas e áudio') }));
     const subName = (SUB_LANGS.find((x) => JSON.stringify(x.value) === JSON.stringify(s.subtitleLangs)) || { label: (s.subtitleLangs || []).join(', ') }).label;
     body.appendChild(

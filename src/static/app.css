@@ -610,7 +610,7 @@ body.light .stream .s-addon { color: #2236E0; }
 body.light .stream .s-title { color: rgba(17,17,16,0.85); }
 body.light .stream .s-tag { background: rgba(17,17,16,0.08); }
 body.light .stream .s-tag.warn { background: rgba(255,170,0,0.2); color: #9a5c00; }
-body.light .stream .s-tag.dub { background: rgba(0,156,59,0.22); color: #9be7b4; }
+body.light .stream .s-tag.dub { background: rgba(0,156,59,0.16); color: #0b6b30; }
 .stream .s-tag .flag { vertical-align: -3px; margin-right: 7px; }
 .only-dub .stream:not(.dub) { display: none; }
 .stream .s-tag.ok { background: rgba(80,200,120,0.2); color: #1e7a3d; }
@@ -685,3 +685,61 @@ body.light .card.ranked .rank { color: #F5F4EF; -webkit-text-stroke-color: rgba(
 @keyframes pinShake { 25% { transform: translate(-52%, -50%); } 75% { transform: translate(-48%, -50%); } }
 body.light .pin-dots i { border-color: rgba(17,17,16,0.4); }
 body.light .pin-dots i.on { background: #111110; border-color: #111110; }
+
+/* Fontes enxutas: título do arquivo, etiquetas de qualidade e linha de sinal/tamanho */
+.stream .s-title { max-height: 54px; font-size: 20px; font-weight: 600; word-break: break-all; }
+.stream .s-tag.res { background: rgba(255,255,255,0.16); }
+.stream .s-tag.res.uhd { background: rgba(169,180,245,0.25); color: #d6dcff; }
+.stream .s-tag.dv { background: rgba(245,197,24,0.22); color: #ffd95e; }
+.stream .s-tag.hdr { background: rgba(255,140,60,0.22); color: #ffb98a; }
+.stream .s-stats { margin-top: 6px; font-size: 18px; color: rgba(255,255,255,0.6); }
+.stream .s-stats > span { display: inline-block; margin-right: 22px; vertical-align: middle; }
+.s-seed b { margin-left: 8px; font-weight: 700; color: rgba(255,255,255,0.85); }
+.sig { vertical-align: -3px; }
+.sig rect.off { fill: rgba(255,255,255,0.18); }
+.lv4 .sig rect.on, .lv3 .sig rect.on { fill: #6ee29a; }
+.lv2 .sig rect.on { fill: #ffcc66; }
+.lv1 .sig rect.on { fill: #ff7a7a; }
+body.light .stream .s-stats { color: rgba(17,17,16,0.55); }
+body.light .s-seed b { color: rgba(17,17,16,0.85); }
+body.light .sig rect.off { fill: rgba(17,17,16,0.15); }
+body.light .stream .s-tag.dv { background: rgba(245,197,24,0.25); color: #7a5b00; }
+body.light .stream .s-tag.hdr { background: rgba(255,140,60,0.2); color: #9a4300; }
+body.light .stream .s-tag.res.uhd { background: rgba(51,71,255,0.12); color: #2236E0; }
+
+/* Episódio que ainda não estreou */
+.soon-tag { display: inline-block; margin-right: 10px; padding: 1px 10px; border-radius: 6px; font-size: 16px; font-weight: 800; background: rgba(169,180,245,0.25); color: #d6dcff; vertical-align: 2px; }
+.episode.upcoming .thumb, .episode.upcoming .ep-desc { opacity: 0.45; }
+body.light .soon-tag { background: rgba(51,71,255,0.12); color: #2236E0; }
+
+/* Elenco navegável */
+.cast { border-radius: 14px; padding: 6px 0; border: 3px solid transparent; }
+.cast.focused { background: rgba(51,71,255,0.22); border-color: #3347FF; }
+
+/* Filmografia */
+.filmo { background: #111110; }
+.filmo-side { position: absolute; left: 96px; top: 120px; width: 860px; }
+.filmo-photo { width: 300px; height: 450px; border-radius: 20px; overflow: hidden; background: rgba(255,255,255,0.06); }
+.filmo-photo img { width: 100%; height: 100%; object-fit: cover; }
+.filmo-name { font-size: 54px; font-weight: 800; margin-top: 30px; line-height: 1.1; }
+.filmo-count { font-size: 24px; color: rgba(255,255,255,0.55); margin-top: 10px; }
+.filmo-item .thumb.poster { width: 84px; height: 124px; }
+body.light .filmo { background: #F5F4EF; }
+body.light .filmo-count { color: rgba(17,17,16,0.55); }
+
+/* Player: qualidade ao lado do relógio */
+.p-top-right { display: -webkit-flex; display: flex; -webkit-align-items: flex-start; align-items: flex-start; }
+.p-quality { margin: 0 28px 0 0; padding: 8px 20px; text-align: center; min-width: 120px; line-height: 1.1; }
+.p-quality b { display: block; font-size: 26px; font-weight: 800; }
+.p-quality small { display: block; font-size: 15px; font-weight: 600; opacity: 0.75; margin-top: 3px; }
+.slow-box .modal-actions .btn { margin-right: 16px; }
+.p-quality { display: block; }
+
+/* Aba NSFW: brilho discreto no topo, seções com marcador e categorias em destaque */
+.nsfw-view .scroll-y { background: radial-gradient(1200px 420px at 15% 0, rgba(229,80,140,0.16), rgba(229,80,140,0) 70%), radial-gradient(900px 380px at 85% 0, rgba(123,91,245,0.14), rgba(123,91,245,0) 70%); }
+.nsfw-section { position: relative; padding-left: 116px; }
+.nsfw-section:before { content: ''; position: absolute; left: 96px; top: 36px; width: 6px; height: 30px; border-radius: 3px; background: #e5508c; }
+.nsfw-genres .chip { background: rgba(229,80,140,0.14); }
+.nsfw-genres .chip.focused { background: #e5508c; border-color: #ffc2d9; color: #fff; }
+.nsfw-view .page-head { padding-bottom: 18px; }
+body.light .nsfw-genres .chip { background: rgba(229,80,140,0.12); }

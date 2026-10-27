@@ -79,11 +79,44 @@ export function localized(meta) {
       tagline: d.tagline || '',
       logo: pickLogo(d.images && d.images.logos),
       cast: ((d.credits && d.credits.cast) || []).slice(0, 14).map((c) => ({
+        id: c.id,
         name: c.name,
         character: c.character || '',
         photo: c.profile_path ? TMDB_IMG + 'w185' + c.profile_path : null,
       })),
     }));
+  });
+}
+
+// Filmografia de uma pessoa (filmes e séries como ator/atriz), em ordem cronológica.
+// Fora: participações como "si mesmo", talk shows e jornais, e o que não tem data nem pôster.
+export function personCredits(personId) {
+  return tmdb('person/' + personId + '/combined_credits', { language: apiLang() }).then((r) => {
+    const seen = {};
+    return ((r && r.cast) || [])
+      .filter((c) => (c.media_type === 'movie' || c.media_type === 'tv') && (c.release_date || c.first_air_date) && c.poster_path)
+      .filter((c) => !/^(self|himself|herself|themselves|ele mesmo|ela mesma|si mesm[oa])\b/i.test(c.character || ''))
+      .filter((c) => (c.genre_ids || []).every((g) => g !== 10767 && g !== 10763))
+      .filter((c) => {
+        const k = c.media_type + ':' + c.id;
+        if (seen[k]) return false;
+        seen[k] = true;
+        return true;
+      })
+      .map((c) => {
+        const date = c.release_date || c.first_air_date;
+        return {
+          tmdbId: c.id,
+          mediaType: c.media_type,
+          name: c.title || c.name || '',
+          character: c.character || '',
+          poster: TMDB_IMG + 'w185' + c.poster_path,
+          date: date,
+          year: date.slice(0, 4),
+          episodes: c.episode_count || 0,
+        };
+      })
+      .sort((a, b) => a.date.localeCompare(b.date));
   });
 }
 

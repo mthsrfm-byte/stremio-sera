@@ -8,12 +8,24 @@ import * as addons from '../api/addons.js';
 import * as stremio from '../api/stremio.js';
 import { topbar, card, skeletonCards, retrying, toast } from '../ui.js';
 import * as router from '../router.js';
-import { openDetails } from './details.js';
+import { openDetails as openDetailsRaw } from './details.js';
 import { showRetry } from './recommended.js';
 import { t } from '../lib/i18n.js';
 import * as tr from '../lib/translate.js';
 
 const ROW_LIMIT = 20;
+
+// Tudo que abre daqui fica marcado como adulto (some do resto do app).
+function openDetails(type, id, opts) {
+  addons.markAdult(id);
+  openDetailsRaw(type, id, opts);
+}
+
+// Cartão do catálogo: vídeos com capa deitada (posterShape "landscape") usam o cartão largo.
+function itemCard(m, entry) {
+  const wide = m.posterShape === 'landscape' || (entry && entry.catalog.posterShape === 'landscape');
+  return card(m, { wide: wide, image: wide ? m.poster || m.background : undefined, onSelect: () => openDetails(m.type || entry.catalog.type, m.id) });
+}
 
 export function NsfwView() {
   const el = h('div.view.nsfw-view');
@@ -93,10 +105,11 @@ export function NsfwView() {
     list.forEach((addon) => {
       if (scope === 'all' && addons.adultAddons().length > 1) body.appendChild(h('div.nsfw-section', { text: addon.manifest.name || addon.manifest.id }));
       const entries = addons.adultCatalogs(addon);
+      // Categorias antes das fileiras: é o atalho mais usado, fica perto do topo.
+      genreStrip(entries);
       entries
         .filter((e) => addons.isBoardable(e.catalog) && !tr.isHiddenCategory(e.catalog.name || e.catalog.id))
         .forEach((e) => pending.push(Object.assign(catalogRow(e, body), { state: 'idle' })));
-      genreStrip(entries);
     });
     loadVisibleImages(el);
     loadNearby();
@@ -183,7 +196,7 @@ export function NsfwView() {
           .then((metas) => {
             if (my !== token || !metas.length) return;
             found++;
-            metas.slice(0, 30).forEach((m) => track.appendChild(card(m, { onSelect: () => openDetails(m.type || entry.catalog.type, m.id) })));
+            metas.slice(0, 30).forEach((m) => track.appendChild(itemCard(m, entry)));
             results.appendChild(row);
             loadVisibleImages(row);
           })
@@ -242,7 +255,7 @@ function catalogRow(entry, parent) {
           if (row.parentNode) row.parentNode.removeChild(row);
           return;
         }
-        metas.slice(0, ROW_LIMIT).forEach((m) => track.appendChild(card(m, { onSelect: () => openDetails(m.type || entry.catalog.type, m.id) })));
+        metas.slice(0, ROW_LIMIT).forEach((m) => track.appendChild(itemCard(m, entry)));
         if (metas.length > ROW_LIMIT)
           track.appendChild(
             h('div.card.see-all', { focusable: true, onSelect: () => router.push(GridView(entry, {})) }, [
@@ -285,7 +298,7 @@ function GridView(entry, extra) {
         const fresh = metas.filter((m) => !seen[m.id]);
         fresh.forEach((m) => {
           seen[m.id] = true;
-          grid.appendChild(card(m, { onSelect: () => openDetails(m.type || entry.catalog.type, m.id) }));
+          grid.appendChild(itemCard(m, entry));
         });
         if (!fresh.length) more.style.display = 'none';
         if (first && !fresh.length) grid.appendChild(h('div.hint', { text: t('Nada por aqui.') }));

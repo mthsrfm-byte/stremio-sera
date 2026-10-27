@@ -1,6 +1,6 @@
 {
   "version": "1.2.0",
-  "commit": "1324d4dd60d8cfa48e4a0ed0b1e7e85a120042ef",
-  "date": "2026-10-27T05:15:07+00:00",
-  "message": "NSFW tab: Portuguese category names, translated titles, hide Indian categories"
+  "commit": "decd4770113928023dbb8d674d32195bd5c709bd",
+  "date": "2026-10-27T05:17:08+00:00",
+  "message": "NSFW tab: bank-style PIN keypad (shuffled digit pairs), remote number keys, relock on background"
 }

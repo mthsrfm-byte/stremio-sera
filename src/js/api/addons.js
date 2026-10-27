@@ -124,10 +124,25 @@ function adultPrefixes() {
   return out;
 }
 
+// Ids abertos pela aba NSFW: cobre addon adulto sem idPrefixes (o id não diz de onde veio).
+let adultIds = null;
+function seenIds() {
+  if (!adultIds) adultIds = store.get('nsfwIds', []) || [];
+  return adultIds;
+}
+
+export function markAdult(id) {
+  const list = seenIds();
+  if (!id || list.indexOf(id) >= 0) return;
+  list.push(id);
+  if (list.length > 2000) list.splice(0, list.length - 2000);
+  store.set('nsfwIds', list);
+}
+
 // Item (biblioteca, continuar assistindo) que veio de um addon adulto.
 export function isAdultId(id) {
   const s = String(id || '');
-  return adultPrefixes().some((p) => s.indexOf(p) === 0);
+  return seenIds().indexOf(s) >= 0 || adultPrefixes().some((p) => s.indexOf(p) === 0);
 }
 
 // Catálogos de um addon adulto, separados em fileiras (sem extra obrigatório) e busca.

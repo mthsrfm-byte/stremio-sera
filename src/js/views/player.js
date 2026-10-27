@@ -6,7 +6,8 @@ import * as subs from '../lib/subs.js';
 import * as substyle from '../lib/substyle.js';
 import * as store from '../lib/store.js';
 import { log } from '../lib/log.js';
-import { getText } from '../lib/http.js';
+import { getText, getJSON } from '../lib/http.js';
+import * as si from '../lib/streaminfo.js';
 import * as server from '../api/server.js';
 import * as addons from '../api/addons.js';
 import * as stremio from '../api/stremio.js';
@@ -17,6 +18,8 @@ import { sortedVideos, openDetails } from './details.js';
 import { t } from '../lib/i18n.js';
 
 const HIDE_MS = 5000;
+const SLOW_MS = 40000; // sem começar a tocar depois disso: oferece outro provedor
+const SLOW_COUNTDOWN = 5;
 const SAVE_MS = 15000;
 const LANG_NAMES = {
   por: 'Português', pob: 'Português (BR)', pt: 'Português', 'pt-br': 'Português (BR)', eng: 'Inglês', en: 'Inglês',
@@ -45,6 +48,7 @@ function PlayerView(opts) {
   const subsEl = h('div.subs');
   const titleEl = h('div.p-title');
   const clockEl = h('div.p-clock');
+  const qualityBtn = h('div.btn.p-quality', { focusable: true, onSelect: () => toggleQuality() });
   const posEl = h('div.pos');
   const bufEl = h('div.buf');
   const knobEl = h('div.knob');
@@ -64,7 +68,7 @@ function PlayerView(opts) {
   const skipBtn = h('div.btn', { focusable: true, onSelect: () => doSkip() });
   const skipBox = h('div.p-skip', null, [skipBtn, h('div.bar', null, skipFill)]);
   const overlay = h('div.p-overlay', null, [
-    h('div.p-top', null, [titleEl, clockEl]),
+    h('div.p-top', null, [titleEl, h('div.p-top-right', { 'data-group': '' }, [qualityBtn, clockEl])]),
     h('div.p-bottom', null, [bar, h('div.p-times', null, [curTimeEl, h('div.spacer'), durEl]), buttons]),
   ]);
   const el = h('div.view.player', null, [videoEl, subsEl, overlay, skipBox, spinner, msgEl]);
@@ -92,6 +96,9 @@ function PlayerView(opts) {
   let currentSub = { kind: 'off' };
   let currentAudio = null;
   let triedTranscode = false;
+  let slowTimer = null;
+  let slowModal = null;
+  const tried = [opts.stream];
 
   const seriesInfo = () => (opts.isSeries ? { season: video.season, episode: video.episode } : null);
 
@@ -111,6 +118,8 @@ function PlayerView(opts) {
   // ---------- Carregamento ----------
   function start() {
     setTitle();
+    updateQuality();
+    armSlow();
     showSpinner(true);
     message('');
     embedded = null;
@@ -224,7 +233,10 @@ function PlayerView(opts) {
     updateTimes();
     loadSegments();
   });
+  videoEl.addEventListener('loadedmetadata', () => updateQuality());
   videoEl.addEventListener('playing', () => {
+    clearTimeout(slowTimer);
+    closeSlow();
     if (!hasPlayed) scheduleAudioPick();
     hasPlayed = true;
     showSpinner(false);
@@ -469,6 +481,8 @@ function PlayerView(opts) {
   }
 
   function fail(text, offerTranscode) {
+    clearTimeout(slowTimer);
+    closeSlow();
     showSpinner(false);
     const box = h('div', null, [text, h('small', { text: t('Tente outra fonte (de preferência MP4/MKV com H.264 ou HEVC e áudio AAC/AC3).') })]);
     clear(msgEl);
@@ -802,13 +816,142 @@ function PlayerView(opts) {
         const s = opts.streams[i];
         if (!s || s === stream) return;
         if (server.needsServer(s) && !server.isAvailable()) return toast(t('Essa fonte precisa do servidor do PC.'));
-        saveProgress();
-        pendingStart = videoEl.currentTime * 1000;
-        stream = s;
-        triedTranscode = false;
-        autoDone = { sub: false, audio: false };
-        start();
+        switchTo(s);
       },
+    });
+  }
+
+  // Troca de fonte no mesmo ponto do vídeo.
+  function switchTo(s) {
+    saveProgress();
+    if (videoEl.currentTime > 1) pendingStart = videoEl.currentTime * 1000;
+    stream = s;
+    if (tried.indexOf(s) < 0) tried.push(s);
+    triedTranscode = false;
+    autoDone = { sub: false, audio: false };
+    start();
+  }
+
+  // ---------- Qualidade (4K ⇄ 1080p) ----------
+  function currentRes() {
+    const hgt = videoEl.videoHeight;
+    if (hgt >= 1800) return '4K';
+    if (hgt >= 1000) return '1080p';
+    if (hgt >= 700) return '720p';
+    if (hgt > 0) return 'SD';
+    return si.parse(stream).res || '';
+  }
+
+  function updateQuality() {
+    const cur = currentRes();
+    const target = cur === '4K' ? '1080p' : '4K';
+    const alt = si.bestAt(opts.streams || [], target, server.isAvailable(), stream);
+    qualityBtn.innerHTML = '<b>' + (cur || 'Auto') + '</b>' + (alt ? '<small>' + t('trocar p/ {res}', { res: target }) + '</small>' : '');
+    qualityBtn.classList.toggle('no-alt', !alt);
+  }
+
+  function toggleQuality() {
+    const cur = currentRes();
+    const target = cur === '4K' ? '1080p' : '4K';
+    const alt = si.bestAt(opts.streams || [], target, server.isAvailable(), stream);
+    if (!alt) return toast(t('Nenhuma fonte em {res} para este título.', { res: target }));
+    toast(t('Trocando para {res}...', { res: target }));
+    switchTo(alt);
+  }
+
+  // ---------- Demorando para carregar: oferece outro provedor ----------
+  function armSlow() {
+    clearTimeout(slowTimer);
+    closeSlow();
+    slowTimer = setTimeout(() => {
+      if (alive && !hasPlayed) slowPrompt();
+    }, SLOW_MS);
+  }
+
+  function closeSlow() {
+    if (!slowModal) return;
+    clearInterval(slowModal.timer);
+    nav.popLayer(slowModal.layer);
+    if (slowModal.el.parentNode) slowModal.el.parentNode.removeChild(slowModal.el);
+    slowModal = null;
+  }
+
+  function slowPrompt() {
+    closeSlow();
+    let left = SLOW_COUNTDOWN;
+    const goBtn = h('div.btn.primary', { focusable: true, onSelect: () => (closeSlow(), tryAnother()) });
+    const waitBtn = h('div.btn', { focusable: true, text: t('Esperar mais'), onSelect: () => armSlow() });
+    const label = () => (goBtn.textContent = t('Tentar outro ({n}s)', { n: left }));
+    label();
+    const box = h('div.modal-box.center.slow-box', null, [
+      h('h3', { text: t('Está demorando… tentar outro provedor?') }),
+      h('p.modal-text', { text: t('Se você não escolher nada, tento outra fonte sozinho.') }),
+      h('div.modal-actions', { 'data-group': '' }, [goBtn, waitBtn]),
+    ]);
+    const modal = h('div.modal', null, box);
+    el.appendChild(modal);
+    const layer = nav.pushLayer(modal, { onBack: () => armSlow() });
+    nav.focus(goBtn);
+    const timer = setInterval(() => {
+      left--;
+      if (left > 0) return label();
+      closeSlow();
+      tryAnother();
+    }, 1000);
+    slowModal = { el: modal, layer: layer, timer: timer };
+  }
+
+  // Antes de trocar, confere a conexão: se a internet (ou o servidor do PC, no torrent) caiu,
+  // trocar de fonte não adianta.
+  function connectionOk() {
+    const net = getJSON(addons.CINEMETA, { timeout: 7000 }).then(
+      () => true,
+      () => false
+    );
+    const srv = server.needsServer(stream) ? server.check().then((r) => !!(r && r.ok), () => false) : Promise.resolve(true);
+    return Promise.all([net, srv]).then((r) => ({ internet: r[0], server: r[1] }));
+  }
+
+  function tryAnother() {
+    showSpinner(true);
+    message(t('Testando a conexão...'));
+    connectionOk().then((c) => {
+      if (!alive || hasPlayed) return;
+      if (!c.internet || !c.server) {
+        message('');
+        showSpinner(false);
+        menu(
+          !c.internet ? t('A internet da TV parece fora do ar') : t('O servidor do PC não está respondendo'),
+          [
+            { label: t('Esperar e tentar de novo'), sub: t('Reabre a mesma fonte'), value: 'retry', checked: true },
+            { label: t('Escolher outra fonte'), value: 'src' },
+            { label: t('Voltar'), value: 'back' },
+          ],
+          {
+            center: true,
+            onPick: (v) => {
+              if (v === 'retry') switchTo(stream);
+              else if (v === 'src') sourcesMenu();
+              else router.pop();
+            },
+          }
+        );
+        return;
+      }
+      // Próxima fonte: a melhor (Smart Choice) entre as que ainda não foram tentadas,
+      // preferindo a mesma resolução.
+      const rest = (opts.streams || []).filter((x) => tried.indexOf(x) < 0);
+      const res = si.parse(stream).res;
+      const same = rest.filter((x) => si.parse(x).res === res);
+      const pick = si.smartPick(same, server.isAvailable()) || si.smartPick(rest, server.isAvailable());
+      if (!pick) {
+        message('');
+        fail(t('Nenhuma outra fonte disponível para tentar.'));
+        return;
+      }
+      const info = si.parse(pick.stream);
+      toast(t('Tentando: {what}', { what: si.summary(info) || info.addon }), 3500);
+      switchTo(pick.stream);
     });
   }
 
@@ -906,7 +1049,7 @@ function PlayerView(opts) {
         return true;
       }
       if (k === KEY.UP) {
-        hideControls();
+        nav.focus(qualityBtn, { noScroll: true });
         return true;
       }
     }
@@ -951,6 +1094,8 @@ function PlayerView(opts) {
       clearInterval(statusTimer);
       clearTimeout(hideTimer);
       clearTimeout(seekCommitTimer);
+      clearTimeout(slowTimer);
+      closeSlow();
       try {
         videoEl.pause();
         videoEl.removeAttribute('src');
