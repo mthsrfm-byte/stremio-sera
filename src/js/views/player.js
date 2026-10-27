@@ -230,8 +230,10 @@ function PlayerView(opts) {
   function tryAutoSub(ranked, i, forUrl) {
     if (!alive || forUrl !== mediaUrl || currentSub.kind !== 'off') return; // usuário já escolheu algo
     if (i >= ranked.length) {
-      log.warn('Nenhuma legenda passou na conferência');
-      toast(t('Nenhuma legenda confiável para este arquivo. Escolha uma no menu de legendas.'), 5000);
+      // Nenhuma passou: volta ao padrão do app (a primeira no idioma preferido) e avisa que dá para trocar.
+      log.warn('Nenhuma legenda passou na conferência; usando a padrão');
+      selectAddonSub(ranked[0], true);
+      toast(t('Legenda pode não bater com este arquivo. Troque no menu de legendas.'), 5000);
       return;
     }
     const s = ranked[i];
@@ -784,11 +786,9 @@ function PlayerView(opts) {
       );
     }
     const pref = (settings.subtitleLangs || []).map((x) => x.toLowerCase());
-    const sorted = (addonSubs || []).slice().sort((a, b) => {
-      const ia = pref.indexOf(String(a.lang).toLowerCase());
-      const ib = pref.indexOf(String(b.lang).toLowerCase());
-      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
-    });
+    // Melhores candidatas primeiro (mesma ordem da escolha automática); o resto vem depois.
+    const best = subpick.rank(addonSubs, pref, fileInfo || {}, seriesInfo());
+    const sorted = best.concat((addonSubs || []).filter((s) => best.indexOf(s) < 0));
     sorted.slice(0, 60).forEach((s) =>
       opts2.push({
         label: langName(s.lang),
