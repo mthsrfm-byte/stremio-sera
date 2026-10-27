@@ -1,5 +1,6 @@
 import AppKit
 import Darwin
+import WebKit
 
 /// Diagnóstico rápido do player real, sem UI web, servidor, Sparkle ou FFmpeg.
 @main
@@ -28,10 +29,23 @@ struct PlayerProbe {
         let started = Date()
         var stage = "player-init"
         do {
+            var overlay: WKWebView?
+            if CommandLine.arguments.contains("--web-overlay") {
+                // Reproduz o caso em que o usuário já navegou na home antes de tocar.
+                let web = ProbeOverlayWebView(frame: window.contentView!.bounds)
+                web.autoresizingMask = [.width, .height]
+                web.setValue(false, forKey: "drawsBackground")
+                window.contentView!.addSubview(web)
+                web.loadHTMLString("<html><body style='margin:0;background:transparent;color:white'><p>Controles Seraflix</p></body></html>", baseURL: nil)
+                RunLoop.main.run(until: Date().addingTimeInterval(2))
+                overlay = web
+            }
             let player = try MPVPlayer()
             player.view.frame = window.contentView!.bounds
             player.view.autoresizingMask = [.width, .height]
-            window.contentView!.addSubview(player.view)
+            if let overlay {
+                window.contentView!.addSubview(player.view, positioned: .below, relativeTo: overlay)
+            } else { window.contentView!.addSubview(player.view) }
             guard let index = CommandLine.arguments.firstIndex(of: "--video"),
                   CommandLine.arguments.indices.contains(index + 1) else {
                 player.shutdown()
@@ -53,11 +67,13 @@ struct PlayerProbe {
             func finish(_ error: String?) {
                 guard !finished else { return }
                 finished = true
+                let renderDiagnostics = player.renderDiagnostics
                 player.shutdown()
                 window.orderOut(nil)
                 report(["ok": error == nil, "stage": stage, "seconds": Date().timeIntervalSince(started),
                         "loaded": loaded, "advanced": advanced, "pixelNonBlack": rendered,
                         "renderer": renderer, "audioTracks": audioTracks, "subtitleTracks": subtitleTracks,
+                        "renderDiagnostics": renderDiagnostics,
                         "error": error ?? "", "logs": logs, "os": ProcessInfo.processInfo.operatingSystemVersionString])
                 exit(error == nil ? 0 : 1)
             }
@@ -94,4 +110,8 @@ struct PlayerProbe {
             exit(1)
         }
     }
+}
+
+private final class ProbeOverlayWebView: WKWebView {
+    override var isOpaque: Bool { false }
 }

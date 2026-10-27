@@ -60,6 +60,7 @@ jobs:
           PROBE_FAILED=0
           scripts/test-player-init.sh http://127.0.0.1:18766/mpeg4-smoke.mp4 mpeg4 2>&1 | tee artifacts/player-probe-mpeg4.log || PROBE_FAILED=1
           scripts/test-player-init.sh http://127.0.0.1:18766/hevc-4k-tracks.mkv hevc 2>&1 | tee artifacts/player-probe-hevc.log || PROBE_FAILED=1
+          scripts/test-player-init.sh http://127.0.0.1:18766/mpeg4-smoke.mp4 web-overlay --web-overlay 2>&1 | tee artifacts/player-probe-web-overlay.log || PROBE_FAILED=1
           exit "$PROBE_FAILED"
       - name: Guardar diagnóstico mesmo em falha
         if: always()

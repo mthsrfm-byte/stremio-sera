@@ -14,6 +14,27 @@ final class MPVPlayer {
     private var handle: OpaquePointer?
     private var renderContext: OpaquePointer?
     private var drawing = false
+    private var drawCalls = 0
+    private var renderUpdates = 0
+    private var fboBefore: GLint = 0
+    private var fboAfter: GLint = 0
+    private var targetFBO: GLint = 0
+    private var lastViewport = [GLint](repeating: 0, count: 4)
+    private var lastGLError: GLenum = 0
+    private var lastRenderStatus: Int32 = -9999
+    private var appKitContextMatches = false
+
+    /// Evidência de renderização para o diagnóstico; não passa pixels pela ponte.
+    var renderDiagnostics: [String: Any] {
+        ["drawCalls": drawCalls, "renderUpdates": renderUpdates, "frameCount": frameCount,
+         "contextHasView": surface.openGLContext?.view != nil,
+         "contextIsCurrent": surface.openGLContext?.cglContextObj == CGLGetCurrentContext(),
+         "appKitContextMatches": appKitContextMatches, "layerBacked": surface.wantsLayer,
+         "visibleRect": NSStringFromRect(surface.visibleRect),
+         "viewport": lastViewport.map { Int($0) }, "glError": Int(lastGLError),
+         "lastRenderStatus": Int(lastRenderStatus), "fboBefore": Int(fboBefore),
+         "fboAfter": Int(fboAfter), "targetFBO": Int(targetFBO)]
+    }
     private var callbackContext: UnsafeMutableRawPointer?
     private var closed = false
     private var loaded = false
@@ -221,11 +242,15 @@ final class MPVPlayer {
                     guard let player = callback?.player, !player.closed,
                           let renderer = player.renderContext else { return }
                     if mpv_render_context_update(renderer) & UInt64(MPV_RENDER_UPDATE_FRAME.rawValue) != 0 {
+                        player.renderUpdates += 1
                         // A WKWebView pode ocultar a surface para o rastreamento de
                         // oclusão do AppKit, mesmo com pixels transparentes. Forçar
                         // a pintura pelo AppKit para preservar o foco/drawable do
                         // NSOpenGLView; makeCurrentContext sozinho não faz esse preparo.
+                        player.surface.needsDisplay = true
+                        player.surface.layer?.setNeedsDisplay()
                         player.surface.displayIgnoringOpacity(player.surface.bounds)
+                        player.surface.layer?.displayIfNeeded()
                     }
                 }
             }, callbackContext)
@@ -235,18 +260,31 @@ final class MPVPlayer {
     fileprivate func draw() {
         guard !closed, !drawing, let context = surface.openGLContext else { return }
         drawing = true
+        drawCalls += 1
         defer { drawing = false }
+        appKitContextMatches = context.cglContextObj == CGLGetCurrentContext()
+        context.makeCurrentContext()
+        // NSOpenGLView com layer usa um FBO do compositor; 0 só é correto no
+        // drawable tradicional. Capturar o alvo antes de o mpv alterar GL state.
+        glGetIntegerv(GLenum(GL_DRAW_FRAMEBUFFER_BINDING), &fboBefore)
+        glGetIntegerv(GLenum(GL_VIEWPORT), &lastViewport)
+        if fboBefore != 0 { targetFBO = fboBefore }
+        else if !surface.wantsLayer || glIsFramebuffer(GLuint(targetFBO)) == 0 { targetFBO = 0 }
         do { try prepareRenderer() }
         catch { emitFailure(error.localizedDescription); return }
-        context.makeCurrentContext()
         let rect = surface.convertToBacking(surface.bounds)
-        guard rect.width >= 1, rect.height >= 1, let renderer = renderContext else { return }
-        let status = sera_mpv_render(renderer, Int32(rect.width), Int32(rect.height))
+        let width = surface.wantsLayer && lastViewport[2] > 0 ? lastViewport[2] : Int32(rect.width)
+        let height = surface.wantsLayer && lastViewport[3] > 0 ? lastViewport[3] : Int32(rect.height)
+        guard width > 0, height > 0, let renderer = renderContext else { return }
+        let status = sera_mpv_render(renderer, targetFBO, width, height)
+        lastRenderStatus = status
+        glGetIntegerv(GLenum(GL_DRAW_FRAMEBUFFER_BINDING), &fboAfter)
         // Apenas o smoke lê a GPU: comprova pixels não pretos no framebuffer do
         // mpv. Não comprova a composição final da WKWebView nem fidelidade HDR.
         let current = status >= 0 && acceptingMedia && loaded && activeSession == session
         let pixelNonBlack = smokeRendering && current && !renderedForSession
-            ? sampleNonBlack(width: Int32(rect.width), height: Int32(rect.height)) : false
+            ? sampleNonBlack(fbo: targetFBO, width: width, height: height) : false
+        if smokeRendering { lastGLError = glGetError() }
         context.flushBuffer()
         mpv_render_context_report_swap(renderer)
         if current {
@@ -267,12 +305,23 @@ final class MPVPlayer {
         }
     }
 
-    private func sampleNonBlack(width: Int32, height: Int32) -> Bool {
+    private func sampleNonBlack(fbo: GLint, width: Int32, height: Int32) -> Bool {
         let sampleWidth = min(width, 8)
         let sampleHeight = min(height, 8)
         var pixels = [UInt8](repeating: 0, count: Int(sampleWidth * sampleHeight * 4))
-        glBindFramebuffer(GLenum(GL_READ_FRAMEBUFFER), 0)
-        glReadBuffer(GLenum(GL_BACK))
+        var previousFBO: GLint = 0
+        var previousBuffer: GLint = 0
+        glGetIntegerv(GLenum(GL_READ_FRAMEBUFFER_BINDING), &previousFBO)
+        glGetIntegerv(GLenum(GL_READ_BUFFER), &previousBuffer)
+        glBindFramebuffer(GLenum(GL_READ_FRAMEBUFFER), GLuint(fbo))
+        var targetPreviousBuffer: GLint = 0
+        glGetIntegerv(GLenum(GL_READ_BUFFER), &targetPreviousBuffer)
+        glReadBuffer(GLenum(fbo == 0 ? GL_BACK : GL_COLOR_ATTACHMENT0))
+        defer {
+            glReadBuffer(GLenum(targetPreviousBuffer))
+            glBindFramebuffer(GLenum(GL_READ_FRAMEBUFFER), GLuint(previousFBO))
+            glReadBuffer(GLenum(previousBuffer))
+        }
         pixels.withUnsafeMutableBytes { bytes in
             glReadPixels((width - sampleWidth) / 2, (height - sampleHeight) / 2,
                          sampleWidth, sampleHeight, GLenum(GL_RGBA), GLenum(GL_UNSIGNED_BYTE), bytes.baseAddress)
@@ -528,6 +577,8 @@ private final class MPVSurface: NSOpenGLView {
         guard let format = NSOpenGLPixelFormat(attributes: accelerated)
             ?? NSOpenGLPixelFormat(attributes: base) else { return nil }
         super.init(frame: .zero, pixelFormat: format)
+        // Compor no mesmo sistema de layers da WKWebView sobreposta.
+        wantsLayer = true
         wantsBestResolutionOpenGLSurface = true
     }
 

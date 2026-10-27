@@ -20,8 +20,8 @@ static inline int sera_mpv_render_create(mpv_render_context **render, mpv_handle
     return mpv_render_context_create(render, mpv, params);
 }
 
-static inline int sera_mpv_render(mpv_render_context *render, int width, int height) {
-    mpv_opengl_fbo fbo = { .fbo = 0, .w = width, .h = height, .internal_format = 0 };
+static inline int sera_mpv_render(mpv_render_context *render, int target_fbo, int width, int height) {
+    mpv_opengl_fbo fbo = { .fbo = target_fbo, .w = width, .h = height, .internal_format = 0 };
     int flip = 1;
     /* Não bloquear o loop AppKit esperando o relógio do vídeo. O swap usa vsync. */
     int block = 0;

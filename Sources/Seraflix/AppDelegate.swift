@@ -271,6 +271,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         smokeFinished = true
         let result: [String: Any] = ["ok": error == nil, "home": smokeHome, "player": player != nil,
                                      "loaded": smokeLoaded, "advanced": smokeAdvanced, "rendered": smokeRendered,
+                                     "renderDiagnostics": player?.renderDiagnostics ?? [:],
                                      "renderer": smokeRenderer, "playerStartupError": playerStartupError ?? "", "logs": smokeLogs,
                                      "homeSeconds": smokeHomeSeconds, "serverRestarts": max(0, smokeServerReadyCount - 1),
                                      "serverRestarted": smokeServerRestarted, "tracksSelected": smokeTracksSelected, "error": error ?? ""]
