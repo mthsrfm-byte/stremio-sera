@@ -6298,6 +6298,112 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return base ? base + "subtitles.vtt?from=" + encodeURIComponent(subUrl) : null;
   }
 
+  // src/js/api/update.js
+  var REPO = "mthsrfm-byte/stremio-sera";
+  var REPO_URL = "https://github.com/" + REPO;
+  var VERSION = "1.2.0";
+  var BUILD = {
+    commit: "cb440b605c753397e0628b661a2b35b7367ad87c",
+    date: "2026-10-27T08:00:21+00:00",
+    message: "Build da dist/ para a TV"
+  };
+  var MODULE_PREFIX = "/module/";
+  function formatDate(iso) {
+    var d = new Date(iso);
+    if (!iso || isNaN(d.getTime())) return "";
+    var p = function p(n) {
+      return (n < 10 ? "0" : "") + n;
+    };
+    return p(d.getDate()) + "/" + p(d.getMonth() + 1) + "/" + d.getFullYear() + " às " + p(d.getHours()) + ":" + p(d.getMinutes());
+  }
+  function shortCommit(sha) {
+    return String(sha || "").slice(0, 7);
+  }
+  function check2() {
+    return getJSON("https://api.github.com/repos/" + REPO + "/commits/main", {
+      timeout: 15e3,
+      quiet: true,
+      headers: {
+        Accept: "application/vnd.github+json"
+      }
+    }).then(function (c) {
+      return getJSON("https://cdn.jsdelivr.net/gh/" + REPO + "@" + c.sha + "/dist/build.json", {
+        timeout: 15e3,
+        quiet: true
+      }).then(function (b) {
+        return {
+          sha: c.sha,
+          commit: b.commit,
+          date: b.date,
+          message: b.message,
+          version: b.version,
+          isNew: !!b.commit && b.commit !== BUILD.commit
+        };
+      });
+    });
+  }
+  function install2(info) {
+    ["package.json", "dist/index.html", "dist/app.js", "dist/app.css", "dist/build.json"].forEach(function (f) {
+      try {
+        var x = new XMLHttpRequest();
+        x.open("GET", "https://purge.jsdelivr.net/gh/" + REPO + "/" + f, true);
+        x.send();
+      } catch (e) {}
+    });
+    setTimeout(function () {
+      var loc = window.location;
+      if (loc.pathname.indexOf(MODULE_PREFIX) === 0) {
+        var rest = loc.pathname.slice(MODULE_PREFIX.length);
+        var file = rest.slice(rest.indexOf("/") + 1);
+        loc.href = loc.protocol + "//" + loc.host + MODULE_PREFIX + encodeURIComponent("gh/" + REPO + "@" + info.sha) + "/" + file;
+      } else {
+        loc.reload();
+      }
+    }, 1500);
+  }
+
+  // src/js/api/tizenbrew.js
+  var START_SERVICE = 6;
+  var SERVICE_FILE = "remote/tv-service.js";
+  var asked = false;
+  function latestSha() {
+    return getJSON("https://api.github.com/repos/" + REPO + "/commits/main", {
+      timeout: 1e4,
+      quiet: true,
+      headers: {
+        Accept: "application/vnd.github+json"
+      }
+    }).then(function (c) {
+      return c && c.sha || BUILD.commit;
+    }, function () {
+      return BUILD.commit;
+    });
+  }
+  function startPinnedService() {
+    if (asked || typeof WebSocket === "undefined") return;
+    asked = true;
+    latestSha().then(function (sha) {
+      if (!sha) return;
+      try {
+        var ws = new WebSocket("ws://127.0.0.1:8081");
+        ws.onopen = function () {
+          ws.send(JSON.stringify({
+            type: START_SERVICE,
+            payload: {
+              fullName: "gh/" + REPO + "@" + sha,
+              serviceFile: SERVICE_FILE
+            }
+          }));
+          log.info("TizenBrew: serviço pedido no commit", sha.slice(0, 7));
+          setTimeout(function () {
+            return ws.close();
+          }, 1e3);
+        };
+        ws.onerror = function () {};
+      } catch (e) {}
+    });
+  }
+
   // src/js/api/addons.js
   var CINEMETA = "https://v3-cinemeta.strem.io/manifest.json";
   var OPENSUBTITLES = "https://opensubtitles-v3.strem.io/manifest.json";
@@ -6405,6 +6511,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         return tubeState = "old";
       }, function () {
         return tubeState = "off";
+      }).then(function () {
+        if (tubeState === "old" || tubeTries >= 3) startPinnedService();
       }).then(function () {
         return tubeState !== before && addons && changed(addons);
       });
@@ -7743,8 +7851,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return m ? m[0] : null;
   }
   var BUILTIN_KEYS = {
-    tmdbKey: true ? "9c57ed7ea044b2f01eea2fcc2e954c2e" : "",
-    mdblistKey: true ? "t9e4f1z29b3c36i1j25rul1wx" : ""
+    tmdbKey: true ? "" : "",
+    mdblistKey: true ? "" : ""
   };
   function keyOf(name) {
     return (settings()[name] || "").trim() || BUILTIN_KEYS[name];
@@ -13166,7 +13274,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     function emptyHint() {
       var st = tubeStatus();
       if (st === "searching") return t("Procurando os provedores no serviço da TV...");
-      if (st === "old") return t("O serviço da TV está numa versão antiga e não tem os provedores. Desligue a TV da tomada por 30 segundos e abra o Seraflix de novo.");
+      if (st === "old") return t("O serviço da TV está numa versão antiga. Já pedi ao TizenBrew a versão nova; os provedores aparecem aqui em alguns segundos.");
       return t("O serviço do Seraflix na TV não respondeu. Abra o TizenBrew, confira se o Seraflix está na lista de serviços e abra o app de novo. Continuo procurando.");
     }
     var lastKey = null;
@@ -13516,70 +13624,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         return bar.__destroy && bar.__destroy();
       }
     };
-  }
-
-  // src/js/api/update.js
-  var REPO = "mthsrfm-byte/stremio-sera";
-  var REPO_URL = "https://github.com/" + REPO;
-  var VERSION = "1.2.0";
-  var BUILD = {
-    commit: "63c4986824aa36c4dde8644eb307dd28041d3370",
-    date: "2026-10-27T07:55:38Z",
-    message: "Refina animações da versão web"
-  };
-  var MODULE_PREFIX = "/module/";
-  function formatDate(iso) {
-    var d = new Date(iso);
-    if (!iso || isNaN(d.getTime())) return "";
-    var p = function p(n) {
-      return (n < 10 ? "0" : "") + n;
-    };
-    return p(d.getDate()) + "/" + p(d.getMonth() + 1) + "/" + d.getFullYear() + " às " + p(d.getHours()) + ":" + p(d.getMinutes());
-  }
-  function shortCommit(sha) {
-    return String(sha || "").slice(0, 7);
-  }
-  function check2() {
-    return getJSON("https://api.github.com/repos/" + REPO + "/commits/main", {
-      timeout: 15e3,
-      quiet: true,
-      headers: {
-        Accept: "application/vnd.github+json"
-      }
-    }).then(function (c) {
-      return getJSON("https://cdn.jsdelivr.net/gh/" + REPO + "@" + c.sha + "/dist/build.json", {
-        timeout: 15e3,
-        quiet: true
-      }).then(function (b) {
-        return {
-          sha: c.sha,
-          commit: b.commit,
-          date: b.date,
-          message: b.message,
-          version: b.version,
-          isNew: !!b.commit && b.commit !== BUILD.commit
-        };
-      });
-    });
-  }
-  function install2(info) {
-    ["package.json", "dist/index.html", "dist/app.js", "dist/app.css", "dist/build.json"].forEach(function (f) {
-      try {
-        var x = new XMLHttpRequest();
-        x.open("GET", "https://purge.jsdelivr.net/gh/" + REPO + "/" + f, true);
-        x.send();
-      } catch (e) {}
-    });
-    setTimeout(function () {
-      var loc = window.location;
-      if (loc.pathname.indexOf(MODULE_PREFIX) === 0) {
-        var rest = loc.pathname.slice(MODULE_PREFIX.length);
-        var file = rest.slice(rest.indexOf("/") + 1);
-        loc.href = loc.protocol + "//" + loc.host + MODULE_PREFIX + encodeURIComponent("gh/" + REPO + "@" + info.sha) + "/" + file;
-      } else {
-        loc.reload();
-      }
-    }, 1500);
   }
 
   // src/js/lib/intro.js
