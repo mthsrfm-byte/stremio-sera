@@ -6473,7 +6473,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return list().filter(isAdult);
   }
   function nsfwEnabled() {
-    return settings().nsfwTab !== false && adultAddons().length > 0;
+    return settings().nsfwTab !== false;
   }
   function adultPrefixes() {
     var out = [];
@@ -12915,7 +12915,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       });
       if (!list3.length) {
         body.appendChild(h("div.hint", {
-          text: t("Nenhum addon adulto encontrado. Marque um addon em Ajustes › NSFW.")
+          text: t("Nenhum provedor adulto disponível ainda. Eles aparecem aqui quando estiverem instalados ou com o serviço da TV no ar.")
         }));
         return;
       }
@@ -13469,9 +13469,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "edef805f3f654f4263b9eaeb72c9e86c06d22399",
-    date: "2026-10-27T07:14:41+00:00",
-    message: "Build da dist/ para a TV"
+    commit: "82a7cbf7dda81e5c1c3ed5468bb52d7cf59ae827",
+    date: "2026-10-27T07:22:24+00:00",
+    message: "NSFW tab always available (hidden only when disabled in Settings); empty state explains when providers appear"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -14028,7 +14028,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           return requirePin(fn);
         };
       };
-      body.appendChild(row(t("Mostrar aba NSFW"), adult.length ? t("Conteúdo adulto fica só nela, fora do Início, Busca e Biblioteca") : t("Aparece quando houver um addon adulto"), "", guarded(function () {
+      body.appendChild(row(t("Mostrar aba NSFW"), t("Conteúdo adulto fica só nela, fora do Início, Busca e Biblioteca"), "", guarded(function () {
         saveSettings({
           nsfwTab: settings().nsfwTab === false
         });
