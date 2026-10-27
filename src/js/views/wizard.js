@@ -9,6 +9,7 @@ import { toast, refreshProfileChips } from '../ui.js';
 import * as router from '../router.js';
 import { openLogin } from './login.js';
 import { t } from '../lib/i18n.js';
+import { IS_WEB } from '../lib/platform.js';
 
 export function maybeShowWizard() {
   const s = store.settings();
@@ -40,7 +41,8 @@ function WizardView() {
   }
 
   // Instalação nova: o primeiro passo é dar nome ao perfil.
-  const steps = (store.activeProfile().unnamed ? [stepName] : []).concat([stepAccount, stepServer, stepSubs]);
+  // No navegador não há servidor a configurar: o stremio-service do próprio PC é usado direto.
+  const steps = (store.activeProfile().unnamed ? [stepName] : []).concat([stepAccount], IS_WEB ? [] : [stepServer], [stepSubs]);
 
   function render() {
     clear(card);

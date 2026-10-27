@@ -432,13 +432,13 @@ export function SettingsView() {
         render();
       });
     };
-    body.appendChild(
+    if (!IS_WEB) body.appendChild(
       h('div.set-row', { focusable: true, onSelect: () => nav.select(urlInput) }, [
         h('div.label', null, [t('Endereço do PC'), h('small', { text: t('Rode o stremio-service no PC (porta 11470). Status: {s}', { s: stText }) })]),
         urlInput,
       ])
     );
-    body.appendChild(
+    if (!IS_WEB) body.appendChild(
       row(t('Procurar na rede'), t('Varre a rede local atrás do servidor'), '', () => {
         toast(t('Procurando servidor na rede...'), 20000);
         server
