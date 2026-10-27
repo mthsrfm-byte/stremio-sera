@@ -1,6 +1,6 @@
 {
   "version": "1.2.0",
-  "commit": "5242027900324547b76e183ec43faf15ef18df0d",
-  "date": "2026-10-27T05:55:00+00:00",
-  "message": "Smart Choice opens the player instantly, resume dialog redesign with Do inicio button, broader adult add-on detection with live tab refresh"
+  "commit": "22d3ebcdc9a49fb1389664af22c7bce576050979",
+  "date": "2026-10-27T05:58:00+00:00",
+  "message": "Smart Choice goes straight to the player with an intro transition; no sources list in the way; Streamings switch fade; remove quality toggle"
 }

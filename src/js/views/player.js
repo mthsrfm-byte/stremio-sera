@@ -80,11 +80,14 @@ function PlayerView(opts) {
   const introLogo = h('img.pi-logo', { alt: '' });
   const introTitle = h('div.pi-title', { text: meta.name || '' });
   const introSub = h('div.pi-sub');
-  const introStatus = h('div.pi-status');
+  // Centro: círculo, o que está acontecendo (destaque) e o contexto (menor). Título no canto.
+  const introStatus = h('div.pi-main');
+  const introCaption = h('div.pi-caption');
   const intro = h('div.p-intro', null, [
     introBg,
     h('div.pi-shade'),
-    h('div.pi-info', null, [introLogo, introTitle, introSub, h('div.pi-line', null, h('i')), introStatus]),
+    h('div.pi-center', null, [h('div.pi-ring'), introStatus, introCaption]),
+    h('div.pi-info', null, [introLogo, introTitle, introSub]),
   ]);
   const el = h('div.view.player.intro-on', null, [videoEl, subsEl, overlay, skipBox, spinner, msgEl, intro]);
 
@@ -189,7 +192,8 @@ function PlayerView(opts) {
       stream = s;
       tried.push(s);
       const info = si.parse(s);
-      introStatus.textContent = t('Smart Choice: {what}', { what: si.summary(info) || info.addon });
+      introStatus.textContent = t('Preparando o vídeo');
+      introCaption.innerHTML = '<b>✦</b>' + t('Smart Choice') + ' · ' + escapeHtml(si.summary(info) || info.addon);
       start();
     });
   }
@@ -709,7 +713,8 @@ function PlayerView(opts) {
     };
     introLogo.src = meta.logo || hero.logo(meta.id);
     introSub.textContent = opts.isSeries ? 'T' + video.season + ' E' + video.episode + ' · ' + (video.namePt || video.name || video.title || '') : '';
-    introStatus.textContent = stream ? t('Preparando o vídeo...') : t('Smart Choice: escolhendo a melhor fonte...');
+    introStatus.textContent = stream ? t('Preparando o vídeo') : t('Escolhendo a melhor fonte');
+    introCaption.innerHTML = stream ? '' : '<b>✦</b>' + t('Smart Choice ativado');
   }
 
   function hideIntro() {
@@ -1242,4 +1247,8 @@ function PlayerView(opts) {
       }
     },
   };
+}
+
+function escapeHtml(x) {
+  return String(x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 }

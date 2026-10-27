@@ -8342,8 +8342,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       text: meta.name || ""
     });
     var introSub = h("div.pi-sub");
-    var introStatus = h("div.pi-status");
-    var intro = h("div.p-intro", null, [introBg, h("div.pi-shade"), h("div.pi-info", null, [introLogo, introTitle, introSub, h("div.pi-line", null, h("i")), introStatus])]);
+    var introStatus = h("div.pi-main");
+    var introCaption = h("div.pi-caption");
+    var intro = h("div.p-intro", null, [introBg, h("div.pi-shade"), h("div.pi-center", null, [h("div.pi-ring"), introStatus, introCaption]), h("div.pi-info", null, [introLogo, introTitle, introSub])]);
     var el = h("div.view.player.intro-on", null, [videoEl, subsEl, overlay, skipBox, spinner, msgEl, intro]);
     var renderer = Renderer(subsEl);
     apply(subsEl, settings2);
@@ -8445,9 +8446,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         stream = s;
         tried.push(s);
         var info = parse2(s);
-        introStatus.textContent = t("Smart Choice: {what}", {
-          what: summary(info) || info.addon
-        });
+        introStatus.textContent = t("Preparando o vídeo");
+        introCaption.innerHTML = "<b>✦</b>" + t("Smart Choice") + " · " + escapeHtml(summary(info) || info.addon);
         start3();
       });
     }
@@ -8945,7 +8945,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       };
       introLogo.src = meta.logo || logo(meta.id);
       introSub.textContent = opts.isSeries ? "T" + video.season + " E" + video.episode + " · " + (video.namePt || video.name || video.title || "") : "";
-      introStatus.textContent = stream ? t("Preparando o vídeo...") : t("Smart Choice: escolhendo a melhor fonte...");
+      introStatus.textContent = stream ? t("Preparando o vídeo") : t("Escolhendo a melhor fonte");
+      introCaption.innerHTML = stream ? "" : "<b>✦</b>" + t("Smart Choice ativado");
     }
     function hideIntro() {
       if (!introOn) return;
@@ -9549,6 +9550,16 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         } catch (e) {}
       }
     };
+  }
+  function escapeHtml(x) {
+    return String(x).replace(/[&<>"]/g, function (c) {
+      return {
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;"
+      }[c];
+    });
   }
 
   // src/js/lib/genres.js
@@ -12045,7 +12056,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       if (it.year) parts.push(it.year);
       if (it.runtime) parts.push(it.runtime);
       if (it.genres && it.genres.length) parts.push(it.genres.slice(0, 3).map(genreName).join(", "));
-      meta.innerHTML = (it.rating ? '<span class="imdb-mini">IMDb</span> ' + escapeHtml(it.rating) + " · " : "") + escapeHtml(parts.join(" · "));
+      meta.innerHTML = (it.rating ? '<span class="imdb-mini">IMDb</span> ' + escapeHtml2(it.rating) + " · " : "") + escapeHtml2(parts.join(" · "));
       desc.textContent = it.description || "";
       clear(dots);
       items.forEach(function (_, i) {
@@ -12115,7 +12126,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }
     };
   }
-  function escapeHtml(s) {
+  function escapeHtml2(s) {
     return String(s).replace(/[&<>"]/g, function (c) {
       return {
         "&": "&amp;",
@@ -12927,9 +12938,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "5242027900324547b76e183ec43faf15ef18df0d",
-    date: "2026-10-27T05:55:00+00:00",
-    message: "Smart Choice opens the player instantly, resume dialog redesign with Do inicio button, broader adult add-on detection with live tab refresh"
+    commit: "22d3ebcdc9a49fb1389664af22c7bce576050979",
+    date: "2026-10-27T05:58:00+00:00",
+    message: "Smart Choice goes straight to the player with an intro transition; no sources list in the way; Streamings switch fade; remove quality toggle"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
