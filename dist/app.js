@@ -6907,8 +6907,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return m ? m[0] : null;
   }
   var BUILTIN_KEYS = {
-    tmdbKey: true ? "9c57ed7ea044b2f01eea2fcc2e954c2e" : "",
-    mdblistKey: true ? "t9e4f1z29b3c36i1j25rul1wx" : ""
+    tmdbKey: true ? "" : "",
+    mdblistKey: true ? "" : ""
   };
   function keyOf(name) {
     return (settings()[name] || "").trim() || BUILTIN_KEYS[name];
@@ -9695,7 +9695,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     })]).then(function (both) {
       return both[0].concat(both[1].filter(function (k) {
         return both[0].indexOf(k) < 0;
-      })).slice(0, 4);
+      })).slice(0, 6);
     });
   }
 
@@ -9703,6 +9703,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var ROW_LIMIT2 = 20;
   var PREVIEW_MS = 350;
   var TRAILER_MS = 3e3;
+  var ATTEMPT_MS = 8e3;
+  var MAX_TRAILERS = 4;
   function openItem(it) {
     toast(t("Abrindo {name}...", {
       name: it.name
@@ -9729,9 +9731,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var trailerTimer = null;
     var token = 0;
     var queue = [];
+    var attemptTimer = null;
     var frameWin = null;
     function stopTrailer() {
       clearTimeout(trailerTimer);
+      clearTimeout(attemptTimer);
       el.classList.remove("playing");
       queue = [];
       frameWin = null;
@@ -9766,23 +9770,30 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }
       if (!msg) return;
       var state = msg.event === "onStateChange" ? msg.info : msg.info && msg.info.playerState;
-      if (state === 1) el.classList.add("playing");else if (state === 0) stopTrailer();
+      if (state === 1) {
+        clearTimeout(attemptTimer);
+        el.classList.add("playing");
+      } else if (state === 0) stopTrailer();
       if (msg.event === "onError") nextTrailer(token);
     }
     window.addEventListener("message", onYouTubeMessage);
     function playTrailer(it, tk) {
       trailerKeys(it).then(function (keys) {
         if (tk !== token || document.hidden) return;
-        queue = keys;
+        queue = keys.slice(0, MAX_TRAILERS);
         nextTrailer(tk);
       });
     }
     function nextTrailer(tk) {
+      clearTimeout(attemptTimer);
       var key = queue.shift();
       el.classList.remove("playing");
       frameWin = null;
       clear(frameBox);
       if (!key || tk !== token) return;
+      attemptTimer = setTimeout(function () {
+        return tk === token && !el.classList.contains("playing") && nextTrailer(tk);
+      }, ATTEMPT_MS);
       var origin = window.location.protocol + "//" + window.location.host;
       var src = "https://www.youtube-nocookie.com/embed/" + key + "?autoplay=1&controls=0&rel=0&modestbranding=1&playsinline=1&iv_load_policy=3&disablekb=1&fs=0&enablejsapi=1&origin=" + encodeURIComponent(origin);
       var frame = h("iframe", {
@@ -10189,9 +10200,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "b398dea53e4df810c5c0d3cf00e0682a904fdfc9",
-    date: "2026-10-27T00:14:08-03:00",
-    message: "Aba Recomendado: em alta, true crime, suspense e terror, com trailer estilo Netflix"
+    commit: "5e7280bfae677f38b22b677d7860235bef882946",
+    date: "2026-10-27T03:14:24+00:00",
+    message: "Build da dist/ para a TV"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {

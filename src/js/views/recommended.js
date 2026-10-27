@@ -12,6 +12,8 @@ import { t } from '../lib/i18n.js';
 const ROW_LIMIT = 20;
 const PREVIEW_MS = 350; // parado no título: troca o destaque
 const TRAILER_MS = 3000; // parado mais um pouco: toca o trailer
+const ATTEMPT_MS = 8000; // trailer que não começa a tocar nesse tempo: tenta o próximo
+const MAX_TRAILERS = 4; // depois disso desiste e fica só a arte
 
 // Abre o título no Seraflix: os addons do Stremio usam o id do IMDb.
 function openItem(it) {
@@ -43,10 +45,12 @@ function Billboard() {
   let trailerTimer = null;
   let token = 0;
   let queue = []; // trailers que ainda dá para tentar
+  let attemptTimer = null;
   let frameWin = null; // janela do iframe do trailer (para reconhecer as mensagens dele)
 
   function stopTrailer() {
     clearTimeout(trailerTimer);
+    clearTimeout(attemptTimer);
     el.classList.remove('playing');
     queue = [];
     frameWin = null;
@@ -83,7 +87,10 @@ function Billboard() {
     }
     if (!msg) return;
     const state = msg.event === 'onStateChange' ? msg.info : msg.info && msg.info.playerState;
-    if (state === 1) el.classList.add('playing');
+    if (state === 1) {
+      clearTimeout(attemptTimer); // tocou: este é o trailer
+      el.classList.add('playing');
+    }
     else if (state === 0) stopTrailer(); // acabou: volta para a arte
     if (msg.event === 'onError') nextTrailer(token);
   }
@@ -92,18 +99,21 @@ function Billboard() {
   function playTrailer(it, tk) {
     reco.trailerKeys(it).then((keys) => {
       if (tk !== token || document.hidden) return;
-      queue = keys;
+      queue = keys.slice(0, MAX_TRAILERS);
       nextTrailer(tk);
     });
   }
 
   // Carrega o próximo trailer da fila (o anterior deu erro ou é o primeiro).
+  // Enquanto não toca, nada aparece (a arte fica). Erro ou demora: próximo da fila; sem mais, para.
   function nextTrailer(tk) {
+    clearTimeout(attemptTimer);
     const key = queue.shift();
     el.classList.remove('playing');
     frameWin = null;
     clear(frameBox);
     if (!key || tk !== token) return;
+    attemptTimer = setTimeout(() => tk === token && !el.classList.contains('playing') && nextTrailer(tk), ATTEMPT_MS);
     const origin = window.location.protocol + '//' + window.location.host;
     const src =
       'https://www.youtube-nocookie.com/embed/' + key +
