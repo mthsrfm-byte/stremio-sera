@@ -6303,9 +6303,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "3bde2c9d779e149e20c7ef38e9552e255a102442",
-    date: "2026-10-27T07:47:14-03:00",
-    message: "NSFW redesenhada: por site, números de qualidade e Favoritar em tudo"
+    commit: "33f128e7161747ee9fba2663254dcc697a3e7239",
+    date: "2026-10-27T07:47:52-03:00",
+    message: 'NSFW: subtítulo das fileiras de creampie só "mais vistos"'
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -14465,7 +14465,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
     var sub = entry.extra && entry.extra.search ? t("busca no {site}", {
       site: siteName(entry.addon)
-    }) : /creampie/i.test(entry.catalog.name || "") ? t("mais vistos primeiro") : siteName(entry.addon);
+    }) : /creampie/i.test(entry.catalog.name || "") ? t("mais vistos") : siteName(entry.addon);
     var track = h("div.row-track.pending", {
       "data-scroll-x": "",
       "data-group": "",
