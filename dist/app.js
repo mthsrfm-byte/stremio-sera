@@ -6303,9 +6303,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "cb440b605c753397e0628b661a2b35b7367ad87c",
-    date: "2026-10-27T08:00:21+00:00",
-    message: "Build da dist/ para a TV"
+    commit: "5661a19ea47c04e1412eeeb8c6a302d2e1f0bd27",
+    date: "2026-10-27T05:06:56-03:00",
+    message: "Serviço da TV: catálogos no Node 4 e versão exata quando o CDN está velho"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -7851,8 +7851,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return m ? m[0] : null;
   }
   var BUILTIN_KEYS = {
-    tmdbKey: true ? "" : "",
-    mdblistKey: true ? "" : ""
+    tmdbKey: true ? "9c57ed7ea044b2f01eea2fcc2e954c2e" : "",
+    mdblistKey: true ? "t9e4f1z29b3c36i1j25rul1wx" : ""
   };
   function keyOf(name) {
     return (settings()[name] || "").trim() || BUILTIN_KEYS[name];
