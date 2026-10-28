@@ -32,6 +32,8 @@ final class MPVPlayer {
     private var packRowLengthBefore: GLint = 0
     private var unpackRowLengthBefore: GLint = 0
     private var drawBufferBefore: GLint = 0
+    private var updateContextWasCurrent = false
+    private var updateContextIsCurrent = false
 
     /// Evidência de renderização para o diagnóstico; não passa pixels pela ponte.
     var renderDiagnostics: [String: Any] {
@@ -44,6 +46,7 @@ final class MPVPlayer {
          "scissorTestBefore": scissorBefore, "colorMaskBefore": colorMaskBefore.map { $0 != 0 },
          "packRowLengthBefore": Int(packRowLengthBefore),
          "unpackRowLengthBefore": Int(unpackRowLengthBefore), "drawBufferBefore": Int(drawBufferBefore),
+         "updateContextWasCurrent": updateContextWasCurrent, "updateContextIsCurrent": updateContextIsCurrent,
          "visibleRect": NSStringFromRect(surface.visibleRect),
          "viewport": lastViewport.map { Int($0) }, "glError": Int(lastGLError),
          "lastRenderStatus": Int(lastRenderStatus), "fboBefore": Int(fboBefore),
@@ -264,6 +267,12 @@ final class MPVPlayer {
                 DispatchQueue.main.async { [weak callback] in
                     guard let player = callback?.player, !player.closed,
                           let renderer = player.renderContext else { return }
+                    // render.h exige o mesmo contexto current em TODAS as chamadas
+                    // mpv_render_*, inclusive update; o WebKit pode tê-lo trocado.
+                    let context = player.surface.resources.context
+                    player.updateContextWasCurrent = CGLGetCurrentContext() == context
+                    CGLSetCurrentContext(context)
+                    player.updateContextIsCurrent = CGLGetCurrentContext() == context
                     if mpv_render_context_update(renderer) & UInt64(MPV_RENDER_UPDATE_FRAME.rawValue) != 0 {
                         player.renderUpdates += 1
                         // O layer possui um drawable fora do plano legado de
