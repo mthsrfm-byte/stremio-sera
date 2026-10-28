@@ -15,7 +15,7 @@ let package = Package(
             dependencies: ["CMPV", .product(name: "Sparkle", package: "Sparkle")],
             linkerSettings: [
                 .linkedFramework("AppKit"), .linkedFramework("WebKit"),
-                .linkedFramework("OpenGL"), .linkedFramework("MediaPlayer"),
+                .linkedFramework("OpenGL"), .linkedFramework("QuartzCore"), .linkedFramework("MediaPlayer"),
                 .linkedFramework("IOKit"),
                 .unsafeFlags(["-Xlinker", "-rpath", "-Xlinker", "@executable_path/../Frameworks"])
             ]

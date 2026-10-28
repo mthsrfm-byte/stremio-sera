@@ -2,6 +2,8 @@ import AppKit
 import CMPV
 import Darwin
 import OpenGL.GL3
+import QuartzCore
+import CoreVideo
 
 /// libmpv decodifica/renderiza; a WKWebView sobreposta continua dona dos controles.
 /// Todas as operações AppKit e libmpv ocorrem no loop principal. Os callbacks C
@@ -29,8 +31,9 @@ final class MPVPlayer {
     /// Evidência de renderização para o diagnóstico; não passa pixels pela ponte.
     var renderDiagnostics: [String: Any] {
         ["drawCalls": drawCalls, "renderUpdates": renderUpdates, "frameCount": frameCount,
-         "contextHasView": surface.openGLContext?.view != nil,
-         "contextIsCurrent": surface.openGLContext?.cglContextObj == CGLGetCurrentContext(),
+         "contextHasView": false, "contextOwnedByLayer": true,
+         "contextIsCurrent": surface.resources.context == CGLGetCurrentContext(),
+         "layerClass": String(describing: type(of: surface.videoLayer)),
          "appKitContextMatches": appKitContextMatches, "layerBacked": surface.wantsLayer,
          "renderer": rendererName, "chosenHwdec": chosenHWDec,
          "visibleRect": NSStringFromRect(surface.visibleRect),
@@ -232,10 +235,8 @@ final class MPVPlayer {
 
     fileprivate func prepareRenderer() throws {
         guard renderContext == nil, let mpv = handle, !closed else { return }
-        guard let context = surface.openGLContext else {
-            throw Failure.message("Contexto OpenGL indisponível.")
-        }
-        context.makeCurrentContext()
+        let context = surface.resources.context
+        CGLSetCurrentContext(context)
         if let name = glGetString(GLenum(GL_RENDERER)) {
             rendererName = String(cString: UnsafeRawPointer(name).assumingMemoryBound(to: CChar.self))
             let normalized = rendererName.lowercased()
@@ -257,38 +258,32 @@ final class MPVPlayer {
                           let renderer = player.renderContext else { return }
                     if mpv_render_context_update(renderer) & UInt64(MPV_RENDER_UPDATE_FRAME.rawValue) != 0 {
                         player.renderUpdates += 1
-                        // A WKWebView pode ocultar a surface para o rastreamento de
-                        // oclusão do AppKit, mesmo com pixels transparentes. Forçar
-                        // a pintura pelo AppKit para preservar o foco/drawable do
-                        // NSOpenGLView; makeCurrentContext sozinho não faz esse preparo.
-                        player.surface.needsDisplay = true
-                        player.surface.layer?.setNeedsDisplay()
-                        player.surface.displayIgnoringOpacity(player.surface.bounds)
-                        player.surface.layer?.displayIfNeeded()
+                        // O layer possui um drawable fora do plano legado de
+                        // NSOpenGLView e participa do compositor da WKWebView.
+                        player.surface.videoLayer.requestFrame()
                     }
                 }
             }, callbackContext)
         }
     }
 
-    fileprivate func draw() {
-        guard !closed, !drawing, let context = surface.openGLContext else { return }
+    fileprivate var canRender: Bool { !closed && handle != nil }
+
+    /// Invocado exclusivamente pelo CAOpenGLLayer com seu FBO já instalado.
+    fileprivate func draw(in context: CGLContextObj) {
+        guard Thread.isMainThread, !closed, !drawing else { return }
         drawing = true
         drawCalls += 1
         defer { drawing = false }
-        appKitContextMatches = context.cglContextObj == CGLGetCurrentContext()
-        context.makeCurrentContext()
-        // NSOpenGLView com layer usa um FBO do compositor; 0 só é correto no
-        // drawable tradicional. Capturar o alvo antes de o mpv alterar GL state.
+        appKitContextMatches = context == CGLGetCurrentContext()
+        CGLSetCurrentContext(context)
         glGetIntegerv(GLenum(GL_DRAW_FRAMEBUFFER_BINDING), &fboBefore)
         glGetIntegerv(GLenum(GL_VIEWPORT), &lastViewport)
-        if fboBefore != 0 { targetFBO = fboBefore }
-        else if !surface.wantsLayer || glIsFramebuffer(GLuint(targetFBO)) == 0 { targetFBO = 0 }
+        targetFBO = fboBefore
         do { try prepareRenderer() }
         catch { emitFailure(error.localizedDescription); return }
-        let rect = surface.convertToBacking(surface.bounds)
-        let width = surface.wantsLayer && lastViewport[2] > 0 ? lastViewport[2] : Int32(rect.width)
-        let height = surface.wantsLayer && lastViewport[3] > 0 ? lastViewport[3] : Int32(rect.height)
+        let width = lastViewport[2]
+        let height = lastViewport[3]
         guard width > 0, height > 0, let renderer = renderContext else { return }
         let status = sera_mpv_render(renderer, targetFBO, width, height)
         lastRenderStatus = status
@@ -299,7 +294,7 @@ final class MPVPlayer {
         let pixelNonBlack = smokeRendering && current && !renderedForSession
             ? sampleNonBlack(fbo: targetFBO, width: width, height: height) : false
         if smokeRendering { lastGLError = glGetError() }
-        context.flushBuffer()
+        glFlush()
         mpv_render_context_report_swap(renderer)
         if current {
             frameCount += 1
@@ -555,7 +550,7 @@ final class MPVPlayer {
         surface.player = nil
         if let mpv = handle { mpv_set_wakeup_callback(mpv, nil, nil) }
         if let renderer = renderContext {
-            surface.openGLContext?.makeCurrentContext()
+            CGLSetCurrentContext(surface.resources.context)
             mpv_render_context_set_update_callback(renderer, nil, nil)
             mpv_render_context_free(renderer)
             renderContext = nil
@@ -575,35 +570,139 @@ private final class MPVCallbacks {
     init(_ player: MPVPlayer) { self.player = player }
 }
 
-private final class MPVSurface: NSOpenGLView {
-    weak var player: MPVPlayer?
-    override var isOpaque: Bool { true }
+/// Recursos CGL independentes de NSView; o compositor recebe referências próprias.
+private final class MPVGLResources {
+    let pixelFormat: CGLPixelFormatObj
+    let context: CGLContextObj
 
-    init?(videoSurface: Bool) {
+    init?() {
         let base: [NSOpenGLPixelFormatAttribute] = [
             UInt32(NSOpenGLPFAOpenGLProfile), UInt32(NSOpenGLProfileVersion3_2Core),
             UInt32(NSOpenGLPFADoubleBuffer), UInt32(NSOpenGLPFAColorSize), 24,
             UInt32(NSOpenGLPFAAlphaSize), 8, 0
         ]
-        // Sempre preferir a GPU dos Macs M1/M3. Algumas VMs de CI só oferecem
-        // renderer de software; manter o mesmo perfil 3.2 nesse fallback.
         let accelerated = [UInt32(NSOpenGLPFAAccelerated)] + base
         guard let format = NSOpenGLPixelFormat(attributes: accelerated)
-            ?? NSOpenGLPixelFormat(attributes: base) else { return nil }
-        super.init(frame: .zero, pixelFormat: format)
-        // Compor no mesmo sistema de layers da WKWebView sobreposta.
-        wantsLayer = true
-        wantsBestResolutionOpenGLSurface = true
+                ?? NSOpenGLPixelFormat(attributes: base),
+              let chosenFormat = format.cglPixelFormatObj else { return nil }
+        var created: CGLContextObj?
+        guard CGLCreateContext(chosenFormat, nil, &created) == kCGLNoError,
+              let created = created else { return nil }
+        pixelFormat = chosenFormat
+        context = created
+        _ = CGLRetainPixelFormat(chosenFormat)
+        var interval: GLint = 1
+        CGLSetParameter(context, kCGLCPSwapInterval, &interval)
+    }
+
+    deinit {
+        if CGLGetCurrentContext() == context { CGLSetCurrentContext(nil) }
+        CGLReleaseContext(context)
+        CGLReleasePixelFormat(pixelFormat)
+    }
+}
+
+/// CAOpenGLLayer fornece um FBO real ao mpv, sem surface de janela que possa
+/// ser recortada pela WKWebView. Não há cópia dos pixels para JS ou para AppKit.
+private final class MPVVideoLayer: CAOpenGLLayer {
+    let resources: MPVGLResources
+    weak var player: MPVPlayer?
+
+    init(resources: MPVGLResources) {
+        self.resources = resources
+        super.init()
+        isAsynchronous = false
+        isOpaque = true
+        backgroundColor = NSColor.black.cgColor
+        autoresizingMask = [.layerWidthSizable, .layerHeightSizable]
+        contentsGravity = .resizeAspect
+    }
+
+    override init(layer: Any) {
+        let original = layer as! MPVVideoLayer
+        resources = original.resources
+        player = original.player
+        super.init(layer: layer)
+        isAsynchronous = false
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) não utilizado") }
 
-    override func prepareOpenGL() {
-        super.prepareOpenGL()
-        var interval: GLint = 1
-        openGLContext?.setValues(&interval, for: .swapInterval)
+    override func copyCGLPixelFormat(forDisplayMask mask: UInt32) -> CGLPixelFormatObj {
+        _ = CGLRetainPixelFormat(resources.pixelFormat)
+        return resources.pixelFormat
     }
 
-    override func draw(_ dirtyRect: NSRect) { player?.draw() }
-    override func reshape() { super.reshape(); needsDisplay = true }
+    override func releaseCGLPixelFormat(_ pf: CGLPixelFormatObj) {
+        CGLReleasePixelFormat(pf)
+    }
+
+    override func copyCGLContext(forPixelFormat pf: CGLPixelFormatObj) -> CGLContextObj {
+        _ = CGLRetainContext(resources.context)
+        return resources.context
+    }
+
+    override func releaseCGLContext(_ ctx: CGLContextObj) {
+        CGLReleaseContext(ctx)
+    }
+
+    override func canDraw(inCGLContext ctx: CGLContextObj, pixelFormat pf: CGLPixelFormatObj,
+                          forLayerTime time: CFTimeInterval, displayTime timestamp: UnsafePointer<CVTimeStamp>?) -> Bool {
+        Thread.isMainThread && player?.canRender == true
+    }
+
+    override func draw(inCGLContext ctx: CGLContextObj, pixelFormat pf: CGLPixelFormatObj,
+                       forLayerTime time: CFTimeInterval, displayTime timestamp: UnsafePointer<CVTimeStamp>?) {
+        guard Thread.isMainThread, let player = player, player.canRender else { return }
+        player.draw(in: ctx)
+        // O método base termina o desenho no alvo do compositor.
+        super.draw(inCGLContext: ctx, pixelFormat: pf, forLayerTime: time, displayTime: timestamp)
+    }
+
+    func requestFrame() {
+        guard Thread.isMainThread, player?.canRender == true else { return }
+        setNeedsDisplay()
+        display()
+        CATransaction.flush()
+    }
+}
+
+private final class MPVSurface: NSView {
+    let resources: MPVGLResources
+    let videoLayer: MPVVideoLayer
+    weak var player: MPVPlayer? {
+        didSet { videoLayer.player = player }
+    }
+    override var isOpaque: Bool { true }
+
+    init?(videoSurface: Bool) {
+        guard let resources = MPVGLResources() else { return nil }
+        self.resources = resources
+        self.videoLayer = MPVVideoLayer(resources: resources)
+        super.init(frame: .zero)
+        layer = videoLayer
+        wantsLayer = true
+        videoLayer.contentsScale = NSScreen.main?.backingScaleFactor ?? 1
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) não utilizado") }
+    override func makeBackingLayer() -> CALayer { videoLayer }
+
+    override func setFrameSize(_ newSize: NSSize) {
+        super.setFrameSize(newSize)
+        videoLayer.setNeedsDisplay()
+        if player != nil { videoLayer.requestFrame() }
+    }
+
+    override func viewDidChangeBackingProperties() {
+        super.viewDidChangeBackingProperties()
+        videoLayer.contentsScale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 1
+        videoLayer.requestFrame()
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        videoLayer.contentsScale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 1
+        videoLayer.requestFrame()
+    }
 }
