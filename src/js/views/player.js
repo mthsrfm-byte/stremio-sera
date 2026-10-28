@@ -21,6 +21,7 @@ import * as router from '../router.js';
 import { sortedVideos, openDetails } from './details.js';
 import { t } from '../lib/i18n.js';
 import { IS_WEB } from '../lib/platform.js';
+import { toggleFullscreen } from '../lib/webkeys.js';
 
 const HIDE_MS = 5000;
 const SLOW_MS = 40000; // sem começar a tocar depois disso: oferece outro provedor
@@ -112,7 +113,9 @@ function PlayerView(opts) {
   // Retomou sozinho (Smart Choice): atalho para começar do zero, visível nos primeiros minutos.
   const restartBtn = h('div.btn', { focusable: true, html: '<span class="ico">↺</span>' + t('Do início'), onSelect: () => restart() });
   restartBtn.style.display = opts.startTime > 30000 ? '' : 'none';
-  const buttons = h('div.p-buttons', { 'data-group': '' }, [playBtn, restartBtn, audioBtn, subsBtn, srcBtn, favBtn, nextBtn]);
+  // Navegador: tela cheia também por botão (além do F e do duplo clique).
+  const fullBtn = IS_WEB ? h('div.btn', { focusable: true, html: '<span class="ico">⛶</span>' + t('Tela cheia'), onSelect: () => toggleFullscreen() }) : null;
+  const buttons = h('div.p-buttons', { 'data-group': '' }, [playBtn, restartBtn, audioBtn, subsBtn, srcBtn, favBtn, nextBtn, fullBtn]);
   const spinner = h('div.p-center', null, h('div.spinner'));
   const msgEl = h('div.p-msg');
   const skipFill = h('i');
@@ -140,7 +143,11 @@ function PlayerView(opts) {
       h('div.pi-status-row', null, [h('div.pi-ring'), h('div.pi-texts', null, [introStatus, introCaption])]),
     ]),
   ]);
-  const el = h('div.view.player.intro-on', null, [videoEl, subsEl, overlay, skipBox, spinner, msgEl, intro]);
+  // Navegador: seta de voltar no canto, junto dos controles e também durante o carregamento.
+  const backBtn = IS_WEB ? h('div.web-back.p-back', { title: t('Voltar'), html: router.BACK_ICON, on: { click: () => close() } }) : null;
+  const el = h('div.view.player.intro-on', null, [videoEl, subsEl, overlay, skipBox, spinner, msgEl, intro, backBtn]);
+
+  if (IS_WEB) setupMouse();
 
   const renderer = subs.Renderer(subsEl);
   substyle.apply(subsEl, settings);
@@ -935,6 +942,48 @@ function PlayerView(opts) {
     setSource(url);
   }
 
+  // ---------- Mouse (navegador) ----------
+  // Mexer o mouse mostra os controles (e o cursor, que some junto com eles). Na barra do tempo,
+  // passar o mouse mostra o horário daquele ponto e clicar pula para lá.
+  function setupMouse() {
+    let lastMove = 0;
+    el.addEventListener('mousemove', () => {
+      const now = Date.now();
+      if (now - lastMove < 250) return;
+      lastMove = now;
+      if (syncUi || (nav.topLayer() && nav.topLayer().root !== el)) return;
+      showControls();
+    });
+    const barTime = (e) => {
+      const r = bar.getBoundingClientRect();
+      const d = videoEl.duration;
+      if (!(d > 0) || !isFinite(d) || !r.width) return null;
+      return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * d;
+    };
+    bar.addEventListener('mousemove', (e) => {
+      const time = barTime(e);
+      if (time === null || seekTarget !== null) return;
+      seekLabel.textContent = fmtTime(time);
+      seekLabel.style.left = (time / videoEl.duration) * 100 + '%';
+      bar.classList.add('hovering');
+    });
+    bar.addEventListener('mouseleave', () => {
+      bar.classList.remove('hovering');
+      updateTimes();
+    });
+    bar.addEventListener('click', (e) => {
+      // Sem isso o clique chegaria no OK da barra (tocar/pausar).
+      e.stopPropagation();
+      const time = barTime(e);
+      if (time === null) return;
+      clearTimeout(seekCommitTimer);
+      seekTarget = time;
+      nav.focus(bar, { noScroll: true });
+      commitSeek();
+      updateTimes();
+    });
+  }
+
   // ---------- Controles ----------
   function togglePlay() {
     if (videoEl.paused) videoEl.play();
@@ -952,7 +1001,7 @@ function PlayerView(opts) {
     const pct = d > 0 && isFinite(d) ? Math.min(100, (pos / d) * 100) : 0;
     posEl.style.width = pct + '%';
     knobEl.style.left = pct + '%';
-    seekLabel.style.left = pct + '%';
+    if (!bar.classList.contains('hovering')) seekLabel.style.left = pct + '%';
     curTimeEl.textContent = fmtTime(pos);
     durEl.textContent = isFinite(d) ? fmtTime(d) : '--:--';
     try {

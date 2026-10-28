@@ -167,6 +167,9 @@ export function focus(el, opts) {
   }
   layer.current = el;
   el.classList.add('focused');
+  // Navegador: campo de texto escolhido pelo teclado já recebe o cursor, para digitar direto
+  // (na TV o teclado da tela só abre no OK). Passar o mouse por cima não rouba o cursor.
+  if (IS_WEB && el.tagName === 'INPUT' && !(opts && opts.hover) && document.activeElement !== el) el.focus();
   const group = el.closest('[data-group]');
   if (group) group.__last = el;
   if (!(opts && opts.noScroll)) ensureVisible(el);
@@ -266,6 +269,11 @@ export function onScroll(fn) {
   scrollHook = fn;
 }
 
+// Rolagem feita fora daqui (setas das fileiras na web): carrega as imagens que entraram na tela.
+export function scrolled(node) {
+  if (scrollHook) scrollHook(node);
+}
+
 export function isPointerMode() {
   return pointerMode;
 }
@@ -327,12 +335,17 @@ function onMouseOver(e) {
   if (!layer) return;
   pointerMode = true;
   const el = e.target.closest ? e.target.closest('[data-focus]') : null;
-  if (el && layer.root.contains(el) && el !== layer.current) focus(el, { noScroll: true });
+  if (el && layer.root.contains(el) && el !== layer.current) focus(el, { noScroll: true, hover: true });
 }
 
 function onClick(e) {
   const layer = top();
   if (!layer) return;
+  // Navegador: clicar no fundo escuro de um menu ou aviso fecha, como o Esc.
+  if (IS_WEB && e.target === layer.root && layer.root.classList.contains('modal')) {
+    if (layer.onBack) layer.onBack();
+    return;
+  }
   const el = e.target.closest ? e.target.closest('[data-focus]') : null;
   if (el && layer.root.contains(el)) {
     focus(el, { noScroll: true });
@@ -365,8 +378,16 @@ function onWebWheel(e) {
   }
 }
 
+// Navegador: o cursor que vai para um campo por fora da navegação (Tab, clique) leva o destaque junto.
+function onFocusIn(e) {
+  const layer = top();
+  const el = e.target;
+  if (layer && el && el.tagName === 'INPUT' && el.hasAttribute('data-focus') && layer.root.contains(el) && el !== layer.current) focus(el);
+}
+
 export function install() {
   document.addEventListener('keydown', onKeyDown, true);
+  if (IS_WEB) document.addEventListener('focusin', onFocusIn);
   document.addEventListener('mouseover', onMouseOver);
   document.addEventListener('click', onClick);
   if (IS_WEB) document.addEventListener('wheel', onWebWheel, { passive: false });

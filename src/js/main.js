@@ -28,6 +28,7 @@ import { registerTizenKeys, IS_WEB } from './lib/platform.js';
 import * as intro from './lib/intro.js';
 import * as screensaver from './lib/screensaver.js';
 import * as webkeys from './lib/webkeys.js';
+import * as webrows from './lib/webrows.js';
 
 // Abertura (logo + som): o app só aparece depois dela, mesmo que carregue antes.
 let introDone = Promise.resolve();
@@ -42,7 +43,10 @@ function boot() {
 
   registerTizenKeys();
   nav.install();
-  if (IS_WEB) webkeys.install(); // F e duplo clique no vídeo: tela cheia (só no navegador)
+  if (IS_WEB) {
+    webkeys.install(); // F e duplo clique no vídeo: tela cheia (só no navegador)
+    webrows.install(); // setas nas fileiras ao passar o mouse
+  }
   // Imagens e fileiras sob demanda depois que a rolagem para (segurar a seta não recalcula a cada passo).
   nav.setSmooth(s.smoothScroll);
   let scrollTimer = null;

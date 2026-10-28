@@ -3,15 +3,63 @@ import * as nav from './lib/nav.js';
 import { platformBack } from './lib/tv.js';
 import { IS_WEB } from './lib/platform.js';
 import { confirmDialog } from './ui.js';
-import { loadVisibleImages, unloadImages } from './lib/dom.js';
+import { h, loadVisibleImages, unloadImages } from './lib/dom.js';
 import { t } from './lib/i18n.js';
 
 const stack = [];
 const app = () => document.getElementById('app');
 const tabs = {}; // telas principais reutilizadas (início, busca, biblioteca, ajustes)
 
+// Seta de voltar no canto (só no navegador): com mouse, a tela não tem outra saída além do Esc.
+// O player tem a dele, junto dos controles.
+export const BACK_ICON = '<svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>';
+function addBackButton(view) {
+  if (!IS_WEB || view.tabId || view.el.classList.contains('player') || view.el.querySelector('.web-back')) return;
+  const btn = h('div.web-back', { title: t('Voltar'), html: BACK_ICON });
+  btn.addEventListener('click', () => back());
+  view.el.appendChild(btn);
+}
+
+// Navegador: cada tela aberta por cima (e uma aba fora do Início) vira uma entrada no histórico.
+// Assim o Voltar do navegador, o botão lateral do mouse e o gesto do trackpad voltam uma tela,
+// em vez de sair do site. Acerta o histórico depois que a pilha muda (várias trocas viram uma).
+let histDepth = 0;
+let histSkip = 0;
+let histTimer = null;
+function wantedDepth() {
+  const root = stack[0];
+  return Math.max(0, stack.length - 1) + (root && root.tabId && root.tabId !== 'home' ? 1 : 0);
+}
+function syncHistory() {
+  if (!IS_WEB) return;
+  clearTimeout(histTimer);
+  histTimer = setTimeout(() => {
+    const want = wantedDepth();
+    while (histDepth < want) window.history.pushState({ sera: ++histDepth }, '');
+    if (histDepth > want) {
+      histSkip++;
+      window.history.go(want - histDepth);
+      histDepth = want;
+    }
+  }, 0);
+}
+if (IS_WEB) {
+  window.addEventListener('popstate', (e) => {
+    if (histSkip) {
+      histSkip--;
+      return;
+    }
+    histDepth = (e.state && e.state.sera) || 0;
+    // O mesmo caminho do Esc: fecha o menu aberto ou volta a tela.
+    const layer = nav.topLayer();
+    if (layer && layer.onBack) layer.onBack();
+    syncHistory();
+  });
+}
+
 function show(view) {
   view.el.classList.remove('hidden');
+  if (stack.length > 1) addBackButton(view);
   if (view.layer) {
     nav.popLayer(view.layer);
   }
@@ -45,6 +93,7 @@ export function push(view) {
   if (!view.el.parentNode) app().appendChild(view.el);
   stack.push(view);
   show(view);
+  syncHistory();
 }
 
 export function pop() {
@@ -56,6 +105,7 @@ export function pop() {
     if (view.el.parentNode) view.el.parentNode.removeChild(view.el);
   }
   show(stack[stack.length - 1]);
+  syncHistory();
   return true;
 }
 
@@ -98,6 +148,7 @@ export function goTab(id) {
   if (!view.el.parentNode) app().appendChild(view.el);
   stack.push(view);
   show(view);
+  syncHistory();
 }
 
 const registry = {};
