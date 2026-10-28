@@ -1104,3 +1104,17 @@ body.light .card-stats { color: rgba(17,17,16,0.6); }
 .sv-bar i { display: block; width: 0; height: 5px; background: #F5F4EF; }
 .sv-hint { position: absolute; left: 0; right: 0; bottom: 30px; text-align: center; font-size: 20px; color: rgba(245,244,239,0.6); -webkit-transition: opacity 1s; transition: opacity 1s; }
 .saver.hint-off .sv-hint { opacity: 0; }
+
+/* ---------- Aba NSFW: tema rosa (mesmo clima da tela de senha) ---------- */
+/* Fundo no .view, que não rola: a TV pinta o degradê uma vez só. */
+body .view.nsfw-view { background: #0e0a0d; background: linear-gradient(to bottom, #22101b 0%, #150b12 38%, #0e0a0d 75%); }
+.nsfw-view:before { height: 620px; background: radial-gradient(1300px 560px at 18% 0, rgba(229,80,140,0.3), rgba(229,80,140,0) 70%), radial-gradient(1000px 480px at 88% 0, rgba(123,91,245,0.18), rgba(123,91,245,0) 70%); }
+body .nsfw-view .tab.focused, body .nsfw-view .chip.focused, body .nsfw-view .chip.active, body .nsfw-view .btn.focused { color: #fff; background: #e5508c; border-color: #ffc2d9; }
+body .nsfw-view .chip { background: rgba(229,80,140,0.14); }
+body .nsfw-view .card.focused .poster-wrap { border-color: #e5508c; }
+body .nsfw-view .card-flag { background: #e5508c; }
+.nsfw-view .row-title small, .nsfw-view .reco-crumb { color: rgba(255,194,217,0.6); }
+.nsfw-view .spinner { border-top-color: #e5508c; }
+body.light .view.nsfw-view { background: #F5F4EF; background: linear-gradient(to bottom, #ffe2ee 0%, #faeef2 38%, #F5F4EF 75%); }
+body.light .nsfw-view:before { background: radial-gradient(1300px 560px at 18% 0, rgba(229,80,140,0.18), rgba(229,80,140,0) 70%), radial-gradient(1000px 480px at 88% 0, rgba(123,91,245,0.1), rgba(123,91,245,0) 70%); }
+body.light .nsfw-view .row-title small, body.light .nsfw-view .reco-crumb { color: rgba(160,40,90,0.6); }
