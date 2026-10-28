@@ -12,6 +12,9 @@ final class MPVPlayer {
     var onEvent: ((String, [String: Any]) -> Void)?
     var view: NSView { surface }
     private(set) var isPlaying = false
+    /// Há mídia carregada (tocando ou pausada); usado pelo modo PiP.
+    var hasMedia: Bool { acceptingMedia && !closed }
+    var isPaused: Bool { paused }
     private let surface: MPVSurface
     private var handle: OpaquePointer?
     private var renderContext: OpaquePointer?
