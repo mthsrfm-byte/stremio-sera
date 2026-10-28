@@ -808,7 +808,22 @@ function PlayerView(opts) {
     const home = router.tabView('home');
     if (home && home.freeMemory) home.freeMemory();
   }
+  // Segundos de vídeo já carregados à frente da posição.
+  function bufferedAhead(pos) {
+    try {
+      const b = videoEl.buffered;
+      for (let i = 0; i < b.length; i++) if (b.start(i) <= pos + 0.1 && b.end(i) >= pos) return b.end(i) - pos;
+    } catch (e) {
+      /* ignore */
+    }
+    return 0;
+  }
+
+  // No navegador a conexão com o PC/debrid oscila mais que na TV: espera mais antes de reabrir.
+  const STUCK_MS = IS_WEB ? 25000 : 15000;
   let stuckSince = 0;
+  let stuckAhead = 0;
+  let nudged = false;
   let recoveries = 0;
   let lastRecoveryAt = 0;
   function watchdog() {
@@ -820,15 +835,37 @@ function PlayerView(opts) {
     if (Math.abs(pos - lastT) > 0.05) {
       lastT = pos;
       stuckSince = 0;
+      nudged = false;
       if (Date.now() - lastRecoveryAt > 120000) recoveries = 0;
       return;
     }
+    const ahead = bufferedAhead(pos);
     if (!stuckSince) {
       stuckSince = Date.now();
+      stuckAhead = ahead;
+      return;
+    }
+    // Ainda esperando dado e ele está chegando: é só a rede lenta enchendo o buffer. Reabrir aqui
+    // jogava fora o que já tinha vindo e recomeçava do zero (o loop "toca uns segundos e trava").
+    if (videoEl.readyState < 3 && ahead > stuckAhead + 1) {
+      stuckSince = Date.now();
+      stuckAhead = ahead;
       return;
     }
     const stuckFor = Date.now() - stuckSince;
-    if (stuckFor > 15000) {
+    // Tem vídeo carregado à frente e mesmo assim parou: buraco no buffer. Um passinho à frente
+    // destrava sem reabrir a conexão.
+    if (!nudged && ahead > 1 && stuckFor > 4000) {
+      nudged = true;
+      diag('travado-empurrao');
+      try {
+        videoEl.currentTime = pos + 0.2;
+      } catch (e) {
+        /* ignore */
+      }
+      return;
+    }
+    if (stuckFor > STUCK_MS) {
       stuckSince = 0;
       if (recoveries >= 3) {
         diag('travado-desisti');
