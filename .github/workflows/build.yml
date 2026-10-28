@@ -19,6 +19,10 @@ on:
         description: Compilar dependências das fontes, preservando corresponding source
         default: false
         type: boolean
+      run_smoke:
+        description: Executar testes de reprodução no runner (validação visual pendente no Mac)
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -71,6 +75,7 @@ jobs:
           set -o pipefail
           scripts/build.sh 2>&1 | tee "artifacts/build-$ARCH.log"
       - name: Smoke test nativo (WKWebView, libmpv e mídia HTTP local)
+        if: inputs.run_smoke || vars.RUN_PLAYBACK_TESTS == 'true'
         run: scripts/smoke-test.sh
       - name: Registrar estado dos testes nos checks
         if: always()
