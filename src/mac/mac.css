@@ -16,3 +16,9 @@ html.mac-playing #app > .view:not(.player) { visibility: hidden; }
 /* Confirmação das chaves de API em Ajustes. */
 .key-saved { margin-left: 12px; color: #6fd68a; font-weight: 600; white-space: nowrap; opacity: 0; transition: opacity 0.2s; }
 .key-saved.on { opacity: 1; }
+
+/* Linha do tempo com mouse: área de clique maior que a barra fina, bolinha no hover/arrasto. */
+.p-bar { cursor: pointer; }
+.p-bar::after { content: ''; position: absolute; left: 0; right: 0; top: -12px; bottom: -12px; }
+.p-bar:hover .knob, .p-bar.scrubbing .knob { display: block; }
+.p-bar.scrubbing .pos, .p-bar.scrubbing .knob { transition: none; }

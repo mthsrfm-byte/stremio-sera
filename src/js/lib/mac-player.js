@@ -16,6 +16,8 @@ export function createMacVideo(title, art) {
   let audio = [];
   let subtitles = [];
   let bufferEnd = 0;
+  let seekingTo = null;
+  let seekingAt = 0;
   let active = true;
   let loadRequestId = null;
   const emit = (name) => el.dispatchEvent(new Event(name));
@@ -35,7 +37,15 @@ export function createMacVideo(title, art) {
     } else if (packet.event === 'time') {
       const wasPaused = state.paused;
       const wasBuffering = state.buffering;
-      state.currentTime = Math.max(0, number(data.position, state.currentTime));
+      const reported = Math.max(0, number(data.position, state.currentTime));
+      // Logo depois de um seek o mpv ainda manda a posição antiga por um instante: sem isto a barra
+      // volta para trás e só depois pula, parecendo que o seek demorou.
+      if (seekingTo !== null && Math.abs(reported - seekingTo) > 1.5 && Date.now() - seekingAt < 8000) {
+        /* mantém a posição pedida */
+      } else {
+        seekingTo = null;
+        state.currentTime = reported;
+      }
       state.duration = number(data.duration, state.duration);
       state.paused = typeof data.paused === 'boolean' ? data.paused : state.paused;
       state.buffering = typeof data.buffering === 'boolean' ? data.buffering : state.buffering;
@@ -84,6 +94,7 @@ export function createMacVideo(title, art) {
         state.error = null;
         state.paused = true;
         state.buffering = true;
+        seekingTo = null;
         document.documentElement.classList.add('mac-playing');
         loadRequestId = nativeCommand('load', Object.assign({ url: value, title: title || 'Seraflix', startTime: 0 }, art || {}));
         if (!loadRequestId) {
@@ -91,7 +102,10 @@ export function createMacVideo(title, art) {
           setTimeout(() => emit('error'), 0);
         }
       } else if (key === 'currentTime') {
-        nativeCommand('seek', { position: Math.max(0, number(value, 0)) });
+        seekingTo = Math.max(0, number(value, 0));
+        seekingAt = Date.now();
+        state.currentTime = seekingTo;
+        nativeCommand('seek', { position: seekingTo });
         emit('seeked');
       } else if (key === 'volume' || key === 'muted') nativeCommand('volume', { value: state.muted ? 0 : Math.max(0, Math.min(1, state.volume)) * 100 });
     },
