@@ -8,7 +8,8 @@ export function nativeCommand(command, args = {}) {
   return id;
 }
 
-export function createMacVideo(title) {
+// art: pôster/fundo/logo do título, usados no cartão de carregamento do PiP.
+export function createMacVideo(title, art) {
   const el = document.createElement('div');
   el.className = 'mac-video';
   const state = { src: '', currentTime: 0, duration: NaN, paused: true, buffering: true, ended: false, volume: 1, muted: false, readyState: 0, error: null };
@@ -84,7 +85,7 @@ export function createMacVideo(title) {
         state.paused = true;
         state.buffering = true;
         document.documentElement.classList.add('mac-playing');
-        loadRequestId = nativeCommand('load', { url: value, title: title || 'Seraflix', startTime: 0 });
+        loadRequestId = nativeCommand('load', Object.assign({ url: value, title: title || 'Seraflix', startTime: 0 }, art || {}));
         if (!loadRequestId) {
           state.error = { code: 4, message: 'A ponte do Mac não está disponível.' };
           setTimeout(() => emit('error'), 0);

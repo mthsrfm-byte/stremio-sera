@@ -4,8 +4,6 @@ html.mac-playing .view.player, html.mac-playing .player,
 html.mac-playing .player video { background: transparent !important; }
 html.mac-playing #app > .view:not(.player) { visibility: hidden; }
 .mac-video { position: absolute; inset: 0; background: transparent; }
-/* O Mac pode mostrar o cache imediatamente; não espera a vinheta da TV. */
-.boot { transition: none !important; animation: none !important; }
 /* Botão Voltar das telas empilhadas (router.js). No player, só junto com os controles. */
 .mac-back { position: absolute; left: 40px; top: 36px; z-index: 50; width: 64px; height: 64px; border: 0; border-radius: 50%;
   background: rgba(20, 16, 32, 0.72); cursor: pointer; display: flex; align-items: center; justify-content: center;
@@ -14,3 +12,7 @@ html.mac-playing #app > .view:not(.player) { visibility: hidden; }
 .mac-back svg { width: 32px; height: 32px; fill: none; stroke: #fff; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
 .player .mac-back { opacity: 0; pointer-events: none; }
 .player.controls-on .mac-back { opacity: 1; pointer-events: auto; }
+
+/* Confirmação das chaves de API em Ajustes. */
+.key-saved { margin-left: 12px; color: #6fd68a; font-weight: 600; white-space: nowrap; opacity: 0; transition: opacity 0.2s; }
+.key-saved.on { opacity: 1; }
