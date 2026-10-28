@@ -51,6 +51,9 @@ export function parse(s) {
     sizeMb: sizeM ? parseFloat(sizeM[1].replace(',', '.')) * (/^g/i.test(sizeM[2]) ? 1024 : 1) : 0,
     // Debrid com o arquivo em cache ([RD+], [AD+]...) abre na hora, sem depender de seeders.
     cached: /\[[A-Z]{2,3}\+\]|\binstant\b|⚡/i.test(name),
+    // Fonte de debrid ([RD+], [RD download], [AD]...). Sem o "+" ainda não está no debrid: abrir só
+    // manda baixar, e o vídeo não toca na hora.
+    debrid: /\[(?:RD|AD|PM|DL|DLX|TB|ED|OC)[+\] ]/.test(name),
     addon: name.split('\n')[0].replace(/\[[A-Z]{2,3}\+?\]/g, '').trim(),
     file: titleLine.replace(ICONS_RE, '').replace(FLAG_RE, '').replace(/\s{2,}/g, ' ').trim(),
   };
@@ -127,21 +130,37 @@ export function good(info) {
   return res && healthy;
 }
 
-// Smart Choice: primeira fonte da lista com áudio original + dublado e boa; se nenhuma, a primeira
-// que dá para tocar. Dolby Vision fica por último: as TVs Samsung não têm DV, e o arquivo DV sem a
-// camada HDR10 (perfil 5, comum em WEB-DL) nem abre. Retorna { stream, ideal } ou null.
+// Smart Choice, em camadas (a primeira que tiver fonte vence):
+//   1) debrid em cache ([RD+]) com original + dublado em 1080p/4K;  2) debrid em cache em 1080p/4K;
+//   3) qualquer debrid em cache;  4) torrent ideal;  5) torrent bom (1080p/4K e seeders);
+//   6) o que não for debrid fora do cache;  7) o resto (debrid ainda baixando).
+// Dolby Vision fica por último em tudo: as TVs Samsung não têm DV, e o arquivo DV sem a camada
+// HDR10 (perfil 5, comum em WEB-DL) nem abre. Retorna { stream, ideal } ou null.
 export function smartPick(list, serverOk) {
   const playable = list.filter((s) => canPlay(s, serverOk));
   if (!playable.length) return null;
-  const ideal = (s) => {
-    const info = parse(s);
-    return info.dub && info.original && good(info);
-  };
+  const hiRes = (info) => info.res === '4K' || info.res === '1080p';
+  const ideal = (info) => info.dub && info.original && good(info);
+  const waiting = (info) => info.debrid && !info.cached;
+  const tiers = [
+    (i) => i.cached && ideal(i),
+    (i) => i.cached && hiRes(i),
+    (i) => i.cached,
+    (i) => !waiting(i) && ideal(i),
+    (i) => !waiting(i) && good(i),
+    (i) => !waiting(i),
+    () => true,
+  ];
   const noDv = playable.filter((s) => !parse(s).dv);
-  for (let i = 0; i < noDv.length; i++) if (ideal(noDv[i])) return { stream: noDv[i], ideal: true };
-  if (noDv.length) return { stream: noDv[0], ideal: false };
-  for (let i = 0; i < playable.length; i++) if (ideal(playable[i])) return { stream: playable[i], ideal: true };
-  return { stream: playable[0], ideal: false };
+  // Laços simples (sem find/for-of): o mesmo código roda nas TVs antigas.
+  const pools = [noDv, playable];
+  for (let p = 0; p < pools.length; p++) {
+    for (let t = 0; t < tiers.length; t++) {
+      const hit = pools[p].filter((s) => tiers[t](parse(s)))[0];
+      if (hit) return { stream: hit, ideal: ideal(parse(hit)) };
+    }
+  }
+  return null;
 }
 
 export function summary(info) {
