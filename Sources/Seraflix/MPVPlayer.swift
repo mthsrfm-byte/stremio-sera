@@ -752,7 +752,8 @@ private final class MPVSurface: NSView {
         self.resources = resources
         self.videoLayer = MPVVideoLayer(resources: resources)
         super.init(frame: .zero)
-        layer = videoLayer
+        // Layer-backed (makeBackingLayer), não layer-hosting: atribuir `layer` antes de wantsLayer
+        // fazia o AppKit ignorar a ordem das subviews e a CAOpenGLLayer cobria a WKWebView.
         wantsLayer = true
         videoLayer.contentsScale = NSScreen.main?.backingScaleFactor ?? 1
     }
