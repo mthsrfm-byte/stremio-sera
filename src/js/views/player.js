@@ -155,6 +155,35 @@ function PlayerView(opts) {
       if (e.target.closest && e.target.closest('[data-focus], .p-bar, .mac-back')) return;
       togglePlay();
     });
+    // Linha do tempo com mouse: clicar pula; arrastar mostra o tempo e a prévia e pula ao soltar.
+    // O clique não sobe para o nav (lá a barra é "Enter = pausar", do controle da TV).
+    bar.addEventListener('click', (e) => e.stopPropagation());
+    bar.addEventListener('mousedown', (e) => {
+      const d = videoEl.duration;
+      if (e.button !== 0 || !(d > 0) || !isFinite(d)) return;
+      e.preventDefault();
+      clearTimeout(seekCommitTimer);
+      const scrubTo = (ev) => {
+        const r = bar.getBoundingClientRect();
+        seekTarget = Math.max(0, Math.min(d - 1, ((ev.clientX - r.left) / (r.width || 1)) * d));
+        bar.classList.add('seeking', 'scrubbing');
+        seekLabel.textContent = fmtTime(seekTarget);
+        showControls(bar);
+        updateTimes();
+        // Só a prévia leve (miniaturas do site). A do PC roda ffmpeg no torrent e rouba banda do vídeo.
+        if (stream && stream.thumbs) showPreview(seekTarget, d);
+      };
+      const onMove = (ev) => scrubTo(ev);
+      const onUp = () => {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        bar.classList.remove('scrubbing');
+        commitSeek();
+      };
+      scrubTo(e);
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
   }
 
   const renderer = subs.Renderer(subsEl);
