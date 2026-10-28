@@ -6334,9 +6334,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "bbea5e14764543a761fee837620d2eda76d8b38e",
-    date: "2026-10-27T22:20:53Z",
-    message: "Web: servidor do PC é o próprio computador, sem perguntar"
+    commit: "686da7d9907a9887773115222ed0b58a0f8fd987",
+    date: "2026-10-28T08:12:23-03:00",
+    message: "Web: vídeo para de travar em loop e NSFW some do Continuar assistindo (#52)"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -6486,6 +6486,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
   }
   var TUBES = ["xv", "ph"];
+  var TUBE_PREFIXES = ["xv:", "ph:"];
   var TUBE_PORT = 8092;
   var SERVICE_MIN = 11;
   var tubes = null;
@@ -6674,7 +6675,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return !IS_WEB && settings().nsfwTab !== false;
   }
   function adultPrefixes() {
-    var out = [];
+    var out = TUBE_PREFIXES.slice();
     adultAddons().forEach(function (a) {
       var m = a.manifest;
       var lists = [m.idPrefixes || []].concat((m.resources || []).map(function (r) {
@@ -9469,14 +9470,23 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         return null;
       }
       unavailable = "";
-      var hls = new Hls({
-        // Worker de blob esbarra no Content-Security-Policy do app; na thread principal dá conta.
-        enableWorker: false,
-        // Pouca RAM na TV: segura menos vídeo na memória.
+      var hls = new Hls(Object.assign(
+      // Worker de blob esbarra no Content-Security-Policy do app; na thread principal dá conta.
+      {
+        enableWorker: false
+      },
+      // Pouca RAM na TV: segura menos vídeo na memória. No navegador sobra memória, e um buffer
+      // maior aguenta as oscilações da rede (com o da TV o vídeo parava a cada poucos segundos).
+      IS_WEB ? {
+        maxBufferLength: 120,
+        maxMaxBufferLength: 600,
+        maxBufferSize: 300 * 1e3 * 1e3,
+        backBufferLength: 90
+      } : {
         maxBufferLength: 30,
         maxMaxBufferLength: 60,
         backBufferLength: 30
-      });
+      }));
       var mediaRecovered = false;
       var dead = false;
       hls.on(Hls.Events.ERROR, function (ev, data) {
@@ -10480,7 +10490,17 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var home = tabView("home");
       if (home && home.freeMemory) home.freeMemory();
     }
+    function bufferedAhead(pos) {
+      try {
+        var b = videoEl.buffered;
+        for (var i = 0; i < b.length; i++) if (b.start(i) <= pos + 0.1 && b.end(i) >= pos) return b.end(i) - pos;
+      } catch (e) {}
+      return 0;
+    }
+    var STUCK_MS = IS_WEB ? 25e3 : 15e3;
     var stuckSince = 0;
+    var stuckAhead = 0;
+    var nudged = false;
     var recoveries = 0;
     var lastRecoveryAt = 0;
     function watchdog() {
@@ -10492,15 +10512,31 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       if (Math.abs(pos - lastT) > 0.05) {
         lastT = pos;
         stuckSince = 0;
+        nudged = false;
         if (Date.now() - lastRecoveryAt > 12e4) recoveries = 0;
         return;
       }
+      var ahead = bufferedAhead(pos);
       if (!stuckSince) {
         stuckSince = Date.now();
+        stuckAhead = ahead;
+        return;
+      }
+      if (videoEl.readyState < 3 && ahead > stuckAhead + 1) {
+        stuckSince = Date.now();
+        stuckAhead = ahead;
         return;
       }
       var stuckFor = Date.now() - stuckSince;
-      if (stuckFor > 15e3) {
+      if (!nudged && ahead > 1 && stuckFor > 4e3) {
+        nudged = true;
+        diag("travado-empurrao");
+        try {
+          videoEl.currentTime = pos + 0.2;
+        } catch (e) {}
+        return;
+      }
+      if (stuckFor > STUCK_MS) {
         stuckSince = 0;
         if (recoveries >= 3) {
           diag("travado-desisti");

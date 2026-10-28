@@ -1,6 +1,6 @@
 {
   "version": "1.2.0",
-  "commit": "bbea5e14764543a761fee837620d2eda76d8b38e",
-  "date": "2026-10-27T22:20:53Z",
-  "message": "Web: servidor do PC é o próprio computador, sem perguntar"
+  "commit": "686da7d9907a9887773115222ed0b58a0f8fd987",
+  "date": "2026-10-28T08:12:23-03:00",
+  "message": "Web: vídeo para de travar em loop e NSFW some do Continuar assistindo (#52)"
 }
