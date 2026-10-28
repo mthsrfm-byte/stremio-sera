@@ -64,6 +64,9 @@ function defaultAddons() {
 // (ele só as desliga quando a TV reinicia) ficam nas portas velhas e não atrapalham.
 // SERVICE_MIN: versão do serviço que este app espera (o /api/version dele); mais velha, pede a nova.
 const TUBES = ['xv', 'ph'];
+// Prefixos de id desses addons: valem mesmo sem o serviço (navegador, ou a TV antes de ele ligar),
+// para o que foi visto na TV e voltou pela conta não aparecer fora da aba NSFW.
+const TUBE_PREFIXES = ['xv:', 'ph:'];
 const TUBE_PORT = 8092;
 const SERVICE_MIN = 11;
 let tubes = null; // null: ainda procurando; [] ou lista: já respondeu
@@ -248,7 +251,7 @@ export function nsfwEnabled() {
 
 // Prefixos de id dos addons adultos ("tt" do IMDb fica de fora: é de filme comum).
 function adultPrefixes() {
-  const out = [];
+  const out = TUBE_PREFIXES.slice();
   adultAddons().forEach((a) => {
     const m = a.manifest;
     const lists = [m.idPrefixes || []].concat((m.resources || []).map((r) => (typeof r === 'object' && r.idPrefixes) || []));

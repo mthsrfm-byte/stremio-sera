@@ -1,4 +1,5 @@
 import { t } from './i18n.js';
+import { IS_WEB } from './platform.js';
 
 // HLS (.m3u8) no <video>: o player da TV não abre HLS pelo <video> (dá erro 4 na hora). O hls.js
 // lê a playlist e entrega os pedaços pelo MediaSource, como o Stremio faz no navegador e no Mac.
@@ -47,14 +48,17 @@ export function attach(videoEl, url, onFatal) {
         return null;
       }
       unavailable = '';
-      const hls = new Hls({
-        // Worker de blob esbarra no Content-Security-Policy do app; na thread principal dá conta.
-        enableWorker: false,
-        // Pouca RAM na TV: segura menos vídeo na memória.
-        maxBufferLength: 30,
-        maxMaxBufferLength: 60,
-        backBufferLength: 30,
-      });
+      const hls = new Hls(
+        Object.assign(
+          // Worker de blob esbarra no Content-Security-Policy do app; na thread principal dá conta.
+          { enableWorker: false },
+          // Pouca RAM na TV: segura menos vídeo na memória. No navegador sobra memória, e um buffer
+          // maior aguenta as oscilações da rede (com o da TV o vídeo parava a cada poucos segundos).
+          IS_WEB
+            ? { maxBufferLength: 120, maxMaxBufferLength: 600, maxBufferSize: 300 * 1000 * 1000, backBufferLength: 90 }
+            : { maxBufferLength: 30, maxMaxBufferLength: 60, backBufferLength: 30 }
+        )
+      );
       let mediaRecovered = false;
       let dead = false;
       hls.on(Hls.Events.ERROR, (ev, data) => {
