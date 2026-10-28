@@ -5019,6 +5019,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     if (!url2) return url2;
     return String(url2).replace(/(images\.metahub\.space\/background\/)(medium|large)\//, "$1small/").replace(/(image\.tmdb\.org\/t\/p\/)[^/]+\//, "$1w300/").replace(/(kitsu\.app\/anime\/(?:poster|cover)_images\/\d+\/)(original|large)\.(jpg|jpeg|png)/, "$1small.jpg").replace(/(artworks\.thetvdb\.com\/banners\/(?:[^?]*\/)?(?:posters|fanart)\/[^/?]+?)(?:_t)?\.(jpg|png)/, "$1_t.$2");
   }
+  var HGASM_RE = /^(https?:\/\/(?:[^/]*\.)?(?:hgasm\d*|hentaigasm)\.com\/)preview\/(.+)\.(?:gif|webp)(?:\?.*)?$/i;
+  function sharpThumb(url2) {
+    if (!url2) return url2;
+    return String(url2).replace(HGASM_RE, "$1thumbnail/$2.jpg");
+  }
   function smallThumb(url2) {
     if (!url2) return url2;
     return String(url2).replace(/(image\.tmdb\.org\/t\/p\/)[^/]+\//, "$1w300/").replace(/(artworks\.thetvdb\.com\/banners\/(?:[^?]*\/)?episodes\/[^/?]+?)(?:_t)?\.(jpg|png)/, "$1_t.$2");
@@ -6334,9 +6339,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "37fd11b360adea4815b7af2507b2bb1f21f53c52",
-    date: "2026-10-28T11:54:06Z",
-    message: "Protetor de tela: logo em cima, ranking numa linha só e sem SERAFLIX no canto"
+    commit: "adf9eb5721d4d8df570d2d48d9520a98a10e6db0",
+    date: "2026-10-28T12:23:02Z",
+    message: "NSFW: capa nítida do Hentaigasm e tema rosa na aba"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -8069,13 +8074,22 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   function _card(item, opts) {
     var o = opts || {};
     var wrap = h("div.poster-wrap");
-    var src = o.wide ? smallBackground(o.image || item.background || item.poster) : smallPoster(item.poster);
+    var raw = o.wide ? smallBackground(o.image || item.background || item.poster) : smallPoster(item.poster);
+    var fallback = null;
+    var src = sharpThumb(raw);
+    if (src !== raw) fallback = raw;
     if (src) {
       var im = h("img", {
         alt: ""
       });
       im.setAttribute("data-lazy", src);
       im.onerror = function () {
+        if (fallback) {
+          im.setAttribute("data-lazy", fallback);
+          im.src = fallback;
+          fallback = null;
+          return;
+        }
         if (o.dropWithoutImage) return dropCard();
         im.style.display = "none";
         wrap.classList.add("img-loaded");
