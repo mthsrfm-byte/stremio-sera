@@ -81,7 +81,7 @@ function PlayerView(opts) {
   let stream = opts.stream;
   const settings = store.settings();
 
-  const videoEl = __KAI_MAC__ ? createMacVideo(meta.name) : h('video', { preload: 'auto' });
+  const videoEl = __KAI_MAC__ ? createMacVideo(meta.name, { poster: meta.poster || '', background: meta.background || hero.background(meta.id) || '', logo: meta.logo || hero.logo(meta.id) || '' }) : h('video', { preload: 'auto' });
   // No navegador, clicar no vídeo pausa e toca (como nos players da web).
   // No Mac o clique é tratado no player inteiro (abaixo); aqui somaria um segundo toggle.
   if (IS_WEB && !__KAI_MAC__) videoEl.addEventListener('click', () => togglePlay());
@@ -236,6 +236,7 @@ function PlayerView(opts) {
         mediaUrl = res.url;
         viaServer = res.viaServer;
         log.info('Tocando', mediaUrl);
+        watchPeers();
         // Só src + autoplay, como o player oficial do Stremio para TV: load()/play() extras
         // faziam a TV abrir o stream duas vezes.
         hasPlayed = false;
@@ -350,6 +351,7 @@ function PlayerView(opts) {
       const info = si.parse(s);
       introStatus.textContent = t('Preparando o vídeo');
       introCaption.innerHTML = '<b>✦</b>' + t('Smart Choice') + ' · ' + escapeHtml(si.summary(info) || info.addon);
+      if (__KAI_MAC__) nativeCommand('status', { text: t('Preparando o vídeo'), caption: t('Smart Choice') + ' · ' + (si.summary(info) || info.addon) });
       start();
     });
   }
@@ -1000,6 +1002,7 @@ function PlayerView(opts) {
     introSub.textContent = opts.isSeries ? 'T' + video.season + ' E' + video.episode + ' · ' + (video.namePt || video.name || video.title || '') : '';
     introStatus.textContent = stream ? t('Preparando o vídeo') : t('Escolhendo a melhor fonte');
     introCaption.innerHTML = stream ? '' : '<b>✦</b>' + t('Smart Choice ativado');
+    if (__KAI_MAC__) nativeCommand('status', { sub: introSub.textContent, caption: stream ? '' : t('Smart Choice ativado') });
   }
 
   function hideIntro() {
@@ -1020,6 +1023,7 @@ function PlayerView(opts) {
   }
 
   function message(text) {
+    if (__KAI_MAC__ && text) nativeCommand('status', { text: text }); // legenda curta do cartão do PiP
     msgEl.textContent = introOn ? '' : text;
     if (introOn && text) introStatus.textContent = text;
   }
@@ -1516,6 +1520,19 @@ function PlayerView(opts) {
   }
 
   // ---------- Demorando para carregar: oferece outro provedor ----------
+  // Enquanto o torrent não começa, mostra peers e velocidade (dá para ver se a rede está travando).
+  let peerTicker = null;
+  function watchPeers() {
+    if (peerTicker || !viaServer) return;
+    peerTicker = setInterval(() => {
+      if (!alive || hasPlayed) return (clearInterval(peerTicker), (peerTicker = null));
+      server.torrentHealth(mediaUrl).then((st) => {
+        if (!st || !alive || hasPlayed) return;
+        message(t('Conectando: {peers} de {found} peers · {kb} KB/s', { peers: st.peers, found: st.found, kb: Math.round(st.speed / 1024) }));
+      });
+    }, 3000);
+  }
+
   function armSlow() {
     clearTimeout(slowTimer);
     closeSlow();
@@ -1538,6 +1555,13 @@ function PlayerView(opts) {
             message(t('Ainda baixando pelo PC ({pct}% do arquivo)...', { pct: Math.round(p2 * 100) }));
             clearTimeout(slowTimer);
             slowTimer = setTimeout(() => alive && !hasPlayed && checkSlow(), 20000);
+          } else if (viaServer) {
+            // Antes de oferecer outra fonte, diz se o problema parece ser a rede bloqueando torrent.
+            server.torrentHealth(mediaUrl).then((st) => {
+              if (!alive || hasPlayed) return;
+              const d = server.diagnoseTorrent(st);
+              slowPrompt(d.level === 'ok' || d.level === 'unknown' ? '' : d.text);
+            });
           } else slowPrompt();
         });
       }, 4000);
@@ -1552,7 +1576,7 @@ function PlayerView(opts) {
     slowModal = null;
   }
 
-  function slowPrompt() {
+  function slowPrompt(netHint) {
     closeSlow();
     let left = SLOW_COUNTDOWN;
     const goBtn = h('div.btn.primary', { focusable: true, onSelect: () => (closeSlow(), tryAnother()) });
@@ -1561,6 +1585,7 @@ function PlayerView(opts) {
     label();
     const box = h('div.modal-box.center.slow-box', null, [
       h('h3', { text: t('Está demorando… tentar outro provedor?') }),
+      netHint ? h('p.modal-text.net-hint', { text: netHint }) : null,
       h('p.modal-text', { text: t('Se você não escolher nada, tento outra fonte sozinho.') }),
       h('div.modal-actions', { 'data-group': '' }, [goBtn, waitBtn]),
     ]);
