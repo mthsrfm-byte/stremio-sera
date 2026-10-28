@@ -21,6 +21,15 @@ export function smallBackground(url) {
     .replace(/(artworks\.thetvdb\.com\/banners\/(?:[^?]*\/)?(?:posters|fanart)\/[^/?]+?)(?:_t)?\.(jpg|png)/, '$1_t.$2');
 }
 
+// Hentaigasm: o addon manda a prévia animada (GIF/WebP pequeno e borrado); a capa nítida em JPG
+// (620x349) tem o mesmo nome em /thumbnail/. Quem usa guarda o endereço original para o caso de erro.
+const HGASM_RE = /^(https?:\/\/(?:[^/]*\.)?(?:hgasm\d*|hentaigasm)\.com\/)preview\/(.+)\.(?:gif|webp)(?:\?.*)?$/i;
+
+export function sharpThumb(url) {
+  if (!url) return url;
+  return String(url).replace(HGASM_RE, '$1thumbnail/$2.jpg');
+}
+
 export function smallThumb(url) {
   if (!url) return url;
   return String(url)

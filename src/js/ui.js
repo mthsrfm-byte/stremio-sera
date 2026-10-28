@@ -2,7 +2,7 @@
 import { LOGO_HTML } from './lib/logo.js';
 import { h, clear, loadVisibleImages } from './lib/dom.js';
 import * as nav from './lib/nav.js';
-import { smallPoster, smallBackground } from './lib/img.js';
+import { smallPoster, smallBackground, sharpThumb } from './lib/img.js';
 import * as store from './lib/store.js';
 import { avatar, switchProfile, createProfile } from './views/profiles.js';
 import { t } from './lib/i18n.js';
@@ -417,11 +417,21 @@ export function card(item, opts) {
   const o = opts || {};
   const wrap = h('div.poster-wrap');
   // Versões pequenas das imagens (o cartão tem 210x315 / 380x214).
-  const src = o.wide ? smallBackground(o.image || item.background || item.poster) : smallPoster(item.poster);
+  const raw = o.wide ? smallBackground(o.image || item.background || item.poster) : smallPoster(item.poster);
+  // Capa nítida no lugar da prévia animada; se ela não existir, volta para a original.
+  let fallback = null;
+  const src = sharpThumb(raw);
+  if (src !== raw) fallback = raw;
   if (src) {
     const im = h('img', { alt: '' });
     im.setAttribute('data-lazy', src);
     im.onerror = () => {
+      if (fallback) {
+        im.setAttribute('data-lazy', fallback);
+        im.src = fallback;
+        fallback = null;
+        return;
+      }
       if (o.dropWithoutImage) return dropCard();
       im.style.display = 'none';
       wrap.classList.add('img-loaded'); // sem imagem: para o esqueleto e mostra o nome
