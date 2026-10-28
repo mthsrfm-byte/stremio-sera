@@ -107,8 +107,14 @@ final class MPVPlayer {
                 "load-scripts": "no", "osc": "no", "input-default-bindings": "no",
                 "input-vo-keyboard": "no", "terminal": "no", "idle": "yes",
                 "keep-open": "no", "audio-client-name": "Seraflix",
-                "audio-channels": "auto", "cache": "yes", "cache-secs": "20",
-                "demuxer-max-bytes": "256MiB", "demuxer-max-back-bytes": "64MiB",
+                "audio-channels": "auto", "cache": "yes",
+                // Torrent/streaming: lê bem à frente (o servidor baixa em ordem a partir do ponto
+                // pedido) e, depois de um seek ou de esvaziar, só volta a tocar com alguns segundos
+                // no buffer. Com o padrão (1 s) ele tocava, esvaziava e parava sem parar.
+                "cache-secs": "120", "demuxer-readahead-secs": "60",
+                "cache-pause-initial": "yes", "cache-pause-wait": "5",
+                "demuxer-max-bytes": "512MiB", "demuxer-max-back-bytes": "128MiB",
+                "demuxer-seekable-cache": "yes", "stream-buffer-size": "4MiB",
                 "sub-auto": "no", "ytdl": "no", "network-timeout": "30"
             ]
             for (name, value) in options {

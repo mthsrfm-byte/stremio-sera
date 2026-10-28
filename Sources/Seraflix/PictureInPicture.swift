@@ -211,6 +211,7 @@ private final class PiPRootView: NSView {
     }
     override func mouseEntered(with event: NSEvent) { onHover?(true) }
     override func mouseExited(with event: NSEvent) { onHover?(false) }
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
     override func mouseDown(with event: NSEvent) {
         if event.clickCount == 2 { onDoubleClick?(); return }
         window?.performDrag(with: event)
@@ -267,6 +268,8 @@ private final class PiPButton: NSView {
     required init?(coder: NSCoder) { fatalError("init(coder:) não utilizado") }
 
     override var mouseDownCanMoveWindow: Bool { false }
+    // O PiP não ativa o app: sem isto o primeiro clique só "acordava" a janela.
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
         trackingAreas.forEach(removeTrackingArea)
