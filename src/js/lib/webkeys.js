@@ -1,3 +1,4 @@
+import { nativeCommand } from './mac-player.js';
 // Atalhos só da versão web (teclado e mouse), que não existem na TV: F ou duplo clique no vídeo
 // entram e saem da tela cheia do navegador.
 function isFull() {
@@ -5,6 +6,7 @@ function isFull() {
 }
 
 export function toggleFullscreen() {
+  if (__KAI_MAC__) return nativeCommand('fullscreen');
   try {
     if (isFull()) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
     else {

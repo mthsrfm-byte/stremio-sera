@@ -631,6 +631,31 @@ export function SettingsView() {
         toast(v.trim() ? t('Chave salva') : t('Chave removida'));
         render();
       };
+      if (__KAI_MAC__) {
+        // Com mouse ninguém aperta Enter: salva ao colar/digitar e confirma ao lado do campo.
+        const saved = h('span.key-saved', { text: '' });
+        let timer = null;
+        input.addEventListener('input', () => {
+          clearTimeout(timer);
+          timer = setTimeout(() => {
+            const patch = {};
+            patch[key] = input.value.trim();
+            store.saveSettings(patch);
+            saved.textContent = input.value.trim() ? '✓ ' + t('Salva') : '✓ ' + t('Removida');
+            saved.classList.add('on');
+            toast(input.value.trim() ? t('Chave salva') : t('Chave removida'));
+          }, 500);
+        });
+        input.__submit = () => input.dispatchEvent(new Event('input'));
+        body.appendChild(
+          h('div.set-row', { focusable: true, onSelect: () => nav.select(input) }, [
+            h('div.label', null, [title, h('small', { text: sub })]),
+            input,
+            saved,
+          ])
+        );
+        return;
+      }
       body.appendChild(
         h('div.set-row', { focusable: true, onSelect: () => nav.select(input) }, [
           h('div.label', null, [title, h('small', { text: sub })]),
@@ -640,6 +665,34 @@ export function SettingsView() {
     };
     keyRow(t('Chave TMDB'), t('Sinopses e títulos em PT-BR, logos e elenco com fotos (grátis em themoviedb.org)'), 'tmdbKey', 'API key (v3)');
     keyRow(t('Chave MDBList'), t('Notas do Rotten Tomatoes, Metacritic, Trakt e Letterboxd (grátis em mdblist.com)'), 'mdblistKey', 'API key');
+
+    // ---- Teste de rede para torrent ----
+    {
+      const result = h('small', { text: t('Baixa um pedaço de um torrent público por ~20 s e diz se esta rede bloqueia torrent.') });
+      let running = false;
+      body.appendChild(
+        h(
+          'div.set-row',
+          {
+            focusable: true,
+            onSelect: () => {
+              if (running) return;
+              running = true;
+              result.textContent = t('Testando...');
+              server
+                .testTorrentNetwork((st) => {
+                  result.textContent = t('Testando: {peers} de {found} peers · {kb} KB/s', { peers: st.peers, found: st.found, kb: Math.round(st.speed / 1024) });
+                })
+                .then((d) => {
+                  running = false;
+                  result.textContent = (d.level === 'ok' ? '✓ ' : '⚠ ') + d.text;
+                });
+            },
+          },
+          [h('div.label', null, [t('Testar rede para torrents'), result]), h('div.btn', { text: t('Testar') })]
+        )
+      );
+    }
 
     // ---- Agenda ----
     if (!IS_WEB) {
@@ -673,7 +726,7 @@ export function SettingsView() {
         menu(t('Addons ativos'), list.map((a) => ({ label: a.manifest.name || a.manifest.id, sub: a.transportUrl })), {})
       )
     );
-    if (!IS_WEB) nsfwSection(list); // os addons adultos vêm do serviço da TV
+    if (!IS_WEB || __KAI_MAC__) nsfwSection(list); // os addons adultos vêm do serviço da TV
     // Addons recomendados (só aparecem se ainda não estiverem instalados).
     RECOMMENDED.filter((r) => !list.some((a) => a.transportUrl === r.url || (a.manifest && a.manifest.id === r.id))).forEach((r) =>
       body.appendChild(row(t('Instalar {name}', { name: r.name }), t(r.desc), '', () => installFromUrl(r.url, r.name)))

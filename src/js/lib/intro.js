@@ -5,6 +5,7 @@
 import { IS_WEB } from './platform.js';
 
 // Na web a abertura é mais curta (o CSS de src/web/web.css acompanha estes tempos).
+// No Mac a abertura também precisa durar a animação inteira; com 0 ela sumia antes do logo e só o som tocava.
 const MIN_MS = IS_WEB ? 1700 : 2200;
 const SOUND_AT_MS = IS_WEB ? 850 : 950; // quando a linha termina de revelar o logo
 
@@ -55,7 +56,8 @@ export function playSound() {
 // O som em si (separado para dar para testar renderizando offline).
 export function synth(ctx, out, t0) {
   const master = ctx.createGain();
-  master.gain.value = 0.55;
+  // Alto-falantes de notebook ficam perto do ouvido: no Mac o som sai bem mais baixo.
+  master.gain.value = __KAI_MAC__ ? 0.18 : 0.55;
   master.connect(out);
 
   // 1) Clique: rajada curtíssima de ruído filtrado (o "tic" de um botão físico).

@@ -246,7 +246,7 @@ export function adultAddons() {
 // Aba NSFW fica sempre disponível; só some se o perfil desativar em Ajustes. No navegador não
 // existe: os addons adultos vêm do serviço da TV.
 export function nsfwEnabled() {
-  return !IS_WEB && store.settings().nsfwTab !== false;
+  return (!IS_WEB || __KAI_MAC__) && store.settings().nsfwTab !== false;
 }
 
 // Prefixos de id dos addons adultos ("tt" do IMDb fica de fora: é de filme comum).
@@ -275,10 +275,14 @@ export function markAdult(id) {
   store.set('nsfwIds', list);
 }
 
+// Prefixos dos addons do serviço da TV (remote/tv-service.js). Itens deles chegam pela biblioteca
+// sincronizada mesmo onde o serviço não roda (Mac, navegador), então valem sempre.
+const SERVICE_PREFIXES = ['xv:', 'ph:'];
+
 // Item (biblioteca, continuar assistindo) que veio de um addon adulto.
 export function isAdultId(id) {
   const s = String(id || '');
-  return seenIds().indexOf(s) >= 0 || adultPrefixes().some((p) => s.indexOf(p) === 0);
+  return seenIds().indexOf(s) >= 0 || SERVICE_PREFIXES.concat(adultPrefixes()).some((p) => s.indexOf(p) === 0);
 }
 
 // Catálogos de um addon adulto, separados em fileiras (sem extra obrigatório) e busca.

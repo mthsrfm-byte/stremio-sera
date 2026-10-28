@@ -229,3 +229,58 @@ export function subtitlesProxy(subUrl) {
   const base = baseUrl();
   return base ? base + 'subtitles.vtt?from=' + encodeURIComponent(subUrl) : null;
 }
+
+// ---------- Diagnóstico de torrent ----------
+// Lê o estado do enxame no servidor e diz, em linguagem simples, se a rede parece bloquear torrent.
+// found = peers que os trackers/DHT devolveram; peers = conexões abertas; speed em bytes/s.
+export function torrentHealth(mediaUrl) {
+  const m = String(mediaUrl || '').match(/\/([a-f0-9]{40})(?:\/|$)/i);
+  const base = baseUrl();
+  if (!m || !base) return Promise.resolve(null);
+  return getJSON(base + m[1] + '/stats.json', { timeout: 5000, quiet: true })
+    .then((r) => {
+      if (!r) return null;
+      const found = (r.sources || []).reduce((n, s) => n + (s.numFound || 0), 0);
+      return { found: found, peers: r.peers || 0, speed: r.downloadSpeed || 0, downloaded: r.downloaded || 0 };
+    })
+    .catch(() => null);
+}
+
+export function diagnoseTorrent(st) {
+  if (!st) return { level: 'unknown', text: t('Não deu para ler o estado do torrent no servidor.') };
+  const kb = Math.round(st.speed / 1024);
+  if (st.found === 0)
+    return { level: 'blocked', text: t('Nenhum peer encontrado: esta rede parece bloquear os trackers de torrent (UDP). Tente outra rede, uma VPN ou uma fonte HTTP/debrid.') };
+  if (st.peers === 0 || (st.speed < 20 * 1024 && st.downloaded < 2 * 1024 * 1024))
+    return { level: 'throttled', text: t('Peers encontrados ({found}), mas as conexões não andam ({kb} KB/s): a rede parece bloquear ou limitar P2P. Tente outra rede, uma VPN ou outra fonte.', { found: st.found, kb: kb }) };
+  return { level: 'ok', text: t('Torrent funcionando: {peers} peers, {kb} KB/s.', { peers: st.peers, kb: kb }) };
+}
+
+// Teste de rede com um torrent público e saudável (Sintel, Blender Foundation, livre).
+const TEST_HASH = '08ada5a7a6183aae1e09d831df6748d566095a10';
+const TEST_TRACKERS = ['udp://tracker.opentrackr.org:1337/announce', 'udp://open.stealth.si:80/announce', 'udp://tracker.torrent.eu.org:451/announce', 'wss://tracker.openwebtorrent.com'];
+export function testTorrentNetwork(onProgress) {
+  const base = baseUrl();
+  if (!base) return Promise.resolve({ level: 'unknown', text: t('O servidor de streaming não está rodando.') });
+  const url = base + TEST_HASH + '/0';
+  return createTorrent(base, TEST_HASH, 0, TEST_TRACKERS)
+    .catch(() => null)
+    .then(
+      () =>
+        new Promise((resolve) => {
+          let n = 0;
+          let best = null;
+          const tick = () => {
+            torrentHealth(url).then((st) => {
+              if (st && (!best || st.speed + st.peers * 1024 > best.speed + best.peers * 1024)) best = st;
+              if (onProgress && st) onProgress(st, n);
+              const d = diagnoseTorrent(best);
+              if (d.level === 'ok' && st && st.downloaded > 2 * 1024 * 1024) return resolve(d);
+              if (++n >= 10) return resolve(d);
+              setTimeout(tick, 2000);
+            });
+          };
+          setTimeout(tick, 2000);
+        })
+    );
+}

@@ -10,8 +10,24 @@ const stack = [];
 const app = () => document.getElementById('app');
 const tabs = {}; // telas principais reutilizadas (início, busca, biblioteca, ajustes)
 
+// Computador não tem tecla Voltar no controle: telas empilhadas ganham um botão visível.
+function ensureBackButton(view) {
+  if (!__KAI_MAC__ || view.tabId || view.el.querySelector(':scope > .mac-back')) return;
+  const btn = document.createElement('button');
+  btn.className = 'mac-back';
+  btn.type = 'button';
+  btn.setAttribute('aria-label', t('Voltar'));
+  btn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>';
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    back();
+  });
+  view.el.appendChild(btn);
+}
+
 function show(view) {
   view.el.classList.remove('hidden');
+  ensureBackButton(view);
   if (view.layer) {
     nav.popLayer(view.layer);
   }

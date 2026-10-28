@@ -8,6 +8,7 @@
   "scripts": {
     "build": "node tools/build.mjs",
     "build:web": "node tools/build.mjs --web",
+    "build:mac": "node tools/build.mjs --mac",
     "dev": "node tools/build.mjs --watch",
     "logs": "node tools/devlog-server.mjs",
     "serve": "node tools/serve.mjs"

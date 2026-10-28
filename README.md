@@ -229,3 +229,28 @@ O Seraflix existe porque essas pessoas abriram o código delas. Valeu demais! �
 ## Licença
 
 [GPL-3.0](LICENSE), a mesma dos projetos em que ele se baseia.
+
+### Plataforma Mac
+
+`npm run build:mac` gera `site/mac/` com a mesma UI e o mesmo palco da versão desktop,
+sem a tranca de senha do site. O shell nativo está em
+[mthsrfm-byte/stremio-sera-mac](https://github.com/mthsrfm-byte/stremio-sera-mac).
+No Mac, o libmpv recebe a mídia pela ponte `WKScriptMessageHandler`; os controles,
+menus, conta, addons e histórico continuam neste projeto. O contrato da ponte fica
+em `docs/bridge.md` no repositório do shell.
+
+O workflow `mac-ui.yml` publica somente o bundle gerado em `site/mac` e seu
+`manifest.json` (commit de origem, versão da ponte e SHA-256 de cada arquivo).
+O shell consulta a main, baixa por SHA imutável e valida os hashes; mantém cache
+local e um fallback embutido para quando estiver offline. A atualização nativa é
+separada, por release do app. Para também renovar esse fallback automaticamente,
+configure `MAC_DISPATCH_TOKEN`: token GitHub com permissão **Contents: write**
+somente em `stremio-sera-mac`, usado para `repository_dispatch` do tipo `ui-updated`.
+A UI remota funciona mesmo sem esse segredo.
+
+Os ramos exclusivos do Mac usam `__KAI_MAC__` para seleção em tempo de build;
+`IS_MAC` também é exportado por `platform.js`. O build remove esses ramos antes de
+empacotar TV/web para preservar integralmente os bundles anteriores. `IS_WEB`
+continua identificando os comportamentos desktop (mouse, teclado e palco em pé),
+também usados pelo Mac. O alvo da TV continua Chromium 38. Testes da adaptação:
+`node --test tests/mac-player.test.mjs`.

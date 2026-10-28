@@ -21,6 +21,7 @@ import * as router from '../router.js';
 import { sortedVideos, openDetails } from './details.js';
 import { t } from '../lib/i18n.js';
 import { IS_WEB } from '../lib/platform.js';
+import { createMacVideo, nativeCommand } from '../lib/mac-player.js';
 
 const HIDE_MS = 5000;
 const SLOW_MS = 40000; // sem começar a tocar depois disso: oferece outro provedor
@@ -80,9 +81,10 @@ function PlayerView(opts) {
   let stream = opts.stream;
   const settings = store.settings();
 
-  const videoEl = h('video', { preload: 'auto' });
+  const videoEl = __KAI_MAC__ ? createMacVideo(meta.name, { poster: meta.poster || '', background: meta.background || hero.background(meta.id) || '', logo: meta.logo || hero.logo(meta.id) || '' }) : h('video', { preload: 'auto' });
   // No navegador, clicar no vídeo pausa e toca (como nos players da web).
-  if (IS_WEB) videoEl.addEventListener('click', () => togglePlay());
+  // No Mac o clique é tratado no player inteiro (abaixo); aqui somaria um segundo toggle.
+  if (IS_WEB && !__KAI_MAC__) videoEl.addEventListener('click', () => togglePlay());
   const subsEl = h('div.subs');
   const titleEl = h('div.p-title');
   const clockEl = h('div.p-clock');
@@ -141,6 +143,48 @@ function PlayerView(opts) {
     ]),
   ]);
   const el = h('div.view.player.intro-on', null, [videoEl, subsEl, overlay, skipBox, spinner, msgEl, intro]);
+  if (__KAI_MAC__) {
+    // Computador: mexer o mouse mostra os controles; clicar fora dos botões pausa/toca.
+    el.addEventListener('mousemove', (e) => {
+      // Com menu aberto (legendas, áudio, fontes) o foco é dele; não puxar para a barra.
+      if (nav.topLayer() && nav.topLayer().root !== el) return;
+      const hovered = e.target.closest && e.target.closest('[data-focus]');
+      showControls(hovered && overlay.contains(hovered) ? hovered : undefined);
+    });
+    el.addEventListener('click', (e) => {
+      if (e.target.closest && e.target.closest('[data-focus], .p-bar, .mac-back')) return;
+      togglePlay();
+    });
+    // Linha do tempo com mouse: clicar pula; arrastar mostra o tempo e a prévia e pula ao soltar.
+    // O clique não sobe para o nav (lá a barra é "Enter = pausar", do controle da TV).
+    bar.addEventListener('click', (e) => e.stopPropagation());
+    bar.addEventListener('mousedown', (e) => {
+      const d = videoEl.duration;
+      if (e.button !== 0 || !(d > 0) || !isFinite(d)) return;
+      e.preventDefault();
+      clearTimeout(seekCommitTimer);
+      const scrubTo = (ev) => {
+        const r = bar.getBoundingClientRect();
+        seekTarget = Math.max(0, Math.min(d - 1, ((ev.clientX - r.left) / (r.width || 1)) * d));
+        bar.classList.add('seeking', 'scrubbing');
+        seekLabel.textContent = fmtTime(seekTarget);
+        showControls(bar);
+        updateTimes();
+        // Só a prévia leve (miniaturas do site). A do PC roda ffmpeg no torrent e rouba banda do vídeo.
+        if (stream && stream.thumbs) showPreview(seekTarget, d);
+      };
+      const onMove = (ev) => scrubTo(ev);
+      const onUp = () => {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        bar.classList.remove('scrubbing');
+        commitSeek();
+      };
+      scrubTo(e);
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  }
 
   const renderer = subs.Renderer(subsEl);
   substyle.apply(subsEl, settings);
@@ -221,6 +265,7 @@ function PlayerView(opts) {
         mediaUrl = res.url;
         viaServer = res.viaServer;
         log.info('Tocando', mediaUrl);
+        watchPeers();
         // Só src + autoplay, como o player oficial do Stremio para TV: load()/play() extras
         // faziam a TV abrir o stream duas vezes.
         hasPlayed = false;
@@ -243,7 +288,7 @@ function PlayerView(opts) {
     const token = ++sourceToken;
     sourceUrl = url;
     videoEl.autoplay = true;
-    if (!hlsplay.isHls(url)) {
+    if (__KAI_MAC__ || !hlsplay.isHls(url)) {
       videoEl.src = url;
       return;
     }
@@ -335,12 +380,14 @@ function PlayerView(opts) {
       const info = si.parse(s);
       introStatus.textContent = t('Preparando o vídeo');
       introCaption.innerHTML = '<b>✦</b>' + t('Smart Choice') + ' · ' + escapeHtml(si.summary(info) || info.addon);
+      if (__KAI_MAC__) nativeCommand('status', { text: t('Preparando o vídeo'), caption: t('Smart Choice') + ' · ' + (si.summary(info) || info.addon) });
       start();
     });
   }
 
   let tracksPromise = null;
   function loadEmbeddedTracks() {
+    if (__KAI_MAC__) return Promise.resolve(embedded);
     if (!server.isAvailable()) return Promise.resolve(null);
     if (!tracksPromise) {
       const forUrl = mediaUrl;
@@ -492,6 +539,7 @@ function PlayerView(opts) {
   }
 
   function useAddonCues(s, cues) {
+    if (__KAI_MAC__) nativeCommand('subtitle', { id: 'no' });
     currentSub = { kind: 'addon', id: s.id || s.url };
     renderer.set(cues);
     applySavedOffset();
@@ -587,7 +635,8 @@ function PlayerView(opts) {
     const err = videoEl.error;
     // Sem src (fonte sendo trocada ou o hls.js soltando o <video>) não é erro do vídeo.
     if (!sourceUrl || !videoEl.getAttribute('src')) return;
-    playbackError(err && err.code);
+    if (__KAI_MAC__) playbackError(err && err.code, err && err.message);
+    else playbackError(err && err.code);
   });
 
   // Erro do <video> (código 1–4) ou do hls.js (why: o que ele disse). Um aviso por fonte.
@@ -984,7 +1033,7 @@ function PlayerView(opts) {
       // Com um painel por cima (sincronia, menus), o foco fica lá.
       const mine = nav.topLayer() && nav.topLayer().root === el;
       if (mine && (!nav.current() || !overlay.contains(nav.current()))) nav.focus(focusEl || bar);
-    } else if (focusEl) nav.focus(focusEl);
+    } else if (focusEl && nav.topLayer() && nav.topLayer().root === el) nav.focus(focusEl);
     scheduleHide();
   }
 
@@ -1019,6 +1068,7 @@ function PlayerView(opts) {
     introSub.textContent = opts.isSeries ? 'T' + video.season + ' E' + video.episode + ' · ' + (video.namePt || video.name || video.title || '') : '';
     introStatus.textContent = stream ? t('Preparando o vídeo') : t('Escolhendo a melhor fonte');
     introCaption.innerHTML = stream ? '' : '<b>✦</b>' + t('Smart Choice ativado');
+    if (__KAI_MAC__) nativeCommand('status', { sub: introSub.textContent, caption: stream ? '' : t('Smart Choice ativado') });
   }
 
   function hideIntro() {
@@ -1039,6 +1089,7 @@ function PlayerView(opts) {
   }
 
   function message(text) {
+    if (__KAI_MAC__ && text) nativeCommand('status', { text: text }); // legenda curta do cartão do PiP
     msgEl.textContent = introOn ? '' : text;
     if (introOn && text) introStatus.textContent = text;
   }
@@ -1163,6 +1214,15 @@ function PlayerView(opts) {
   }
 
   // ---------- Faixas ----------
+  if (__KAI_MAC__) videoEl.addEventListener('nativetracks', () => {
+    embedded = {
+      audio: videoEl.audioTracks.map((tr) => ({ lang: tr.language, label: tr.label })),
+      subs: videoEl.nativeSubtitles,
+    };
+    const selected = embedded.subs.findIndex((tr) => tr.selected);
+    if (currentSub.kind !== 'addon') currentSub = selected >= 0 ? { kind: 'embedded', index: selected } : { kind: 'off' };
+    autoPick();
+  });
   function selectEmbeddedAudio(index) {
     const native = videoEl.audioTracks;
     if (native && native.length > index) {
@@ -1178,6 +1238,12 @@ function PlayerView(opts) {
   // Com o torrent ainda baixando, não extrai: o ffmpeg leria o arquivo e roubaria a prioridade do download.
   function selectEmbeddedSub(index) {
     renderer.clear();
+    if (__KAI_MAC__) {
+      currentSub = { kind: 'embedded', index };
+      const track = videoEl.nativeSubtitles[index];
+      if (track) nativeCommand('subtitle', { id: track.id });
+      return;
+    }
     server.streamProgress(mediaUrl).then((p) => {
       if (!alive) return;
       if (p !== null && p >= 0.999) extractedSub(index);
@@ -1224,6 +1290,7 @@ function PlayerView(opts) {
   }
 
   function selectAddonSub(s, silent) {
+    if (__KAI_MAC__) nativeCommand('subtitle', { id: 'no' });
     currentSub = { kind: 'addon', id: s.id || s.url };
     loadAddonCues(s)
       .then((cues) => {
@@ -1236,6 +1303,7 @@ function PlayerView(opts) {
 
   // Menus de faixas: lê as faixas embutidas só agora, quando o usuário pede.
   function withTracks(open) {
+    if (__KAI_MAC__) return open();
     if (embedded || !server.isAvailable()) return open();
     toast(t('Lendo as faixas do arquivo...'), 2500);
     loadEmbeddedTracks().then(() => alive && open());
@@ -1279,7 +1347,7 @@ function PlayerView(opts) {
     opts2.push({ label: t('Desligada'), value: { kind: 'off' }, checked: currentSub.kind === 'off' });
     if (embedded && embedded.subs.length) {
       embedded.subs.forEach((tr, i) =>
-        /PGS|VOBSUB|DVD/i.test(tr.codec || '') ? null : opts2.push({
+        !__KAI_MAC__ && /PGS|VOBSUB|DVD/i.test(tr.codec || '') ? null : opts2.push({
           label: langName(tr.lang) + (tr.label ? ' · ' + tr.label : ''),
           sub: t('Embutida no arquivo') + (tr.codec ? ' · ' + tr.codec : ''),
           value: { kind: 'embedded', index: i },
@@ -1305,6 +1373,7 @@ function PlayerView(opts) {
       onPick: (v) => {
         if (v.kind === 'off' || v.kind === 'embedded' || v.kind === 'addon') autoDone.sub = true;
         if (v.kind === 'off') {
+          if (__KAI_MAC__) nativeCommand('subtitle', { id: 'no' });
           renderer.clear();
           currentSub = { kind: 'off' };
         } else if (v.kind === 'embedded') selectEmbeddedSub(v.index);
@@ -1517,6 +1586,19 @@ function PlayerView(opts) {
   }
 
   // ---------- Demorando para carregar: oferece outro provedor ----------
+  // Enquanto o torrent não começa, mostra peers e velocidade (dá para ver se a rede está travando).
+  let peerTicker = null;
+  function watchPeers() {
+    if (peerTicker || !viaServer) return;
+    peerTicker = setInterval(() => {
+      if (!alive || hasPlayed) return (clearInterval(peerTicker), (peerTicker = null));
+      server.torrentHealth(mediaUrl).then((st) => {
+        if (!st || !alive || hasPlayed) return;
+        message(t('Conectando: {peers} de {found} peers · {kb} KB/s', { peers: st.peers, found: st.found, kb: Math.round(st.speed / 1024) }));
+      });
+    }, 3000);
+  }
+
   function armSlow() {
     clearTimeout(slowTimer);
     closeSlow();
@@ -1539,6 +1621,13 @@ function PlayerView(opts) {
             message(t('Ainda baixando pelo PC ({pct}% do arquivo)...', { pct: Math.round(p2 * 100) }));
             clearTimeout(slowTimer);
             slowTimer = setTimeout(() => alive && !hasPlayed && checkSlow(), 20000);
+          } else if (viaServer) {
+            // Antes de oferecer outra fonte, diz se o problema parece ser a rede bloqueando torrent.
+            server.torrentHealth(mediaUrl).then((st) => {
+              if (!alive || hasPlayed) return;
+              const d = server.diagnoseTorrent(st);
+              slowPrompt(d.level === 'ok' || d.level === 'unknown' ? '' : d.text);
+            });
           } else slowPrompt();
         });
       }, 4000);
@@ -1553,7 +1642,7 @@ function PlayerView(opts) {
     slowModal = null;
   }
 
-  function slowPrompt() {
+  function slowPrompt(netHint) {
     closeSlow();
     let left = SLOW_COUNTDOWN;
     const goBtn = h('div.btn.primary', { focusable: true, onSelect: () => (closeSlow(), tryAnother()) });
@@ -1562,6 +1651,7 @@ function PlayerView(opts) {
     label();
     const box = h('div.modal-box.center.slow-box', null, [
       h('h3', { text: t('Está demorando… tentar outro provedor?') }),
+      netHint ? h('p.modal-text.net-hint', { text: netHint }) : null,
       h('p.modal-text', { text: t('Se você não escolher nada, tento outra fonte sozinho.') }),
       h('div.modal-actions', { 'data-group': '' }, [goBtn, waitBtn]),
     ]);
@@ -1782,6 +1872,7 @@ function PlayerView(opts) {
     },
     destroy: () => {
       alive = false;
+      if (__KAI_MAC__) videoEl.destroyNative();
       clearInterval(ticker);
       clearInterval(saveTimer);
       clearInterval(watchTimer);
