@@ -41,6 +41,7 @@ fi
 cp -R "$ROOT/Resources/fallback" "$APP/Contents/Resources/"
 cp "$ROOT/Resources/ui-source-commit.txt" "$APP/Contents/Resources/"
 cp "$ROOT/Resources/server-bootstrap.cjs" "$APP/Contents/Resources/"
+cp "$ROOT/Resources/AppIcon.icns" "$APP/Contents/Resources/"
 cp "$ROOT/LICENSE" "$APP/Contents/Resources/licenses/Seraflix-GPL-3.0.txt"
 cp -R "$ROOT/Resources/licenses/." "$APP/Contents/Resources/licenses/"
 cp "$ROOT/docs/dependencies.md" "$APP/Contents/Resources/licenses/DEPENDENCIAS.md"

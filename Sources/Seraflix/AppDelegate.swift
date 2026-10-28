@@ -338,6 +338,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         view.frame = contentView.bounds
         view.autoresizingMask = [.width, .height]
         contentView.addSubview(view, positioned: .below, relativeTo: web)
+        // Garante no Core Animation a mesma ordem das views: vídeo sempre atrás da UI.
+        contentView.wantsLayer = true
+        web.wantsLayer = true
+        view.layer?.zPosition = -1
+        web.layer?.zPosition = 1
     }
 
     @objc private func checkUpdates(_ sender: Any?) {
