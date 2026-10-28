@@ -1,7 +1,8 @@
 // Palco do layout (feito para TV, 1920×1080), escalado para caber na tela, mantendo a proporção.
-// Em tela em pé (celular, tablet), o palco fica mais estreito (640px lógicos no celular, 960px no
-// tablet) e a altura acompanha a tela: assim o texto não sai minúsculo. Carrega antes da tranca,
-// então a tela de senha já sai no tamanho certo.
+// Em tela deitada mais alta que 16:9 (notebook), a altura do palco acompanha a tela. Em tela em pé
+// (celular, tablet), o palco fica mais estreito (640px lógicos no celular, 960px no tablet) e a
+// altura acompanha a tela: assim o texto não sai minúsculo. Carrega antes da tranca, então a tela
+// de senha já sai no tamanho certo.
 (function () {
   var root = document.documentElement;
 
@@ -15,6 +16,10 @@
     if (portrait) {
       lw = w < 700 ? 640 : 960;
       lh = Math.round(h * lw / w);
+    } else {
+      // Tela deitada mais alta que 16:9 (notebook 16:10, como o MacBook): o palco ganha altura em
+      // vez de faixas pretas em cima e embaixo. Mais larga que 16:9 continua com faixas nos lados.
+      lh = Math.min(1440, Math.max(1080, Math.round(h * lw / w)));
     }
     var s = Math.min(w / lw, h / lh);
     var x = (w - lw * s) / 2;

@@ -2,10 +2,44 @@
 /* Palco escalado por stage.js para caber na tela: nada de barra de rolagem da página. */
 html, body { width: 100%; height: 100%; overflow: hidden; background: #0d0b14; }  /* o app.css fixa 1920×1080 */
 #app { position: fixed; left: 0; top: 0; transform-origin: 0 0; }  /* fixed: não estica a página no celular */
-/* O tamanho do palco vem de stage.js (1920×1080 na tela deitada; mais estreito na tela em pé). */
+/* O tamanho do palco vem de stage.js (1920 de largura e altura da tela na tela deitada; mais
+   estreito na tela em pé). O que o app.css prende em 1080px de altura acompanha o palco. */
 .view { width: 100%; height: 100%; }
+.details-bg, .details-shade, .details-panel, .fp-panel, .player video, .saver, .sv-bg, .sv-img, .sv-shade { height: 100%; }
 /* Com mouse, o que se clica (cartões, botões, linhas) mostra a mãozinha. */
-[data-focus] { cursor: pointer; }
+[data-focus], .web-back, .row-arrow { cursor: pointer; }
+.modal { cursor: default; }
+
+/* Seta de voltar no canto das telas abertas por cima (router.js) e do player. */
+.web-back { position: absolute; left: 24px; top: 28px; z-index: 40; width: 60px; height: 60px; border-radius: 30px; display: flex; align-items: center; justify-content: center; background: rgba(17, 17, 16, 0.55); border: 2px solid rgba(245, 244, 239, 0.14); color: #f5f4ef; transition: background-color 0.2s var(--ease-out), transform 0.2s var(--ease-out); }
+.web-back svg { width: 30px; height: 30px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.web-back:hover { background: #3347FF; border-color: #3347FF; transform: scale(1.06); }
+body.light .web-back { background: rgba(255, 255, 255, 0.8); border-color: rgba(17, 17, 16, 0.12); color: #111110; }
+body.light .web-back:hover { color: #fff; }
+
+/* Setas das fileiras (webrows.js): só aparecem com o mouse em cima e do lado que tem mais. */
+.row-arrow { position: absolute; z-index: 5; width: 88px; display: flex; align-items: center; justify-content: center; color: #f5f4ef; opacity: 0; pointer-events: none; transition: opacity 0.2s var(--ease-out); }
+.row-arrow.left { left: 0; background: linear-gradient(to right, rgba(17, 17, 16, 0.92), rgba(17, 17, 16, 0)); }
+.row-arrow.right { right: 0; background: linear-gradient(to left, rgba(17, 17, 16, 0.92), rgba(17, 17, 16, 0)); }
+.row-arrow.on { opacity: 1; pointer-events: auto; }
+.row-arrow svg { width: 52px; height: 52px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; transition: transform 0.2s var(--ease-out); }
+.row-arrow:hover svg { transform: scale(1.25); }
+body.light .row-arrow { color: #111110; }
+body.light .row-arrow.left { background: linear-gradient(to right, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0)); }
+body.light .row-arrow.right { background: linear-gradient(to left, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0)); }
+
+/* Player com mouse: os controles escondidos não pegam clique (o clique no vídeo pausa/toca),
+   o cursor some junto com eles e a barra do tempo mostra o horário sob o mouse. */
+.player .p-overlay { pointer-events: none; }
+.player.controls-on .p-top, .player.controls-on .p-bottom { pointer-events: auto; }
+.player:not(.controls-on):not(.intro-on) { cursor: none; }
+.player .p-back { top: 52px; opacity: 0; pointer-events: none; transition: opacity 0.25s ease; }
+.player.controls-on .p-back, .player.intro-on .p-back { opacity: 1; pointer-events: auto; }
+.player .p-bar { cursor: pointer; }
+.player .p-bar:before { content: ''; position: absolute; left: 0; right: 0; top: -14px; bottom: -14px; }  /* área de clique maior que a barra fininha */
+.player .p-bar:hover { height: 14px; margin-top: -2px; }
+.player .p-bar:hover .knob { display: block; }
+.player .p-bar.hovering .seek-label { display: block; }
 
 :root {
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
@@ -28,8 +62,10 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #0d0b14; }
 }
 .rail-item:after { transition-timing-function: var(--ease-out); }
 
-/* Toast: sobe ao aparecer e some subindo de leve. */
+/* Toast: sobe ao aparecer e some subindo de leve. Não pega clique: mesmo invisível ele fica por
+   cima dos botões do rodapé (no player, Fontes e Legendas não respondiam ao mouse). */
 .toast {
+  pointer-events: none;
   transform: translate(-50%, 14px);
   transition: opacity 0.3s var(--ease-out), transform 0.4s var(--ease-out);
 }
