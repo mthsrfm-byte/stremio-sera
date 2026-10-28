@@ -1,6 +1,6 @@
 {
   "version": "1.2.0",
-  "commit": "a12a650952b214cbe7d59bd1fbd3555853ec23cc",
-  "date": "2026-10-28T11:51:23Z",
-  "message": "Protetor de tela: logo entra direto, sem o nome escrito antes do PNG"
+  "commit": "37fd11b360adea4815b7af2507b2bb1f21f53c52",
+  "date": "2026-10-28T11:54:06Z",
+  "message": "Protetor de tela: logo em cima, ranking numa linha só e sem SERAFLIX no canto"
 }

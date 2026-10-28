@@ -1079,16 +1079,12 @@ body.light .card-stats { color: rgba(17,17,16,0.6); }
 .sv-shade { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px;
   background: -webkit-linear-gradient(left, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.55) 38%, rgba(0,0,0,0) 70%), -webkit-linear-gradient(bottom, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0) 46%), -webkit-linear-gradient(top, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0) 22%);
   background: linear-gradient(to right, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.55) 38%, rgba(0,0,0,0) 70%), linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0) 46%), linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0) 22%); }
-.sv-brand { position: absolute; left: 96px; top: 64px; font-size: 30px; font-weight: 800; letter-spacing: 8px; color: #3347FF; text-shadow: 0 2px 18px rgba(51,71,255,0.45); }
 .sv-clock { position: absolute; right: 96px; top: 52px; text-align: right; text-shadow: 0 2px 20px rgba(0,0,0,0.6); }
 .sv-time { font-size: 96px; font-weight: 300; line-height: 1; letter-spacing: -2px; }
 .sv-date { margin-top: 8px; font-size: 26px; font-weight: 500; color: rgba(245,244,239,0.75); }
 .sv-info { position: absolute; left: 96px; bottom: 150px; width: 900px; opacity: 0; -webkit-transform: translateY(30px); transform: translateY(30px); -webkit-transition: opacity 0.6s, -webkit-transform 0.8s; transition: opacity 0.6s, transform 0.8s; }
 .sv-info.in { opacity: 1; -webkit-transform: none; transform: none; }
-.sv-rank { display: -webkit-box; display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; margin-bottom: 18px; }
-.sv-num { font-size: 190px; font-weight: 800; line-height: 0.82; letter-spacing: -8px; color: rgba(0,0,0,0.15); -webkit-text-stroke: 4px #F5F4EF; margin-right: 26px; }
-.sv-rank-txt b { display: inline-block; padding: 6px 14px; border-radius: 8px; background: #3347FF; color: #fff; font-size: 20px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; }
-.sv-rank-txt span { display: block; margin-top: 10px; font-size: 30px; font-weight: 700; }
+.sv-rank-txt { margin-top: 22px; font-size: 30px; font-weight: 700; }
 .sv-logo-box { height: 220px; display: -webkit-box; display: -webkit-flex; display: flex; -webkit-align-items: flex-end; align-items: flex-end; }
 .sv-logo { max-width: 640px; max-height: 220px; opacity: 0; -webkit-transition: opacity 0.6s; transition: opacity 0.6s; -webkit-filter: drop-shadow(0 4px 20px rgba(0,0,0,0.6)); filter: drop-shadow(0 4px 20px rgba(0,0,0,0.6)); }
 .sv-logo.ready { opacity: 1; }

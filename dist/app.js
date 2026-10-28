@@ -6334,9 +6334,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "a12a650952b214cbe7d59bd1fbd3555853ec23cc",
-    date: "2026-10-28T11:51:23Z",
-    message: "Protetor de tela: logo entra direto, sem o nome escrito antes do PNG"
+    commit: "37fd11b360adea4815b7af2507b2bb1f21f53c52",
+    date: "2026-10-28T11:54:06Z",
+    message: "Protetor de tela: logo em cima, ranking numa linha só e sem SERAFLIX no canto"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -15700,7 +15700,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     parts = {
       time: h("div.sv-time"),
       date: h("div.sv-date"),
-      num: h("div.sv-num"),
       rankTxt: h("div.sv-rank-txt"),
       logoBox: h("div.sv-logo-box"),
       meta: h("div.sv-meta"),
@@ -15712,16 +15711,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     };
     var p = parts;
     clear(p.info);
-    p.info.appendChild(h("div.sv-rank", null, [p.num, p.rankTxt]));
     p.info.appendChild(p.logoBox);
+    p.info.appendChild(p.rankTxt);
     p.info.appendChild(p.meta);
     p.info.appendChild(p.desc);
     items.slice(0, 16).forEach(function () {
       return p.bars.appendChild(h("div.sv-bar", null, h("i")));
     });
-    el = h("div.saver", null, [h("div.sv-bg", null, [back2, front]), h("div.sv-shade"), h("div.sv-brand", {
-      text: "SERAFLIX"
-    }), h("div.sv-clock", null, [p.time, p.date]), p.info, h("div.sv-next", null, [p.nextImg, h("div", null, [h("small", {
+    el = h("div.saver", null, [h("div.sv-bg", null, [back2, front]), h("div.sv-shade"), h("div.sv-clock", null, [p.time, p.date]), p.info, h("div.sv-next", null, [p.nextImg, h("div", null, [h("small", {
       text: t("A seguir")
     }), p.nextName])]), p.bars, h("div.sv-hint", {
       text: t("Aperte qualquer botão para voltar")
@@ -15797,16 +15794,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     p.info.classList.remove("in");
     setTimeout(function () {
       if (!el) return;
-      p.num.textContent = String(it.rank);
-      p.rankTxt.innerHTML = "";
-      p.rankTxt.appendChild(h("b", {
-        text: t("Top 10 de hoje")
-      }));
-      p.rankTxt.appendChild(h("span", {
-        text: t(it.type === "series" ? "#{n} em séries hoje" : "#{n} em filmes hoje", {
-          n: it.rank
-        })
-      }));
+      p.rankTxt.textContent = t(it.type === "series" ? "#{n} em séries hoje" : "#{n} em filmes hoje", {
+        n: it.rank
+      });
       clear(p.logoBox);
       var name = h("div.sv-title", {
         text: it.name || ""
