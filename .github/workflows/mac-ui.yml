@@ -32,6 +32,9 @@ jobs:
       - name: Gerar UI e manifesto de integridade
         env:
           KAI_COMMIT: ${{ github.sha }}
+          # Mesmas chaves dos builds TV/web: sem elas não há sinopse PT-BR (TMDB) nem notas RT (MDBList).
+          KAI_TMDB: ${{ secrets.TMDB_API_KEY }}
+          KAI_MDBLIST: ${{ secrets.MDBLIST_API_KEY }}
         run: npm run build:mac
       - uses: actions/upload-artifact@v4
         with:

@@ -83,7 +83,8 @@ function PlayerView(opts) {
 
   const videoEl = __KAI_MAC__ ? createMacVideo(meta.name) : h('video', { preload: 'auto' });
   // No navegador, clicar no vídeo pausa e toca (como nos players da web).
-  if (IS_WEB) videoEl.addEventListener('click', () => togglePlay());
+  // No Mac o clique é tratado no player inteiro (abaixo); aqui somaria um segundo toggle.
+  if (IS_WEB && !__KAI_MAC__) videoEl.addEventListener('click', () => togglePlay());
   const subsEl = h('div.subs');
   const titleEl = h('div.p-title');
   const clockEl = h('div.p-clock');
@@ -142,6 +143,19 @@ function PlayerView(opts) {
     ]),
   ]);
   const el = h('div.view.player.intro-on', null, [videoEl, subsEl, overlay, skipBox, spinner, msgEl, intro]);
+  if (__KAI_MAC__) {
+    // Computador: mexer o mouse mostra os controles; clicar fora dos botões pausa/toca.
+    el.addEventListener('mousemove', (e) => {
+      // Com menu aberto (legendas, áudio, fontes) o foco é dele; não puxar para a barra.
+      if (nav.topLayer() && nav.topLayer().root !== el) return;
+      const hovered = e.target.closest && e.target.closest('[data-focus]');
+      showControls(hovered && overlay.contains(hovered) ? hovered : undefined);
+    });
+    el.addEventListener('click', (e) => {
+      if (e.target.closest && e.target.closest('[data-focus], .p-bar, .mac-back')) return;
+      togglePlay();
+    });
+  }
 
   const renderer = subs.Renderer(subsEl);
   substyle.apply(subsEl, settings);
@@ -951,7 +965,7 @@ function PlayerView(opts) {
       // Com um painel por cima (sincronia, menus), o foco fica lá.
       const mine = nav.topLayer() && nav.topLayer().root === el;
       if (mine && (!nav.current() || !overlay.contains(nav.current()))) nav.focus(focusEl || bar);
-    } else if (focusEl) nav.focus(focusEl);
+    } else if (focusEl && nav.topLayer() && nav.topLayer().root === el) nav.focus(focusEl);
     scheduleHide();
   }
 

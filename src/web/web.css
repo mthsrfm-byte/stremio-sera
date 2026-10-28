@@ -28,8 +28,10 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #0d0b14; }
 }
 .rail-item:after { transition-timing-function: var(--ease-out); }
 
-/* Toast: sobe ao aparecer e some subindo de leve. */
+/* Toast: sobe ao aparecer e some subindo de leve. Só informa: não pode roubar o clique dos
+   botões embaixo dele (fica no DOM com opacidade 0 mesmo escondido). */
 .toast {
+  pointer-events: none;
   transform: translate(-50%, 14px);
   transition: opacity 0.3s var(--ease-out), transform 0.4s var(--ease-out);
 }

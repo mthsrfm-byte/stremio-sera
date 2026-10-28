@@ -333,6 +333,11 @@ function onMouseOver(e) {
 function onClick(e) {
   const layer = top();
   if (!layer) return;
+  // Mouse: clicar no fundo escurecido de um menu/diálogo fecha, como o Voltar.
+  if (e.target === layer.root && layer.root.classList.contains('modal')) {
+    if (layer.onBack) layer.onBack();
+    return;
+  }
   const el = e.target.closest ? e.target.closest('[data-focus]') : null;
   if (el && layer.root.contains(el)) {
     focus(el, { noScroll: true });
