@@ -6339,9 +6339,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "adf9eb5721d4d8df570d2d48d9520a98a10e6db0",
-    date: "2026-10-28T12:23:02Z",
-    message: "NSFW: capa nítida do Hentaigasm e tema rosa na aba"
+    commit: "e2370d0dd407db9f597c712645146c451be3f1c8",
+    date: "2026-10-28T12:25:32Z",
+    message: "Merge branch 'main' of https://github.com/mthsrfm-byte/stremio-sera"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -6493,7 +6493,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var TUBES = ["xv", "ph"];
   var TUBE_PREFIXES = ["xv:", "ph:"];
   var TUBE_PORT = 8092;
-  var SERVICE_MIN = 11;
+  var SERVICE_MIN = 12;
   var tubes = null;
   var tubeTries = 0;
   var tubeState = "searching";
@@ -14548,13 +14548,76 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   function isUncensored(m) {
     return /uncensored/i.test(m.name || "");
   }
+  var PREVIEW_DELAY = 700;
+  var previewStop = null;
+  function previewOf(m) {
+    if (m.preview) return {
+      video: m.preview
+    };
+    var img = m.poster || m.background;
+    return img && sharpThumb(img) !== img ? {
+      image: img
+    } : null;
+  }
+  function stopPreview() {
+    if (previewStop) previewStop();
+  }
+  function startPreview(cardEl, src) {
+    stopPreview();
+    var wrap = cardEl.querySelector(".poster-wrap");
+    if (!wrap) return;
+    var node = null;
+    var timer3 = setTimeout(function () {
+      var show3 = function show3() {
+        return node.classList.add("ready");
+      };
+      if (src.video) {
+        node = h("video.card-preview", {
+          muted: true,
+          loop: true,
+          autoplay: true,
+          playsinline: true
+        });
+        node.muted = true;
+        node.addEventListener("playing", show3);
+        node.src = src.video;
+        var p = node.play && node.play();
+        if (p && p.catch) p.catch(function () {});
+      } else {
+        node = h("img.card-preview", {
+          alt: ""
+        });
+        node.onload = show3;
+        node.src = src.image;
+      }
+      node.onerror = function () {
+        return stop2();
+      };
+      var cover = wrap.querySelector("img");
+      wrap.insertBefore(node, cover ? cover.nextSibling : wrap.firstChild);
+    }, PREVIEW_DELAY);
+    function stop2() {
+      clearTimeout(timer3);
+      if (previewStop === stop2) previewStop = null;
+      if (!node) return;
+      if (node.tagName === "VIDEO") {
+        node.pause();
+        node.removeAttribute("src");
+        node.load();
+      }
+      if (node.parentNode) node.parentNode.removeChild(node);
+      node = null;
+    }
+    previewStop = stop2;
+  }
   function itemCard(m, entry) {
     var wide = m.posterShape === "landscape" || entry && entry.catalog.posterShape === "landscape";
     var st = m.stats || {};
     var extra2 = !m.stats && m.releaseInfo ? h("div.card-stats", null, h("span.cs-by", {
       text: String(m.releaseInfo)
     })) : null;
-    return _card(m, {
+    var pv = previewOf(m);
+    var el2 = _card(m, {
       wide: wide,
       rich: true,
       image: wide ? m.poster || m.background : void 0,
@@ -14564,9 +14627,15 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       duration: st.duration,
       stats: statsLine(st) || extra2,
       onSelect: function onSelect() {
-        return openDetails2(m.type || entry.catalog.type, m.id, null, m);
-      }
+        stopPreview();
+        openDetails2(m.type || entry.catalog.type, m.id, null, m);
+      },
+      onFocus: pv ? function () {
+        return startPreview(el2, pv);
+      } : void 0
     });
+    if (pv) el2.__blur = stopPreview;
+    return el2;
   }
   function catalogOrder(e) {
     var n = (e.catalog.name || e.catalog.id || "") + " " + (e.catalog.id || "");
@@ -15129,7 +15198,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       onScroll: function onScroll() {
         return loadNearby();
       },
+      onHide: function onHide() {
+        return stopPreview();
+      },
       destroy: function destroy() {
+        stopPreview();
         stopWatch();
         clearTimeout(switchTimer);
         if (bar.__destroy) bar.__destroy();
@@ -15304,6 +15377,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       el: el2,
       onShow: function onShow() {
         return pg.start();
+      },
+      onHide: function onHide() {
+        return stopPreview();
+      },
+      destroy: function destroy() {
+        return stopPreview();
       }
     };
   }
