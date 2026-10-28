@@ -29,6 +29,9 @@ let clockTimer = null;
 let front = null;
 let back = null;
 let parts = null;
+// Imagens já baixadas (fundo e logo): url -> true (ok), false (falhou) ou a Promise do download.
+// O slide só entra com elas prontas, para o logo aparecer direto, sem o nome escrito antes do PNG.
+const loaded = {};
 
 export const OPTIONS = [0, 2, 5, 10, 20]; // minutos (0 = desligado)
 
@@ -182,19 +185,37 @@ function setTransform(node, v) {
   node.style.transform = v;
 }
 
+function preload(url) {
+  if (!url) return Promise.resolve(false);
+  const c = loaded[url];
+  if (c === true) return Promise.resolve(true);
+  if (c && c.then) return c;
+  const pr = new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      loaded[url] = !!img.naturalWidth;
+      resolve(loaded[url]);
+    };
+    img.onerror = () => {
+      loaded[url] = false;
+      resolve(false);
+    };
+    img.src = url;
+  });
+  loaded[url] = pr;
+  return pr;
+}
+
 function tick() {
   if (!el) return;
   const it = items[idx % items.length];
-  const img = new Image();
   let done = false;
   const go = () => {
     if (done || !el) return;
     done = true;
-    slide(it, img.naturalWidth ? it.background : '');
+    slide(it, loaded[it.background] === false ? '' : it.background);
   };
-  img.onload = go;
-  img.onerror = go;
-  img.src = it.background;
+  Promise.all([preload(it.background), preload(it.logo)]).then(go);
   setTimeout(go, 4000);
 }
 
@@ -227,13 +248,16 @@ function slide(it, bg) {
     clear(p.logoBox);
     const name = h('div.sv-title', { text: it.name || '' });
     p.logoBox.appendChild(name);
-    if (it.logo) {
+    // O nome escrito só aparece se o título não tem logo ou o PNG falhou.
+    if (it.logo && loaded[it.logo] !== false) {
+      name.style.display = 'none';
       const lg = h('img.sv-logo', { alt: '' });
-      lg.onload = () => {
-        name.style.display = 'none';
-        lg.classList.add('ready');
+      if (loaded[it.logo] === true) lg.classList.add('ready');
+      lg.onload = () => lg.classList.add('ready');
+      lg.onerror = () => {
+        if (lg.parentNode) lg.parentNode.removeChild(lg);
+        name.style.display = '';
       };
-      lg.onerror = () => lg.parentNode && lg.parentNode.removeChild(lg);
       lg.src = it.logo;
       p.logoBox.insertBefore(lg, name);
     }
@@ -273,6 +297,10 @@ function slide(it, bg) {
   }
 
   idx = (idx + 1) % items.length;
+  // Já baixa o fundo e o logo do próximo enquanto este está na tela.
+  const nx = items[idx];
+  preload(nx.background);
+  preload(nx.logo);
   clearTimeout(slideTimer);
   slideTimer = setTimeout(tick, SLIDE_MS);
 }
