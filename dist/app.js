@@ -6339,9 +6339,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "e2370d0dd407db9f597c712645146c451be3f1c8",
-    date: "2026-10-28T12:25:32Z",
-    message: "Merge branch 'main' of https://github.com/mthsrfm-byte/stremio-sera"
+    commit: "04f9b4a3413dd708fff3c17bc0a1f4fa5b7d1e75",
+    date: "2026-10-28T18:13:24-03:00",
+    message: "Smart Choice prefere debrid em cache (TV e site)"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -9344,6 +9344,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       sizeMb: sizeM ? parseFloat(sizeM[1].replace(",", ".")) * (/^g/i.test(sizeM[2]) ? 1024 : 1) : 0,
       // Debrid com o arquivo em cache ([RD+], [AD+]...) abre na hora, sem depender de seeders.
       cached: /\[[A-Z]{2,3}\+\]|\binstant\b|⚡/i.test(name),
+      // Fonte de debrid ([RD+], [RD download], [AD]...). Sem o "+" ainda não está no debrid: abrir só
+      // manda baixar, e o vídeo não toca na hora.
+      debrid: /\[(?:RD|AD|PM|DL|DLX|TB|ED|OC)[+\] ]/.test(name),
       addon: name.split("\n")[0].replace(/\[[A-Z]{2,3}\+?\]/g, "").trim(),
       file: titleLine.replace(ICONS_RE, "").replace(FLAG_RE, "").replace(/\s{2,}/g, " ").trim()
     };
@@ -9417,29 +9420,53 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return canPlay(s, serverOk);
     });
     if (!playable.length) return null;
-    var ideal = function ideal(s) {
-      var info = parse3(s);
+    var hiRes = function hiRes(info) {
+      return info.res === "4K" || info.res === "1080p";
+    };
+    var ideal = function ideal(info) {
       return info.dub && info.original && good(info);
     };
+    var waiting = function waiting(info) {
+      return info.debrid && !info.cached;
+    };
+    var tiers = [function (i) {
+      return i.cached && ideal(i);
+    }, function (i) {
+      return i.cached && hiRes(i);
+    }, function (i) {
+      return i.cached;
+    }, function (i) {
+      return !waiting(i) && ideal(i);
+    }, function (i) {
+      return !waiting(i) && good(i);
+    }, function (i) {
+      return !waiting(i);
+    }, function () {
+      return true;
+    }];
     var noDv = playable.filter(function (s) {
       return !parse3(s).dv;
     });
-    for (var i = 0; i < noDv.length; i++) if (ideal(noDv[i])) return {
-      stream: noDv[i],
-      ideal: true
-    };
-    if (noDv.length) return {
-      stream: noDv[0],
-      ideal: false
-    };
-    for (var _i = 0; _i < playable.length; _i++) if (ideal(playable[_i])) return {
-      stream: playable[_i],
-      ideal: true
-    };
-    return {
-      stream: playable[0],
-      ideal: false
-    };
+    var pools = [noDv, playable];
+    for (var p = 0; p < pools.length; p++) {
+      var _loop4 = function _loop4(t2) {
+          var hit = pools[p].filter(function (s) {
+            return tiers[t2](parse3(s));
+          })[0];
+          if (hit) return {
+            v: {
+              stream: hit,
+              ideal: ideal(parse3(hit))
+            }
+          };
+        },
+        _ret2;
+      for (var t2 = 0; t2 < tiers.length; t2++) {
+        _ret2 = _loop4(t2);
+        if (_ret2) return _ret2.v;
+      }
+    }
+    return null;
   }
   function summary(info) {
     return [info.res, info.dv ? "Dolby Vision" : info.hdr ? "HDR" : "", info.dub ? info.original ? "Original + Dublado" : "Dublado" : "", info.seeders !== null ? info.seeders + " seeders" : ""].filter(Boolean).join(" · ");
@@ -14140,7 +14167,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     function loadNearby() {
       if (el2.offsetParent === null) return;
       var limit = window.innerHeight * 2.2;
-      var _loop4 = function _loop4() {
+      var _loop5 = function _loop5() {
           var p = pending[i];
           if (p.state !== "idle") return 0; // continue
           if (!p.row.parentNode) {
@@ -14156,11 +14183,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             loadNearby();
           });
         },
-        _ret2;
+        _ret3;
       for (var i = 0; i < pending.length && active < 2; i++) {
-        _ret2 = _loop4();
-        if (_ret2 === 0) continue;
-        if (_ret2 === 1) break;
+        _ret3 = _loop5();
+        if (_ret3 === 0) continue;
+        if (_ret3 === 1) break;
       }
     }
     function renderBoard() {

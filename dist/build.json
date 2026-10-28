@@ -1,6 +1,6 @@
 {
   "version": "1.2.0",
-  "commit": "e2370d0dd407db9f597c712645146c451be3f1c8",
-  "date": "2026-10-28T12:25:32Z",
-  "message": "Merge branch 'main' of https://github.com/mthsrfm-byte/stremio-sera"
+  "commit": "04f9b4a3413dd708fff3c17bc0a1f4fa5b7d1e75",
+  "date": "2026-10-28T18:13:24-03:00",
+  "message": "Smart Choice prefere debrid em cache (TV e site)"
 }
