@@ -4,7 +4,7 @@ Atualizado em 28/10/2026. O usuário pediu para interromper a investigação da 
 
 ## Pacote
 
-Código nativo `369119d`; commit de empacotamento `ac0a4b2`. Build final: [40607719952](https://github.com/mthsrfm-byte/stremio-sera/actions/runs/40607719952). O resultado de cada arquitetura está nos checks e artefatos desse run.
+Código nativo `369119d`; commit de empacotamento `ac0a4b2`. Build final [40607719952](https://github.com/mthsrfm-byte/stremio-sera/actions/runs/40607719952): **arm64 e x86_64 aprovados**, incluindo compilação, validação dos binários, assinatura ad hoc e geração de DMG/ZIP. Reprodução não foi executada nessa rodada, conforme solicitado.
 
 O workflow compila release arm64/x86_64, confere arquitetura e minOS≤13.0 dos Mach-O, verifica dependências locais, assina ad hoc e gera DMG, ZIP e SHA-256. O teste de reprodução é opcional nesta entrega, conforme o pedido do usuário; testes de cache, armazenamento WebKit e bootstrap continuam habilitados. Pode ser acionado com `run_smoke=true`, ou automaticamente com a variável `RUN_PLAYBACK_TESTS=true`.
 
