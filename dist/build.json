@@ -1,6 +1,6 @@
 {
   "version": "1.2.0",
-  "commit": "686da7d9907a9887773115222ed0b58a0f8fd987",
-  "date": "2026-10-28T08:12:23-03:00",
-  "message": "Web: vídeo para de travar em loop e NSFW some do Continuar assistindo (#52)"
+  "commit": "a12a650952b214cbe7d59bd1fbd3555853ec23cc",
+  "date": "2026-10-28T11:51:23Z",
+  "message": "Protetor de tela: logo entra direto, sem o nome escrito antes do PNG"
 }

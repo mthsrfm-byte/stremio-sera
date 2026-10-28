@@ -6334,9 +6334,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "686da7d9907a9887773115222ed0b58a0f8fd987",
-    date: "2026-10-28T08:12:23-03:00",
-    message: "Web: vídeo para de travar em loop e NSFW some do Continuar assistindo (#52)"
+    commit: "a12a650952b214cbe7d59bd1fbd3555853ec23cc",
+    date: "2026-10-28T11:51:23Z",
+    message: "Protetor de tela: logo entra direto, sem o nome escrito antes do PNG"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -12428,10 +12428,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       rail: rail,
       crumb: cfg.crumb
     };
-    var loaded = false;
+    var loaded2 = false;
     function load4() {
-      if (loaded) return;
-      loaded = true;
+      if (loaded2) return;
+      loaded2 = true;
       if (!available()) {
         rows.appendChild(h("div.hint", {
           text: t("Essa aba precisa da chave do TMDB (Ajustes → Metadados extras).")
@@ -15610,6 +15610,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var front = null;
   var back2 = null;
   var parts = null;
+  var loaded = {};
   var OPTIONS = [0, 2, 5, 10, 20];
   function minutes() {
     var v = settings().screensaver;
@@ -15745,19 +15746,36 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     node.style.webkitTransform = v;
     node.style.transform = v;
   }
+  function preload(url2) {
+    if (!url2) return Promise.resolve(false);
+    var c = loaded[url2];
+    if (c === true) return Promise.resolve(true);
+    if (c && c.then) return c;
+    var pr = new Promise(function (resolve) {
+      var img = new Image();
+      img.onload = function () {
+        loaded[url2] = !!img.naturalWidth;
+        resolve(loaded[url2]);
+      };
+      img.onerror = function () {
+        loaded[url2] = false;
+        resolve(false);
+      };
+      img.src = url2;
+    });
+    loaded[url2] = pr;
+    return pr;
+  }
   function tick() {
     if (!el) return;
     var it = items[idx % items.length];
-    var img = new Image();
     var done = false;
     var go = function go() {
       if (done || !el) return;
       done = true;
-      slide(it, img.naturalWidth ? it.background : "");
+      slide(it, loaded[it.background] === false ? "" : it.background);
     };
-    img.onload = go;
-    img.onerror = go;
-    img.src = it.background;
+    Promise.all([preload(it.background), preload(it.logo)]).then(go);
     setTimeout(go, 4e3);
   }
   function slide(it, bg) {
@@ -15794,16 +15812,18 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         text: it.name || ""
       });
       p.logoBox.appendChild(name);
-      if (it.logo) {
+      if (it.logo && loaded[it.logo] !== false) {
+        name.style.display = "none";
         var lg = h("img.sv-logo", {
           alt: ""
         });
+        if (loaded[it.logo] === true) lg.classList.add("ready");
         lg.onload = function () {
-          name.style.display = "none";
-          lg.classList.add("ready");
+          return lg.classList.add("ready");
         };
         lg.onerror = function () {
-          return lg.parentNode && lg.parentNode.removeChild(lg);
+          if (lg.parentNode) lg.parentNode.removeChild(lg);
+          name.style.display = "";
         };
         lg.src = it.logo;
         p.logoBox.insertBefore(lg, name);
@@ -15830,9 +15850,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       p.desc.textContent = it.description || "";
       void p.info.offsetWidth;
       p.info.classList.add("in");
-      var nx = items[(idx + 1) % items.length];
-      p.nextImg.style.backgroundImage = nx.background ? 'url("' + nx.background + '")' : "none";
-      p.nextName.textContent = nx.name || "";
+      var nx2 = items[(idx + 1) % items.length];
+      p.nextImg.style.backgroundImage = nx2.background ? 'url("' + nx2.background + '")' : "none";
+      p.nextName.textContent = nx2.name || "";
     }, 600);
     var bars = p.bars.children;
     var cur = idx % items.length;
@@ -15850,6 +15870,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       _fill.style.width = "100%";
     }
     idx = (idx + 1) % items.length;
+    var nx = items[idx];
+    preload(nx.background);
+    preload(nx.logo);
     clearTimeout(slideTimer);
     slideTimer = setTimeout(tick, SLIDE_MS);
   }
