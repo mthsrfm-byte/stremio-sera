@@ -16,6 +16,7 @@ import { t } from '../lib/i18n.js';
 import * as tr from '../lib/translate.js';
 import * as store from '../lib/store.js';
 import * as nsfwSaved from '../lib/nsfwSaved.js';
+import { sharpThumb } from '../lib/img.js';
 
 const ROW_LIMIT = 20;
 const ICON_SEARCH = '<svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg>';
@@ -94,11 +95,67 @@ function isUncensored(m) {
   return /uncensored/i.test(m.name || '');
 }
 
+// Prévia no cartão em foco: o vídeo curtinho do site (XVideos/Pornhub, vindo do serviço da TV) ou,
+// no Hentaigasm, a prévia animada que a capa nítida substituiu. Uma por vez; começa depois de o foco
+// parar um pouco, para não baixar vídeo enquanto o controle passa correndo pela fileira.
+const PREVIEW_DELAY = 700;
+let previewStop = null;
+
+function previewOf(m) {
+  if (m.preview) return { video: m.preview };
+  const img = m.poster || m.background;
+  return img && sharpThumb(img) !== img ? { image: img } : null;
+}
+
+export function stopPreview() {
+  if (previewStop) previewStop();
+}
+
+function startPreview(cardEl, src) {
+  stopPreview();
+  const wrap = cardEl.querySelector('.poster-wrap');
+  if (!wrap) return;
+  let node = null;
+  const timer = setTimeout(() => {
+    const show = () => node.classList.add('ready');
+    if (src.video) {
+      node = h('video.card-preview', { muted: true, loop: true, autoplay: true, playsinline: true });
+      node.muted = true;
+      node.addEventListener('playing', show);
+      node.src = src.video;
+      const p = node.play && node.play();
+      if (p && p.catch) p.catch(() => {});
+    } else {
+      node = h('img.card-preview', { alt: '' });
+      node.onload = show;
+      node.src = src.image;
+    }
+    node.onerror = () => stop();
+    // Logo acima da capa: os selos (qualidade, duração) continuam por cima.
+    const cover = wrap.querySelector('img');
+    wrap.insertBefore(node, cover ? cover.nextSibling : wrap.firstChild);
+  }, PREVIEW_DELAY);
+  function stop() {
+    clearTimeout(timer);
+    if (previewStop === stop) previewStop = null;
+    if (!node) return;
+    if (node.tagName === 'VIDEO') {
+      node.pause();
+      node.removeAttribute('src');
+      node.load(); // solta o decodificador da TV
+    }
+    if (node.parentNode) node.parentNode.removeChild(node);
+    node = null;
+  }
+  previewStop = stop;
+}
+
 function itemCard(m, entry) {
   const wide = m.posterShape === 'landscape' || (entry && entry.catalog.posterShape === 'landscape');
   const st = m.stats || {};
   const extra = !m.stats && m.releaseInfo ? h('div.card-stats', null, h('span.cs-by', { text: String(m.releaseInfo) })) : null;
-  return card(m, {
+  const pv = previewOf(m);
+  const el = card(m, {
     wide: wide,
     rich: true,
     image: wide ? m.poster || m.background : undefined,
@@ -107,8 +164,14 @@ function itemCard(m, entry) {
     flag: isUncensored(m) ? 'UNCENSORED' : null,
     duration: st.duration,
     stats: statsLine(st) || extra,
-    onSelect: () => openDetails(m.type || entry.catalog.type, m.id, null, m),
+    onSelect: () => {
+      stopPreview();
+      openDetails(m.type || entry.catalog.type, m.id, null, m);
+    },
+    onFocus: pv ? () => startPreview(el, pv) : undefined,
   });
+  if (pv) el.__blur = stopPreview;
+  return el;
 }
 
 // Creampie primeiro (hétero, depois gay), depois o resto na ordem do addon.
@@ -509,7 +572,9 @@ export function NsfwView() {
       });
     },
     onScroll: () => loadNearby(),
+    onHide: () => stopPreview(),
     destroy: () => {
+      stopPreview();
       stopWatch();
       clearTimeout(switchTimer);
       if (bar.__destroy) bar.__destroy();
@@ -629,5 +694,7 @@ function GridView(entry, extra) {
   return {
     el: el,
     onShow: () => pg.start(),
+    onHide: () => stopPreview(),
+    destroy: () => stopPreview(),
   };
 }

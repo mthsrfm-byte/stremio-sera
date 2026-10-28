@@ -1118,3 +1118,6 @@ body .nsfw-view .card-flag { background: #e5508c; }
 body.light .view.nsfw-view { background: #F5F4EF; background: linear-gradient(to bottom, #ffe2ee 0%, #faeef2 38%, #F5F4EF 75%); }
 body.light .nsfw-view:before { background: radial-gradient(1300px 560px at 18% 0, rgba(229,80,140,0.18), rgba(229,80,140,0) 70%), radial-gradient(1000px 480px at 88% 0, rgba(123,91,245,0.1), rgba(123,91,245,0) 70%); }
 body.light .nsfw-view .row-title small, body.light .nsfw-view .reco-crumb { color: rgba(160,40,90,0.6); }
+/* Prévia do vídeo no cartão em foco (aparece por cima da capa quando começa a tocar). */
+.card-preview { position: absolute; left: 0; top: 0; width: 100%; height: 100%; object-fit: cover; background: #000; opacity: 0; -webkit-transition: opacity 0.3s; transition: opacity 0.3s; }
+.card-preview.ready { opacity: 1; }

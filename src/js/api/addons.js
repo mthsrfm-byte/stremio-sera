@@ -68,7 +68,7 @@ const TUBES = ['xv', 'ph'];
 // para o que foi visto na TV e voltou pela conta não aparecer fora da aba NSFW.
 const TUBE_PREFIXES = ['xv:', 'ph:'];
 const TUBE_PORT = 8092;
-const SERVICE_MIN = 11;
+const SERVICE_MIN = 12;
 let tubes = null; // null: ainda procurando; [] ou lista: já respondeu
 let tubeTries = 0;
 // 'searching' | 'ok' | 'old' (serviço antigo, sem os addons) | 'off' (serviço não responde)

@@ -14,7 +14,7 @@ var urlLib = require('url');
 
 var PORT = 8090;
 var ADDON_PORT = 8092; // addons XVideos/Pornhub e vídeo (porta nova a cada mudança que versões antigas não sabem largar)
-var SERVICE_VERSION = 11;
+var SERVICE_VERSION = 12;
 var PAGE_BASE = 'https://cdn.jsdelivr.net/gh/mthsrfm-byte/stremio-sera/remote/';
 var APP_NAME = 'Seraflix Controle';
 var TOKEN_FILE = '/home/owner/share/seraflixRemote.json';
@@ -568,7 +568,8 @@ var TUBES = {
         var title = (chunk.match(/<p class="title"><a href="[^"]*" title="([^"]*)"/) || [])[1];
         var thumb = attr(chunk, 'data-src');
         if (!title) return;
-        out.push({ id: 'xv:' + href, type: 'movie', name: unhtml(title), poster: thumb, posterShape: 'landscape', stats: xvListStats(chunk) });
+        // preview: o MP4 curtinho que o site toca ao passar o mouse (o app toca no cartão em foco).
+        out.push({ id: 'xv:' + href, type: 'movie', name: unhtml(title), poster: thumb, posterShape: 'landscape', preview: attr(chunk, 'data-pvv'), stats: xvListStats(chunk) });
       });
       return out;
     },
@@ -635,7 +636,8 @@ var TUBES = {
         var img = chunk.match(/<img[^>]*\ssrc="([^"]+)"/);
         if (!title) return;
         seen[key] = true;
-        out.push({ id: 'ph:' + key, type: 'movie', name: title, poster: img ? unhtml(img[1]) : '', posterShape: 'landscape', stats: phListStats(chunk) });
+        // preview: WebM de 180p do "mediabook" (o link vale por umas horas e só para o IP da TV, que abriu a página).
+        out.push({ id: 'ph:' + key, type: 'movie', name: title, poster: img ? unhtml(img[1]) : '', posterShape: 'landscape', preview: attr(chunk, 'data-mediabook'), stats: phListStats(chunk) });
       });
       return out;
     },
