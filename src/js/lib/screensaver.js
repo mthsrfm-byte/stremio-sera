@@ -1,5 +1,5 @@
 // Protetor de tela: depois de alguns minutos sem mexer no controle, os lançamentos mais vistos
-// passam pela tela (fundo em movimento lento, logo, ranking do dia e relógio). Qualquer botão
+// passam pela tela (fundo em movimento lento, logo, posição no ranking do dia e relógio). Qualquer botão
 // volta exatamente de onde parou (a tecla não chega ao app).
 import { h, clear } from './dom.js';
 import * as store from './store.js';
@@ -135,7 +135,6 @@ function build() {
   parts = {
     time: h('div.sv-time'),
     date: h('div.sv-date'),
-    num: h('div.sv-num'),
     rankTxt: h('div.sv-rank-txt'),
     logoBox: h('div.sv-logo-box'),
     meta: h('div.sv-meta'),
@@ -147,15 +146,14 @@ function build() {
   };
   const p = parts;
   clear(p.info);
-  p.info.appendChild(h('div.sv-rank', null, [p.num, p.rankTxt]));
   p.info.appendChild(p.logoBox);
+  p.info.appendChild(p.rankTxt);
   p.info.appendChild(p.meta);
   p.info.appendChild(p.desc);
   items.slice(0, 16).forEach(() => p.bars.appendChild(h('div.sv-bar', null, h('i'))));
   el = h('div.saver', null, [
     h('div.sv-bg', null, [back, front]),
     h('div.sv-shade'),
-    h('div.sv-brand', { text: 'SERAFLIX' }),
     h('div.sv-clock', null, [p.time, p.date]),
     p.info,
     h('div.sv-next', null, [p.nextImg, h('div', null, [h('small', { text: t('A seguir') }), p.nextName])]),
@@ -241,10 +239,7 @@ function slide(it, bg) {
   p.info.classList.remove('in');
   setTimeout(() => {
     if (!el) return;
-    p.num.textContent = String(it.rank);
-    p.rankTxt.innerHTML = '';
-    p.rankTxt.appendChild(h('b', { text: t('Top 10 de hoje') }));
-    p.rankTxt.appendChild(h('span', { text: t(it.type === 'series' ? '#{n} em séries hoje' : '#{n} em filmes hoje', { n: it.rank }) }));
+    p.rankTxt.textContent = t(it.type === 'series' ? '#{n} em séries hoje' : '#{n} em filmes hoje', { n: it.rank });
     clear(p.logoBox);
     const name = h('div.sv-title', { text: it.name || '' });
     p.logoBox.appendChild(name);
