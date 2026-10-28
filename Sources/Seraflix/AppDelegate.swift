@@ -14,6 +14,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
     private var smokeLogs: [String] = []
     private var smokeCommands: [String] = []
     private let media = MediaIntegration()
+    private let pip = PictureInPicture()
+    private var videoStarted = false
     private var updater: SPUStandardUpdaterController?
     private let launchTime = Date()
     private var smokeServerReadyCount = 0
@@ -119,7 +121,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
             }
             if command == "load" { try self.preparePlayer() }
             guard let player = self.player else { throw UIError.invalid("Abra um vídeo antes de controlar a reprodução.") }
-            if command == "load" { self.media.setTitle(args["title"] as? String ?? "Seraflix") }
+            if command == "load" {
+                self.media.setTitle(args["title"] as? String ?? "Seraflix")
+                self.videoStarted = false
+                self.pip.setStarted(false)
+                let link = { (key: String) in (args[key] as? String).flatMap(URL.init(string:)) }
+                self.pip.artwork = .init(title: args["title"] as? String ?? "", poster: link("poster"),
+                                         background: link("background"), logo: link("logo"))
+            }
             try player.handle(command: command, args: args)
         }
         media.command = { [weak self] command, args in
@@ -139,6 +148,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         load(ui.initial())
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+        pip.onTogglePlay = { [weak self] in
+            guard let player = self?.player else { return }
+            try? player.handle(command: player.isPaused ? "play" : "pause", args: [:])
+        }
+        pip.onExpand = { [weak self] in self?.expandFromPiP() }
+        pip.onClose = { [weak self] in
+            guard let self = self else { return }
+            try? self.player?.handle(command: "pause", args: [:])
+            self.exitPiP()
+            // A janela já tinha sido fechada no X: fechar o PiP encerra o app.
+            if !self.window.isVisible { NSApp.terminate(nil) }
+        }
         if smokeResult != nil {
             DispatchQueue.main.asyncAfter(deadline: .now() + 60) { [weak self] in self?.finishSmoke(error: "Timeout no smoke test") }
         }
@@ -162,6 +183,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
             installNativeView(player.view)
             player.onEvent = { [weak self] event, data in
                 self?.media.receive(event, data)
+                if event == "time", let paused = data["paused"] as? Bool {
+                    self?.pip.update(paused: paused)
+                    if data["buffering"] as? Bool == false, data["active"] as? Bool == true, (data["position"] as? Double ?? 0) > 0 {
+                        self?.videoStarted = true
+                        self?.pip.setStarted(true)
+                    }
+                }
+                if event == "ended" || event == "error" { self?.expandFromPiP() }
                 if self?.smokeResult != nil {
                     if event == "log", let line = data["text"] as? String {
                         self?.smokeLogs.append(line)
@@ -314,6 +343,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         do {
             switch command {
             case "fullscreen": toggleFullscreen(nil)
+            case "status":
+                // Abertura do PiP: só atualiza o que veio (texto principal, episódio, legenda do Smart Choice).
+                if let text = args["text"] as? String { pip.status = String(text.prefix(80)) }
+                if let sub = args["sub"] as? String { pip.subtitle = String(sub.prefix(80)) }
+                if let caption = args["caption"] as? String { pip.caption = String(caption.prefix(80)) }
             default:
                 guard let handler = commandHandler else { throw UIError.invalid("Comando nativo ainda indisponível") }
                 try handler(command, args)
@@ -343,6 +377,50 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         web.wantsLayer = true
         view.layer?.zPosition = -1
         web.layer?.zPosition = 1
+    }
+
+    // MARK: Picture in Picture
+
+    private var playingVideo: Bool { smokeResult == nil && (player?.hasMedia ?? false) && !(player?.isPaused ?? true) }
+
+    private func enterPiP() {
+        guard playingVideo, !pip.isActive, let player = player else { return }
+        pip.anchorScreen = window.screen
+        pip.show(video: player.view, paused: false, started: videoStarted)
+    }
+
+    private func exitPiP() {
+        guard pip.isActive, let player = player else { return }
+        pip.hide()
+        installNativeView(player.view)
+    }
+
+    private func expandFromPiP() {
+        guard pip.isActive else { return }
+        exitPiP()
+        if window.isMiniaturized { window.deminiaturize(nil) }
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    func applicationDidResignActive(_ notification: Notification) { enterPiP() }
+    func applicationDidBecomeActive(_ notification: Notification) {
+        if window.isVisible && !window.isMiniaturized { exitPiP() }
+    }
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !window.isVisible { window.makeKeyAndOrderFront(nil) }
+        exitPiP()
+        return true
+    }
+    func windowDidMiniaturize(_ notification: Notification) { enterPiP() }
+    func windowDidDeminiaturize(_ notification: Notification) { exitPiP() }
+
+    // X com vídeo tocando: esconde a janela e segue no PiP. Pausado: fecha normalmente.
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        guard playingVideo else { return true }
+        enterPiP()
+        window.orderOut(nil)
+        return false
     }
 
     @objc private func checkUpdates(_ sender: Any?) {
