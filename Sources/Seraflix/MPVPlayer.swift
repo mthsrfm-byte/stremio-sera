@@ -27,6 +27,11 @@ final class MPVPlayer {
     private var appKitContextMatches = false
     private var rendererName = ""
     private var chosenHWDec = "auto-safe"
+    private var scissorBefore = false
+    private var colorMaskBefore = [GLboolean](repeating: 1, count: 4)
+    private var packRowLengthBefore: GLint = 0
+    private var unpackRowLengthBefore: GLint = 0
+    private var drawBufferBefore: GLint = 0
 
     /// Evidência de renderização para o diagnóstico; não passa pixels pela ponte.
     var renderDiagnostics: [String: Any] {
@@ -36,6 +41,9 @@ final class MPVPlayer {
          "layerClass": String(describing: type(of: surface.videoLayer)),
          "appKitContextMatches": appKitContextMatches, "layerBacked": surface.wantsLayer,
          "renderer": rendererName, "chosenHwdec": chosenHWDec,
+         "scissorTestBefore": scissorBefore, "colorMaskBefore": colorMaskBefore.map { $0 != 0 },
+         "packRowLengthBefore": Int(packRowLengthBefore),
+         "unpackRowLengthBefore": Int(unpackRowLengthBefore), "drawBufferBefore": Int(drawBufferBefore),
          "visibleRect": NSStringFromRect(surface.visibleRect),
          "viewport": lastViewport.map { Int($0) }, "glError": Int(lastGLError),
          "lastRenderStatus": Int(lastRenderStatus), "fboBefore": Int(fboBefore),
@@ -280,6 +288,14 @@ final class MPVPlayer {
         glGetIntegerv(GLenum(GL_DRAW_FRAMEBUFFER_BINDING), &fboBefore)
         glGetIntegerv(GLenum(GL_VIEWPORT), &lastViewport)
         targetFBO = fboBefore
+        if smokeRendering {
+            scissorBefore = glIsEnabled(GLenum(GL_SCISSOR_TEST)) != 0
+            glGetBooleanv(GLenum(GL_COLOR_WRITEMASK), &colorMaskBefore)
+            glGetIntegerv(GLenum(GL_PACK_ROW_LENGTH), &packRowLengthBefore)
+            glGetIntegerv(GLenum(GL_UNPACK_ROW_LENGTH), &unpackRowLengthBefore)
+            glGetIntegerv(GLenum(GL_DRAW_BUFFER), &drawBufferBefore)
+        }
+        resetGLDefaults()
         do { try prepareRenderer() }
         catch { emitFailure(error.localizedDescription); return }
         let width = lastViewport[2]
@@ -314,12 +330,55 @@ final class MPVPlayer {
         }
     }
 
+    /// CAOpenGLLayer entrega estado GL indefinido; render_gl.h exige os defaults.
+    /// Viewport/FBO são capturados antes deste reset para preservar o alvo do CA.
+    private func resetGLDefaults() {
+        for capability in [GL_SCISSOR_TEST, GL_DEPTH_TEST, GL_STENCIL_TEST, GL_BLEND,
+                           GL_CULL_FACE, GL_POLYGON_OFFSET_FILL, GL_RASTERIZER_DISCARD,
+                           GL_SAMPLE_ALPHA_TO_COVERAGE, GL_SAMPLE_COVERAGE, GL_SAMPLE_MASK,
+                           GL_FRAMEBUFFER_SRGB, GL_PRIMITIVE_RESTART, GL_COLOR_LOGIC_OP] {
+            glDisable(GLenum(capability))
+        }
+        glColorMask(GLboolean(GL_TRUE), GLboolean(GL_TRUE), GLboolean(GL_TRUE), GLboolean(GL_TRUE))
+        glDepthMask(GLboolean(GL_TRUE))
+        glStencilMask(UInt32.max)
+        glPolygonMode(GLenum(GL_FRONT_AND_BACK), GLenum(GL_FILL))
+        glActiveTexture(GLenum(GL_TEXTURE0))
+        glUseProgram(0)
+        glBindVertexArray(0)
+        glBindBuffer(GLenum(GL_PIXEL_PACK_BUFFER), 0)
+        glBindBuffer(GLenum(GL_PIXEL_UNPACK_BUFFER), 0)
+        for alignment in [GL_PACK_ALIGNMENT, GL_UNPACK_ALIGNMENT] {
+            glPixelStorei(GLenum(alignment), 4)
+        }
+        for parameter in [GL_PACK_ROW_LENGTH, GL_PACK_SKIP_ROWS, GL_PACK_SKIP_PIXELS,
+                          GL_PACK_IMAGE_HEIGHT, GL_PACK_SKIP_IMAGES, GL_UNPACK_ROW_LENGTH,
+                          GL_UNPACK_SKIP_ROWS, GL_UNPACK_SKIP_PIXELS, GL_UNPACK_IMAGE_HEIGHT,
+                          GL_UNPACK_SKIP_IMAGES, GL_PACK_SWAP_BYTES, GL_UNPACK_SWAP_BYTES] {
+            glPixelStorei(GLenum(parameter), 0)
+        }
+        glBindFramebuffer(GLenum(GL_DRAW_FRAMEBUFFER), GLuint(targetFBO))
+        glDrawBuffer(GLenum(targetFBO == 0 ? GL_BACK : GL_COLOR_ATTACHMENT0))
+    }
+
     private func sampleNonBlack(fbo: GLint, width: Int32, height: Int32) -> Bool {
         let sampleWidth = min(width, 8)
         let sampleHeight = min(height, 8)
         var pixels = [UInt8](repeating: 0, count: Int(sampleWidth * sampleHeight * 4))
         var previousFBO: GLint = 0
         var previousBuffer: GLint = 0
+        var previousPackBuffer: GLint = 0
+        let packParameters = [GL_PACK_ALIGNMENT, GL_PACK_ROW_LENGTH, GL_PACK_SKIP_ROWS,
+                              GL_PACK_SKIP_PIXELS, GL_PACK_IMAGE_HEIGHT, GL_PACK_SKIP_IMAGES]
+        var packValues = [GLint](repeating: 0, count: packParameters.count)
+        for index in packParameters.indices {
+            glGetIntegerv(GLenum(packParameters[index]), &packValues[index])
+        }
+        glGetIntegerv(GLenum(GL_PIXEL_PACK_BUFFER_BINDING), &previousPackBuffer)
+        glBindBuffer(GLenum(GL_PIXEL_PACK_BUFFER), 0)
+        for index in packParameters.indices {
+            glPixelStorei(GLenum(packParameters[index]), index == 0 ? 1 : 0)
+        }
         glGetIntegerv(GLenum(GL_READ_FRAMEBUFFER_BINDING), &previousFBO)
         glGetIntegerv(GLenum(GL_READ_BUFFER), &previousBuffer)
         glBindFramebuffer(GLenum(GL_READ_FRAMEBUFFER), GLuint(fbo))
@@ -330,6 +389,10 @@ final class MPVPlayer {
             glReadBuffer(GLenum(targetPreviousBuffer))
             glBindFramebuffer(GLenum(GL_READ_FRAMEBUFFER), GLuint(previousFBO))
             glReadBuffer(GLenum(previousBuffer))
+            for index in packParameters.indices {
+                glPixelStorei(GLenum(packParameters[index]), packValues[index])
+            }
+            glBindBuffer(GLenum(GL_PIXEL_PACK_BUFFER), GLuint(previousPackBuffer))
         }
         pixels.withUnsafeMutableBytes { bytes in
             glReadPixels((width - sampleWidth) / 2, (height - sampleHeight) / 2,

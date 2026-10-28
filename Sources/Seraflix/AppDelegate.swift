@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
     private var playerStartupError: String?
     private var smokeRenderer = ""
     private var smokeLogs: [String] = []
+    private var smokeCommands: [String] = []
     private let media = MediaIntegration()
     private var updater: SPUStandardUpdaterController?
     private let launchTime = Date()
@@ -108,6 +109,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         }
         commandHandler = { [weak self] command, args in
             guard let self = self else { return }
+            if self.smokeResult != nil {
+                self.smokeCommands.append(command)
+                if self.smokeCommands.count > 64 { self.smokeCommands.removeFirst() }
+            }
             if command == "serverStatus" || command == "appReady" {
                 self.emit("server", self.server.state)
                 return
@@ -272,6 +277,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNa
         let result: [String: Any] = ["ok": error == nil, "home": smokeHome, "player": player != nil,
                                      "loaded": smokeLoaded, "advanced": smokeAdvanced, "rendered": smokeRendered,
                                      "renderDiagnostics": player?.renderDiagnostics ?? [:],
+                                     "commands": smokeCommands,
                                      "renderer": smokeRenderer, "playerStartupError": playerStartupError ?? "", "logs": smokeLogs,
                                      "homeSeconds": smokeHomeSeconds, "serverRestarts": max(0, smokeServerReadyCount - 1),
                                      "serverRestarted": smokeServerRestarted, "tracksSelected": smokeTracksSelected, "error": error ?? ""]

@@ -103,6 +103,7 @@ jobs:
             build/smoke-*.json
             build/torrent-range.json
             build/smoke-http.log
+            build/smoke-media/*.mp4
           if-no-files-found: warn
           retention-days: 30
       # Não publicar binários GPL obtidos de snapshots sem corresponding source exata.
