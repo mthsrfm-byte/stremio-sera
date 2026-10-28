@@ -1,7 +1,16 @@
 /* A mídia é desenhada pelo libmpv, atrás do WKWebView transparente. */
 html.mac-playing, html.mac-playing body, html.mac-playing #app,
-html.mac-playing .view.player { background: transparent !important; }
+html.mac-playing .view.player, html.mac-playing .player,
+html.mac-playing .player video { background: transparent !important; }
 html.mac-playing #app > .view:not(.player) { visibility: hidden; }
 .mac-video { position: absolute; inset: 0; background: transparent; }
 /* O Mac pode mostrar o cache imediatamente; não espera a vinheta da TV. */
 .boot { transition: none !important; animation: none !important; }
+/* Botão Voltar das telas empilhadas (router.js). No player, só junto com os controles. */
+.mac-back { position: absolute; left: 40px; top: 36px; z-index: 50; width: 64px; height: 64px; border: 0; border-radius: 50%;
+  background: rgba(20, 16, 32, 0.72); cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: background-color 0.2s ease, opacity 0.25s ease; }
+.mac-back:hover { background: #3347ff; }
+.mac-back svg { width: 32px; height: 32px; fill: none; stroke: #fff; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.player .mac-back { opacity: 0; pointer-events: none; }
+.player.controls-on .mac-back { opacity: 1; pointer-events: auto; }
