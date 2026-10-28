@@ -4,9 +4,11 @@ Shell nativo **AppKit + WKWebView + libmpv**, macOS 13+, Apple Silicon (M1 míni
 
 Esta é a primeira versão de desenvolvimento, assinada **ad hoc**, sem notarização Apple. Veja [validação](docs/validacao.md) para os testes realmente executados e limitações.
 
+A integração GitHub recusou a criação de `mthsrfm-byte/stremio-sera-mac` (403). O projeto novo está pronto localmente; para entregar o executável, o mesmo histórico foi publicado temporariamente na branch [build/seraflix-mac-0.1](https://github.com/mthsrfm-byte/stremio-sera/tree/build/seraflix-mac-0.1) do repositório existente. Essa branch é exclusiva do app nativo e não deve ser integrada à UI. O PR da plataforma Mac permanece separado.
+
 ## Instalar
 
-Baixe o artefato `Seraflix-arm64` em Actions para seu M1/M2/M3/M4; `Seraflix-x86_64` é para Intel. Abra o DMG e arraste **Seraflix.app** para Aplicativos. Como a assinatura é ad hoc, use Abrir pelo menu de contexto ou Ajustes do Sistema → Privacidade e Segurança → Abrir Mesmo Assim caso o Gatekeeper peça. Não é necessário instalar Homebrew, Node nem Stremio no Mac do usuário.
+Baixe o artefato `Seraflix-arm64` nos [Actions desta entrega](https://github.com/mthsrfm-byte/stremio-sera/actions/runs/40607719952) para seu M1/M2/M3/M4; `Seraflix-x86_64` é para Intel. Abra o DMG e arraste **Seraflix.app** para Aplicativos. Como a assinatura é ad hoc, use Abrir pelo menu de contexto ou Ajustes do Sistema → Privacidade e Segurança → Abrir Mesmo Assim caso o Gatekeeper peça. Não é necessário instalar Homebrew, Node nem Stremio no Mac do usuário.
 
 Na primeira abertura, o app baixa o streaming server oficial em segundo plano, verifica SHA-256 e o inicia. A home não espera esse download. Se o Stremio/Stremio Service já estiver aberto, feche-o para liberar `127.0.0.1:11470`; o Seraflix não encerra processos de outros apps. Estado e erros aparecem na UI. A conta, addons e biblioteca continuam sendo os da interface original; não forneça suas credenciais em issues ou logs.
 
@@ -23,6 +25,8 @@ O menu **Arquivo → Abrir endereço de vídeo…** (Cmd+O) permite testar um HT
 | Atualizações do binário | Sparkle, quando a release tiver chave Ed25519 configurada |
 
 No Apple Silicon, executável, Node e helpers são arm64; as bibliotecas são verificadas/extraídas para a mesma arquitetura. Não há Rosetta na versão arm64. Decodificação `hwdec=auto-safe` permite VideoToolbox para HEVC suportado pelo hardware e fallback para outros codecs. Saída surround depende do dispositivo/rota de áudio; trocar faixas não requer transcodificar o vídeo.
+
+Se o contexto OpenGL só oferecer um renderer de software, o app usa `videotoolbox-copy` para evitar compartilhar superfícies de hardware com esse renderer. O decode continua no VideoToolbox; essa cópia adicional não é habilitada no caminho com GPU do M1/M3.
 
 **HDR:** nesta versão a composição do vídeo usa render API OpenGL, com tone mapping para SDR. Saída HDR/EDR passthrough e Dolby Vision não estão certificadas. Implementar Metal/EDR e medir numa tela compatível é trabalho posterior. Não se deve confundir decodificar HEVC HDR com entregar HDR na tela.
 
@@ -45,6 +49,8 @@ git clone https://github.com/mthsrfm-byte/stremio-sera-mac.git
 cd stremio-sera-mac
 ./scripts/build.sh
 ```
+
+Enquanto o repositório novo não estiver disponível, obtenha o projeto com `git clone --single-branch --branch build/seraflix-mac-0.1 https://github.com/mthsrfm-byte/stremio-sera.git stremio-sera-mac`.
 
 Antes do merge do PR da UI, use `UI_REF=feat/mac-platform ./scripts/build.sh`. O script busca o fonte original numa pasta de build ignorada, executa `build:mac`, embute fallback, Node, helpers e bibliotecas, corrige install names, valida arquitetura/minOS, assina ad hoc e gera `.app`, `.zip` e `.dmg`. O Mac de destino não depende de caminhos Homebrew. Os pacotes por arquitetura evitam carregar código Intel no seu M3. Detalhes, dependências fixadas e perfis de distribuição em [docs/build.md](docs/build.md) e [docs/dependencies.md](docs/dependencies.md).
 

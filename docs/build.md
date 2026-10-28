@@ -34,7 +34,7 @@ Esse modo compila as bibliotecas via receita IINA fixada e guarda fontes/receita
 
 ## Actions e atualização do fallback
 
-`build.yml` compila em `macos-latest` (arm64) e `macos-15-intel`, gera app/DMG, valida minOS/assinatura e executa smoke test com WKWebView e vídeo servido por HTTP local. Os artefatos ficam no run por 30 dias. Login Stremio, debrid, torrents reais e saída HDR não são cobertos pelo smoke test.
+`build.yml` compila em `macos-latest` (arm64) e `macos-15-intel`, gera app/DMG e valida minOS/assinatura. O teste de reprodução com WKWebView é opcional nesta entrega: acione `run_smoke=true`, ou configure `RUN_PLAYBACK_TESTS=true` para os pushes. Foi pausado a pedido do usuário para validar imagem no M3 físico. Testes de cache, armazenamento e bootstrap continuam habilitados. Os artefatos ficam no run por 30 dias. Login, debrid, torrents externos e HDR não são certificados por esses testes.
 
 `refresh-ui.yml` recebe `repository_dispatch` tipo `ui-updated` com `client_payload.ui_commit` e atualiza apenas `Resources/fallback`. O push pelo GITHUB_TOKEN não inicia outro build. No `stremio-sera`, configure `MAC_DISPATCH_TOKEN` com acesso de escrita a este repositório para enviar o evento. Não há token de GitHub dentro do app. O bundle remoto de UI continua atualizado independentemente de releases nativas.
 
