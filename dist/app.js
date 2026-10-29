@@ -6067,6 +6067,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }, function () {});
     });
   }
+  function systemScreenSaver(on) {
+    try {
+      var ac = window.webapis && window.webapis.appcommon;
+      if (!ac || !ac.setScreenSaver) return;
+      var st = ac.AppCommonScreenSaverState || {};
+      ac.setScreenSaver(on ? st.SCREEN_SAVER_ON : st.SCREEN_SAVER_OFF, function () {}, function () {});
+    } catch (e) {}
+  }
 
   // src/js/api/server.js
   var status = {
@@ -6339,9 +6347,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "f57f05ba94a2e213e3d215c764ac15431cb8f9d4",
-    date: "2026-10-29T11:34:15+00:00",
-    message: "Build da dist/ para a TV"
+    commit: "835103cb5e81c228cef9d08e949c8890373925f8",
+    date: "2026-10-29T15:19:48+00:00",
+    message: "Debrid: Smart Choice respeita a banda da TV e o player aprende com travadas"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -10348,6 +10356,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       clearTimeout(slowTimer);
       closeSlow();
       debridResumed();
+      systemScreenSaver(false);
       if (!hasPlayed) {
         scheduleAudioPick();
         if (meta.id !== "dev") rememberStream(video.id, stream);
@@ -10360,6 +10369,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
     videoEl.addEventListener("pause", function () {
       clearTimeout(smoothTimer);
+      systemScreenSaver(true);
       updatePlayBtn();
       if (!syncUi) showControls();
       saveProgress2();
@@ -11756,6 +11766,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       },
       destroy: function destroy() {
         alive = false;
+        systemScreenSaver(true);
         clearInterval(ticker);
         clearInterval(saveTimer);
         clearInterval(watchTimer);
@@ -15994,6 +16005,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       lastMove = now;
       if (el) stop();else arm();
     });
+    document.addEventListener("playing", function (e) {
+      if (el && e.target && e.target.tagName === "VIDEO" && isMain(e.target)) stop();else arm();
+    }, true);
     arm();
   }
   function arm() {
@@ -16004,11 +16018,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   function busy() {
     if (document.hidden) return true;
     var vids = document.getElementsByTagName("video");
-    for (var i = 0; i < vids.length; i++) {
-      var v = vids[i];
-      if (!v.paused && !v.ended && v.readyState > 2 && v.offsetWidth > 400) return true;
-    }
+    for (var i = 0; i < vids.length; i++) if (isMain(vids[i]) && !vids[i].paused && !vids[i].ended) return true;
     return false;
+  }
+  function isMain(v) {
+    return !!(v.currentSrc || v.getAttribute("src")) && v.offsetWidth > 400;
   }
   function maybeStart() {
     if (busy()) return arm();

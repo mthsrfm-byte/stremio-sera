@@ -58,3 +58,16 @@ function tizenIp() {
     pc.createOffer((o) => pc.setLocalDescription(o, () => {}, () => {}), () => {});
   });
 }
+
+// Protetor de tela da própria TV Samsung: desligado enquanto o vídeo toca (senão ele entra no
+// meio do filme, porque o app nunca disse que tinha vídeo rodando) e ligado de novo depois.
+export function systemScreenSaver(on) {
+  try {
+    const ac = window.webapis && window.webapis.appcommon;
+    if (!ac || !ac.setScreenSaver) return;
+    const st = ac.AppCommonScreenSaverState || {};
+    ac.setScreenSaver(on ? st.SCREEN_SAVER_ON : st.SCREEN_SAVER_OFF, () => {}, () => {});
+  } catch (e) {
+    /* fora da TV ou API indisponível */
+  }
+}

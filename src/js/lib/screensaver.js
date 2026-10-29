@@ -63,6 +63,15 @@ export function install() {
     if (el) stop();
     else arm();
   });
+  // O vídeo voltou a tocar (fim do carregamento, play pelo celular): o protetor sai na hora.
+  document.addEventListener(
+    'playing',
+    (e) => {
+      if (el && e.target && e.target.tagName === 'VIDEO' && isMain(e.target)) stop();
+      else arm();
+    },
+    true
+  );
   arm();
 }
 
@@ -72,15 +81,18 @@ export function arm() {
   if (m > 0) idleTimer = setTimeout(maybeStart, m * 60000);
 }
 
-// Vídeo tocando (player, prévias) não é tela parada.
+// Vídeo tocando não é tela parada. Conta também o vídeo carregando no meio (readyState baixo,
+// travado esperando a rede): antes o protetor entrava justo aí, por cima do filme.
 function busy() {
   if (document.hidden) return true;
   const vids = document.getElementsByTagName('video');
-  for (let i = 0; i < vids.length; i++) {
-    const v = vids[i];
-    if (!v.paused && !v.ended && v.readyState > 2 && v.offsetWidth > 400) return true;
-  }
+  for (let i = 0; i < vids.length; i++) if (isMain(vids[i]) && !vids[i].paused && !vids[i].ended) return true;
   return false;
+}
+
+// O vídeo do player (não as prévias pequenas dos cartões).
+function isMain(v) {
+  return !!(v.currentSrc || v.getAttribute('src')) && v.offsetWidth > 400;
 }
 
 function maybeStart() {

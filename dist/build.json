@@ -1,6 +1,6 @@
 {
   "version": "1.2.0",
-  "commit": "f57f05ba94a2e213e3d215c764ac15431cb8f9d4",
-  "date": "2026-10-29T11:34:15+00:00",
-  "message": "Build da dist/ para a TV"
+  "commit": "835103cb5e81c228cef9d08e949c8890373925f8",
+  "date": "2026-10-29T15:19:48+00:00",
+  "message": "Debrid: Smart Choice respeita a banda da TV e o player aprende com travadas"
 }

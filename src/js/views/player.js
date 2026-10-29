@@ -21,6 +21,7 @@ import * as router from '../router.js';
 import { sortedVideos, openDetails } from './details.js';
 import { t } from '../lib/i18n.js';
 import { IS_WEB } from '../lib/platform.js';
+import { systemScreenSaver } from '../lib/tv.js';
 
 const HIDE_MS = 5000;
 const SLOW_MS = 40000; // sem começar a tocar depois disso: oferece outro provedor
@@ -555,6 +556,7 @@ function PlayerView(opts) {
     clearTimeout(slowTimer);
     closeSlow();
     debridResumed();
+    systemScreenSaver(false);
     if (!hasPlayed) {
       scheduleAudioPick();
       // Abriu: é esta a fonte que o Smart Choice tenta primeiro ao continuar depois.
@@ -568,6 +570,7 @@ function PlayerView(opts) {
   });
   videoEl.addEventListener('pause', () => {
     clearTimeout(smoothTimer); // pausado não conta como "tocou liso"
+    systemScreenSaver(true);
     updatePlayBtn();
     if (!syncUi) showControls();
     saveProgress();
@@ -1872,6 +1875,7 @@ function PlayerView(opts) {
     },
     destroy: () => {
       alive = false;
+      systemScreenSaver(true);
       clearInterval(ticker);
       clearInterval(saveTimer);
       clearInterval(watchTimer);
