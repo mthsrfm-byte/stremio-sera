@@ -130,9 +130,48 @@ export function good(info) {
   return res && healthy;
 }
 
+// ---------- Banda para debrid ----------
+// Debrid entrega o arquivo inteiro na taxa dele: um 4K REMUX (60–100 Mbps) trava no Wi-Fi da TV
+// mesmo com o link perfeito. O app guarda quanto a TV aguenta (começa em 30 Mbps) e aprende:
+// travou com debrid → baixa para abaixo da taxa daquele arquivo; tocou 10 min liso → sobe até ela.
+const BUDGET_KEY = 'debridMbps';
+const BUDGET_DEFAULT = 30;
+const BUDGET_MIN = 8;
+const BUDGET_MAX = 150;
+
+export function debridBudget() {
+  const v = store.get(BUDGET_KEY, null);
+  return typeof v === 'number' && v >= BUDGET_MIN ? v : BUDGET_DEFAULT;
+}
+
+// ok=false: travou tocando a mbps; ok=true: tocou liso a mbps. Retorna a banda nova.
+export function learnDebrid(mbps, ok) {
+  if (!mbps) return debridBudget();
+  const cur = debridBudget();
+  const next = ok ? Math.min(BUDGET_MAX, Math.max(cur, Math.round(mbps * 1.1))) : Math.max(BUDGET_MIN, Math.min(cur, Math.round(mbps * 0.75)));
+  if (next !== cur) store.set(BUDGET_KEY, next);
+  return next;
+}
+
+// Duração em minutos pelo "runtime" do meta ("1h 52min", "112 min"); sem ele, um padrão.
+export function minutesOf(meta, series) {
+  const r = String((meta && meta.runtime) || '');
+  const hM = r.match(/(\d+)\s*h/i);
+  const mM = r.match(/(\d+)\s*m/i);
+  const mins = (hM ? parseInt(hM[1], 10) * 60 : 0) + (mM ? parseInt(mM[1], 10) : 0);
+  return mins || (series ? 45 : 110);
+}
+
+// Taxa média do arquivo (tamanho ÷ duração), em Mbps. 0 quando o tamanho não veio.
+export function fileMbps(info, minutes) {
+  if (!info.sizeMb || !minutes) return 0;
+  return Math.round((info.sizeMb * 8) / (minutes * 60));
+}
+
 // Smart Choice: ordena as fontes e fica com a primeira. A ordem:
 //   1) debrid em cache ([RD+]) dublado (português), da melhor qualidade para a pior;
 //   2) debrid em cache sem dublagem, da melhor qualidade (4K primeiro) para a pior;
+//   (nos dois, primeiro os arquivos que cabem na banda da TV; os mais pesados vêm depois)
 //   3) torrent/direto bom e dublado;  4) torrent/direto bom;  5) o resto que não for debrid;
 //   6) debrid ainda baixando (fora do cache).
 // Dolby Vision fica por último dentro de cada grupo: as TVs Samsung não têm DV, e o arquivo DV
@@ -146,13 +185,20 @@ function group(i) {
   return 4;
 }
 
-export function rank(list) {
+// minutes: duração do vídeo, para estimar a taxa dos arquivos de debrid (sem ela, não filtra por banda).
+export function rank(list, minutes) {
+  const budget = debridBudget();
+  const heavy = (i) => !!minutes && i.cached && fileMbps(i, minutes) > budget;
   return list
     .map((s, idx) => ({ s: s, i: parse(s), idx: idx }))
     .sort((a, b) => {
       const g = group(a.i) - group(b.i);
       if (g) return g;
       if (a.i.dv !== b.i.dv) return a.i.dv ? 1 : -1;
+      const hv = (heavy(a.i) ? 1 : 0) - (heavy(b.i) ? 1 : 0);
+      if (hv) return hv;
+      // Pesados entre si: o mais leve primeiro (o que tem mais chance de não travar).
+      if (heavy(a.i)) return fileMbps(a.i, minutes) - fileMbps(b.i, minutes);
       const r = (RES_SCORE[b.i.res] || 0) - (RES_SCORE[a.i.res] || 0);
       if (r) return r;
       // Mesma resolução: dublado + original primeiro; no torrent, mais seeders.
@@ -167,10 +213,10 @@ export function rank(list) {
     .map((x) => x.s);
 }
 
-export function smartPick(list, serverOk) {
+export function smartPick(list, serverOk, minutes) {
   const playable = list.filter((s) => canPlay(s, serverOk));
   if (!playable.length) return null;
-  const hit = rank(playable)[0];
+  const hit = rank(playable, minutes)[0];
   const info = parse(hit);
   return { stream: hit, ideal: info.dub && info.original && good(info) };
 }

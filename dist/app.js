@@ -6067,6 +6067,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }, function () {});
     });
   }
+  function systemScreenSaver(on) {
+    try {
+      var ac = window.webapis && window.webapis.appcommon;
+      if (!ac || !ac.setScreenSaver) return;
+      var st = ac.AppCommonScreenSaverState || {};
+      ac.setScreenSaver(on ? st.SCREEN_SAVER_ON : st.SCREEN_SAVER_OFF, function () {}, function () {});
+    } catch (e) {}
+  }
 
   // src/js/api/server.js
   var status = {
@@ -6339,9 +6347,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "3e8ff66e2214ec99626fa81f69bbf13663b28e41",
-    date: "2026-10-29T08:33:56-03:00",
-    message: "Smart Choice prioriza Real-Debrid dublado + melhorias na aba NSFW"
+    commit: "835103cb5e81c228cef9d08e949c8890373925f8",
+    date: "2026-10-29T15:19:48+00:00",
+    message: "Debrid: Smart Choice respeita a banda da TV e o player aprende com travadas"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -7193,7 +7201,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var timer = null;
   var inFlight = null;
   var listeners2 = [];
-  var BUILTIN = true ? "https://calendar.google.com/calendar/ical/matheus.serafim%40pagaleve.com.br/private-9d7111ae13c15982affb7c795403fcdd/basic.ics" : "";
+  var BUILTIN = true ? "" : "";
   function urls() {
     return String(settings().calendarUrl || BUILTIN || "").split(/[\s,]+/).filter(function (u) {
       return /^(https?|webcal):\/\//i.test(u);
@@ -8628,8 +8636,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return m ? m[0] : null;
   }
   var BUILTIN_KEYS = {
-    tmdbKey: true ? "9c57ed7ea044b2f01eea2fcc2e954c2e" : "",
-    mdblistKey: true ? "t9e4f1z29b3c36i1j25rul1wx" : ""
+    tmdbKey: true ? "" : "",
+    mdblistKey: true ? "" : ""
   };
   function keyOf(name) {
     return (settings()[name] || "").trim() || BUILTIN_KEYS[name];
@@ -9452,6 +9460,32 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var healthy = info.cached || info.seeders !== null && info.seeders >= MIN_SEEDERS;
     return res && healthy;
   }
+  var BUDGET_KEY = "debridMbps";
+  var BUDGET_DEFAULT = 30;
+  var BUDGET_MIN = 8;
+  var BUDGET_MAX = 150;
+  function debridBudget() {
+    var v = get(BUDGET_KEY, null);
+    return typeof v === "number" && v >= BUDGET_MIN ? v : BUDGET_DEFAULT;
+  }
+  function learnDebrid(mbps, ok) {
+    if (!mbps) return debridBudget();
+    var cur = debridBudget();
+    var next = ok ? Math.min(BUDGET_MAX, Math.max(cur, Math.round(mbps * 1.1))) : Math.max(BUDGET_MIN, Math.min(cur, Math.round(mbps * 0.75)));
+    if (next !== cur) set(BUDGET_KEY, next);
+    return next;
+  }
+  function minutesOf(meta, series) {
+    var r = String(meta && meta.runtime || "");
+    var hM = r.match(/(\d+)\s*h/i);
+    var mM = r.match(/(\d+)\s*m/i);
+    var mins = (hM ? parseInt(hM[1], 10) * 60 : 0) + (mM ? parseInt(mM[1], 10) : 0);
+    return mins || (series ? 45 : 110);
+  }
+  function fileMbps(info, minutes2) {
+    if (!info.sizeMb || !minutes2) return 0;
+    return Math.round(info.sizeMb * 8 / (minutes2 * 60));
+  }
   var RES_SCORE = {
     "4K": 4,
     "1080p": 3,
@@ -9464,7 +9498,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     if (good(i)) return i.dub ? 2 : 3;
     return 4;
   }
-  function rank2(list3) {
+  function rank2(list3, minutes2) {
+    var budget = debridBudget();
+    var heavy = function heavy(i) {
+      return !!minutes2 && i.cached && fileMbps(i, minutes2) > budget;
+    };
     return list3.map(function (s, idx2) {
       return {
         s: s,
@@ -9475,6 +9513,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var g = group(a.i) - group(b.i);
       if (g) return g;
       if (a.i.dv !== b.i.dv) return a.i.dv ? 1 : -1;
+      var hv = (heavy(a.i) ? 1 : 0) - (heavy(b.i) ? 1 : 0);
+      if (hv) return hv;
+      if (heavy(a.i)) return fileMbps(a.i, minutes2) - fileMbps(b.i, minutes2);
       var r = (RES_SCORE[b.i.res] || 0) - (RES_SCORE[a.i.res] || 0);
       if (r) return r;
       var o = (b.i.dub && b.i.original ? 1 : 0) - (a.i.dub && a.i.original ? 1 : 0);
@@ -9488,12 +9529,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return x.s;
     });
   }
-  function smartPick(list3, serverOk) {
+  function smartPick(list3, serverOk, minutes2) {
     var playable = list3.filter(function (s) {
       return canPlay(s, serverOk);
     });
     if (!playable.length) return null;
-    var hit = rank2(playable)[0];
+    var hit = rank2(playable, minutes2)[0];
     var info = parse3(hit);
     return {
       stream: hit,
@@ -9715,6 +9756,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var HIDE_MS = 5e3;
   var SLOW_MS = 4e4;
   var SLOW_COUNTDOWN = 5;
+  var DEBRID_SLOW_MS = 15e3;
+  var DEBRID_SMOOTH_MS = 10 * 6e4;
+  var DEBRID_STALLS = 2;
   var SAVE_MS = 15e3;
   var LANG_NAMES = {
     por: "Português (Portugal)",
@@ -9784,6 +9828,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
   function PlayerView(opts) {
     var meta = opts.meta;
+    var minutes2 = minutesOf(meta, opts.isSeries);
     var video = opts.video;
     var stream = opts.stream;
     var settings2 = settings();
@@ -10133,7 +10178,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var forUrl = mediaUrl;
       addonSubs = null;
       subsSettled = false;
-      var ready2 = viaServer && !hasPlayed ? untilPlaying(6e4) : Promise.resolve();
+      var ready2 = (viaServer || isDebrid()) && !hasPlayed ? untilPlaying(6e4) : Promise.resolve();
       ready2.then(function () {
         return videoInfo(stream, mediaUrl, server_exports);
       }).then(function (info) {
@@ -10310,6 +10355,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       hideIntro();
       clearTimeout(slowTimer);
       closeSlow();
+      debridResumed();
+      systemScreenSaver(false);
       if (!hasPlayed) {
         scheduleAudioPick();
         if (meta.id !== "dev") rememberStream(video.id, stream);
@@ -10321,12 +10368,15 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       scheduleHide();
     });
     videoEl.addEventListener("pause", function () {
+      clearTimeout(smoothTimer);
+      systemScreenSaver(true);
       updatePlayBtn();
       if (!syncUi) showControls();
       saveProgress2();
     });
     videoEl.addEventListener("waiting", function () {
-      return showSpinner(true);
+      showSpinner(true);
+      debridWaiting();
     });
     videoEl.addEventListener("canplay", function () {
       return showSpinner(false);
@@ -10394,7 +10444,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       });
       var pick2 = smartPick(cands.filter(function (x) {
         return parse3(x).res === res;
-      }), ok) || smartPick(cands, ok);
+      }), ok, minutes2) || smartPick(cands, ok, minutes2);
       if (!pick2) return null;
       autoTries++;
       return pick2.stream;
@@ -10619,6 +10669,18 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         }
         recoveries++;
         lastRecoveryAt = Date.now();
+        if (isDebrid() && recoveries >= 2) {
+          var lighter = lighterDebrid(fileMbps(parse3(stream), minutes2));
+          learnDebrid(fileMbps(parse3(stream), minutes2), false);
+          if (lighter && downgrades < 2) {
+            downgrades++;
+            toast(t("Conexão não aguentou este arquivo. Indo para um mais leve: {what}", {
+              what: summary(parse3(lighter)) || parse3(lighter).addon
+            }), 5e3);
+            switchTo(lighter);
+            return;
+          }
+        }
         diag("travado-recuperando#" + recoveries);
         reopenAt(pos);
       }
@@ -11325,8 +11387,80 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         }
       });
     }
+    function isDebrid() {
+      var i = stream ? parse3(stream) : null;
+      return !!(i && (i.debrid || i.cached));
+    }
+    var lastSeekAt = 0;
+    var waitStart = 0;
+    var stalls = [];
+    var smoothTimer = null;
+    var downgrades = 0;
+    videoEl.addEventListener("seeking", function () {
+      return lastSeekAt = Date.now();
+    });
+    function debridWaiting() {
+      if (!hasPlayed || !isDebrid() || seekTarget !== null || Date.now() - lastSeekAt < 4e3) return;
+      waitStart = Date.now();
+      clearTimeout(smoothTimer);
+    }
+    function debridResumed() {
+      if (!isDebrid()) return;
+      if (waitStart) {
+        var waited = Date.now() - waitStart;
+        waitStart = 0;
+        if (waited > 1500) debridStall(waited);
+      }
+      clearTimeout(smoothTimer);
+      var forStream = stream;
+      smoothTimer = setTimeout(function () {
+        if (!alive || stream !== forStream || stalls.length) return;
+        var mbps = fileMbps(parse3(stream), minutes2);
+        var b = learnDebrid(mbps, true);
+        log.info("Debrid liso", mbps + " Mbps", "banda " + b);
+      }, DEBRID_SMOOTH_MS);
+    }
+    function debridStall(waited) {
+      var now = Date.now();
+      stalls = stalls.filter(function (x) {
+        return now - x < 18e4;
+      }).concat(now);
+      diag("debrid-travou " + waited + "ms #" + stalls.length);
+      if (stalls.length < DEBRID_STALLS) return;
+      stalls = [];
+      var mbps = fileMbps(parse3(stream), minutes2);
+      var budget = learnDebrid(mbps, false);
+      log.warn("Debrid travando", mbps + " Mbps", "banda agora " + budget);
+      if (downgrades >= 2) return;
+      var lighter = lighterDebrid(mbps);
+      if (!lighter) return;
+      downgrades++;
+      var info = parse3(lighter);
+      toast(t("Conexão não aguentou este arquivo. Indo para um mais leve: {what}", {
+        what: summary(info) || info.addon
+      }), 5e3);
+      switchTo(lighter);
+    }
+    function lighterDebrid(mbps) {
+      var cur = parse3(stream);
+      var budget = debridBudget();
+      var cands = (opts.streams || []).filter(function (x) {
+        if (tried.indexOf(x) >= 0) return false;
+        var i = parse3(x);
+        var m = fileMbps(i, minutes2);
+        return i.cached && !i.dv && canPlay(x, _isAvailable()) && (!mbps || m && m < mbps) && (!m || m <= budget);
+      });
+      var dub = cands.filter(function (x) {
+        return parse3(x).dub === cur.dub;
+      });
+      var pick2 = smartPick(dub.length ? dub : cands, _isAvailable(), minutes2);
+      return pick2 ? pick2.stream : null;
+    }
     function switchTo(s) {
       saveProgress2();
+      clearTimeout(smoothTimer);
+      waitStart = 0;
+      stalls = [];
       if (videoEl.currentTime > 1) pendingStart = videoEl.currentTime * 1e3;
       stream = s;
       slowExtensions = 0;
@@ -11343,7 +11477,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       closeSlow();
       slowTimer = setTimeout(function () {
         if (alive && !hasPlayed) checkSlow();
-      }, SLOW_MS);
+      }, isDebrid() ? DEBRID_SLOW_MS : SLOW_MS);
     }
     var slowExtensions = 0;
     function checkSlow() {
@@ -11472,7 +11606,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         var rest = (opts.streams || []).filter(function (x) {
           return tried.indexOf(x) < 0;
         });
-        var pick2 = smartPick(rest, _isAvailable());
+        var pick2 = smartPick(rest, _isAvailable(), minutes2);
         if (!pick2) {
           message("");
           fail(t("Nenhuma outra fonte disponível para tentar."));
@@ -11632,6 +11766,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       },
       destroy: function destroy() {
         alive = false;
+        systemScreenSaver(true);
         clearInterval(ticker);
         clearInterval(saveTimer);
         clearInterval(watchTimer);
@@ -13644,7 +13779,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         serverReady.then(function (ok) {
           var last = rememberedStream(video.id, all);
           if (last && canPlay(last, ok)) return resolve(last);
-          var p = smartPick(all, ok);
+          var p = smartPick(all, ok, minutesOf(meta, isSeries()));
           resolve(p ? p.stream : null);
         });
       };
@@ -13681,9 +13816,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return mins || (isSeries() ? 45 : 110);
     }
     function heavyMbps(info2) {
-      if (!info2.sizeMb) return 0;
-      var mbps = Math.round(info2.sizeMb * 8 / (runtimeMinutes() * 60));
-      return mbps > 30 ? mbps : 0;
+      var mbps = fileMbps(info2, runtimeMinutes());
+      return mbps > debridBudget() ? mbps : 0;
     }
     function showStreams(video, focusFirst2) {
       panel.style.display = "";
@@ -15871,6 +16005,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       lastMove = now;
       if (el) stop();else arm();
     });
+    document.addEventListener("playing", function (e) {
+      if (el && e.target && e.target.tagName === "VIDEO" && isMain(e.target)) stop();else arm();
+    }, true);
     arm();
   }
   function arm() {
@@ -15881,11 +16018,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   function busy() {
     if (document.hidden) return true;
     var vids = document.getElementsByTagName("video");
-    for (var i = 0; i < vids.length; i++) {
-      var v = vids[i];
-      if (!v.paused && !v.ended && v.readyState > 2 && v.offsetWidth > 400) return true;
-    }
+    for (var i = 0; i < vids.length; i++) if (isMain(vids[i]) && !vids[i].paused && !vids[i].ended) return true;
     return false;
+  }
+  function isMain(v) {
+    return !!(v.currentSrc || v.getAttribute("src")) && v.offsetWidth > 400;
   }
   function maybeStart() {
     if (busy()) return arm();

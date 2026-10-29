@@ -1,6 +1,6 @@
 {
   "version": "1.2.0",
-  "commit": "3e8ff66e2214ec99626fa81f69bbf13663b28e41",
-  "date": "2026-10-29T08:33:56-03:00",
-  "message": "Smart Choice prioriza Real-Debrid dublado + melhorias na aba NSFW"
+  "commit": "835103cb5e81c228cef9d08e949c8890373925f8",
+  "date": "2026-10-29T15:19:48+00:00",
+  "message": "Debrid: Smart Choice respeita a banda da TV e o player aprende com travadas"
 }

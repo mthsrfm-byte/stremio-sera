@@ -427,7 +427,7 @@ function DetailsView(type, id, opts) {
         // Continuando: a mesma fonte da última vez, se ela ainda veio; senão, a escolha de sempre.
         const last = si.rememberedStream(video.id, all);
         if (last && si.canPlay(last, ok)) return resolve(last);
-        const p = si.smartPick(all, ok);
+        const p = si.smartPick(all, ok, si.minutesOf(meta, isSeries()));
         resolve(p ? p.stream : null);
       });
     };
@@ -474,9 +474,8 @@ function DetailsView(type, id, opts) {
 
   // Taxa estimada do arquivo (tamanho ÷ duração): só aparece quando pesa no Wi-Fi da TV (~34 Mbps).
   function heavyMbps(info) {
-    if (!info.sizeMb) return 0;
-    const mbps = Math.round((info.sizeMb * 8) / (runtimeMinutes() * 60));
-    return mbps > 30 ? mbps : 0;
+    const mbps = si.fileMbps(info, runtimeMinutes());
+    return mbps > si.debridBudget() ? mbps : 0;
   }
 
   function showStreams(video, focusFirst) {
