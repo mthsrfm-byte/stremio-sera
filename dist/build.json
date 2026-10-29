@@ -1,6 +1,6 @@
 {
   "version": "1.2.0",
-  "commit": "a9eb95b377bde2a1d6f8101c79d8235173da3d9a",
-  "date": "2026-10-29T15:35:54+00:00",
-  "message": "Build da dist/ para a TV"
+  "commit": "ca891e601694ff30c46bcae2cb8a6960a686baa5",
+  "date": "2026-10-29T12:38:28-03:00",
+  "message": "Protetor de tela: \"A seguir\" mostra o próximo de verdade"
 }
