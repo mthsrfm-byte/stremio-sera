@@ -1,6 +1,6 @@
 {
   "version": "1.2.0",
-  "commit": "835103cb5e81c228cef9d08e949c8890373925f8",
-  "date": "2026-10-29T15:19:48+00:00",
-  "message": "Debrid: Smart Choice respeita a banda da TV e o player aprende com travadas"
+  "commit": "cd1bab124b5e8ac1f941a22407dd221dc3a15a69",
+  "date": "2026-10-29T12:35:37-03:00",
+  "message": "Debrid respeita a banda da TV + protetor de tela não entra no meio do vídeo"
 }

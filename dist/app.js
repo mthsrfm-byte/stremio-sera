@@ -6347,9 +6347,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "835103cb5e81c228cef9d08e949c8890373925f8",
-    date: "2026-10-29T15:19:48+00:00",
-    message: "Debrid: Smart Choice respeita a banda da TV e o player aprende com travadas"
+    commit: "cd1bab124b5e8ac1f941a22407dd221dc3a15a69",
+    date: "2026-10-29T12:35:37-03:00",
+    message: "Debrid respeita a banda da TV + protetor de tela não entra no meio do vídeo"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -7201,7 +7201,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var timer = null;
   var inFlight = null;
   var listeners2 = [];
-  var BUILTIN = true ? "" : "";
+  var BUILTIN = true ? "https://calendar.google.com/calendar/ical/matheus.serafim%40pagaleve.com.br/private-9d7111ae13c15982affb7c795403fcdd/basic.ics" : "";
   function urls() {
     return String(settings().calendarUrl || BUILTIN || "").split(/[\s,]+/).filter(function (u) {
       return /^(https?|webcal):\/\//i.test(u);
@@ -8636,8 +8636,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return m ? m[0] : null;
   }
   var BUILTIN_KEYS = {
-    tmdbKey: true ? "" : "",
-    mdblistKey: true ? "" : ""
+    tmdbKey: true ? "9c57ed7ea044b2f01eea2fcc2e954c2e" : "",
+    mdblistKey: true ? "t9e4f1z29b3c36i1j25rul1wx" : ""
   };
   function keyOf(name) {
     return (settings()[name] || "").trim() || BUILTIN_KEYS[name];
