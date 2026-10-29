@@ -25,6 +25,9 @@ import { IS_WEB } from '../lib/platform.js';
 const HIDE_MS = 5000;
 const SLOW_MS = 40000; // sem começar a tocar depois disso: oferece outro provedor
 const SLOW_COUNTDOWN = 5;
+const DEBRID_SLOW_MS = 15000;
+const DEBRID_SMOOTH_MS = 10 * 60000; // tocou isso sem travar: a TV aguenta essa taxa
+const DEBRID_STALLS = 2; // travadas em 3 min que fazem trocar por um arquivo mais leve
 const SAVE_MS = 15000;
 const LANG_NAMES = {
   por: 'Português (Portugal)', pob: 'Português (BR)', pt: 'Português', 'pt-br': 'Português (BR)', eng: 'Inglês', en: 'Inglês',
@@ -76,6 +79,7 @@ export function openPlayer(opts) {
 
 function PlayerView(opts) {
   const meta = opts.meta;
+  const minutes = si.minutesOf(meta, opts.isSeries);
   let video = opts.video;
   let stream = opts.stream;
   const settings = store.settings();
@@ -370,7 +374,8 @@ function PlayerView(opts) {
     subsSettled = false;
     // Torrent pelo PC: o hash lê o fim do arquivo e faria o servidor baixar essa parte antes do
     // começo. Espera o vídeo começar (ou 60s) para não atrasar o play.
-    const ready = viaServer && !hasPlayed ? untilPlaying(60000) : Promise.resolve();
+    // Debrid: o hash abre mais duas conexões no arquivo, que disputam banda com o começo do vídeo.
+    const ready = (viaServer || isDebrid()) && !hasPlayed ? untilPlaying(60000) : Promise.resolve();
     ready
       .then(() => subpick.videoInfo(stream, mediaUrl, server))
       .then((info) => {
@@ -549,6 +554,7 @@ function PlayerView(opts) {
     hideIntro();
     clearTimeout(slowTimer);
     closeSlow();
+    debridResumed();
     if (!hasPlayed) {
       scheduleAudioPick();
       // Abriu: é esta a fonte que o Smart Choice tenta primeiro ao continuar depois.
@@ -561,11 +567,15 @@ function PlayerView(opts) {
     scheduleHide();
   });
   videoEl.addEventListener('pause', () => {
+    clearTimeout(smoothTimer); // pausado não conta como "tocou liso"
     updatePlayBtn();
     if (!syncUi) showControls();
     saveProgress();
   });
-  videoEl.addEventListener('waiting', () => showSpinner(true));
+  videoEl.addEventListener('waiting', () => {
+    showSpinner(true);
+    debridWaiting();
+  });
   videoEl.addEventListener('canplay', () => showSpinner(false));
   videoEl.addEventListener('timeupdate', () => {
     if (restartBtn.style.display !== 'none' && videoEl.currentTime * 1000 > (opts.startTime || 0) + 300000) restartBtn.style.display = 'none';
@@ -626,7 +636,7 @@ function PlayerView(opts) {
     const res = si.parse(stream).res;
     const ok = server.isAvailable();
     const cands = rest.filter((x) => !si.parse(x).dv && si.canPlay(x, ok));
-    const pick = si.smartPick(cands.filter((x) => si.parse(x).res === res), ok) || si.smartPick(cands, ok);
+    const pick = si.smartPick(cands.filter((x) => si.parse(x).res === res), ok, minutes) || si.smartPick(cands, ok, minutes);
     if (!pick) return null;
     autoTries++;
     return pick.stream;
@@ -875,6 +885,17 @@ function PlayerView(opts) {
       }
       recoveries++;
       lastRecoveryAt = Date.now();
+      if (isDebrid() && recoveries >= 2) {
+        // Reabrir não resolveu duas vezes: provavelmente banda. Tenta um arquivo mais leve.
+        const lighter = lighterDebrid(si.fileMbps(si.parse(stream), minutes));
+        si.learnDebrid(si.fileMbps(si.parse(stream), minutes), false);
+        if (lighter && downgrades < 2) {
+          downgrades++;
+          toast(t('Conexão não aguentou este arquivo. Indo para um mais leve: {what}', { what: si.summary(si.parse(lighter)) || si.parse(lighter).addon }), 5000);
+          switchTo(lighter);
+          return;
+        }
+      }
       diag('travado-recuperando#' + recoveries);
       reopenAt(pos);
     }
@@ -1505,8 +1526,78 @@ function PlayerView(opts) {
   }
 
   // Troca de fonte no mesmo ponto do vídeo.
+  // ---------- Debrid: banda e arquivo mais leve ----------
+  // Só para fontes de debrid (o torrent tem a própria lógica pelo PC). Uma travada é o vídeo parar
+  // para carregar no meio (não depois de pular). Duas em 3 min: a TV não aguenta a taxa do arquivo;
+  // o app aprende a banda e troca sozinho por outro debrid mais leve, no mesmo ponto.
+  function isDebrid() {
+    const i = stream ? si.parse(stream) : null;
+    return !!(i && (i.debrid || i.cached));
+  }
+  let lastSeekAt = 0;
+  let waitStart = 0;
+  let stalls = [];
+  let smoothTimer = null;
+  let downgrades = 0;
+  videoEl.addEventListener('seeking', () => (lastSeekAt = Date.now()));
+  function debridWaiting() {
+    if (!hasPlayed || !isDebrid() || seekTarget !== null || Date.now() - lastSeekAt < 4000) return;
+    waitStart = Date.now();
+    clearTimeout(smoothTimer);
+  }
+  function debridResumed() {
+    if (!isDebrid()) return;
+    if (waitStart) {
+      const waited = Date.now() - waitStart;
+      waitStart = 0;
+      if (waited > 1500) debridStall(waited);
+    }
+    clearTimeout(smoothTimer);
+    const forStream = stream;
+    smoothTimer = setTimeout(() => {
+      if (!alive || stream !== forStream || stalls.length) return;
+      const mbps = si.fileMbps(si.parse(stream), minutes);
+      const b = si.learnDebrid(mbps, true);
+      log.info('Debrid liso', mbps + ' Mbps', 'banda ' + b);
+    }, DEBRID_SMOOTH_MS);
+  }
+  function debridStall(waited) {
+    const now = Date.now();
+    stalls = stalls.filter((x) => now - x < 180000).concat(now);
+    diag('debrid-travou ' + waited + 'ms #' + stalls.length);
+    if (stalls.length < DEBRID_STALLS) return;
+    stalls = [];
+    const mbps = si.fileMbps(si.parse(stream), minutes);
+    const budget = si.learnDebrid(mbps, false);
+    log.warn('Debrid travando', mbps + ' Mbps', 'banda agora ' + budget);
+    if (downgrades >= 2) return;
+    const lighter = lighterDebrid(mbps);
+    if (!lighter) return;
+    downgrades++;
+    const info = si.parse(lighter);
+    toast(t('Conexão não aguentou este arquivo. Indo para um mais leve: {what}', { what: si.summary(info) || info.addon }), 5000);
+    switchTo(lighter);
+  }
+  // Outro debrid em cache, mais leve que o atual e dentro da banda; mesmo áudio dublado se der.
+  function lighterDebrid(mbps) {
+    const cur = si.parse(stream);
+    const budget = si.debridBudget();
+    const cands = (opts.streams || []).filter((x) => {
+      if (tried.indexOf(x) >= 0) return false;
+      const i = si.parse(x);
+      const m = si.fileMbps(i, minutes);
+      return i.cached && !i.dv && si.canPlay(x, server.isAvailable()) && (!mbps || (m && m < mbps)) && (!m || m <= budget);
+    });
+    const dub = cands.filter((x) => si.parse(x).dub === cur.dub);
+    const pick = si.smartPick(dub.length ? dub : cands, server.isAvailable(), minutes);
+    return pick ? pick.stream : null;
+  }
+
   function switchTo(s) {
     saveProgress();
+    clearTimeout(smoothTimer);
+    waitStart = 0;
+    stalls = [];
     if (videoEl.currentTime > 1) pendingStart = videoEl.currentTime * 1000;
     stream = s;
     slowExtensions = 0;
@@ -1520,9 +1611,10 @@ function PlayerView(opts) {
   function armSlow() {
     clearTimeout(slowTimer);
     closeSlow();
+    // Debrid em cache abre em segundos: se não abriu em 15s, o problema é o arquivo/link.
     slowTimer = setTimeout(() => {
       if (alive && !hasPlayed) checkSlow();
-    }, SLOW_MS);
+    }, isDebrid() ? DEBRID_SLOW_MS : SLOW_MS);
   }
 
   // Torrent que ainda está baixando (o progresso anda) ganha mais tempo, até 3 vezes:
@@ -1618,7 +1710,7 @@ function PlayerView(opts) {
       // Próxima fonte: a melhor (Smart Choice) entre as que ainda não foram tentadas. Na ordem do
       // Smart Choice, todas as de debrid em cache vêm antes de qualquer torrent.
       const rest = (opts.streams || []).filter((x) => tried.indexOf(x) < 0);
-      const pick = si.smartPick(rest, server.isAvailable());
+      const pick = si.smartPick(rest, server.isAvailable(), minutes);
       if (!pick) {
         message('');
         fail(t('Nenhuma outra fonte disponível para tentar.'));
