@@ -247,6 +247,10 @@ function slide(it, bg) {
   back.classList.remove('front');
   setTransform(layer, 'scale(' + mv[0] + ') translate(' + mv[1] + 'px, ' + mv[2] + 'px)');
 
+  // O próximo é guardado agora: o texto entra 600 ms depois, quando o idx já andou (antes mostrava
+  // o item depois do próximo).
+  const upNext = items[(idx + 1) % items.length];
+
   // Texto: sai, troca e entra de novo.
   p.info.classList.remove('in');
   setTimeout(() => {
@@ -281,9 +285,8 @@ function slide(it, bg) {
     void p.info.offsetWidth;
     p.info.classList.add('in');
 
-    const nx = items[(idx + 1) % items.length];
-    p.nextImg.style.backgroundImage = nx.background ? 'url("' + nx.background + '")' : 'none';
-    p.nextName.textContent = nx.name || '';
+    p.nextImg.style.backgroundImage = upNext.background ? 'url("' + upNext.background + '")' : 'none';
+    p.nextName.textContent = upNext.name || '';
   }, 600);
 
   // Barras estilo stories: as anteriores cheias, a atual enchendo.
