@@ -3,6 +3,7 @@
 // fonte do "Smart Choice".
 import * as server from '../api/server.js';
 import * as store from './store.js';
+import { IS_FIRETV } from './platform.js';
 
 const FLAG_RE = /\uD83C[\uDDE6-\uDDFF]\uD83C[\uDDE6-\uDDFF]/g;
 const BR = '🇧🇷';
@@ -54,6 +55,12 @@ export function parse(s) {
     // Fonte de debrid ([RD+], [RD download], [AD]...). Sem o "+" ainda não está no debrid: abrir só
     // manda baixar, e o vídeo não toca na hora.
     debrid: /\[(?:RD|AD|PM|DL|DLX|TB|ED|OC)[+\] ]/.test(name),
+    rd: /\[RD[+\] ]/.test(name),
+    // Codec de vídeo e áudio e o contêiner, pelo nome do arquivo (o Fire TV toca uns melhor que outros).
+    codec: /\bav1\b/i.test(text) ? 'av1' : /[xh][ .]?265|\bhevc\b/i.test(text) ? 'hevc' : /[xh][ .]?264|\bavc\b/i.test(text) ? 'h264' : '',
+    tenBit: /10[ .-]?bit/i.test(text),
+    audio: /truehd|atmos/i.test(text) ? 'truehd' : /\bdts/i.test(text) ? 'dts' : /\b(?:e-?ac-?3|ddp|dd\+)/i.test(text) ? 'eac3' : /\b(?:ac-?3|dd)[ .]?[1-7][ .]?[01]\b|\bdd\b|\bac-?3\b/i.test(text) ? 'ac3' : /\baac\b/i.test(text) ? 'aac' : '',
+    mp4: /\.mp4\b|\bmp4\b/i.test(text),
     addon: name.split('\n')[0].replace(/\[[A-Z]{2,3}\+?\]/g, '').trim(),
     file: titleLine.replace(ICONS_RE, '').replace(FLAG_RE, '').replace(/\s{2,}/g, ' ').trim(),
   };
@@ -139,6 +146,7 @@ export function good(info) {
 export function smartPick(list, serverOk) {
   const playable = list.filter((s) => canPlay(s, serverOk));
   if (!playable.length) return null;
+  if (IS_FIRETV) return firePick(playable);
   const hiRes = (info) => info.res === '4K' || info.res === '1080p';
   const ideal = (info) => info.dub && info.original && good(info);
   const waiting = (info) => info.debrid && !info.cached;
@@ -158,6 +166,88 @@ export function smartPick(list, serverOk) {
     for (let t = 0; t < tiers.length; t++) {
       const hit = pools[p].filter((s) => tiers[t](parse(s)))[0];
       if (hit) return { stream: hit, ideal: ideal(parse(hit)) };
+    }
+  }
+  return null;
+}
+
+// ---------- Smart Choice do Fire TV Stick ----------
+// O Fire TV Stick HD sai em 1080p e toca pelo <video> do WebView (Chromium do Android): 4K e
+// remux só pesam (mais download, mais chance de travar no Wi-Fi) sem ganho na tela; H.264 com
+// áudio AAC é o que abre em qualquer um; HEVC costuma ir, AV1 e DTS/TrueHD não.
+// Nota de 0 (não toca) para cima: quanto maior, mais chance de tocar liso e bonito.
+function fireScore(info) {
+  let n = 100;
+  n += { '1080p': 40, '720p': 25, SD: 0, '4K': -60 }[info.res] || 10; // sem resolução: meio-termo
+  if (info.remux) n -= 50;
+  if (info.dv) n -= 80;
+  else if (info.hdr) n -= 15; // HDR em tela SDR fica lavado
+  n += { h264: 15, hevc: info.tenBit ? -10 : 0, av1: -60 }[info.codec] || 0;
+  n += { aac: 10, ac3: 0, eac3: -5, dts: -45, truehd: -60 }[info.audio] || 0;
+  if (info.mp4) n += 5;
+  // Arquivo enorme é bitrate alto: trava no Wi-Fi do stick. 1080p bom cabe em uns 2 a 8 GB.
+  if (info.sizeMb > 20480) n -= 40;
+  else if (info.sizeMb > 10240) n -= 20;
+  return n;
+}
+
+// Toca liso no stick: até 1080p, sem DV/remux/AV1 e sem áudio que o Chromium não decodifica.
+function fits(info) {
+  return info.res !== '4K' && !info.dv && !info.remux && info.codec !== 'av1' && info.audio !== 'dts' && info.audio !== 'truehd';
+}
+
+// Torrent pelo stremio-service do PC: a TV baixa enquanto toca, então semente e tamanho pesam.
+function seedScore(info) {
+  if (info.seeders === null) return 0;
+  return Math.min(60, Math.round(Math.log(info.seeders + 1) * 12));
+}
+
+function best(list, score) {
+  let hit = null;
+  let top = -Infinity;
+  for (let i = 0; i < list.length; i++) {
+    const n = score(parse(list[i]));
+    if (n > top) {
+      top = n;
+      hit = list[i];
+    }
+  }
+  return hit;
+}
+
+// Camadas (a primeira que tiver fonte vence; dentro dela, a de maior nota):
+// Com debrid (a conta tem a chave do Real-Debrid nos addons, então as fontes vêm marcadas):
+//   1) RD em cache, dublado e que toca liso;  2) qualquer debrid em cache, dublado e liso;
+//   3) RD em cache que toca liso (sem dublagem);  4) debrid em cache liso;  5) debrid em cache.
+// Sem debrid (ou nada em cache): o vídeo vem por torrent no PC ou por link direto.
+//   6) torrent dublado, liso e bem semeado;  7) torrent liso e bem semeado;  8) link direto dublado e liso;
+//   9) link direto liso;  10) torrent liso com pouca semente;  11) o que sobrar (menos debrid baixando).
+function firePick(playable) {
+  const cached = (i) => i.debrid && i.cached;
+  const torrent = (s) => !!s.infoHash && !parse(s).debrid;
+  const direct = (s) => !s.infoHash && !parse(s).debrid;
+  const seeded = (i) => i.seeders === null || i.seeders >= MIN_SEEDERS;
+  const torrentScore = (i) => fireScore(i) + seedScore(i) - (i.sizeMb > 6144 ? 20 : 0);
+  const tiers = [
+    [(s, i) => cached(i) && i.rd && i.dub && fits(i), fireScore],
+    [(s, i) => cached(i) && i.dub && fits(i), fireScore],
+    [(s, i) => cached(i) && i.rd && fits(i), fireScore],
+    [(s, i) => cached(i) && fits(i), fireScore],
+    [(s, i) => cached(i) && !i.dv, fireScore],
+    [(s, i) => torrent(s) && i.dub && fits(i) && seeded(i), torrentScore],
+    [(s, i) => torrent(s) && fits(i) && seeded(i), torrentScore],
+    [(s, i) => direct(s) && i.dub && fits(i) && !!i.res, fireScore],
+    [(s, i) => direct(s) && fits(i) && !!i.res, fireScore],
+    [(s, i) => torrent(s) && fits(i), torrentScore],
+    [(s, i) => !(i.debrid && !i.cached), (i) => fireScore(i) + seedScore(i)],
+    [() => true, fireScore],
+  ];
+  for (let t = 0; t < tiers.length; t++) {
+    const pool = playable.filter((s) => tiers[t][0](s, parse(s)));
+    if (pool.length) {
+      const hit = best(pool, tiers[t][1]);
+      const info = parse(hit);
+      return { stream: hit, ideal: info.dub && fits(info) && (cached(info) || good(info)) };
     }
   }
   return null;

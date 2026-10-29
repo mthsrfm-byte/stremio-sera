@@ -13,8 +13,10 @@ const src = path.join(root, 'src');
 const watch = process.argv.includes('--watch');
 // --web: versão para navegador (site/app/, com tranca de senha) em vez do pacote da TV (dist/).
 const web = process.argv.includes('--web');
-// Pasta de saída: dist/ é o que a TV roda; site/app/ é publicado no GitHub Pages.
-const dist = web ? path.join(root, 'site', 'app') : path.join(root, 'dist');
+// --firetv: versão do Fire TV Stick (dist-firetv/), que o app Android (android/) baixa e roda num WebView.
+const firetv = process.argv.includes('--firetv');
+// Pasta de saída: dist/ é o que a TV roda; site/app/ é publicado no GitHub Pages; dist-firetv/ é do Fire TV.
+const dist = web ? path.join(root, 'site', 'app') : firetv ? path.join(root, 'dist-firetv') : path.join(root, 'dist');
 // A senha da versão web só vira um hash no build. Sem ela o site ficaria aberto, então não builda.
 if (web && !process.env.KAI_WEB_PASSWORD) {
   throw new Error('Build web sem senha: defina KAI_WEB_PASSWORD (no GitHub é o segredo WEB_PASSWORD).');
@@ -71,12 +73,14 @@ const esbuildOptions = {
     __KAI_TMDB__: JSON.stringify(process.env.KAI_TMDB || ''),
     __KAI_MDBLIST__: JSON.stringify(process.env.KAI_MDBLIST || ''),
     // KAI_CALENDAR: link iCal da agenda embutido (segredo CALENDAR_ICAL_URL); só no build da TV.
-    __KAI_CALENDAR__: JSON.stringify(web ? '' : process.env.KAI_CALENDAR || ''),
+    // No Fire TV a agenda começa desligada: liga colando o link em Ajustes.
+    __KAI_CALENDAR__: JSON.stringify(web || firetv ? '' : process.env.KAI_CALENDAR || ''),
     __KAI_COMMIT__: JSON.stringify(buildInfo.commit),
     __KAI_BUILD_DATE__: JSON.stringify(buildInfo.date),
     __KAI_COMMIT_MSG__: JSON.stringify(buildInfo.message),
     __KAI_VERSION__: JSON.stringify(JSON.parse(fs.readFileSync(path.join(root, 'appinfo.json'), 'utf8')).version),
     __KAI_WEB__: JSON.stringify(web),
+    __KAI_FIRETV__: JSON.stringify(firetv),
   },
   logLevel: 'warning',
 };
@@ -138,7 +142,21 @@ async function emit(result) {
       console.warn(`[aviso] "${bad}" ainda aparece no bundle perto de: ${code.slice(i - 60, i + 40).replace(/\n/g, ' ')}`);
     }
   }
-  console.log(`[build] dist/app.js ${(code.length / 1024).toFixed(0)} KB`);
+  if (firetv) {
+    // Lista dos arquivos com hash: o app Android baixa só o que mudou e confere cada arquivo.
+    const files = [];
+    const walk = (dir) => {
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const a = path.join(dir, entry.name);
+        if (entry.isDirectory()) walk(a);
+        else files.push({ path: path.relative(dist, a).split(path.sep).join('/'), sha256: createHash('sha256').update(fs.readFileSync(a)).digest('hex'), size: fs.statSync(a).size });
+      }
+    };
+    walk(dist);
+    files.sort((x, y) => (x.path < y.path ? -1 : 1));
+    fs.writeFileSync(path.join(dist, 'files.json'), JSON.stringify({ version, commit: buildInfo.commit, files }, null, 1) + '\n');
+  }
+  console.log(`[build] ${path.relative(root, dist)}/app.js ${(code.length / 1024).toFixed(0)} KB`);
 }
 
 if (watch) {

@@ -4,7 +4,7 @@ import * as nav from '../lib/nav.js';
 import * as store from '../lib/store.js';
 import { log } from '../lib/log.js';
 import { deviceInfo } from '../lib/tv.js';
-import { IS_WEB } from '../lib/platform.js';
+import { IS_WEB, IS_FIRETV, HAS_TV_SERVICE, android } from '../lib/platform.js';
 import * as substyle from '../lib/substyle.js';
 import * as update from '../api/update.js';
 import * as phoneRemote from '../api/phoneRemote.js';
@@ -306,7 +306,14 @@ export function SettingsView() {
     // ---- Atualizações (direto do GitHub, sem fechar o app; na web o site já é atualizado sozinho) ----
     if (!IS_WEB) {
       body.appendChild(h('div.set-section', { text: t('Atualizações') }));
-      body.appendChild(row(t('Procurar atualização'), updateStatus || t('Busca a versão mais nova no GitHub ({repo})', { repo: update.REPO }), '', () => checkForUpdate()));
+      // Fire TV: o app Android baixa a versão nova sozinho ao abrir; aqui dá para forçar agora.
+      if (IS_FIRETV) body.appendChild(row(t('Procurar atualização'), t('O app se atualiza sozinho ao abrir; aqui busca agora no GitHub ({repo})', { repo: update.REPO }), '', () => {
+        const a = android();
+        if (!a) return toast(t('Só no app do Fire TV'));
+        toast(t('Procurando atualização...'), 15000);
+        a.checkUpdate();
+      }));
+      else body.appendChild(row(t('Procurar atualização'), updateStatus || t('Busca a versão mais nova no GitHub ({repo})', { repo: update.REPO }), '', () => checkForUpdate()));
       const b = update.BUILD;
       body.appendChild(
         row(
@@ -317,7 +324,7 @@ export function SettingsView() {
         )
       );
     }
-    if (device && !IS_WEB) body.appendChild(row(t('TV'), '', device, null));
+    if (device && !IS_WEB) body.appendChild(row(t(IS_FIRETV ? 'Aparelho' : 'TV'), '', device, null));
 
     // ---- Perfil (cada perfil tem sua conta Stremio, histórico e preferências) ----
     const prof = store.activeProfile();
@@ -462,7 +469,7 @@ export function SettingsView() {
         })
       )
     );
-    if (!IS_WEB) body.appendChild(row(t('Testar torrent na TV (sem o PC)'), t('Mede se a própria TV aguenta baixar torrent: Node, memória, rede e disco'), '', () => torrentTest()));
+    if (HAS_TV_SERVICE) body.appendChild(row(t('Testar torrent na TV (sem o PC)'), t('Mede se a própria TV aguenta baixar torrent: Node, memória, rede e disco'), '', () => torrentTest()));
 
     body.appendChild(h('div.set-section', { text: t('Aparência (Kai)') }));
     const heroName = t((hero.SOURCES.find((x) => x.id === s.heroSource) || hero.SOURCES[0]).name);
@@ -526,7 +533,7 @@ export function SettingsView() {
 
     body.appendChild(h('div.set-section', { text: t('Reprodução') }));
     body.appendChild(
-      row(t('Smart Choice'), t('Ao escolher um episódio, já abre a melhor fonte: original + dublado, boa qualidade e bem semeada'), '', () => {
+      row(t('Smart Choice'), IS_FIRETV ? t('Ao escolher um episódio, já abre a melhor fonte: Real-Debrid dublado primeiro; senão a que toca liso no Fire TV (1080p, sem 4K pesado)') : t('Ao escolher um episódio, já abre a melhor fonte: original + dublado, boa qualidade e bem semeada'), '', () => {
         store.saveSettings({ smartChoice: store.settings().smartChoice === false });
         render();
       }, toggle(s.smartChoice !== false))
@@ -673,7 +680,7 @@ export function SettingsView() {
         menu(t('Addons ativos'), list.map((a) => ({ label: a.manifest.name || a.manifest.id, sub: a.transportUrl })), {})
       )
     );
-    if (!IS_WEB) nsfwSection(list); // os addons adultos vêm do serviço da TV
+    if (HAS_TV_SERVICE) nsfwSection(list); // os addons adultos vêm do serviço da TV (no Fire TV ficam escondidos)
     // Addons recomendados (só aparecem se ainda não estiverem instalados).
     RECOMMENDED.filter((r) => !list.some((a) => a.transportUrl === r.url || (a.manifest && a.manifest.id === r.id))).forEach((r) =>
       body.appendChild(row(t('Instalar {name}', { name: r.name }), t(r.desc), '', () => installFromUrl(r.url, r.name)))
@@ -699,7 +706,7 @@ export function SettingsView() {
     );
 
     // ---- Controle pelo celular (só na TV: o serviço do Seraflix roda nela) ----
-    if (!IS_WEB) {
+    if (HAS_TV_SERVICE) {
       body.appendChild(h('div.set-section', { text: t('Controle no celular') }));
       body.appendChild(row(t('Abrir o controle no celular'), t('Mostra um QR code: é só apontar a câmera'), '', () => showPhoneRemote()));
     }

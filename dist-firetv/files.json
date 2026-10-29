@@ -1,0 +1,306 @@
+{
+ "version": "1.2.0",
+ "commit": "8580e2ed5e45766fec099a1b9f053e51a1e92093",
+ "files": [
+  {
+   "path": "app.css",
+   "sha256": "cf2507429ce6e9f034370cb93c743248398d784aabf0104f72e8b8a5c45a9b43",
+   "size": 110819
+  },
+  {
+   "path": "app.js",
+   "sha256": "7d8676e7cefefcab5143a95e6d41997fe12cef8651d822e29e541151768505ba",
+   "size": 614516
+  },
+  {
+   "path": "appinfo.json",
+   "sha256": "9d84122ef4bf55c10b4d1a826a19f4c95d67d305aa010c6308231816edf33619",
+   "size": 348
+  },
+  {
+   "path": "build.json",
+   "sha256": "3d6d6646010d661f7cc4a32096aee24fd16fe5f52dc2c2680617fa48600c239e",
+   "size": 161
+  },
+  {
+   "path": "fonts/bricolage-grotesque-latin-600-normal.woff",
+   "sha256": "6d533e946cc12466e18387bf06dd23db8f8e465de2aecfbc12e77d99ce0b9c5e",
+   "size": 27256
+  },
+  {
+   "path": "fonts/bricolage-grotesque-latin-600-normal.woff2",
+   "sha256": "b34fc8c1ef0ac8798455ac2979eae4b4f90f0d327e3584d1032fa77a8a9a66ca",
+   "size": 22456
+  },
+  {
+   "path": "fonts/bricolage-grotesque-latin-700-normal.woff",
+   "sha256": "77b16e49fd9b26fd9150c33f2015ba1d10f8c075f98f36c4a44eee68394747cc",
+   "size": 27044
+  },
+  {
+   "path": "fonts/bricolage-grotesque-latin-700-normal.woff2",
+   "sha256": "4c373ce3c1cca41c864eb3e27c059a59fc6310547ab9c9b6cd780d387ba24206",
+   "size": 22384
+  },
+  {
+   "path": "fonts/bricolage-grotesque-latin-800-normal.woff",
+   "sha256": "e52f189ebcd20c7520b58367e0769a420d3513dcdfb4aa3666476a89cb1e7534",
+   "size": 26436
+  },
+  {
+   "path": "fonts/bricolage-grotesque-latin-800-normal.woff2",
+   "sha256": "3e1b5f0a56ee995b7c1445bc54e6ec98c5dffb585ef5c4baf86731cf68e27c61",
+   "size": 21844
+  },
+  {
+   "path": "fonts/bricolage-grotesque-latin-ext-600-normal.woff",
+   "sha256": "860f284761cd496d081ffb424ef4144bbcc165c733cf49b32096017b2c892c52",
+   "size": 13764
+  },
+  {
+   "path": "fonts/bricolage-grotesque-latin-ext-600-normal.woff2",
+   "sha256": "9903537bd117c519eedf2d80824d1cb4591238edde5ecd00b9d69fef5c9e9375",
+   "size": 10616
+  },
+  {
+   "path": "fonts/bricolage-grotesque-latin-ext-700-normal.woff",
+   "sha256": "9680f8b4e07280387600891f519e0c7c73edc7af7685a0e22cb59e710ef5bc9e",
+   "size": 13704
+  },
+  {
+   "path": "fonts/bricolage-grotesque-latin-ext-700-normal.woff2",
+   "sha256": "25d714d702deab603819c7fbc619d6d63d86a0d055fa61b3b9f0453f9d5e697a",
+   "size": 10632
+  },
+  {
+   "path": "fonts/bricolage-grotesque-latin-ext-800-normal.woff",
+   "sha256": "8e59b2bcc63835d4a18424c7ef7c5a6ae61e25262fd369ece5dc043904e015cc",
+   "size": 13612
+  },
+  {
+   "path": "fonts/bricolage-grotesque-latin-ext-800-normal.woff2",
+   "sha256": "e101adfee20e88db3b345948b0bdc43da40253cc8c7139d7752d01704718d825",
+   "size": 10496
+  },
+  {
+   "path": "fonts/figtree-latin-600-normal.woff",
+   "sha256": "868dd01020c49c3ac3fab667974b5c0a61ea83b517fb58bdd140ef100ad3f4ef",
+   "size": 15212
+  },
+  {
+   "path": "fonts/figtree-latin-600-normal.woff2",
+   "sha256": "367d713287918784702563518f59239989da815c80d3c7337686b9816635a08b",
+   "size": 11544
+  },
+  {
+   "path": "fonts/figtree-latin-700-normal.woff",
+   "sha256": "6463c3f07ef0c1e91438aad4f84c249bd2c23a2f7ef426d072df8df8d14ebc48",
+   "size": 15164
+  },
+  {
+   "path": "fonts/figtree-latin-700-normal.woff2",
+   "sha256": "7ec4f08d09f91d349917dd6592f6aaae66d8fe1bbd58fa24707961e79236616e",
+   "size": 11376
+  },
+  {
+   "path": "fonts/figtree-latin-ext-600-normal.woff",
+   "sha256": "7af7d708c207b9bb173a1c37c23ec966c1ee965fe59e150f30be3479aded0ab8",
+   "size": 8360
+  },
+  {
+   "path": "fonts/figtree-latin-ext-600-normal.woff2",
+   "sha256": "066f04a662a3b3f740f2e711548003e12c2475375e58a59477aa440c8fd03a17",
+   "size": 6240
+  },
+  {
+   "path": "fonts/figtree-latin-ext-700-normal.woff",
+   "sha256": "37091f80ae1d439a0480485c6a299a7dc06a6feb38ff3e363479ae9d6405a72a",
+   "size": 8356
+  },
+  {
+   "path": "fonts/figtree-latin-ext-700-normal.woff2",
+   "sha256": "b3252ef48dfbfc51b2e7eecb4de8414dec694c4c83a16ef7afd319796235ef72",
+   "size": 6172
+  },
+  {
+   "path": "fonts/geist-sans-latin-400-normal.woff",
+   "sha256": "b2f5931f1a903bcc64af96ee41b3fed53a8ce74e9261181931a680a50560485b",
+   "size": 38912
+  },
+  {
+   "path": "fonts/geist-sans-latin-400-normal.woff2",
+   "sha256": "e6ef6abb39c762ed2259cc814e6f16888c540cd84835962227b56ab2354f27f1",
+   "size": 33400
+  },
+  {
+   "path": "fonts/geist-sans-latin-500-normal.woff",
+   "sha256": "5d679b8796eed440d6e7e2e94c37390b82f9db77aa92cfc21e96a1cdeecfba3d",
+   "size": 40520
+  },
+  {
+   "path": "fonts/geist-sans-latin-500-normal.woff2",
+   "sha256": "40073e90816315c92e4f4381bd50b6fdc950b22b0dd010a4179046cf588d4f12",
+   "size": 34716
+  },
+  {
+   "path": "fonts/geist-sans-latin-600-normal.woff",
+   "sha256": "3903ed7633d563de34bbbf609e869a878e4b4081a25011a195b7a80043ecafe9",
+   "size": 41204
+  },
+  {
+   "path": "fonts/geist-sans-latin-600-normal.woff2",
+   "sha256": "9d99fbd791968493fa507ac846de561cee47b00f8100c23cad333b3cb78392d6",
+   "size": 35292
+  },
+  {
+   "path": "fonts/geist-sans-latin-700-normal.woff",
+   "sha256": "a25e16202a8cd74d4a149b97d69262582e23ae59abfde1cee1a051ba5c41622a",
+   "size": 41396
+  },
+  {
+   "path": "fonts/geist-sans-latin-700-normal.woff2",
+   "sha256": "3d59addfafec3452d44717aa0a18911d5c3812487ed06af47f2ef27192ea1eed",
+   "size": 35484
+  },
+  {
+   "path": "fonts/montserrat-latin-400-normal.woff",
+   "sha256": "6a7d6a30d2b8cdc9dd4092918ad2d9a45006f19987300b6a1c1f7a2bde5b0ea3",
+   "size": 20648
+  },
+  {
+   "path": "fonts/montserrat-latin-400-normal.woff2",
+   "sha256": "e66bcd2761ab6924b25ce70dafe10e57a39193c4fea1516730bd9cb5240af6c8",
+   "size": 18780
+  },
+  {
+   "path": "fonts/montserrat-latin-600-normal.woff",
+   "sha256": "97ec588256114183969b5f3d3a53ce26d9beb1f04c8373c866f318afc85638c0",
+   "size": 20548
+  },
+  {
+   "path": "fonts/montserrat-latin-600-normal.woff2",
+   "sha256": "d857325c360f7128b347ca924c1974967aaa886ba47dad22e4042d6c38b26a83",
+   "size": 18688
+  },
+  {
+   "path": "fonts/montserrat-latin-700-normal.woff",
+   "sha256": "ff51c769e51acaa5ffbb8091441ff4e365e41ff21f7e4c05d1cd5650514d6fd3",
+   "size": 20672
+  },
+  {
+   "path": "fonts/montserrat-latin-700-normal.woff2",
+   "sha256": "f9d9e65b15372cebcafc3acd1e664a564c5c4b23278de4d5760de9a13c530371",
+   "size": 18824
+  },
+  {
+   "path": "fonts/montserrat-latin-800-normal.woff",
+   "sha256": "26f9e611260b72c43467d0a0ab4f56c5068ec431e41d9e3088fa74117ca086d8",
+   "size": 20660
+  },
+  {
+   "path": "fonts/montserrat-latin-800-normal.woff2",
+   "sha256": "ba826fb84c2e961578adf3a08b5778b87905d4443445d1d56d84f9f157d5ea4b",
+   "size": 19012
+  },
+  {
+   "path": "fonts/montserrat-latin-ext-400-normal.woff",
+   "sha256": "6459fd9979e99ccdafaef9fbde04b183c825ae089a5771ca78907bb32561085f",
+   "size": 40368
+  },
+  {
+   "path": "fonts/montserrat-latin-ext-400-normal.woff2",
+   "sha256": "30f166cea0894715f7b1342798306dd4206bc1d0331440d543f6e7f7fff04539",
+   "size": 32272
+  },
+  {
+   "path": "fonts/montserrat-latin-ext-600-normal.woff",
+   "sha256": "519a67a81579600b703ed5fc636a2c48b21085d948c3c7c667136b91c831b7f5",
+   "size": 41036
+  },
+  {
+   "path": "fonts/montserrat-latin-ext-600-normal.woff2",
+   "sha256": "1d8a4af6a50cc4f7561e8484d5bff39acda90016b8e8cbb5cee69c253bb02750",
+   "size": 33192
+  },
+  {
+   "path": "fonts/montserrat-latin-ext-700-normal.woff",
+   "sha256": "9829177ccd843b997deb7f5e5458a435bdb5fa79f0ae327976c119bacde570fd",
+   "size": 41344
+  },
+  {
+   "path": "fonts/montserrat-latin-ext-700-normal.woff2",
+   "sha256": "a59fcc944a712e213a2f3bd994367129217c75f24a9155a5a3c1a0f5fd2cc9a7",
+   "size": 33532
+  },
+  {
+   "path": "fonts/montserrat-latin-ext-800-normal.woff",
+   "sha256": "d54740b154f92d9fff855599f16bb2435ea68803b9795388574432d45092d7b7",
+   "size": 41688
+  },
+  {
+   "path": "fonts/montserrat-latin-ext-800-normal.woff2",
+   "sha256": "59f6ebeb71a14c64edc538eba78a010c1c9ef680a66a559ec3cf4b0d12db1a8b",
+   "size": 33624
+  },
+  {
+   "path": "fonts/nata-sans-latin-500-normal.woff",
+   "sha256": "8f545f5dfd21bd21fa8f29b2689f9da9c1bf7215ae5052598b3faabf4f03fba7",
+   "size": 20720
+  },
+  {
+   "path": "fonts/nata-sans-latin-500-normal.woff2",
+   "sha256": "cf885dfaf39ba6b1536643b461242603e2dda8ce34b54f2f590816c306fd9042",
+   "size": 16148
+  },
+  {
+   "path": "fonts/nata-sans-latin-700-normal.woff",
+   "sha256": "d9d653b503d996f1b42dad4ce95f29a2f3faf93e27477f59574b15fd429f0bc5",
+   "size": 21032
+  },
+  {
+   "path": "fonts/nata-sans-latin-700-normal.woff2",
+   "sha256": "5d8e128ab8ae8248fdf971e3a843be5ece92ac22fdb0a066e0a3ee06f128e8d4",
+   "size": 16648
+  },
+  {
+   "path": "fonts/nata-sans-latin-ext-500-normal.woff",
+   "sha256": "fd2c46922e9d574abbe42d8682f5000bfe98d9e53a8c95eef346c0fee47232d6",
+   "size": 19848
+  },
+  {
+   "path": "fonts/nata-sans-latin-ext-500-normal.woff2",
+   "sha256": "8720466a65ec050b565ccb1cba64d045528badd4364ce99ecd10a26e0f3dd1fe",
+   "size": 15020
+  },
+  {
+   "path": "fonts/nata-sans-latin-ext-700-normal.woff",
+   "sha256": "d229620f64498ffa71ab43fda1f776f299f499932d27e949390860c331d09d38",
+   "size": 20352
+  },
+  {
+   "path": "fonts/nata-sans-latin-ext-700-normal.woff2",
+   "sha256": "0c90d403b24b11986066aedb593f67bd9e9a2902d0c7063d4eddebdf31730e48",
+   "size": 15628
+  },
+  {
+   "path": "hls.js",
+   "sha256": "d016c1230496ee59f3f5b01c16cce4cc01b5a1d3d357adec200c908b131ebe49",
+   "size": 415253
+  },
+  {
+   "path": "icon.png",
+   "sha256": "5dcb70186543e4739778ac9d400c5cf4b6fb2e766487ac2a16c6120f701f24ec",
+   "size": 1602
+  },
+  {
+   "path": "index.html",
+   "sha256": "8711cd097da12ad158d99fb080f651e4e25abae39744bfb98755e4df9eb7eeb0",
+   "size": 2598
+  },
+  {
+   "path": "largeIcon.png",
+   "sha256": "c67a184a0382574754131f5878212af5932a0a9a2dca080edb559f4bd50ebcb7",
+   "size": 2459
+  }
+ ]
+}

@@ -24,7 +24,8 @@ import { openDetails } from './views/details.js';
 import * as profiles from './views/profiles.js';
 import { applyTheme } from './lib/theme.js';
 import { openLogin } from './views/login.js';
-import { registerTizenKeys, IS_WEB } from './lib/platform.js';
+import { registerTizenKeys, IS_WEB, HAS_TV_SERVICE, IS_FIRETV } from './lib/platform.js';
+import * as firetv from './lib/firetv.js';
 import * as intro from './lib/intro.js';
 import * as screensaver from './lib/screensaver.js';
 import * as webkeys from './lib/webkeys.js';
@@ -41,6 +42,7 @@ function boot() {
   log.info('Iniciando', navigator.userAgent);
 
   registerTizenKeys();
+  if (IS_FIRETV) firetv.install(); // teclas do controle do Fire TV que o WebView não entrega
   nav.install();
   if (IS_WEB) webkeys.install(); // F e duplo clique no vídeo: tela cheia (só no navegador)
   // Imagens e fileiras sob demanda depois que a rolagem para (segurar a seta não recalcula a cada passo).
@@ -99,7 +101,7 @@ function start() {
     router.goTab('home');
     intro.finish(); // a abertura some em fade por cima da tela inicial já pronta
     // Pedidos do controle no celular ("Mandar para a TV").
-    if (!IS_WEB) sendToTv.start(openFromPhone);
+    if (HAS_TV_SERVICE) sendToTv.start(openFromPhone);
     calendar.start(); // agenda do Google (se tiver link em Ajustes)
     screensaver.install(); // lançamentos passando na tela depois de uns minutos parado
     if (profiles.isNewProfilePendingLogin() && !stremio.isLoggedIn()) {
@@ -113,7 +115,8 @@ function start() {
       });
     } else maybeShowWizard();
     // Avisa se saiu versão nova no GitHub (instala em Ajustes → Procurar atualização).
-    if (!IS_WEB) {
+    // No Fire TV o app Android já atualiza sozinho ao abrir.
+    if (HAS_TV_SERVICE) {
       setTimeout(() => {
         update
           .check()

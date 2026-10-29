@@ -1,5 +1,9 @@
-// Integração com a TV Samsung (Tizen): sair do app, IP da TV e modelo.
+// Integração com a TV Samsung (Tizen) ou com o app Android do Fire TV: sair do app, IP e modelo.
+import { android } from './platform.js';
+
 export function platformBack() {
+  const a = android();
+  if (a) return a.exit();
   try {
     if (window.tizen && window.tizen.application) return window.tizen.application.getCurrentApplication().exit();
   } catch (e) {
@@ -10,10 +14,17 @@ export function platformBack() {
 
 // IP da TV, para varrer a rede atrás do servidor do Stremio e montar o QR do controle.
 export function getTvIp() {
+  const a = android();
+  if (a) {
+    const ip = a.getIp();
+    return ip ? Promise.resolve(ip) : Promise.reject(new Error('Sem IP'));
+  }
   return tizenIp();
 }
 
 export function deviceInfo() {
+  const a = android();
+  if (a) return Promise.resolve({ modelName: a.getModel(), firmwareVersion: '' });
   const pi = window.webapis && window.webapis.productinfo;
   if (pi) {
     return Promise.resolve({

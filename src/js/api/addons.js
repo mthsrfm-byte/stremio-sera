@@ -5,7 +5,7 @@ import * as store from '../lib/store.js';
 import { log } from '../lib/log.js';
 import { t } from '../lib/i18n.js';
 import { startPinnedService } from './tizenbrew.js';
-import { IS_WEB } from '../lib/platform.js';
+import { IS_FIRETV, HAS_TV_SERVICE } from '../lib/platform.js';
 
 export const CINEMETA = 'https://v3-cinemeta.strem.io/manifest.json';
 export const OPENSUBTITLES = 'https://opensubtitles-v3.strem.io/manifest.json';
@@ -108,7 +108,7 @@ function serviceVersion() {
 // e mais devagar depois, para a aba NSFW aparecer sem precisar recarregar o app.
 let tubeTimer = null;
 function attachTubes() {
-  if (IS_WEB) return; // os addons NSFW vêm do serviço da TV (127.0.0.1); no navegador não existe
+  if (!HAS_TV_SERVICE) return; // os addons NSFW vêm do serviço da TV (127.0.0.1); no navegador e no Fire TV não existe
   if ((tubes && tubes.length) || tubeTimer) return;
   tubeTimer = true; // uma procura por vez
   Promise.all([serviceVersion()].concat(TUBES.map(fetchTube))).then((list) => {
@@ -163,8 +163,12 @@ export function load(force) {
   return defaultAddons().then((list) => changed(withTubes(normalize(list))));
 }
 
+// No Fire TV não tem conteúdo adulto nenhum: os addons adultos da conta ficam de fora de tudo
+// (catálogos, busca, detalhes, fontes). Os ids deles continuam conhecidos (adultPrefixes) para
+// esconder o que vier pela biblioteca e pelo "Continuar assistindo".
 export function list() {
-  return addons || [];
+  const all = addons || [];
+  return IS_FIRETV ? all.filter((a) => !isAdult(a)) : all;
 }
 
 function resourceMatch(addon, resource, type, id) {
@@ -236,7 +240,7 @@ export function adultAddons() {
     const i = ADULT_FIRST.indexOf(a.manifest && a.manifest.id);
     return i < 0 ? ADULT_FIRST.length : i;
   };
-  return list()
+  return (addons || [])
     .filter(isAdult)
     .map((a, i) => ({ a: a, i: i }))
     .sort((x, y) => rank(x.a) - rank(y.a) || x.i - y.i)
@@ -246,7 +250,7 @@ export function adultAddons() {
 // Aba NSFW fica sempre disponível; só some se o perfil desativar em Ajustes. No navegador não
 // existe: os addons adultos vêm do serviço da TV.
 export function nsfwEnabled() {
-  return !IS_WEB && store.settings().nsfwTab !== false;
+  return HAS_TV_SERVICE && store.settings().nsfwTab !== false;
 }
 
 // Prefixos de id dos addons adultos ("tt" do IMDb fica de fora: é de filme comum).
