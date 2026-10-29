@@ -1,6 +1,6 @@
 {
   "version": "1.2.0",
-  "commit": "48e87780a81ab98ecf9b5df7d1eb4605edc2a7d3",
-  "date": "2026-10-29T15:38:45+00:00",
-  "message": "Build da dist/ para a TV"
+  "commit": "61e92f0965f4c67305885bbbe121c32d4aed8eac",
+  "date": "2026-10-29T12:59:14-03:00",
+  "message": "Desempenho e navegação: tela parada sem repintar, categoria NSFW não troca sozinha"
 }
