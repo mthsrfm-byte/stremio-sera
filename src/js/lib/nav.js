@@ -32,7 +32,6 @@ export const KEY = {
 
 const layers = [];
 let scrollHook = null;
-let pointerMode = false;
 // Rolagem animada redesenha a tela a cada quadro (caro no Chromium 38 da TV); padrão: instantânea.
 let smooth = false;
 
@@ -224,8 +223,10 @@ export function move(dir) {
   const bg = best.closest('[data-group]');
   if (bg && bg !== group) {
     if (bg.classList.contains('topbar')) best = topbarTarget(bg) || best;
-    // Fileira (rolagem na horizontal) chegando de cima ou de baixo: sempre o primeiro item dela.
-    else if (!horizontal && bg.hasAttribute('data-scroll-x')) best = all.filter((e) => bg.contains(e))[0] || best;
+    // Fileira (rolagem na horizontal) chegando de cima ou de baixo: o item marcado como atual
+    // (.active, ex.: a categoria aberta) ou, sem ele, o primeiro. Antes ia sempre no primeiro, e um
+    // OK ali trocava a categoria da grade sem querer.
+    else if (!horizontal && bg.hasAttribute('data-scroll-x')) best = all.filter((e) => bg.contains(e) && e.classList.contains('active'))[0] || all.filter((e) => bg.contains(e))[0] || best;
     else if (bg.__last && bg.contains(bg.__last) && isVisible(bg.__last)) best = bg.__last;
   }
   focus(best);
@@ -266,10 +267,6 @@ export function onScroll(fn) {
   scrollHook = fn;
 }
 
-export function isPointerMode() {
-  return pointerMode;
-}
-
 function onKeyDown(e) {
   const layer = top();
   if (!layer) return;
@@ -289,7 +286,6 @@ function onKeyDown(e) {
       active.blur();
     } else return;
   }
-  if (code >= 37 && code <= 40 && pointerMode) pointerMode = false;
   if (layer.onKey && layer.onKey(e) === true) {
     e.preventDefault();
     return;
@@ -325,7 +321,6 @@ function onKeyDown(e) {
 function onMouseOver(e) {
   const layer = top();
   if (!layer) return;
-  pointerMode = true;
   const el = e.target.closest ? e.target.closest('[data-focus]') : null;
   if (el && layer.root.contains(el) && el !== layer.current) focus(el, { noScroll: true });
 }

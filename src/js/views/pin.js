@@ -46,10 +46,6 @@ export function pin() {
   return /^\d{4,8}$/.test(p || '') ? p : DEFAULT_PIN;
 }
 
-export function isUnlocked() {
-  return unlocked;
-}
-
 export function lock() {
   unlocked = false;
 }

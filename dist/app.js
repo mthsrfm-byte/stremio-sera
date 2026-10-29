@@ -5126,7 +5126,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   function onLoaded() {
     if (!this.__on) return;
     this.classList.add("ready");
-    if (this.parentNode) this.parentNode.classList.add("img-loaded");
+    if (this.parentNode) {
+      this.parentNode.classList.add("img-loaded");
+      this.parentNode.classList.remove("img-loading");
+    }
+  }
+  function onFailed() {
+    if (this.parentNode) this.parentNode.classList.remove("img-loading");
   }
   function setOn(el2, on) {
     if (on && !el2.__on) {
@@ -5134,7 +5140,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       if (!el2.__readyHook) {
         el2.__readyHook = true;
         el2.addEventListener("load", onLoaded);
+        el2.addEventListener("error", onFailed);
       }
+      if (el2.parentNode && !el2.parentNode.classList.contains("img-loaded")) el2.parentNode.classList.add("img-loading");
       var url2 = el2.getAttribute("data-lazy");
       var kitsu = kitsuInfo(url2);
       if (!kitsu) {
@@ -5151,7 +5159,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     } else if (!on && el2.__on) {
       el2.__on = false;
       el2.classList.remove("ready");
-      if (el2.parentNode) el2.parentNode.classList.remove("img-loaded");
+      if (el2.parentNode) {
+        el2.parentNode.classList.remove("img-loaded");
+        el2.parentNode.classList.remove("img-loading");
+      }
       el2.src = BLANK;
     }
   }
@@ -5219,7 +5230,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   };
   var layers = [];
   var scrollHook = null;
-  var pointerMode = false;
   var smooth = false;
   function setSmooth(on) {
     smooth = !!on;
@@ -5394,6 +5404,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var bg = best.closest("[data-group]");
     if (bg && bg !== group2) {
       if (bg.classList.contains("topbar")) best = topbarTarget(bg) || best;else if (!horizontal && bg.hasAttribute("data-scroll-x")) best = all.filter(function (e) {
+        return bg.contains(e) && e.classList.contains("active");
+      })[0] || all.filter(function (e) {
         return bg.contains(e);
       })[0] || best;else if (bg.__last && bg.contains(bg.__last) && isVisible(bg.__last)) best = bg.__last;
     }
@@ -5449,7 +5461,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         active.blur();
       } else return;
     }
-    if (code >= 37 && code <= 40 && pointerMode) pointerMode = false;
     if (layer.onKey && layer.onKey(e) === true) {
       e.preventDefault();
       return;
@@ -5484,7 +5495,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   function onMouseOver(e) {
     var layer = top();
     if (!layer) return;
-    pointerMode = true;
     var el2 = e.target.closest ? e.target.closest("[data-focus]") : null;
     if (el2 && layer.root.contains(el2) && el2 !== layer.current) focus(el2, {
       noScroll: true
@@ -6344,12 +6354,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // src/js/api/update.js
   var REPO = "mthsrfm-byte/stremio-sera";
-  var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "ca891e601694ff30c46bcae2cb8a6960a686baa5",
-    date: "2026-10-29T12:38:28-03:00",
-    message: 'Protetor de tela: "A seguir" mostra o próximo de verdade'
+    commit: "48e87780a81ab98ecf9b5df7d1eb4605edc2a7d3",
+    date: "2026-10-29T15:38:45+00:00",
+    message: "Build da dist/ para a TV"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -7201,7 +7210,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var timer = null;
   var inFlight = null;
   var listeners2 = [];
-  var BUILTIN = true ? "https://calendar.google.com/calendar/ical/matheus.serafim%40pagaleve.com.br/private-9d7111ae13c15982affb7c795403fcdd/basic.ics" : "";
+  var BUILTIN = true ? "" : "";
   function urls() {
     return String(settings().calendarUrl || BUILTIN || "").split(/[\s,]+/).filter(function (u) {
       return /^(https?|webcal):\/\//i.test(u);
@@ -8271,13 +8280,16 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       pool.slice(0, n).forEach(add);
       buffer2 = pool.slice(n);
     }
+    var dead = false;
+    var focusAtStart = null;
     function loadMore(byButton) {
-      if (busy2 || ended) return;
+      if (busy2 || ended || dead) return;
       busy2 = true;
       more.textContent = t("Carregando...");
       var lastRowFirst = count ? grid.children[count - (count % cols || cols)] : null;
       var first = page === 0;
       opts.load(++page).then(function (items2) {
+        if (dead) return;
         var fresh = (items2 || []).filter(function (it) {
           var k = opts.key(it);
           if (seen[k]) return false;
@@ -8294,9 +8306,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         moreWrap.style.display = ended ? "none" : "";
         loadVisibleImages(el2, 400);
         if (first && !count && opts.onEmpty) opts.onEmpty();
-        if (first && grid.firstChild) focus(grid.firstChild);else if (byButton && lastRowFirst) focus(lastRowFirst);
+        var untouched = !current2() || current2() === focusAtStart || !document.body.contains(current2());
+        if (first && grid.firstChild && untouched) focus(grid.firstChild);else if (byButton && lastRowFirst) focus(lastRowFirst);
         if (!ended && count === before) loadMore(byButton);
       }).catch(function () {
+        if (dead) return;
         busy2 = false;
         if (first) {
           page = 0;
@@ -8309,6 +8323,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     function start5() {
       if (page !== 0) return;
       if (opts.skeleton && grid.firstChild && el2.parentNode) layout(grid.firstChild);
+      focusAtStart = current2();
       loadMore(false);
     }
     return {
@@ -8316,6 +8331,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       start: start5,
       started: function started() {
         return page > 0;
+      },
+      destroy: function destroy() {
+        return dead = true;
       }
     };
   }
@@ -8636,8 +8654,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return m ? m[0] : null;
   }
   var BUILTIN_KEYS = {
-    tmdbKey: true ? "9c57ed7ea044b2f01eea2fcc2e954c2e" : "",
-    mdblistKey: true ? "t9e4f1z29b3c36i1j25rul1wx" : ""
+    tmdbKey: true ? "" : "",
+    mdblistKey: true ? "" : ""
   };
   function keyOf(name) {
     return (settings()[name] || "").trim() || BUILTIN_KEYS[name];
@@ -12336,6 +12354,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     function setArt(url2, tk) {
       if (!url2) {
         front2.classList.remove("show");
+        el2.classList.remove("has-art");
         return;
       }
       var pre = new Image();
@@ -12349,6 +12368,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             back3.classList.add("show");
             front2.classList.remove("show");
             front2 = back3;
+            el2.classList.add("has-art");
           });
         });
       };
@@ -13808,13 +13828,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       });
       play2(video, null, all, pick2);
     }
-    function runtimeMinutes() {
-      var r = String(meta.runtime || "");
-      var hMatch = r.match(/(\d+)\s*h/i);
-      var mMatch = r.match(/(\d+)\s*min/i);
-      var mins = (hMatch ? parseInt(hMatch[1], 10) * 60 : 0) + (mMatch ? parseInt(mMatch[1], 10) : 0);
-      return mins || (isSeries() ? 45 : 110);
-    }
+    var runtimeMinutes = function runtimeMinutes() {
+      return minutesOf(meta, isSeries());
+    };
     function heavyMbps(info2) {
       var mbps = fileMbps(info2, runtimeMinutes());
       return mbps > debridBudget() ? mbps : 0;
@@ -14561,6 +14577,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             back3.classList.add("show");
             front2.classList.remove("show");
             front2 = back3;
+            el2.classList.add("has-art");
           });
         });
       };
@@ -14625,6 +14642,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         bgB.style.backgroundImage = "";
         bgA.classList.remove("show");
         bgB.classList.remove("show");
+        el2.classList.remove("has-art");
       },
       resume: function resume() {
         paused = false;
@@ -15553,6 +15571,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
     function build2() {
       stopPreview();
+      if (pg) pg.destroy();
       var load4 = fetcher();
       var e = entry;
       pg = pagedGrid({

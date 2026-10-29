@@ -464,13 +464,7 @@ function DetailsView(type, id, opts) {
     play(video, null, all, pick);
   }
 
-  function runtimeMinutes() {
-    const r = String(meta.runtime || '');
-    const hMatch = r.match(/(\d+)\s*h/i);
-    const mMatch = r.match(/(\d+)\s*min/i);
-    const mins = (hMatch ? parseInt(hMatch[1], 10) * 60 : 0) + (mMatch ? parseInt(mMatch[1], 10) : 0);
-    return mins || (isSeries() ? 45 : 110);
-  }
+  const runtimeMinutes = () => si.minutesOf(meta, isSeries());
 
   // Taxa estimada do arquivo (tamanho ÷ duração): só aparece quando pesa no Wi-Fi da TV (~34 Mbps).
   function heavyMbps(info) {

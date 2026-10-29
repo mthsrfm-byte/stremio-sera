@@ -5,7 +5,6 @@
 import { getJSON } from '../lib/http.js';
 
 export const REPO = 'mthsrfm-byte/stremio-sera';
-export const REPO_URL = 'https://github.com/' + REPO;
 export const VERSION = __KAI_VERSION__;
 
 // O build que está rodando agora: { commit, date, message } (vazio em builds locais sem git).
