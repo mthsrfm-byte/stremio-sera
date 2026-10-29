@@ -98,11 +98,6 @@ export function removeProfile(id) {
   return true;
 }
 
-// Lê/grava dados de um perfil que não é o ativo (ex.: login de outro perfil).
-export function getFor(profileId, key, fallback) {
-  return rawGet(profileKey(profileId, key), fallback);
-}
-
 // ---------- Dados do perfil ativo ----------
 export function get(key, fallback) {
   return rawGet(profileKey(activeProfile().id, key), fallback);

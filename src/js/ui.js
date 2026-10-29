@@ -566,8 +566,13 @@ export function pagedGrid(opts) {
     buffer = pool.slice(n);
   }
 
+  // Grade trocada (outra categoria/filtro): a resposta que ainda vinha não mexe em mais nada.
+  let dead = false;
+  // Onde estava o foco quando a grade começou: se o usuário não saiu dali, a primeira página leva o
+  // foco para o primeiro vídeo; se já andou (ex.: pelas categorias), o foco fica onde ele está.
+  let focusAtStart = null;
   function loadMore(byButton) {
-    if (busy || ended) return;
+    if (busy || ended || dead) return;
     busy = true;
     more.textContent = t('Carregando...');
     const lastRowFirst = count ? grid.children[count - (count % cols || cols)] : null;
@@ -575,6 +580,7 @@ export function pagedGrid(opts) {
     opts
       .load(++page)
       .then((items) => {
+        if (dead) return;
         const fresh = (items || []).filter((it) => {
           const k = opts.key(it);
           if (seen[k]) return false;
@@ -591,12 +597,14 @@ export function pagedGrid(opts) {
         moreWrap.style.display = ended ? 'none' : '';
         loadVisibleImages(el, 400);
         if (first && !count && opts.onEmpty) opts.onEmpty();
-        if (first && grid.firstChild) nav.focus(grid.firstChild);
+        const untouched = !nav.current() || nav.current() === focusAtStart || !document.body.contains(nav.current());
+        if (first && grid.firstChild && untouched) nav.focus(grid.firstChild);
         else if (byButton && lastRowFirst) nav.focus(lastRowFirst);
         // Página que não fechou nem uma linha nova: busca a próxima já.
         if (!ended && count === before) loadMore(byButton);
       })
       .catch(() => {
+        if (dead) return;
         busy = false;
         if (first) {
           page = 0;
@@ -611,10 +619,11 @@ export function pagedGrid(opts) {
     if (page !== 0) return;
     // Capas vazias já na posição final (centralizadas como a grade pronta).
     if (opts.skeleton && grid.firstChild && el.parentNode) layout(grid.firstChild);
+    focusAtStart = nav.current();
     loadMore(false);
   }
 
-  return { el: el, start: start, started: () => page > 0 };
+  return { el: el, start: start, started: () => page > 0, destroy: () => (dead = true) };
 }
 
 export function spinnerLine(text) {

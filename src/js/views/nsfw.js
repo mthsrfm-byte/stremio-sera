@@ -692,6 +692,7 @@ function GridView(entry, extra, cats, at) {
 
   function build() {
     stopPreview();
+    if (pg) pg.destroy();
     const load = fetcher();
     const e = entry;
     pg = pagedGrid({

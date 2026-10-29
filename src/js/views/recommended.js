@@ -107,6 +107,7 @@ function Billboard() {
   function setArt(url, tk) {
     if (!url) {
       front.classList.remove('show'); // sem arte: fica a aurora
+      el.classList.remove('has-art');
       return;
     }
     const pre = new Image();
@@ -121,6 +122,7 @@ function Billboard() {
           back.classList.add('show');
           front.classList.remove('show');
           front = back;
+          el.classList.add('has-art');
         })
       );
     };

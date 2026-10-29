@@ -17,6 +17,3 @@ export function genreName(g) {
   return PT[key] || g;
 }
 
-export function hasGenre(g) {
-  return !!PT[String(g || '').trim().toLowerCase()];
-}

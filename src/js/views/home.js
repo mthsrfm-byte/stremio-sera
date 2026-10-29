@@ -310,6 +310,7 @@ function buildHero() {
           back.classList.add('show');
           front.classList.remove('show');
           front = back;
+          el.classList.add('has-art');
         })
       );
     };
@@ -376,6 +377,7 @@ function buildHero() {
       bgB.style.backgroundImage = '';
       bgA.classList.remove('show');
       bgB.classList.remove('show');
+      el.classList.remove('has-art');
     },
     resume: () => {
       paused = false;
