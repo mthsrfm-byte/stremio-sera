@@ -83,18 +83,16 @@ export function choiceDialog(title, sub, buttons) {
   nav.focus(btns[0]);
 }
 
-export function confirmDialog(text, okLabel, onOk) {
-  const box = h('div.modal-box.center', null, [
-    h('h3', { text: text }),
-    h('div.modal-actions', null, [
-      h('div.btn.primary', { focusable: true, 'data-autofocus': '', text: okLabel || 'OK', onSelect: () => (close(), onOk && onOk()) }),
-      h('div.btn', { focusable: true, text: t('Cancelar'), onSelect: () => close() }),
-    ]),
-  ]);
+// opts.cancelLabel: texto do botão de cancelar; opts.safe: o foco começa no cancelar (OK sem querer não faz nada).
+export function confirmDialog(text, okLabel, onOk, opts) {
+  const o = opts || {};
+  const ok = h('div.btn.primary', { focusable: true, text: okLabel || 'OK', onSelect: () => (close(), onOk && onOk()) });
+  const cancel = h('div.btn', { focusable: true, text: o.cancelLabel || t('Cancelar'), onSelect: () => close() });
+  const box = h('div.modal-box.center', null, [h('h3', { text: text }), h('div.modal-actions', null, o.safe ? [cancel, ok] : [ok, cancel])]);
   const modal = h('div.modal', null, box);
   document.getElementById('app').appendChild(modal);
   const layer = nav.pushLayer(modal, { onBack: () => close() });
-  nav.focusFirst(modal);
+  nav.focus(o.safe ? cancel : ok);
   function close() {
     nav.popLayer(layer);
     if (modal.parentNode) modal.parentNode.removeChild(modal);
@@ -476,9 +474,10 @@ export function card(item, opts) {
 }
 
 // Cartões de esqueleto (com brilho) no lugar de uma fileira que ainda está carregando.
-export function skeletonCards(n) {
+// wide: capas deitadas (16:9), como as dos vídeos da aba NSFW.
+export function skeletonCards(n, wide) {
   const list = [];
-  for (let i = 0; i < (n || 8); i++) list.push(h('div.card.skeleton', null, [h('div.poster-wrap'), h('div.name-sk')]));
+  for (let i = 0; i < (n || 8); i++) list.push(h('div.card.skeleton', { cls: wide ? 'wide' : '' }, [h('div.poster-wrap'), h('div.name-sk')]));
   return list;
 }
 
@@ -515,6 +514,11 @@ export function pagedGrid(opts) {
   const more = h('div.btn.reco-more', { focusable: true, text: t('Carregar mais'), onSelect: () => loadMore(true) });
   const moreWrap = h('div.reco-more-wrap.paged-more', null, more);
   const el = h('div.paged-wrap', null, [grid, moreWrap]);
+  // Enquanto a primeira página não chega: capas vazias no formato certo (opts.skeleton).
+  if (opts.skeleton) {
+    opts.skeleton().forEach((c) => grid.appendChild(c));
+    moreWrap.style.display = 'none';
+  }
   const GAP = 26;
   const seen = {};
   let page = 0;
@@ -578,6 +582,7 @@ export function pagedGrid(opts) {
           return true;
         });
         if (!fresh.length) ended = true;
+        if (first && opts.skeleton) clear(grid);
         buffer = buffer.concat(fresh);
         const before = count;
         flush();
@@ -593,12 +598,23 @@ export function pagedGrid(opts) {
       })
       .catch(() => {
         busy = false;
+        if (first) {
+          page = 0;
+          moreWrap.style.display = '';
+        }
         more.textContent = t('Carregar mais');
         toast(t('Não foi possível carregar'));
       });
   }
 
-  return { el: el, start: () => page === 0 && loadMore(false), started: () => page > 0 };
+  function start() {
+    if (page !== 0) return;
+    // Capas vazias já na posição final (centralizadas como a grade pronta).
+    if (opts.skeleton && grid.firstChild && el.parentNode) layout(grid.firstChild);
+    loadMore(false);
+  }
+
+  return { el: el, start: start, started: () => page > 0 };
 }
 
 export function spinnerLine(text) {

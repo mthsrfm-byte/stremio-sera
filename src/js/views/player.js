@@ -1615,12 +1615,10 @@ function PlayerView(opts) {
         );
         return;
       }
-      // Próxima fonte: a melhor (Smart Choice) entre as que ainda não foram tentadas,
-      // preferindo a mesma resolução.
+      // Próxima fonte: a melhor (Smart Choice) entre as que ainda não foram tentadas. Na ordem do
+      // Smart Choice, todas as de debrid em cache vêm antes de qualquer torrent.
       const rest = (opts.streams || []).filter((x) => tried.indexOf(x) < 0);
-      const res = si.parse(stream).res;
-      const same = rest.filter((x) => si.parse(x).res === res);
-      const pick = si.smartPick(same, server.isAvailable()) || si.smartPick(rest, server.isAvailable());
+      const pick = si.smartPick(rest, server.isAvailable());
       if (!pick) {
         message('');
         fail(t('Nenhuma outra fonte disponível para tentar.'));

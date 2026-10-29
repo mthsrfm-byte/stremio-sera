@@ -8,7 +8,7 @@ import * as nav from '../lib/nav.js';
 import { KEY } from '../lib/nav.js';
 import * as addons from '../api/addons.js';
 import * as stremio from '../api/stremio.js';
-import { topbar, card, skeletonCards, retrying, pagedGrid, statsLine } from '../ui.js';
+import { topbar, card, skeletonCards, retrying, pagedGrid, statsLine, confirmDialog } from '../ui.js';
 import * as router from '../router.js';
 import { openDetails as openDetailsRaw } from './details.js';
 import { showRetry } from './recommended.js';
@@ -172,6 +172,12 @@ function itemCard(m, entry) {
   });
   if (pv) el.__blur = stopPreview;
   return el;
+}
+
+// Capa deitada (16:9) é o padrão dos sites adultos; só catálogo que diz pôster/quadrado fica em pé.
+function wideCatalog(entry) {
+  const shape = entry && entry.catalog.posterShape;
+  return shape !== 'poster' && shape !== 'square';
 }
 
 // Creampie primeiro (hétero, depois gay), depois o resto na ordem do addon.
@@ -436,25 +442,17 @@ export function NsfwView() {
   }
 
   // Categorias do site (gêneros dos catálogos), sem repetir, como chips que abrem a grade.
-  function genreStrip(site) {
-    const seen = {};
-    const chips = [];
-    site.addons.forEach((a) =>
-      addons.adultCatalogs(a).forEach((e) =>
-        addons.genreOptions(e.catalog).forEach((g) => {
-          if (seen[g] || tr.isHiddenCategory(g)) return;
-          seen[g] = true;
-          chips.push(h('div.chip', { focusable: true, text: tr.genre(g), onSelect: () => router.push(GridView(e, { genre: g })) }));
-        })
-      )
-    );
-    if (!chips.length) return;
-    body.appendChild(
-      h('div.row.nsfw-genres', { 'data-anchor': '30' }, [
-        h('div.row-title', { text: t('Mais categorias') }),
-        h('div.chip-track', { 'data-scroll-x': '', 'data-group': '', 'data-trap': '' }, chips),
-      ])
-    );
+  // A grade da categoria recebe a lista inteira: dá para trocar de categoria lá dentro.
+  function genreStrip(site, jumps) {
+    const cats = siteCategories(site);
+    if (!cats.length) return;
+    const chips = cats.map((c, i) => h('div.chip', { focusable: true, text: tr.genre(c.g), onSelect: () => router.push(GridView(c.e, { genre: c.g }, cats, i)) }));
+    const row = h('div.row.nsfw-genres', { 'data-anchor': '30' }, [
+      h('div.row-title', { text: t('Categorias') }),
+      h('div.chip-track', { 'data-scroll-x': '', 'data-group': '', 'data-trap': '' }, chips),
+    ]);
+    body.appendChild(row);
+    if (jumps) jumps.appendChild(h('div.chip', { focusable: true, text: t('Categorias'), onSelect: () => nav.focus(chips[0]) }));
   }
 
   // Busca só nos catálogos adultos (a aba Buscar do app não mostra nada daqui).
@@ -552,9 +550,22 @@ export function NsfwView() {
     return false;
   }
 
+  // Voltar não sai da aba sem querer: do conteúdo vai para os sites; dos sites, pergunta.
+  function onBack() {
+    const cur = nav.current();
+    if (cur && body.contains(cur) && filters.firstChild) {
+      onRail();
+      scroller.scrollTop = 0;
+      return true;
+    }
+    confirmDialog(t('Sair da área NSFW?'), t('Sair'), () => router.goHome(), { safe: true, cancelLabel: t('Ficar') });
+    return true;
+  }
+
   return {
     el: el,
     onKey: onKey,
+    onBack: onBack,
     onShow: () => {
       if (ready) {
         if (scope !== 'search') {
@@ -582,6 +593,22 @@ export function NsfwView() {
   };
 }
 
+// Categorias do site (gêneros dos catálogos), sem repetir: [{ e: catálogo, g: gênero }].
+function siteCategories(site) {
+  const seen = {};
+  const out = [];
+  site.addons.forEach((a) =>
+    addons.adultCatalogs(a).forEach((e) =>
+      addons.genreOptions(e.catalog).forEach((g) => {
+        if (seen[g] || tr.isHiddenCategory(g)) return;
+        seen[g] = true;
+        out.push({ e: e, g: g });
+      })
+    )
+  );
+  return out;
+}
+
 // Nome do catálogo em português ("Top Rated" → "Mais bem avaliados").
 function catName(entry) {
   return entry.title || tr.genre(entry.catalog.name || entry.catalog.id);
@@ -590,7 +617,7 @@ function catName(entry) {
 function catalogRow(entry, parent) {
   const row = h('div.row', { 'data-anchor': '30' });
   const sub = entry.extra && entry.extra.search ? t('busca no {site}', { site: siteName(entry.addon) }) : /creampie/i.test(entry.catalog.name || '') ? t('mais vistos') : siteName(entry.addon);
-  const track = h('div.row-track.pending', { 'data-scroll-x': '', 'data-group': '', 'data-trap': '' }, skeletonCards());
+  const track = h('div.row-track.pending', { 'data-scroll-x': '', 'data-group': '', 'data-trap': '' }, skeletonCards(6, wideCatalog(entry)));
   row.appendChild(h('div.row-title', null, [catName(entry), h('small', { text: sub })]));
   row.appendChild(track);
   parent.appendChild(row);
@@ -632,23 +659,28 @@ const FILTER_KEEP = {
   censored: (m) => !isUncensored(m),
 };
 
-function GridView(entry, extra) {
+// cats/at: lista de categorias do site e a atual. Com ela, a grade tem as categorias em cima e
+// trocar de categoria é ali mesmo (sem voltar para a aba).
+function GridView(entry, extra, cats, at) {
   const el = h('div.view.nsfw-view', { 'data-stay': '' });
   const scroller = h('div.scroll-y', { 'data-scroll-y': '' });
-  const crumb = [h('span', { text: 'NSFW › ' + siteName(entry.addon) }), ' › ', h('b', { text: extra.genre ? tr.genre(extra.genre) : catName(entry) })];
-  const isHentai = /hentai/i.test((extra.genre || '') + ' ' + catName(entry));
+  const crumb = h('div.reco-crumb');
+  const filterRow = h('div.row.nsfw-genres', { 'data-anchor': '30' });
   const slot = h('div');
   let mode = 'all';
   let pg = null;
+  let isHentai = false;
 
   // Busca uma página do catálogo; no filtro, junta páginas até ter o bastante (ou o catálogo acabar).
   function fetcher() {
     let skip = 0;
     const keep = FILTER_KEEP[mode];
+    const e = entry;
+    const x = extra;
     return function load() {
       const got = [];
       const step = (tries) =>
-        addons.fetchCatalog(entry, Object.assign({ skip: skip || undefined }, extra)).then((metas) => {
+        addons.fetchCatalog(e, Object.assign({ skip: skip || undefined }, x)).then((metas) => {
           skip += metas.length;
           metas.forEach((m) => keep(m) && got.push(m));
           if (!metas.length || got.length >= 20 || tries >= 5) return got;
@@ -659,22 +691,32 @@ function GridView(entry, extra) {
   }
 
   function build() {
+    stopPreview();
     const load = fetcher();
+    const e = entry;
     pg = pagedGrid({
       load: load,
       key: (m) => m.id,
-      card: (m) => itemCard(m, entry),
+      card: (m) => itemCard(m, e),
+      skeleton: () => skeletonCards(8, wideCatalog(e)),
       onEmpty: () => pg.el.insertBefore(h('div.hint', { text: t('Nada por aqui.') }), pg.el.firstChild),
     });
     clear(slot);
     slot.appendChild(pg.el);
   }
 
-  scroller.appendChild(h('div.reco-crumb', null, crumb));
-  if (isHentai) {
+  function renderHead() {
+    const title = extra.genre ? tr.genre(extra.genre) : catName(entry);
+    clear(crumb);
+    [h('span', { text: 'NSFW › ' + siteName(entry.addon) + ' › ' }), h('b', { text: title })].forEach((n) => crumb.appendChild(n));
+    isHentai = /hentai/i.test((extra.genre || '') + ' ' + catName(entry));
+    clear(filterRow);
+    filterRow.style.display = isHentai ? '' : 'none';
+    if (!isHentai) return;
     const chips = UNCENSORED_FILTERS.map((f) =>
       h('div.chip', {
         focusable: true,
+        cls: f.id === mode ? 'active' : '',
         text: t(f.label),
         onSelect: () => {
           if (f.id === mode) return;
@@ -685,9 +727,35 @@ function GridView(entry, extra) {
         },
       })
     );
-    chips.forEach((c, i) => c.classList.toggle('active', UNCENSORED_FILTERS[i].id === mode));
-    scroller.appendChild(h('div.row.nsfw-genres', { 'data-anchor': '30' }, [h('div.chip-track', { 'data-scroll-x': '', 'data-group': '', 'data-trap': '' }, chips)]));
+    filterRow.appendChild(h('div.chip-track', { 'data-scroll-x': '', 'data-group': '', 'data-trap': '' }, chips));
   }
+
+  scroller.appendChild(crumb);
+  if (cats && cats.length > 1) {
+    const catChips = cats.map((c, i) =>
+      h('div.chip', {
+        focusable: true,
+        cls: i === at ? 'active' : '',
+        'data-autofocus': i === at ? '' : undefined,
+        text: tr.genre(c.g),
+        onSelect: () => {
+          if (i === at) return;
+          at = i;
+          catChips.forEach((x, j) => x.classList.toggle('active', j === at));
+          catChips.forEach((x) => x.removeAttribute('data-autofocus'));
+          entry = c.e;
+          extra = { genre: c.g };
+          mode = 'all';
+          renderHead();
+          build();
+          pg.start();
+        },
+      })
+    );
+    scroller.appendChild(h('div.row.nsfw-genres.nsfw-catbar', { 'data-anchor': '30' }, h('div.chip-track', { 'data-scroll-x': '', 'data-group': '', 'data-trap': '' }, catChips)));
+  }
+  scroller.appendChild(filterRow);
+  renderHead();
   build();
   scroller.appendChild(slot);
   el.appendChild(scroller);
