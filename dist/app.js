@@ -6339,9 +6339,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "34f6ff67e849d0d1200a15a608000f370449ea30",
-    date: "2026-10-29T11:21:13+00:00",
-    message: "Smart Choice: Real-Debrid dublado primeiro, depois RD pela melhor qualidade, e só então torrent"
+    commit: "3e8ff66e2214ec99626fa81f69bbf13663b28e41",
+    date: "2026-10-29T08:33:56-03:00",
+    message: "Smart Choice prioriza Real-Debrid dublado + melhorias na aba NSFW"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -7193,7 +7193,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var timer = null;
   var inFlight = null;
   var listeners2 = [];
-  var BUILTIN = true ? "" : "";
+  var BUILTIN = true ? "https://calendar.google.com/calendar/ical/matheus.serafim%40pagaleve.com.br/private-9d7111ae13c15982affb7c795403fcdd/basic.ics" : "";
   function urls() {
     return String(settings().calendarUrl || BUILTIN || "").split(/[\s,]+/).filter(function (u) {
       return /^(https?|webcal):\/\//i.test(u);
@@ -8628,8 +8628,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return m ? m[0] : null;
   }
   var BUILTIN_KEYS = {
-    tmdbKey: true ? "" : "",
-    mdblistKey: true ? "" : ""
+    tmdbKey: true ? "9c57ed7ea044b2f01eea2fcc2e954c2e" : "",
+    mdblistKey: true ? "t9e4f1z29b3c36i1j25rul1wx" : ""
   };
   function keyOf(name) {
     return (settings()[name] || "").trim() || BUILTIN_KEYS[name];
