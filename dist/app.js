@@ -6339,9 +6339,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "8580e2ed5e45766fec099a1b9f053e51a1e92093",
-    date: "2026-10-28T21:13:50+00:00",
-    message: "Build da dist/ para a TV"
+    commit: "34f6ff67e849d0d1200a15a608000f370449ea30",
+    date: "2026-10-29T11:21:13+00:00",
+    message: "Smart Choice: Real-Debrid dublado primeiro, depois RD pela melhor qualidade, e só então torrent"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -7025,11 +7025,23 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var unlocked = false;
   var failures = 0;
   var lockedUntil = 0;
+  var relocked = false;
   document.addEventListener("visibilitychange", function () {
-    if (!document.hidden) return;
-    unlocked = false;
-    var v = currentView();
-    if (v && v.el.classList.contains("nsfw-view")) goTab("home");else if (tabView("nsfw")) dropTab("nsfw");
+    if (document.hidden) {
+      if (unlocked) relocked = true;
+      unlocked = false;
+      return;
+    }
+    if (!relocked) return;
+    relocked = false;
+    var root = rootView();
+    if (!root || root.tabId !== "nsfw") {
+      if (tabView("nsfw")) dropTab("nsfw");
+      return;
+    }
+    askPin(t("NSFW"), function (ok) {
+      if (ok) unlocked = true;else goTab("home");
+    });
   });
   function pin() {
     var p = settings().nsfwPin;
@@ -7151,7 +7163,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     document.getElementById("app").appendChild(modal);
     var layer = pushLayer(modal, {
       onBack: function onBack() {
-        return close();
+        close();
+        onDone(false);
       },
       onKey: function onKey(e) {
         var c = e.keyCode;
@@ -7627,23 +7640,25 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
     focus(btns[0]);
   }
-  function confirmDialog(text2, okLabel, onOk) {
-    var box = h("div.modal-box.center", null, [h("h3", {
-      text: text2
-    }), h("div.modal-actions", null, [h("div.btn.primary", {
+  function confirmDialog(text2, okLabel, onOk, opts) {
+    var o = opts || {};
+    var ok = h("div.btn.primary", {
       focusable: true,
-      "data-autofocus": "",
       text: okLabel || "OK",
       onSelect: function onSelect() {
         return close(), onOk && onOk();
       }
-    }), h("div.btn", {
+    });
+    var cancel = h("div.btn", {
       focusable: true,
-      text: t("Cancelar"),
+      text: o.cancelLabel || t("Cancelar"),
       onSelect: function onSelect() {
         return close();
       }
-    })])]);
+    });
+    var box = h("div.modal-box.center", null, [h("h3", {
+      text: text2
+    }), h("div.modal-actions", null, o.safe ? [cancel, ok] : [ok, cancel])]);
     var modal = h("div.modal", null, box);
     document.getElementById("app").appendChild(modal);
     var layer = pushLayer(modal, {
@@ -7651,7 +7666,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         return close();
       }
     });
-    focusFirst(modal);
+    focus(o.safe ? cancel : ok);
     function close() {
       popLayer(layer);
       if (modal.parentNode) modal.parentNode.removeChild(modal);
@@ -8153,9 +8168,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     if (o.dropWithoutImage && !src) setTimeout(dropCard, 0);
     return el2;
   }
-  function skeletonCards(n) {
+  function skeletonCards(n, wide) {
     var list3 = [];
-    for (var i = 0; i < (n || 8); i++) list3.push(h("div.card.skeleton", null, [h("div.poster-wrap"), h("div.name-sk")]));
+    for (var i = 0; i < (n || 8); i++) list3.push(h("div.card.skeleton", {
+      cls: wide ? "wide" : ""
+    }, [h("div.poster-wrap"), h("div.name-sk")]));
     return list3;
   }
   function retrying(fn) {
@@ -8200,6 +8217,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
     var moreWrap = h("div.reco-more-wrap.paged-more", null, more);
     var el2 = h("div.paged-wrap", null, [grid, moreWrap]);
+    if (opts.skeleton) {
+      opts.skeleton().forEach(function (c) {
+        return grid.appendChild(c);
+      });
+      moreWrap.style.display = "none";
+    }
     var GAP = 26;
     var seen = {};
     var page = 0;
@@ -8254,6 +8277,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           return true;
         });
         if (!fresh.length) ended = true;
+        if (first && opts.skeleton) clear(grid);
         buffer2 = buffer2.concat(fresh);
         var before = count;
         flush3();
@@ -8266,15 +8290,22 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         if (!ended && count === before) loadMore(byButton);
       }).catch(function () {
         busy2 = false;
+        if (first) {
+          page = 0;
+          moreWrap.style.display = "";
+        }
         more.textContent = t("Carregar mais");
         toast(t("Não foi possível carregar"));
       });
     }
+    function start5() {
+      if (page !== 0) return;
+      if (opts.skeleton && grid.firstChild && el2.parentNode) layout(grid.firstChild);
+      loadMore(false);
+    }
     return {
       el: el2,
-      start: function start() {
-        return page === 0 && loadMore(false);
-      },
+      start: start5,
       started: function started() {
         return page > 0;
       }
@@ -8344,16 +8375,19 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return;
     }
     if (view && view.tabId && view.tabId !== "home") {
-      goTab("home");
-      var homeBtn = tabs.home && tabs.home.el.querySelector('.topbar .tab[data-tab="home"]');
-      if (homeBtn) focus(homeBtn, {
-        noScroll: true
-      });
+      goHome();
       return;
     }
     if (IS_WEB) return;
     confirmDialog(t("Sair do Stremio Kai?"), t("Sair"), function () {
       return platformBack();
+    });
+  }
+  function goHome() {
+    goTab("home");
+    var homeBtn = tabs.home && tabs.home.el.querySelector('.topbar .tab[data-tab="home"]');
+    if (homeBtn) focus(homeBtn, {
+      noScroll: true
     });
   }
   function goTab(id) {
@@ -8382,6 +8416,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
   function tabView(id) {
     return tabs[id] || null;
+  }
+  function rootView() {
+    return stack[0] || null;
   }
   function currentView() {
     return stack[stack.length - 1] || null;
@@ -14655,6 +14692,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     if (pv) el2.__blur = stopPreview;
     return el2;
   }
+  function wideCatalog(entry) {
+    var shape = entry && entry.catalog.posterShape;
+    return shape !== "poster" && shape !== "square";
+  }
   function catalogOrder(e) {
     var n = (e.catalog.name || e.catalog.id || "") + " " + (e.catalog.id || "");
     if (!/creampie/i.test(n)) return 2;
@@ -15039,36 +15080,37 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         title: title
       };
     }
-    function genreStrip(site) {
-      var seen = {};
-      var chips = [];
-      site.addons.forEach(function (a) {
-        return adultCatalogs(a).forEach(function (e) {
-          return genreOptions(e.catalog).forEach(function (g) {
-            if (seen[g] || isHiddenCategory(g)) return;
-            seen[g] = true;
-            chips.push(h("div.chip", {
-              focusable: true,
-              text: genre(g),
-              onSelect: function onSelect() {
-                return push(GridView(e, {
-                  genre: g
-                }));
-              }
-            }));
-          });
+    function genreStrip(site, jumps) {
+      var cats = siteCategories(site);
+      if (!cats.length) return;
+      var chips = cats.map(function (c, i) {
+        return h("div.chip", {
+          focusable: true,
+          text: genre(c.g),
+          onSelect: function onSelect() {
+            return push(GridView(c.e, {
+              genre: c.g
+            }, cats, i));
+          }
         });
       });
-      if (!chips.length) return;
-      body.appendChild(h("div.row.nsfw-genres", {
+      var row = h("div.row.nsfw-genres", {
         "data-anchor": "30"
       }, [h("div.row-title", {
-        text: t("Mais categorias")
+        text: t("Categorias")
       }), h("div.chip-track", {
         "data-scroll-x": "",
         "data-group": "",
         "data-trap": ""
-      }, chips)]));
+      }, chips)]);
+      body.appendChild(row);
+      if (jumps) jumps.appendChild(h("div.chip", {
+        focusable: true,
+        text: t("Categorias"),
+        onSelect: function onSelect() {
+          return focus(chips[0]);
+        }
+      }));
     }
     function renderSearch() {
       var input = h("input.input", {
@@ -15193,9 +15235,25 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }
       return false;
     }
+    function onBack() {
+      var cur = current2();
+      if (cur && body.contains(cur) && filters.firstChild) {
+        onRail();
+        scroller.scrollTop = 0;
+        return true;
+      }
+      confirmDialog(t("Sair da área NSFW?"), t("Sair"), function () {
+        return goHome();
+      }, {
+        safe: true,
+        cancelLabel: t("Ficar")
+      });
+      return true;
+    }
     return {
       el: el2,
       onKey: onKey,
+      onBack: onBack,
       onShow: function onShow() {
         if (ready2) {
           if (scope !== "search") {
@@ -15227,6 +15285,23 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }
     };
   }
+  function siteCategories(site) {
+    var seen = {};
+    var out = [];
+    site.addons.forEach(function (a) {
+      return adultCatalogs(a).forEach(function (e) {
+        return genreOptions(e.catalog).forEach(function (g) {
+          if (seen[g] || isHiddenCategory(g)) return;
+          seen[g] = true;
+          out.push({
+            e: e,
+            g: g
+          });
+        });
+      });
+    });
+    return out;
+  }
   function catName(entry) {
     return entry.title || genre(entry.catalog.name || entry.catalog.id);
   }
@@ -15241,7 +15316,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       "data-scroll-x": "",
       "data-group": "",
       "data-trap": ""
-    }, skeletonCards());
+    }, skeletonCards(6, wideCatalog(entry)));
     row.appendChild(h("div.row-title", null, [catName(entry), h("small", {
       text: sub
     })]));
@@ -15305,31 +15380,32 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return !isUncensored(m);
     }
   };
-  function GridView(entry, extra2) {
+  function GridView(entry, extra2, cats, at) {
     var el2 = h("div.view.nsfw-view", {
       "data-stay": ""
     });
     var scroller = h("div.scroll-y", {
       "data-scroll-y": ""
     });
-    var crumb = [h("span", {
-      text: "NSFW › " + siteName(entry.addon)
-    }), " › ", h("b", {
-      text: extra2.genre ? genre(extra2.genre) : catName(entry)
-    })];
-    var isHentai = /hentai/i.test((extra2.genre || "") + " " + catName(entry));
+    var crumb = h("div.reco-crumb");
+    var filterRow = h("div.row.nsfw-genres", {
+      "data-anchor": "30"
+    });
     var slot = h("div");
     var mode = "all";
     var pg = null;
+    var isHentai = false;
     function fetcher() {
       var skip = 0;
       var keep = FILTER_KEEP[mode];
+      var e = entry;
+      var x = extra2;
       return function load4() {
         var got = [];
         var _step3 = function step(tries) {
-          return fetchCatalog(entry, Object.assign({
+          return fetchCatalog(e, Object.assign({
             skip: skip || void 0
-          }, extra2)).then(function (metas) {
+          }, x)).then(function (metas) {
             skip += metas.length;
             metas.forEach(function (m) {
               return keep(m) && got.push(m);
@@ -15342,14 +15418,19 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       };
     }
     function build2() {
+      stopPreview();
       var load4 = fetcher();
+      var e = entry;
       pg = pagedGrid({
         load: load4,
         key: function key(m) {
           return m.id;
         },
         card: function card(m) {
-          return itemCard(m, entry);
+          return itemCard(m, e);
+        },
+        skeleton: function skeleton() {
+          return skeletonCards(8, wideCatalog(e));
         },
         onEmpty: function onEmpty() {
           return pg.el.insertBefore(h("div.hint", {
@@ -15360,11 +15441,24 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       clear(slot);
       slot.appendChild(pg.el);
     }
-    scroller.appendChild(h("div.reco-crumb", null, crumb));
-    if (isHentai) {
+    function renderHead() {
+      var title = extra2.genre ? genre(extra2.genre) : catName(entry);
+      clear(crumb);
+      [h("span", {
+        text: "NSFW › " + siteName(entry.addon) + " › "
+      }), h("b", {
+        text: title
+      })].forEach(function (n) {
+        return crumb.appendChild(n);
+      });
+      isHentai = /hentai/i.test((extra2.genre || "") + " " + catName(entry));
+      clear(filterRow);
+      filterRow.style.display = isHentai ? "" : "none";
+      if (!isHentai) return;
       var chips = UNCENSORED_FILTERS.map(function (f) {
         return h("div.chip", {
           focusable: true,
+          cls: f.id === mode ? "active" : "",
           text: t(f.label),
           onSelect: function onSelect() {
             if (f.id === mode) return;
@@ -15377,17 +15471,50 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           }
         });
       });
-      chips.forEach(function (c, i) {
-        return c.classList.toggle("active", UNCENSORED_FILTERS[i].id === mode);
-      });
-      scroller.appendChild(h("div.row.nsfw-genres", {
-        "data-anchor": "30"
-      }, [h("div.chip-track", {
+      filterRow.appendChild(h("div.chip-track", {
         "data-scroll-x": "",
         "data-group": "",
         "data-trap": ""
-      }, chips)]));
+      }, chips));
     }
+    scroller.appendChild(crumb);
+    if (cats && cats.length > 1) {
+      var catChips = cats.map(function (c, i) {
+        return h("div.chip", {
+          focusable: true,
+          cls: i === at ? "active" : "",
+          "data-autofocus": i === at ? "" : void 0,
+          text: genre(c.g),
+          onSelect: function onSelect() {
+            if (i === at) return;
+            at = i;
+            catChips.forEach(function (x, j) {
+              return x.classList.toggle("active", j === at);
+            });
+            catChips.forEach(function (x) {
+              return x.removeAttribute("data-autofocus");
+            });
+            entry = c.e;
+            extra2 = {
+              genre: c.g
+            };
+            mode = "all";
+            renderHead();
+            build2();
+            pg.start();
+          }
+        });
+      });
+      scroller.appendChild(h("div.row.nsfw-genres.nsfw-catbar", {
+        "data-anchor": "30"
+      }, h("div.chip-track", {
+        "data-scroll-x": "",
+        "data-group": "",
+        "data-trap": ""
+      }, catChips)));
+    }
+    scroller.appendChild(filterRow);
+    renderHead();
     build2();
     scroller.appendChild(slot);
     el2.appendChild(scroller);
