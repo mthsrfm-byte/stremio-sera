@@ -5341,8 +5341,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
     layer.current = el2;
     el2.classList.add("focused");
-    var group = el2.closest("[data-group]");
-    if (group) group.__last = el2;
+    var group2 = el2.closest("[data-group]");
+    if (group2) group2.__last = el2;
     if (!(opts && opts.noScroll)) ensureVisible(el2);
     if (el2.__focus && prev !== el2) el2.__focus(el2);
   }
@@ -5376,23 +5376,23 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var all = candidates(layer.root).filter(function (e) {
       return e !== cur && !(stay && e.closest(".topbar"));
     });
-    var group = cur.closest("[data-group]");
+    var group2 = cur.closest("[data-group]");
     var horizontal = dir === "left" || dir === "right";
-    if (group && horizontal === !group.hasAttribute("data-vertical")) {
+    if (group2 && horizontal === !group2.hasAttribute("data-vertical")) {
       var inGroup = all.filter(function (e) {
-        return group.contains(e);
+        return group2.contains(e);
       });
       var g = pick(inGroup, cur, dir);
       if (g) {
         focus(g);
         return true;
       }
-      if (group.hasAttribute("data-trap")) return false;
+      if (group2.hasAttribute("data-trap")) return false;
     }
     var best = pick(all, cur, dir);
     if (!best) return false;
     var bg = best.closest("[data-group]");
-    if (bg && bg !== group) {
+    if (bg && bg !== group2) {
       if (bg.classList.contains("topbar")) best = topbarTarget(bg) || best;else if (!horizontal && bg.hasAttribute("data-scroll-x")) best = all.filter(function (e) {
         return bg.contains(e);
       })[0] || best;else if (bg.__last && bg.contains(bg.__last) && isVisible(bg.__last)) best = bg.__last;
@@ -6339,9 +6339,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "04f9b4a3413dd708fff3c17bc0a1f4fa5b7d1e75",
-    date: "2026-10-28T18:13:24-03:00",
-    message: "Smart Choice prefere debrid em cache (TV e site)"
+    commit: "8580e2ed5e45766fec099a1b9f053e51a1e92093",
+    date: "2026-10-28T21:13:50+00:00",
+    message: "Build da dist/ para a TV"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -6661,7 +6661,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
   var ADULT_FIRST = ["seraflix.pornhub", "seraflix.xvideos"];
   function adultAddons() {
-    var rank2 = function rank2(a) {
+    var rank3 = function rank3(a) {
       var i = ADULT_FIRST.indexOf(a.manifest && a.manifest.id);
       return i < 0 ? ADULT_FIRST.length : i;
     };
@@ -6671,7 +6671,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         i: i
       };
     }).sort(function (x, y) {
-      return rank2(x.a) - rank2(y.a) || x.i - y.i;
+      return rank3(x.a) - rank3(y.a) || x.i - y.i;
     }).map(function (x) {
       return x.a;
     });
@@ -7180,7 +7180,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var timer = null;
   var inFlight = null;
   var listeners2 = [];
-  var BUILTIN = true ? "https://calendar.google.com/calendar/ical/matheus.serafim%40pagaleve.com.br/private-9d7111ae13c15982affb7c795403fcdd/basic.ics" : "";
+  var BUILTIN = true ? "" : "";
   function urls() {
     return String(settings().calendarUrl || BUILTIN || "").split(/[\s,]+/).filter(function (u) {
       return /^(https?|webcal):\/\//i.test(u);
@@ -8591,8 +8591,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return m ? m[0] : null;
   }
   var BUILTIN_KEYS = {
-    tmdbKey: true ? "9c57ed7ea044b2f01eea2fcc2e954c2e" : "",
-    mdblistKey: true ? "t9e4f1z29b3c36i1j25rul1wx" : ""
+    tmdbKey: true ? "" : "",
+    mdblistKey: true ? "" : ""
   };
   function keyOf(name) {
     return (settings()[name] || "").trim() || BUILTIN_KEYS[name];
@@ -9059,7 +9059,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var fileSource = SOURCES2.filter(function (x) {
       return fileSet[x];
     })[0];
-    var group = fileTok.length ? fileTok[fileTok.length - 1] : "";
+    var group2 = fileTok.length ? fileTok[fileTok.length - 1] : "";
     var out = [];
     (list3 || []).forEach(function (s, order) {
       var li = prefLangs.indexOf(String(s.lang).toLowerCase());
@@ -9077,7 +9077,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         seen[x] = true;
         score2 += SOURCES2.indexOf(x) >= 0 ? 4 : 1;
       });
-      if (group && group.length > 2 && NOISE.indexOf(group) < 0 && seen[group]) score2 += 6;
+      if (group2 && group2.length > 2 && NOISE.indexOf(group2) < 0 && seen[group2]) score2 += 6;
       var subSource = SOURCES2.filter(function (x) {
         return st.indexOf(x) >= 0;
       })[0];
@@ -9343,10 +9343,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       seeders: seedM ? parseInt(seedM[1], 10) : null,
       sizeMb: sizeM ? parseFloat(sizeM[1].replace(",", ".")) * (/^g/i.test(sizeM[2]) ? 1024 : 1) : 0,
       // Debrid com o arquivo em cache ([RD+], [AD+]...) abre na hora, sem depender de seeders.
-      cached: /\[[A-Z]{2,3}\+\]|\binstant\b|⚡/i.test(name),
+      cached: /\[[A-Z]{2,3}\+\]|\b(?:RD|AD|PM|TB|ED|OC)\+|\binstant\b|⚡/i.test(name),
       // Fonte de debrid ([RD+], [RD download], [AD]...). Sem o "+" ainda não está no debrid: abrir só
       // manda baixar, e o vídeo não toca na hora.
-      debrid: /\[(?:RD|AD|PM|DL|DLX|TB|ED|OC)[+\] ]/.test(name),
+      debrid: /\[(?:RD|AD|PM|DL|DLX|TB|ED|OC)[+\] ⚡]|\b(?:RD|AD|PM|TB|ED|OC)\+|\breal.?debrid\b/i.test(name),
       addon: name.split("\n")[0].replace(/\[[A-Z]{2,3}\+?\]/g, "").trim(),
       file: titleLine.replace(ICONS_RE, "").replace(FLAG_RE, "").replace(/\s{2,}/g, " ").trim()
     };
@@ -9415,58 +9415,53 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var healthy = info.cached || info.seeders !== null && info.seeders >= MIN_SEEDERS;
     return res && healthy;
   }
+  var RES_SCORE = {
+    "4K": 4,
+    "1080p": 3,
+    "720p": 2,
+    SD: 1
+  };
+  function group(i) {
+    if (i.cached) return i.dub ? 0 : 1;
+    if (i.debrid) return 5;
+    if (good(i)) return i.dub ? 2 : 3;
+    return 4;
+  }
+  function rank2(list3) {
+    return list3.map(function (s, idx2) {
+      return {
+        s: s,
+        i: parse3(s),
+        idx: idx2
+      };
+    }).sort(function (a, b) {
+      var g = group(a.i) - group(b.i);
+      if (g) return g;
+      if (a.i.dv !== b.i.dv) return a.i.dv ? 1 : -1;
+      var r = (RES_SCORE[b.i.res] || 0) - (RES_SCORE[a.i.res] || 0);
+      if (r) return r;
+      var o = (b.i.dub && b.i.original ? 1 : 0) - (a.i.dub && a.i.original ? 1 : 0);
+      if (o) return o;
+      if (!a.i.cached) {
+        var sd = (b.i.seeders || 0) - (a.i.seeders || 0);
+        if (sd) return sd;
+      }
+      return a.idx - b.idx;
+    }).map(function (x) {
+      return x.s;
+    });
+  }
   function smartPick(list3, serverOk) {
     var playable = list3.filter(function (s) {
       return canPlay(s, serverOk);
     });
     if (!playable.length) return null;
-    var hiRes = function hiRes(info) {
-      return info.res === "4K" || info.res === "1080p";
+    var hit = rank2(playable)[0];
+    var info = parse3(hit);
+    return {
+      stream: hit,
+      ideal: info.dub && info.original && good(info)
     };
-    var ideal = function ideal(info) {
-      return info.dub && info.original && good(info);
-    };
-    var waiting = function waiting(info) {
-      return info.debrid && !info.cached;
-    };
-    var tiers = [function (i) {
-      return i.cached && ideal(i);
-    }, function (i) {
-      return i.cached && hiRes(i);
-    }, function (i) {
-      return i.cached;
-    }, function (i) {
-      return !waiting(i) && ideal(i);
-    }, function (i) {
-      return !waiting(i) && good(i);
-    }, function (i) {
-      return !waiting(i);
-    }, function () {
-      return true;
-    }];
-    var noDv = playable.filter(function (s) {
-      return !parse3(s).dv;
-    });
-    var pools = [noDv, playable];
-    for (var p = 0; p < pools.length; p++) {
-      var _loop4 = function _loop4(t2) {
-          var hit = pools[p].filter(function (s) {
-            return tiers[t2](parse3(s));
-          })[0];
-          if (hit) return {
-            v: {
-              stream: hit,
-              ideal: ideal(parse3(hit))
-            }
-          };
-        },
-        _ret2;
-      for (var t2 = 0; t2 < tiers.length; t2++) {
-        _ret2 = _loop4(t2);
-        if (_ret2) return _ret2.v;
-      }
-    }
-    return null;
   }
   function summary(info) {
     return [info.res, info.dv ? "Dolby Vision" : info.hdr ? "HDR" : "", info.dub ? info.original ? "Original + Dublado" : "Dublado" : "", info.seeders !== null ? info.seeders + " seeders" : ""].filter(Boolean).join(" · ");
@@ -11440,11 +11435,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         var rest = (opts.streams || []).filter(function (x) {
           return tried.indexOf(x) < 0;
         });
-        var res = parse3(stream).res;
-        var same = rest.filter(function (x) {
-          return parse3(x).res === res;
-        });
-        var pick2 = smartPick(same, _isAvailable()) || smartPick(rest, _isAvailable());
+        var pick2 = smartPick(rest, _isAvailable());
         if (!pick2) {
           message("");
           fail(t("Nenhuma outra fonte disponível para tentar."));
@@ -11461,13 +11452,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var nv = nextVideo();
       if (!nv) return;
       saveProgress2();
-      var group = stream.behaviorHints && stream.behaviorHints.bingeGroup;
+      var group2 = stream.behaviorHints && stream.behaviorHints.bingeGroup;
       showSpinner(true);
       message(t("Procurando o próximo episódio..."));
       fetchStreams(meta.type, nv.id).then(function (list3) {
         if (!alive) return;
-        var match = group ? list3.find(function (s) {
-          return s.behaviorHints && s.behaviorHints.bingeGroup === group;
+        var match = group2 ? list3.find(function (s) {
+          return s.behaviorHints && s.behaviorHints.bingeGroup === group2;
         }) : null;
         if (match && (!_needsServer(match) || _isAvailable())) {
           video = nv;
@@ -14121,7 +14112,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var d = days();
       var today = /* @__PURE__ */new Date();
       var now = Date.now();
-      var group = function group(label, date, events2) {
+      var group2 = function group2(label, date, events2) {
         var cards = events2.map(function (e) {
           var soon = eventSoon(e);
           var sub = e.location || e.calendar || "";
@@ -14154,9 +14145,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           text: label
         }), dayLabel(date, true)]), h("div.cal-cards", null, cards)]);
       };
-      track.appendChild(group(t("HOJE"), today, d.today));
+      track.appendChild(group2(t("HOJE"), today, d.today));
       track.appendChild(h("div.cal-sep"));
-      track.appendChild(group(t("AMANHÃ"), new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1), d.tomorrow));
+      track.appendChild(group2(t("AMANHÃ"), new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1), d.tomorrow));
       calRow.appendChild(track);
     }
     var offCalendar = onChange2(function () {
@@ -14167,7 +14158,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     function loadNearby() {
       if (el2.offsetParent === null) return;
       var limit = window.innerHeight * 2.2;
-      var _loop5 = function _loop5() {
+      var _loop4 = function _loop4() {
           var p = pending[i];
           if (p.state !== "idle") return 0; // continue
           if (!p.row.parentNode) {
@@ -14183,11 +14174,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             loadNearby();
           });
         },
-        _ret3;
+        _ret2;
       for (var i = 0; i < pending.length && active < 2; i++) {
-        _ret3 = _loop5();
-        if (_ret3 === 0) continue;
-        if (_ret3 === 1) break;
+        _ret2 = _loop4();
+        if (_ret2 === 0) continue;
+        if (_ret2 === 1) break;
       }
     }
     function renderBoard() {

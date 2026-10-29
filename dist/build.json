@@ -1,6 +1,6 @@
 {
   "version": "1.2.0",
-  "commit": "04f9b4a3413dd708fff3c17bc0a1f4fa5b7d1e75",
-  "date": "2026-10-28T18:13:24-03:00",
-  "message": "Smart Choice prefere debrid em cache (TV e site)"
+  "commit": "8580e2ed5e45766fec099a1b9f053e51a1e92093",
+  "date": "2026-10-28T21:13:50+00:00",
+  "message": "Build da dist/ para a TV"
 }
