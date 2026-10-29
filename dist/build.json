@@ -1,6 +1,6 @@
 {
   "version": "1.2.0",
-  "commit": "cd1bab124b5e8ac1f941a22407dd221dc3a15a69",
-  "date": "2026-10-29T12:35:37-03:00",
-  "message": "Debrid respeita a banda da TV + protetor de tela não entra no meio do vídeo"
+  "commit": "a9eb95b377bde2a1d6f8101c79d8235173da3d9a",
+  "date": "2026-10-29T15:35:54+00:00",
+  "message": "Build da dist/ para a TV"
 }
