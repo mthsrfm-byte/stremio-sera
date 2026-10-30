@@ -21,7 +21,7 @@ import { getJSON, recentErrors } from '../lib/http.js';
 import { topbar, toast, menu, confirmDialog, refreshProfileChips, refreshTabs } from '../ui.js';
 import * as router from '../router.js';
 import { openLogin } from './login.js';
-import { avatar, switchProfile, createProfile } from './profiles.js';
+import { avatar, avatarStyle, switchProfile, createProfile, canAddProfile, chooseColor } from './profiles.js';
 import { t } from '../lib/i18n.js';
 import * as pinLock from './pin.js';
 import { themeOf, applyTheme } from '../lib/theme.js';
@@ -326,7 +326,7 @@ export function SettingsView() {
     }
     if (device && !IS_WEB) body.appendChild(row(t(IS_FIRETV ? 'Aparelho' : 'TV'), '', device, null));
 
-    // ---- Perfil (cada perfil tem sua conta Stremio, histórico e preferências) ----
+    // ---- Perfil (a conta Stremio é de todos; cada perfil tem o seu histórico e preferências) ----
     const prof = store.activeProfile();
     const allProfiles = store.profiles();
     body.appendChild(h('div.set-section', { text: t('Perfil') }));
@@ -341,38 +341,32 @@ export function SettingsView() {
     };
     body.appendChild(
       h('div.set-row', { focusable: true, onSelect: () => nav.select(nameInput) }, [
-        h('div.label', null, [avatar(prof, 'small'), ' ' + t('Nome do perfil'), h('small', { text: t('Este perfil usa a conta Stremio abaixo') })]),
+        h('div.label', null, [avatar(prof, 'small'), ' ' + t('Nome do perfil'), h('small', { text: t('Aparece em "Quem está assistindo?"') })]),
         nameInput,
       ])
     );
     body.appendChild(
-      row(t('Cor do perfil'), '', '', () =>
-        menu(
-          t('Cor do perfil'),
-          store.COLORS.map((c, i) => ({ label: [t('Roxo'), t('Rosa'), t('Verde-água'), t('Laranja'), t('Azul'), t('Vermelho'), t('Verde'), t('Cinza')][i], value: c, checked: c === prof.color })),
-          {
-            onPick: (c) => {
-              store.updateProfile(prof.id, { color: c });
-              refreshProfileChips();
-              render();
-            },
-          }
-        ),
-        h('div.avatar.small', { style: { backgroundColor: prof.color }, text: ' ' })
+      row(t('Cor do perfil'), prof.colorPicked ? '' : t('Sorteada ao criar o perfil'), '', () =>
+        chooseColor(prof, () => {
+          refreshProfileChips();
+          render();
+        }),
+        h('div.avatar.small', { style: avatarStyle(prof.color), text: ' ' })
       )
     );
     if (allProfiles.length > 1) {
       body.appendChild(
-        row(t('Trocar de perfil'), t('{n} perfis nesta TV', { n: allProfiles.length }), '', () =>
+        row(t('Trocar de perfil'), t('{n} perfis neste aparelho', { n: allProfiles.length }), '', () =>
           menu(
             t('Trocar de perfil'),
-            allProfiles.map((p) => ({ label: p.name, value: p.id, checked: p.id === prof.id })),
+            allProfiles.map((p) => ({ label: [avatar(p, 'swatch'), p.name], value: p.id, checked: p.id === prof.id })),
             { onPick: (id) => id !== prof.id && switchProfile(id) }
           )
         )
       );
     }
-    body.appendChild(row(t('Adicionar perfil'), t('Para outra pessoa: mesma conta, histórico separado'), '', () => createProfile()));
+    if (canAddProfile()) body.appendChild(row(t('Adicionar perfil'), t('Para outra pessoa: mesma conta, histórico separado'), '', () => createProfile()));
+    else body.appendChild(row(t('Adicionar perfil'), t('Limite de {n} perfis: apague um para criar outro', { n: store.MAX_PROFILES }), '', null));
     if (allProfiles.length > 1) {
       body.appendChild(
         row(t('Perguntar "Quem está assistindo?" ao abrir'), '', '', () => {
@@ -382,7 +376,7 @@ export function SettingsView() {
       );
       body.appendChild(
         row(t('Apagar este perfil'), t('Remove deste aparelho o histórico e as preferências do perfil (a conta Stremio continua)'), '', () =>
-          confirmDialog(t('Apagar o perfil "{name}" desta TV?', { name: prof.name }), t('Apagar'), () => {
+          confirmDialog(t('Apagar o perfil "{name}"? O histórico dele some deste aparelho.', { name: prof.name }), t('Apagar'), () => {
             store.removeProfile(prof.id);
             switchProfile(store.activeProfile().id);
           })

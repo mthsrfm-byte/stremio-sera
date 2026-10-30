@@ -391,6 +391,19 @@ body.oled .details-shade { background: linear-gradient(to right, #000 25%, rgba(
 .profile-card.focused .avatar { border-color: #fff; -webkit-transform: scale(1.08); transform: scale(1.08); }
 .profile-card.focused .profile-name { color: #fff; }
 .profile-hint { margin-top: 70px; font-size: 22px; color: rgba(255,255,255,0.45); }
+/* Avatar: degradê com grão (avatarStyle em views/profiles.js); a inicial com uma sombra leve. */
+.avatar { text-shadow: 0 2px 10px rgba(0,0,0,0.28); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.14); }
+.avatar.big { box-shadow: inset 0 0 0 1px rgba(255,255,255,0.16), 0 18px 40px rgba(0,0,0,0.35); }
+.avatar.add { text-shadow: none; box-shadow: inset 0 0 0 2px rgba(255,255,255,0.12); }
+.avatar.swatch { width: 34px; height: 34px; line-height: 34px; font-size: 16px; margin-right: 16px; vertical-align: middle; }
+.profile-face { position: relative; display: inline-block; }
+.profile-card .avatar.big { -webkit-transition: -webkit-transform 0.18s ease; transition: transform 0.18s ease; }
+.profile-edit { position: absolute; left: 5px; top: 5px; right: 5px; bottom: 5px; border-radius: 23px; background: rgba(0,0,0,0.38); display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; -webkit-justify-content: center; justify-content: center; }
+.profile-picker.managing .avatar.big { color: transparent; text-shadow: none; }
+.profile-picker.managing .profile-card.focused .avatar { -webkit-transform: none; transform: none; }
+.profile-picker.managing .profile-card.focused .profile-face { -webkit-transform: scale(1.08); transform: scale(1.08); }
+.profile-manage { margin-top: 56px; }
+.profile-picker .profile-manage + .profile-hint { margin-top: 28px; }
 .modal-text .input { width: 100%; }
 .err-text { color: #ff8a8a; min-height: 34px; padding-bottom: 6px; font-size: 21px; }
 .wizard .input { width: 100%; margin-bottom: 14px; }

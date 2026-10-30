@@ -24,7 +24,7 @@ export const FUN = {
   'Este perfil usa a conta Stremio abaixo': 'Este perfil usa a conta logo aqui embaixo',
   'Para outra pessoa: mesma conta, histórico separado': IS_WEB ? 'Para aquela pessoa que vive roubando o mouse' : 'Para aquela pessoa que vive roubando o controle',
   'Remove deste aparelho o histórico e as preferências do perfil (a conta Stremio continua)': 'Some só daqui, com o histórico junto. A conta continua vivinha da silva.',
-  'Apagar o perfil "{name}" desta TV?': 'Mandar "{name}" para o espaço? Sem volta, hein.',
+  'Apagar o perfil "{name}"? O histórico dele some deste aparelho.': 'Mandar "{name}" para o espaço? O histórico vai junto, sem volta.',
 
   // Assistente
   'Bem-vindo! Quem vai usar este perfil?': 'Opa, chegou! Quem é você na fila do pão?',

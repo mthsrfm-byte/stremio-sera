@@ -4,7 +4,7 @@ import { h, clear, loadVisibleImages } from './lib/dom.js';
 import * as nav from './lib/nav.js';
 import { smallPoster, smallBackground, sharpThumb } from './lib/img.js';
 import * as store from './lib/store.js';
-import { avatar, switchProfile, createProfile } from './views/profiles.js';
+import { avatar, switchProfile, createProfile, canAddProfile, editProfile } from './views/profiles.js';
 import { t } from './lib/i18n.js';
 import { IS_WEB } from './lib/platform.js';
 import * as addons from './api/addons.js';
@@ -332,16 +332,36 @@ export function refreshProfileChips() {
 
 function profileMenu(onTab) {
   const active = store.activeProfile();
-  const opts = store.profiles().map((p) => ({ label: p.name, sub: p.id === active.id ? t('Perfil atual') : t('Trocar para este perfil'), value: p.id, checked: p.id === active.id }));
-  opts.push({ label: t('+ Adicionar perfil'), sub: t('Com outra conta Stremio (histórico separado)'), value: '__add' });
+  const opts = store.profiles().map((p) => ({ label: [avatar(p, 'swatch'), p.name], sub: p.id === active.id ? t('Perfil atual') : t('Trocar para este perfil'), value: p.id, checked: p.id === active.id }));
+  if (canAddProfile()) opts.push({ label: t('+ Adicionar perfil'), sub: t('Mesma conta, histórico separado'), value: '__add' });
   opts.push({ label: t('Gerenciar perfis'), sub: t('Nome, cor, apagar'), value: '__manage' });
   menu(t('Perfis'), opts, {
     onPick: (v) => {
       if (v === '__add') createProfile();
-      else if (v === '__manage') onTab('settings');
+      else if (v === '__manage') manageProfiles();
       else if (v !== active.id) switchProfile(v);
     },
   });
+}
+
+// Gerenciar sem sair de onde está: escolhe o perfil e abre renomear / cor / apagar.
+function manageProfiles() {
+  menu(
+    t('Gerenciar perfis'),
+    store.profiles().map((p) => ({ label: [avatar(p, 'swatch'), p.name], sub: t('Nome, cor, apagar'), value: p.id })),
+    {
+      onPick: (id) => {
+        const p = store.profiles().filter((x) => x.id === id)[0];
+        if (!p) return;
+        const wasActive = p.id === store.activeProfile().id;
+        editProfile(p, (kind) => {
+          // Apagou o perfil em uso: entra no que ficou no lugar.
+          if (kind === 'removed' && wasActive) switchProfile(store.activeProfile().id);
+          else refreshProfileChips();
+        });
+      },
+    }
+  );
 }
 
 export function timeHM(d) {

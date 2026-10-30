@@ -4817,7 +4817,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     "Este perfil usa a conta Stremio abaixo": "Este perfil usa a conta logo aqui embaixo",
     "Para outra pessoa: mesma conta, histórico separado": IS_WEB ? "Para aquela pessoa que vive roubando o mouse" : "Para aquela pessoa que vive roubando o controle",
     "Remove deste aparelho o histórico e as preferências do perfil (a conta Stremio continua)": "Some só daqui, com o histórico junto. A conta continua vivinha da silva.",
-    'Apagar o perfil "{name}" desta TV?': 'Mandar "{name}" para o espaço? Sem volta, hein.',
+    'Apagar o perfil "{name}"? O histórico dele some deste aparelho.': 'Mandar "{name}" para o espaço? O histórico vai junto, sem volta.',
     // Assistente
     "Bem-vindo! Quem vai usar este perfil?": "Opa, chegou! Quem é você na fila do pão?",
     "Dê um nome ao perfil. Depois você pode criar outros perfis, cada um com a própria conta Stremio e histórico.": "Dá um nome para o perfil. Depois dá para criar outros, cada um com seu histórico e suas vergonhas.",
@@ -5550,7 +5550,57 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       if (value === void 0 || value === null) window.localStorage.removeItem(PREFIX + key);else window.localStorage.setItem(PREFIX + key, JSON.stringify(value));
     } catch (e) {}
   }
-  var COLORS = ["#7b5bf5", "#e5508c", "#2bb6a3", "#f0a030", "#3d8bfd", "#e55353", "#8bc34a", "#9e9e9e"];
+  var PALETTE = [{
+    color: "#7b5bf5",
+    name: "Roxo"
+  }, {
+    color: "#e5508c",
+    name: "Rosa"
+  }, {
+    color: "#2bb6a3",
+    name: "Verde-água"
+  }, {
+    color: "#f0a030",
+    name: "Laranja"
+  }, {
+    color: "#3d8bfd",
+    name: "Azul"
+  }, {
+    color: "#e55353",
+    name: "Vermelho"
+  }, {
+    color: "#8bc34a",
+    name: "Verde"
+  }, {
+    color: "#9e9e9e",
+    name: "Cinza"
+  }, {
+    color: "#3347ff",
+    name: "Anil"
+  }, {
+    color: "#ff7a59",
+    name: "Coral"
+  }, {
+    color: "#b388ff",
+    name: "Lilás"
+  }, {
+    color: "#16b5d8",
+    name: "Turquesa"
+  }];
+  var COLORS = PALETTE.map(function (x) {
+    return x.color;
+  });
+  var MAX_PROFILES = 5;
+  function randomColor(taken) {
+    var pool = COLORS.filter(function (c) {
+      return c !== "#9e9e9e";
+    });
+    var free = pool.filter(function (c) {
+      return taken.indexOf(c) < 0;
+    });
+    var from = free.length ? free : pool;
+    return from[Math.floor(Math.random() * from.length)];
+  }
   function profileKey(id, key) {
     return "p." + id + "." + key;
   }
@@ -5560,14 +5610,15 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var id = "p" + Date.now().toString(36);
     var oldAuth = rawGet("auth", null);
     var email = oldAuth && oldAuth.user && oldAuth.user.email;
+    var color = randomColor([]);
     list3 = [email ? {
       id: id,
       name: email.split("@")[0],
-      color: COLORS[0]
+      color: color
     } : {
       id: id,
       name: "Perfil 1",
-      color: COLORS[0],
+      color: color,
       unnamed: true
     }];
     ["auth", "addons", "library"].forEach(function (k) {
@@ -5635,8 +5686,23 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     rawSet("sharedAccount", true);
     return next;
   }
+  function ensureRandomColors(list3) {
+    if (rawGet("randomColors", false)) return list3;
+    var taken = [];
+    var next = list3.map(function (p, i) {
+      var c = p.color;
+      if (!p.colorPicked && (!c || c === COLORS[i % 8])) c = randomColor(taken);
+      taken.push(c);
+      return Object.assign({}, p, {
+        color: c
+      });
+    });
+    rawSet("profiles", next);
+    rawSet("randomColors", true);
+    return next;
+  }
   function profiles() {
-    return ensureSharedAccount(ensureProfiles());
+    return ensureRandomColors(ensureSharedAccount(ensureProfiles()));
   }
   function isAccountOwner() {
     var me = activeProfile();
@@ -5667,7 +5733,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var p = {
       id: "p" + Date.now().toString(36),
       name: name || "Perfil " + (list3.length + 1),
-      color: color || COLORS[list3.length % COLORS.length]
+      color: color || randomColor(list3.map(function (x) {
+        return x.color;
+      }))
     };
     list3.push(p);
     rawSet("profiles", list3);
@@ -5678,6 +5746,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return p.id === id ? Object.assign({}, p, patch) : p;
     });
     rawSet("profiles", list3);
+  }
+  function setProfileColor(id, color) {
+    updateProfile(id, {
+      color: color,
+      colorPicked: true
+    });
   }
   function removeProfile(id) {
     var all = profiles();
@@ -6525,9 +6599,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "0bccd67a3a7788cdb278606eaf2cb2cc2a11d567",
-    date: "2026-10-29T03:43:24+00:00",
-    message: "Seraflix para Fire TV Stick: app Android que se atualiza sozinho"
+    commit: "820de13c3863cb560ed89f12848f7fea66436c78",
+    date: "2026-10-30T00:10:29+00:00",
+    message: "Perfis com a mesma conta Stremio e histórico separado"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -7068,14 +7142,114 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     } catch (e) {}
     return null;
   }
+  var GRAIN = "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23g)' opacity='.32'/%3E%3C/svg%3E\")";
+  function hexToHsl(hex) {
+    var n = parseInt(String(hex || "#7b5bf5").replace("#", ""), 16);
+    var r = (n >> 16 & 255) / 255;
+    var g = (n >> 8 & 255) / 255;
+    var b = (n & 255) / 255;
+    var max = Math.max(r, g, b);
+    var min = Math.min(r, g, b);
+    var l = (max + min) / 2;
+    var hue = 0;
+    var sat = 0;
+    if (max !== min) {
+      var d = max - min;
+      sat = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      if (max === r) hue = (g - b) / d + (g < b ? 6 : 0);else if (max === g) hue = (b - r) / d + 2;else hue = (r - g) / d + 4;
+      hue *= 60;
+    }
+    return {
+      h: hue,
+      s: sat * 100,
+      l: l * 100
+    };
+  }
+  function hsl(c, dh, ds, dl) {
+    var clamp = function clamp(v) {
+      return Math.max(0, Math.min(100, v));
+    };
+    return "hsl(" + Math.round((c.h + dh + 360) % 360) + "," + Math.round(clamp(c.s + ds)) + "%," + Math.round(clamp(c.l + dl)) + "%)";
+  }
+  function avatarStyle(color) {
+    var c = hexToHsl(color);
+    var top2 = hsl(c, -16, 6, 12);
+    var bottom = hsl(c, 24, 4, -20);
+    return {
+      backgroundColor: color,
+      backgroundImage: GRAIN + ", radial-gradient(circle at 28% 18%, rgba(255,255,255,0.32), rgba(255,255,255,0) 58%), linear-gradient(150deg, " + top2 + ", " + bottom + ")",
+      backgroundSize: "140px 140px, 100% 100%, 100% 100%"
+    };
+  }
   function avatar(p, cls) {
     var initial = String(p.name || "?").trim().charAt(0).toUpperCase() || "?";
     return h("div.avatar", {
       cls: cls || "",
-      style: {
-        backgroundColor: p.color || COLORS[0]
-      },
+      style: avatarStyle(p.color || COLORS[0]),
       text: initial
+    });
+  }
+  function chooseColor(p, after) {
+    menu(t("Cor do perfil"), PALETTE.map(function (x) {
+      return {
+        label: [h("div.avatar.swatch", {
+          style: avatarStyle(x.color),
+          text: " "
+        }), t(x.name)],
+        value: x.color,
+        checked: x.color === p.color
+      };
+    }), {
+      onPick: function onPick(c) {
+        setProfileColor(p.id, c);
+        if (after) after();
+      }
+    });
+  }
+  function editProfile(p, after) {
+    var opts = [{
+      label: t("Renomear"),
+      sub: p.name,
+      value: "name"
+    }, {
+      label: t("Mudar a cor"),
+      sub: t("Hoje: {cor}", {
+        cor: t((PALETTE.filter(function (x) {
+          return x.color === p.color;
+        })[0] || {
+          name: "Personalizada"
+        }).name)
+      }),
+      value: "color"
+    }];
+    if (profiles().length > 1) opts.push({
+      label: t("Apagar perfil"),
+      sub: t("Apaga o histórico e as preferências dele neste aparelho"),
+      value: "remove"
+    });
+    menu(p.name, opts, {
+      onPick: function onPick(v) {
+        if (v === "name") {
+          askProfileName(t("Novo nome"), p.name, t("Salvar"), function (name) {
+            updateProfile(p.id, {
+              name: name
+            });
+            if (after) after("name");
+          });
+        } else if (v === "color") {
+          chooseColor(p, function () {
+            return after && after("color");
+          });
+        } else if (v === "remove") {
+          confirmDialog(t('Apagar o perfil "{name}"? O histórico dele some deste aparelho.', {
+            name: p.name
+          }), t("Apagar"), function () {
+            removeProfile(p.id);
+            toast(t("Perfil apagado"));
+            if (after) after("removed");
+          });
+        }
+      }
     });
   }
   function switchProfile(id) {
@@ -7141,7 +7315,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       if (modal.parentNode) modal.parentNode.removeChild(modal);
     }
   }
+  function canAddProfile() {
+    return profiles().length < MAX_PROFILES;
+  }
   function createProfile() {
+    if (!canAddProfile()) return toast(t("Já tem {n} perfis: apague um para criar outro", {
+      n: MAX_PROFILES
+    }));
     askProfileName(t("Nome do novo perfil"), "", t("Criar perfil"), function (name) {
       var p = addProfile(name);
       session(SESSION_NEW, p.id);
@@ -7158,45 +7338,76 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return profiles().length > 1 && settings().askProfile && !session(SESSION_PICKED);
   }
   function showPicker(onPicked) {
-    var list3 = profiles();
-    var active = activeProfile();
-    var cards = list3.map(function (p) {
-      return h("div.profile-card", {
-        focusable: true,
-        "data-autofocus": p.id === active.id ? "" : null,
-        onSelect: function onSelect() {
-          return pick2(p.id);
-        }
-      }, [avatar(p, "big"), h("div.profile-name", {
-        text: p.name
-      })]);
+    var managing = false;
+    var row = h("div.profile-row", {
+      "data-group": ""
     });
-    cards.push(h("div.profile-card", {
+    var title = h("h1");
+    var manageBtn = h("div.btn.profile-manage", {
       focusable: true,
       onSelect: function onSelect() {
-        return createProfile();
+        return toggleManage();
       }
-    }, [h("div.avatar.big.add", {
-      text: "+"
-    }), h("div.profile-name", {
-      text: t("Adicionar perfil")
-    })]));
+    });
+    var hint = h("p.profile-hint");
     var el2 = h("div.view.profile-picker", null, [h("div.boot-logo", {
       html: LOGO_HTML
-    }), h("h1", {
-      text: t("Quem está assistindo?")
-    }), h("div.profile-row", {
-      "data-group": ""
-    }, cards), h("p.profile-hint", {
-      text: t("Todos usam a mesma conta Stremio; cada perfil tem o seu histórico.")
-    })]);
+    }), title, row, manageBtn, hint]);
     document.getElementById("app").appendChild(el2);
     var layer = pushLayer(el2, {
       onBack: function onBack() {
-        return pick2(active.id);
+        return managing ? toggleManage() : pick2(activeProfile().id);
       }
     });
-    focusFirst(el2);
+    render();
+    function render(focusId) {
+      var list3 = profiles();
+      var active = activeProfile();
+      var target = focusId || active.id;
+      el2.classList.toggle("managing", managing);
+      title.textContent = managing ? t("Gerenciar perfis") : t("Quem está assistindo?");
+      manageBtn.textContent = managing ? t("Pronto") : t("Gerenciar perfis");
+      hint.textContent = managing ? t("Escolha um perfil para mudar o nome, a cor ou apagar.") : t("Todos usam a mesma conta Stremio; cada perfil tem o seu histórico.");
+      while (row.firstChild) row.removeChild(row.firstChild);
+      list3.forEach(function (p) {
+        return row.appendChild(h("div.profile-card", {
+          focusable: true,
+          "data-pid": p.id,
+          onSelect: function onSelect() {
+            return managing ? edit(p) : pick2(p.id);
+          }
+        }, [h("div.profile-face", null, [avatar(p, "big"), managing ? h("div.profile-edit", {
+          html: PENCIL
+        }) : null]), h("div.profile-name", {
+          text: p.name
+        })]));
+      });
+      if (!managing && canAddProfile()) {
+        row.appendChild(h("div.profile-card", {
+          focusable: true,
+          onSelect: function onSelect() {
+            return createProfile();
+          }
+        }, [h("div.profile-face", null, h("div.avatar.big.add", {
+          text: "+"
+        })), h("div.profile-name", {
+          text: t("Adicionar perfil")
+        })]));
+      }
+      var card2 = row.querySelector('[data-pid="' + target + '"]') || row.firstChild;
+      if (card2) focus(card2);
+    }
+    function toggleManage() {
+      managing = !managing;
+      render();
+    }
+    function edit(p) {
+      editProfile(p, function () {
+        return render(profiles().some(function (x) {
+          return x.id === p.id;
+        }) ? p.id : null);
+      });
+    }
     function pick2(id) {
       setActiveProfile(id);
       session(SESSION_PICKED, "1");
@@ -7205,6 +7416,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       onPicked();
     }
   }
+  var PENCIL = '<svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
 
   // src/js/views/pin.js
   var DEFAULT_PIN = "7789";
@@ -8171,15 +8383,15 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var active = activeProfile();
     var opts = profiles().map(function (p) {
       return {
-        label: p.name,
+        label: [avatar(p, "swatch"), p.name],
         sub: p.id === active.id ? t("Perfil atual") : t("Trocar para este perfil"),
         value: p.id,
         checked: p.id === active.id
       };
     });
-    opts.push({
+    if (canAddProfile()) opts.push({
       label: t("+ Adicionar perfil"),
-      sub: t("Com outra conta Stremio (histórico separado)"),
+      sub: t("Mesma conta, histórico separado"),
       value: "__add"
     });
     opts.push({
@@ -8189,7 +8401,27 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
     menu(t("Perfis"), opts, {
       onPick: function onPick(v) {
-        if (v === "__add") createProfile();else if (v === "__manage") onTab("settings");else if (v !== active.id) switchProfile(v);
+        if (v === "__add") createProfile();else if (v === "__manage") manageProfiles();else if (v !== active.id) switchProfile(v);
+      }
+    });
+  }
+  function manageProfiles() {
+    menu(t("Gerenciar perfis"), profiles().map(function (p) {
+      return {
+        label: [avatar(p, "swatch"), p.name],
+        sub: t("Nome, cor, apagar"),
+        value: p.id
+      };
+    }), {
+      onPick: function onPick(id) {
+        var p = profiles().filter(function (x) {
+          return x.id === id;
+        })[0];
+        if (!p) return;
+        var wasActive = p.id === activeProfile().id;
+        editProfile(p, function (kind) {
+          if (kind === "removed" && wasActive) switchProfile(activeProfile().id);else refreshProfileChips();
+        });
       }
     });
   }
@@ -16863,37 +17095,24 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           return select(nameInput);
         }
       }, [h("div.label", null, [avatar(prof, "small"), " " + t("Nome do perfil"), h("small", {
-        text: t("Este perfil usa a conta Stremio abaixo")
+        text: t('Aparece em "Quem está assistindo?"')
       })]), nameInput]));
-      body.appendChild(row(t("Cor do perfil"), "", "", function () {
-        return menu(t("Cor do perfil"), COLORS.map(function (c, i) {
-          return {
-            label: [t("Roxo"), t("Rosa"), t("Verde-água"), t("Laranja"), t("Azul"), t("Vermelho"), t("Verde"), t("Cinza")][i],
-            value: c,
-            checked: c === prof.color
-          };
-        }), {
-          onPick: function onPick(c) {
-            updateProfile(prof.id, {
-              color: c
-            });
-            refreshProfileChips();
-            render();
-          }
+      body.appendChild(row(t("Cor do perfil"), prof.colorPicked ? "" : t("Sorteada ao criar o perfil"), "", function () {
+        return chooseColor(prof, function () {
+          refreshProfileChips();
+          render();
         });
       }, h("div.avatar.small", {
-        style: {
-          backgroundColor: prof.color
-        },
+        style: avatarStyle(prof.color),
         text: " "
       })));
       if (allProfiles.length > 1) {
-        body.appendChild(row(t("Trocar de perfil"), t("{n} perfis nesta TV", {
+        body.appendChild(row(t("Trocar de perfil"), t("{n} perfis neste aparelho", {
           n: allProfiles.length
         }), "", function () {
           return menu(t("Trocar de perfil"), allProfiles.map(function (p) {
             return {
-              label: p.name,
+              label: [avatar(p, "swatch"), p.name],
               value: p.id,
               checked: p.id === prof.id
             };
@@ -16904,9 +17123,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           });
         }));
       }
-      body.appendChild(row(t("Adicionar perfil"), t("Para outra pessoa: mesma conta, histórico separado"), "", function () {
+      if (canAddProfile()) body.appendChild(row(t("Adicionar perfil"), t("Para outra pessoa: mesma conta, histórico separado"), "", function () {
         return createProfile();
-      }));
+      }));else body.appendChild(row(t("Adicionar perfil"), t("Limite de {n} perfis: apague um para criar outro", {
+        n: MAX_PROFILES
+      }), "", null));
       if (allProfiles.length > 1) {
         body.appendChild(row(t('Perguntar "Quem está assistindo?" ao abrir'), "", "", function () {
           saveSettings({
@@ -16915,7 +17136,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           render();
         }, toggle2(s.askProfile)));
         body.appendChild(row(t("Apagar este perfil"), t("Remove deste aparelho o histórico e as preferências do perfil (a conta Stremio continua)"), "", function () {
-          return confirmDialog(t('Apagar o perfil "{name}" desta TV?', {
+          return confirmDialog(t('Apagar o perfil "{name}"? O histórico dele some deste aparelho.', {
             name: prof.name
           }), t("Apagar"), function () {
             removeProfile(prof.id);
