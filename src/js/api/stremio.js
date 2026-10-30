@@ -7,12 +7,27 @@ import { t } from '../lib/i18n.js';
 const API = 'https://api.strem.io/api/';
 const LINK = 'https://link.stremio.com/api/v2/';
 
-let auth = store.get('auth', null); // { authKey, user } do perfil ativo
+let auth = store.get('auth', null); // { authKey, user }: a conta é a mesma para todos os perfis
 
-// Recarrega conta e biblioteca do perfil ativo (chamado ao escolher o perfil na abertura).
+// Recarrega conta, biblioteca e histórico do perfil ativo (chamado ao escolher o perfil na abertura).
 export function reloadProfile() {
   auth = store.get('auth', null);
-  libMem = null;
+  watchMem = null;
+  merged = null;
+}
+
+// Grava já o que está esperando o atraso (antes de trocar de perfil, que recarrega o app).
+export function flush() {
+  if (libSaveTimer) {
+    clearTimeout(libSaveTimer);
+    libSaveTimer = null;
+    saveLibraryNow();
+  }
+  if (watchSaveTimer) {
+    clearTimeout(watchSaveTimer);
+    watchSaveTimer = null;
+    saveWatchNow();
+  }
 }
 
 function call(method, body) {
@@ -41,6 +56,7 @@ export function authKey() {
 function saveAuth(result) {
   auth = { authKey: result.authKey, user: result.user || null };
   store.set('auth', auth);
+  store.claimAccount(); // primeiro login do aparelho: este perfil fica com o histórico da conta
   return auth;
 }
 
@@ -134,35 +150,109 @@ export function getLibrary() {
 
 // Biblioteca em memória (reler e converter o JSON a cada consulta pesava na TV);
 // o armazenamento local só é gravado com atraso, e só os itens que o app usa.
+// A biblioteca é da conta (a mesma em todos os perfis). O que cada perfil assistiu (o "state" de
+// cada item: onde parou, último episódio, vistos) é do perfil: o dono da conta usa o da própria
+// conta Stremio; os outros perfis guardam o deles só neste aparelho ('watch') e não mexem no
+// histórico da conta. cachedLibrary() devolve a biblioteca já com o histórico do perfil ativo.
 let libMem = null;
 let libSaveTimer = null;
+let watchMem = null; // { id: { state, name, type, poster, posterShape } } de um perfil que não é o dono
+let watchSaveTimer = null;
+let merged = null;
+const MAX_WATCH = 400;
+
+function owner() {
+  return store.isAccountOwner();
+}
 
 function setLibrary(list) {
   libMem = list;
+  merged = null;
   clearTimeout(libSaveTimer);
-  libSaveTimer = setTimeout(() => {
-    // Guarda só o que importa (não removidos ou em andamento) para caber no localStorage.
-    const slim = (libMem || []).filter((it) => !it.removed || it.temp || (it.state && it.state.timeOffset > 0));
-    store.set('library', slim);
-  }, 1500);
+  libSaveTimer = setTimeout(saveLibraryNow, 1500);
 }
 
-export function cachedLibrary() {
+function saveLibraryNow() {
+  libSaveTimer = null;
+  // Guarda só o que importa (não removidos ou em andamento) para caber no localStorage.
+  const slim = (libMem || []).filter((it) => !it.removed || it.temp || (it.state && it.state.timeOffset > 0));
+  store.set('library', slim);
+}
+
+function accountLibrary() {
   if (!libMem) libMem = store.get('library', []);
   return libMem;
 }
 
-export function putLibraryItems(items) {
+function watchMap() {
+  if (!watchMem) watchMem = store.get('watch', {}) || {};
+  return watchMem;
+}
+
+function saveWatch() {
+  merged = null;
+  clearTimeout(watchSaveTimer);
+  watchSaveTimer = setTimeout(saveWatchNow, 1500);
+}
+
+function saveWatchNow() {
+  watchSaveTimer = null;
+  const all = watchMap();
+  const ids = Object.keys(all).sort((a, b) => String(all[b].state.lastWatched || '').localeCompare(String(all[a].state.lastWatched || '')));
+  ids.slice(MAX_WATCH).forEach((id) => delete all[id]);
+  store.set('watch', all);
+}
+
+export function cachedLibrary() {
+  if (owner()) return accountLibrary();
+  if (merged) return merged;
+  const watch = watchMap();
+  const seen = {};
+  // Itens da conta com o histórico deste perfil (ou zerado, se ele nunca assistiu).
+  merged = accountLibrary().map((it) => {
+    seen[it._id] = true;
+    const w = watch[it._id];
+    return Object.assign({}, it, { state: w ? w.state : newLibraryItem(it).state });
+  });
+  // O que só este perfil assistiu (fora da biblioteca da conta).
+  Object.keys(watch).forEach((id) => {
+    if (seen[id]) return;
+    const w = watch[id];
+    const it = newLibraryItem({ id: id, name: w.name, type: w.type, poster: w.poster, posterShape: w.posterShape });
+    it.state = w.state;
+    merged.push(it);
+  });
+  return merged;
+}
+
+// accountToo: grava na conta também (favoritar). Num perfil que não é o dono, o progresso fica só
+// nele; para a conta vai só a marcação de favorito, com o histórico que a conta já tinha.
+export function putLibraryItems(items, accountToo) {
+  let toAccount = items;
+  if (!owner()) {
+    const watch = watchMap();
+    items.forEach((it) => {
+      if (it.state && (it.state.timeOffset > 0 || it.state.lastWatched)) {
+        watch[it._id] = { state: it.state, name: it.name, type: it.type, poster: it.poster, posterShape: it.posterShape };
+      }
+    });
+    saveWatch();
+    if (!accountToo) return Promise.resolve();
+    toAccount = items.map((it) => {
+      const acc = accountLibrary().filter((x) => x._id === it._id)[0];
+      return Object.assign({}, it, { state: acc ? acc.state : newLibraryItem(it).state });
+    });
+  }
   // Atualiza o cache local mesmo sem conta, para o "continuar assistindo" funcionar offline.
-  const lib = cachedLibrary();
-  items.forEach((it) => {
+  const lib = accountLibrary();
+  toAccount.forEach((it) => {
     const i = lib.findIndex((x) => x._id === it._id);
     if (i >= 0) lib[i] = it;
     else lib.push(it);
   });
   setLibrary(lib);
   if (!isLoggedIn()) return Promise.resolve();
-  return call('datastorePut', { authKey: auth.authKey, collection: 'libraryItem', changes: items }).catch((e) => {
+  return call('datastorePut', { authKey: auth.authKey, collection: 'libraryItem', changes: toAccount }).catch((e) => {
     log.warn('Falha ao salvar na biblioteca', e.message);
   });
 }
@@ -178,7 +268,7 @@ function nowIso() {
 // Mesmo formato do stremio-core (LibraryItem), para não corromper a biblioteca da conta.
 export function newLibraryItem(meta) {
   return {
-    _id: meta.id,
+    _id: meta.id || meta._id,
     name: meta.name || '',
     type: meta.type,
     poster: meta.poster || null,
@@ -213,7 +303,7 @@ export function setInLibrary(meta, inLibrary) {
   item.removed = !inLibrary;
   item.temp = false;
   item._mtime = nowIso();
-  return putLibraryItems([item]).then(() => item);
+  return putLibraryItems([item], true).then(() => item);
 }
 
 export function isInLibrary(id) {

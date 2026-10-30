@@ -1,6 +1,7 @@
 // localStorage com JSON e tolerância a falhas, separado por PERFIL.
-// Cada perfil tem sua conta Stremio (histórico/biblioteca), addons e preferências pessoais.
-// O que é da TV (servidor do PC, chaves de API, rolagem) fica compartilhado entre os perfis.
+// A conta Stremio (login, addons, biblioteca) é uma só, de todos os perfis; cada perfil tem o seu
+// histórico (o que assistiu e onde parou) e as preferências pessoais. O que é da TV (servidor do
+// PC, chaves de API, rolagem) também fica compartilhado entre os perfis.
 import { current } from './i18n.js';
 
 const PREFIX = 'kai.';
@@ -62,12 +63,59 @@ function ensureProfiles() {
   return list;
 }
 
+// Da conta (iguais para todos os perfis): login, addons e a biblioteca da conta.
+const ACCOUNT_KEYS = ['auth', 'addons', 'library'];
+
+// Migração para a conta única: antes cada perfil tinha a sua. Fica a do perfil ativo (ou a do
+// primeiro que tiver conta), e esse perfil vira o "dono": ele lê e grava o histórico da própria
+// conta Stremio, como antes. Os outros perfis guardam o que assistiram só neste aparelho
+// ('watch'), começando pelo histórico que já tinham na conta antiga deles.
+function ensureSharedAccount(list) {
+  if (rawGet('sharedAccount', false)) return list;
+  const active = rawGet('activeProfile', null);
+  const withAuth = (p) => {
+    const a = rawGet(profileKey(p.id, 'auth'), null);
+    return !!(a && a.authKey);
+  };
+  const owner = list.filter((p) => p.id === active && withAuth(p))[0] || list.filter(withAuth)[0] || null;
+  list.forEach((p) => {
+    if (owner && p.id === owner.id) {
+      ACCOUNT_KEYS.forEach((k) => rawSet('account.' + k, rawGet(profileKey(p.id, k), null)));
+    } else {
+      const watch = {};
+      (rawGet(profileKey(p.id, 'library'), []) || []).forEach((it) => {
+        if (it && it._id && it.state && (it.state.timeOffset > 0 || it.state.lastWatched)) {
+          watch[it._id] = { state: it.state, name: it.name, type: it.type, poster: it.poster, posterShape: it.posterShape };
+        }
+      });
+      if (Object.keys(watch).length) rawSet(profileKey(p.id, 'watch'), watch);
+    }
+    ACCOUNT_KEYS.forEach((k) => rawSet(profileKey(p.id, k), null));
+  });
+  const next = list.map((p) => Object.assign({}, p, { owner: !!(owner && p.id === owner.id) }));
+  rawSet('profiles', next);
+  rawSet('sharedAccount', true);
+  return next;
+}
+
 export function profiles() {
-  return ensureProfiles();
+  return ensureSharedAccount(ensureProfiles());
+}
+
+// O perfil dono da conta Stremio: o histórico dele é o da conta (sincroniza com o celular, o PC...).
+// Sem dono ainda (ninguém entrou na conta), quem entrar primeiro vira o dono.
+export function isAccountOwner() {
+  const me = activeProfile();
+  return !!me.owner || !profiles().some((p) => p.owner);
+}
+
+export function claimAccount() {
+  if (profiles().some((p) => p.owner)) return;
+  updateProfile(activeProfile().id, { owner: true });
 }
 
 export function activeProfile() {
-  const list = ensureProfiles();
+  const list = profiles();
   const id = rawGet('activeProfile', null);
   return list.find((p) => p.id === id) || list[0];
 }
@@ -77,7 +125,7 @@ export function setActiveProfile(id) {
 }
 
 export function addProfile(name, color) {
-  const list = ensureProfiles();
+  const list = profiles();
   const p = { id: 'p' + Date.now().toString(36), name: name || 'Perfil ' + (list.length + 1), color: color || COLORS[list.length % COLORS.length] };
   list.push(p);
   rawSet('profiles', list);
@@ -85,14 +133,18 @@ export function addProfile(name, color) {
 }
 
 export function updateProfile(id, patch) {
-  const list = ensureProfiles().map((p) => (p.id === id ? Object.assign({}, p, patch) : p));
+  const list = profiles().map((p) => (p.id === id ? Object.assign({}, p, patch) : p));
   rawSet('profiles', list);
 }
 
 export function removeProfile(id) {
-  const list = ensureProfiles().filter((p) => p.id !== id);
+  const all = profiles();
+  const gone = all.filter((p) => p.id === id)[0];
+  const list = all.filter((p) => p.id !== id);
   if (!list.length) return false;
-  ['auth', 'addons', 'library', 'settings'].forEach((k) => rawSet(profileKey(id, k), null));
+  ['watch', 'settings'].forEach((k) => rawSet(profileKey(id, k), null));
+  // Apagou o dono: o próximo perfil passa a usar o histórico da conta.
+  if (gone && gone.owner) list[0] = Object.assign({}, list[0], { owner: true });
   rawSet('profiles', list);
   if (rawGet('activeProfile', null) === id) rawSet('activeProfile', list[0].id);
   return true;
@@ -103,12 +155,20 @@ export function getFor(profileId, key, fallback) {
   return rawGet(profileKey(profileId, key), fallback);
 }
 
-// ---------- Dados do perfil ativo ----------
+// ---------- Dados do perfil ativo (a conta é de todos) ----------
 export function get(key, fallback) {
+  if (ACCOUNT_KEYS.indexOf(key) >= 0) {
+    profiles(); // garante a migração para a conta única antes de ler
+    return rawGet('account.' + key, fallback);
+  }
   return rawGet(profileKey(activeProfile().id, key), fallback);
 }
 
 export function set(key, value) {
+  if (ACCOUNT_KEYS.indexOf(key) >= 0) {
+    profiles();
+    return rawSet('account.' + key, value);
+  }
   rawSet(profileKey(activeProfile().id, key), value);
 }
 

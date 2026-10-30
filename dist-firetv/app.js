@@ -4808,15 +4808,15 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     "+ Adicionar perfil": "+ Chamar mais gente para o sofá",
     "Com outra conta Stremio (histórico separado)": "Cada um com seu histórico (sem julgamentos)",
     "Quem está assistindo?": "Quem tá no controle hoje?",
-    "Cada perfil tem sua própria conta Stremio, com histórico e biblioteca separados.": "Cada perfil tem seu histórico. Ninguém vai saber que você viu a novela inteira de novo.",
+    "Todos usam a mesma conta Stremio; cada perfil tem o seu histórico.": "Cada perfil tem seu histórico. Ninguém vai saber que você viu a novela inteira de novo.",
     "Nome do novo perfil": "Como vamos te chamar?",
     "Ex.: Ana, Pedro, Sala": "Ex.: Mãe, Tio do Pavê, Sala",
     "Digite um nome para o perfil.": "Perfil sem nome é fantasma. Bota um nome aí.",
     "Já existe um perfil com esse nome.": "Já tem alguém com esse nome. Criatividade, por favor.",
     "Nome do perfil salvo": "Nome novo, quem é você?",
     "Este perfil usa a conta Stremio abaixo": "Este perfil usa a conta logo aqui embaixo",
-    "Para outra pessoa, com outra conta Stremio": IS_WEB ? "Para aquela pessoa que vive roubando o mouse" : "Para aquela pessoa que vive roubando o controle",
-    "Remove deste aparelho a conta e as preferências do perfil (a conta Stremio continua existindo)": "Some só desta TV. A conta continua vivinha da silva lá fora.",
+    "Para outra pessoa: mesma conta, histórico separado": IS_WEB ? "Para aquela pessoa que vive roubando o mouse" : "Para aquela pessoa que vive roubando o controle",
+    "Remove deste aparelho o histórico e as preferências do perfil (a conta Stremio continua)": "Some só daqui, com o histórico junto. A conta continua vivinha da silva.",
     'Apagar o perfil "{name}" desta TV?': 'Mandar "{name}" para o espaço? Sem volta, hein.',
     // Assistente
     "Bem-vindo! Quem vai usar este perfil?": "Opa, chegou! Quem é você na fila do pão?",
@@ -4880,7 +4880,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     "Conta Stremio": "Sua conta",
     "conta Stremio": "sua conta",
     "Atualizado": "Tudo fresquinho",
-    "Sair da conta Stremio?": "Sair da conta? A pipoca vai esfriar.",
+    "Sair da conta Stremio? Sai em todos os perfis.": "Sair da conta? Sai de todos os perfis, e a pipoca vai esfriar.",
     "Nenhum servidor encontrado. Ele está aberto no PC?": "Nada de servidor. Ele está aberto no PC mesmo?",
     "Servidor OK": "Servidor de boa ✓",
     "Aparência (Kai)": "Aparência",
@@ -5591,11 +5591,69 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     rawSet("activeProfile", id);
     return list3;
   }
+  var ACCOUNT_KEYS = ["auth", "addons", "library"];
+  function ensureSharedAccount(list3) {
+    if (rawGet("sharedAccount", false)) return list3;
+    var active = rawGet("activeProfile", null);
+    var withAuth = function withAuth(p) {
+      var a = rawGet(profileKey(p.id, "auth"), null);
+      return !!(a && a.authKey);
+    };
+    var owner2 = list3.filter(function (p) {
+      return p.id === active && withAuth(p);
+    })[0] || list3.filter(withAuth)[0] || null;
+    list3.forEach(function (p) {
+      if (owner2 && p.id === owner2.id) {
+        ACCOUNT_KEYS.forEach(function (k) {
+          return rawSet("account." + k, rawGet(profileKey(p.id, k), null));
+        });
+      } else {
+        var watch = {};
+        (rawGet(profileKey(p.id, "library"), []) || []).forEach(function (it) {
+          if (it && it._id && it.state && (it.state.timeOffset > 0 || it.state.lastWatched)) {
+            watch[it._id] = {
+              state: it.state,
+              name: it.name,
+              type: it.type,
+              poster: it.poster,
+              posterShape: it.posterShape
+            };
+          }
+        });
+        if (Object.keys(watch).length) rawSet(profileKey(p.id, "watch"), watch);
+      }
+      ACCOUNT_KEYS.forEach(function (k) {
+        return rawSet(profileKey(p.id, k), null);
+      });
+    });
+    var next = list3.map(function (p) {
+      return Object.assign({}, p, {
+        owner: !!(owner2 && p.id === owner2.id)
+      });
+    });
+    rawSet("profiles", next);
+    rawSet("sharedAccount", true);
+    return next;
+  }
   function profiles() {
-    return ensureProfiles();
+    return ensureSharedAccount(ensureProfiles());
+  }
+  function isAccountOwner() {
+    var me = activeProfile();
+    return !!me.owner || !profiles().some(function (p) {
+      return p.owner;
+    });
+  }
+  function claimAccount() {
+    if (profiles().some(function (p) {
+      return p.owner;
+    })) return;
+    updateProfile(activeProfile().id, {
+      owner: true
+    });
   }
   function activeProfile() {
-    var list3 = ensureProfiles();
+    var list3 = profiles();
     var id = rawGet("activeProfile", null);
     return list3.find(function (p) {
       return p.id === id;
@@ -5605,7 +5663,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     rawSet("activeProfile", id);
   }
   function addProfile(name, color) {
-    var list3 = ensureProfiles();
+    var list3 = profiles();
     var p = {
       id: "p" + Date.now().toString(36),
       name: name || "Perfil " + (list3.length + 1),
@@ -5616,27 +5674,42 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return p;
   }
   function updateProfile(id, patch) {
-    var list3 = ensureProfiles().map(function (p) {
+    var list3 = profiles().map(function (p) {
       return p.id === id ? Object.assign({}, p, patch) : p;
     });
     rawSet("profiles", list3);
   }
   function removeProfile(id) {
-    var list3 = ensureProfiles().filter(function (p) {
+    var all = profiles();
+    var gone = all.filter(function (p) {
+      return p.id === id;
+    })[0];
+    var list3 = all.filter(function (p) {
       return p.id !== id;
     });
     if (!list3.length) return false;
-    ["auth", "addons", "library", "settings"].forEach(function (k) {
+    ["watch", "settings"].forEach(function (k) {
       return rawSet(profileKey(id, k), null);
+    });
+    if (gone && gone.owner) list3[0] = Object.assign({}, list3[0], {
+      owner: true
     });
     rawSet("profiles", list3);
     if (rawGet("activeProfile", null) === id) rawSet("activeProfile", list3[0].id);
     return true;
   }
   function get(key, fallback) {
+    if (ACCOUNT_KEYS.indexOf(key) >= 0) {
+      profiles();
+      return rawGet("account." + key, fallback);
+    }
     return rawGet(profileKey(activeProfile().id, key), fallback);
   }
   function set(key, value) {
+    if (ACCOUNT_KEYS.indexOf(key) >= 0) {
+      profiles();
+      return rawSet("account." + key, value);
+    }
     rawSet(profileKey(activeProfile().id, key), value);
   }
   var DEVICE_KEYS = ["introSound", "serverUrl", "tmdbKey", "mdblistKey", "smoothScroll", "devlogUrl", "lastUpdateCheck", "askProfile", "wizardDone", "language", "screensaver"];
@@ -5700,7 +5773,20 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var auth = get("auth", null);
   function reloadProfile() {
     auth = get("auth", null);
-    libMem = null;
+    watchMem = null;
+    merged = null;
+  }
+  function flush3() {
+    if (libSaveTimer) {
+      clearTimeout(libSaveTimer);
+      libSaveTimer = null;
+      saveLibraryNow();
+    }
+    if (watchSaveTimer) {
+      clearTimeout(watchSaveTimer);
+      watchSaveTimer = null;
+      saveWatchNow();
+    }
   }
   function call(method, body) {
     return postJSON(API + method, body).then(function (res) {
@@ -5727,6 +5813,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       user: result.user || null
     };
     set("auth", auth);
+    claimAccount();
     return auth;
   }
   function login(email, password) {
@@ -5849,23 +5936,105 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
   var libMem = null;
   var libSaveTimer = null;
+  var watchMem = null;
+  var watchSaveTimer = null;
+  var merged = null;
+  var MAX_WATCH = 400;
+  function owner() {
+    return isAccountOwner();
+  }
   function setLibrary(list3) {
     libMem = list3;
+    merged = null;
     clearTimeout(libSaveTimer);
-    libSaveTimer = setTimeout(function () {
-      var slim = (libMem || []).filter(function (it) {
-        return !it.removed || it.temp || it.state && it.state.timeOffset > 0;
-      });
-      set("library", slim);
-    }, 1500);
+    libSaveTimer = setTimeout(saveLibraryNow, 1500);
   }
-  function cachedLibrary() {
+  function saveLibraryNow() {
+    libSaveTimer = null;
+    var slim = (libMem || []).filter(function (it) {
+      return !it.removed || it.temp || it.state && it.state.timeOffset > 0;
+    });
+    set("library", slim);
+  }
+  function accountLibrary() {
     if (!libMem) libMem = get("library", []);
     return libMem;
   }
-  function putLibraryItems(items2) {
-    var lib = cachedLibrary();
-    items2.forEach(function (it) {
+  function watchMap() {
+    if (!watchMem) watchMem = get("watch", {}) || {};
+    return watchMem;
+  }
+  function saveWatch() {
+    merged = null;
+    clearTimeout(watchSaveTimer);
+    watchSaveTimer = setTimeout(saveWatchNow, 1500);
+  }
+  function saveWatchNow() {
+    watchSaveTimer = null;
+    var all = watchMap();
+    var ids = Object.keys(all).sort(function (a, b) {
+      return String(all[b].state.lastWatched || "").localeCompare(String(all[a].state.lastWatched || ""));
+    });
+    ids.slice(MAX_WATCH).forEach(function (id) {
+      return delete all[id];
+    });
+    set("watch", all);
+  }
+  function cachedLibrary() {
+    if (owner()) return accountLibrary();
+    if (merged) return merged;
+    var watch = watchMap();
+    var seen = {};
+    merged = accountLibrary().map(function (it) {
+      seen[it._id] = true;
+      var w = watch[it._id];
+      return Object.assign({}, it, {
+        state: w ? w.state : newLibraryItem(it).state
+      });
+    });
+    Object.keys(watch).forEach(function (id) {
+      if (seen[id]) return;
+      var w = watch[id];
+      var it = newLibraryItem({
+        id: id,
+        name: w.name,
+        type: w.type,
+        poster: w.poster,
+        posterShape: w.posterShape
+      });
+      it.state = w.state;
+      merged.push(it);
+    });
+    return merged;
+  }
+  function putLibraryItems(items2, accountToo) {
+    var toAccount = items2;
+    if (!owner()) {
+      var watch = watchMap();
+      items2.forEach(function (it) {
+        if (it.state && (it.state.timeOffset > 0 || it.state.lastWatched)) {
+          watch[it._id] = {
+            state: it.state,
+            name: it.name,
+            type: it.type,
+            poster: it.poster,
+            posterShape: it.posterShape
+          };
+        }
+      });
+      saveWatch();
+      if (!accountToo) return Promise.resolve();
+      toAccount = items2.map(function (it) {
+        var acc = accountLibrary().filter(function (x) {
+          return x._id === it._id;
+        })[0];
+        return Object.assign({}, it, {
+          state: acc ? acc.state : newLibraryItem(it).state
+        });
+      });
+    }
+    var lib = accountLibrary();
+    toAccount.forEach(function (it) {
       var i = lib.findIndex(function (x) {
         return x._id === it._id;
       });
@@ -5876,7 +6045,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return call("datastorePut", {
       authKey: auth.authKey,
       collection: "libraryItem",
-      changes: items2
+      changes: toAccount
     }).catch(function (e) {
       log.warn("Falha ao salvar na biblioteca", e.message);
     });
@@ -5891,7 +6060,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
   function newLibraryItem(meta) {
     return {
-      _id: meta.id,
+      _id: meta.id || meta._id,
       name: meta.name || "",
       type: meta.type,
       poster: meta.poster || null,
@@ -5928,7 +6097,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     item.removed = !inLibrary;
     item.temp = false;
     item._mtime = nowIso();
-    return putLibraryItems([item]).then(function () {
+    return putLibraryItems([item], true).then(function () {
       return item;
     });
   }
@@ -6356,9 +6525,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "8580e2ed5e45766fec099a1b9f053e51a1e92093",
-    date: "2026-10-28T21:13:50+00:00",
-    message: "Build da dist/ para a TV"
+    commit: "0bccd67a3a7788cdb278606eaf2cb2cc2a11d567",
+    date: "2026-10-29T03:43:24+00:00",
+    message: "Seraflix para Fire TV Stick: app Android que se atualiza sozinho"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -6910,6 +7079,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
   }
   function switchProfile(id) {
+    flush3();
     setActiveProfile(id);
     session(SESSION_PICKED, "1");
     window.location.reload();
@@ -7018,7 +7188,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }), h("div.profile-row", {
       "data-group": ""
     }, cards), h("p.profile-hint", {
-      text: t("Cada perfil tem sua própria conta Stremio, com histórico e biblioteca separados.")
+      text: t("Todos usam a mesma conta Stremio; cada perfil tem o seu histórico.")
     })]);
     document.getElementById("app").appendChild(el2);
     var layer = pushLayer(el2, {
@@ -8249,7 +8419,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       grid.appendChild(c);
       return c;
     }
-    function flush3() {
+    function flush4() {
       var pool = buffer2;
       buffer2 = [];
       if (!pool.length) return;
@@ -8276,7 +8446,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         if (!fresh.length) ended = true;
         buffer2 = buffer2.concat(fresh);
         var before = count;
-        flush3();
+        flush4();
         busy2 = false;
         more.textContent = t("Carregar mais");
         moreWrap.style.display = ended ? "none" : "";
@@ -16734,7 +16904,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           });
         }));
       }
-      body.appendChild(row(t("Adicionar perfil"), t("Para outra pessoa, com outra conta Stremio"), "", function () {
+      body.appendChild(row(t("Adicionar perfil"), t("Para outra pessoa: mesma conta, histórico separado"), "", function () {
         return createProfile();
       }));
       if (allProfiles.length > 1) {
@@ -16744,7 +16914,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           });
           render();
         }, toggle2(s.askProfile)));
-        body.appendChild(row(t("Apagar este perfil"), t("Remove deste aparelho a conta e as preferências do perfil (a conta Stremio continua existindo)"), "", function () {
+        body.appendChild(row(t("Apagar este perfil"), t("Remove deste aparelho o histórico e as preferências do perfil (a conta Stremio continua)"), "", function () {
           return confirmDialog(t('Apagar o perfil "{name}" desta TV?', {
             name: prof.name
           }), t("Apagar"), function () {
@@ -16758,7 +16928,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }));
       if (isLoggedIn()) {
         var u = user();
-        body.appendChild(row(t("Conectado"), t("Addons e biblioteca sincronizados com a conta"), u && u.email || t("conta Stremio"), null));
+        body.appendChild(row(t("Conectado"), t("A mesma conta em todos os perfis; o que cada um assistiu fica separado"), u && u.email || t("conta Stremio"), null));
         body.appendChild(row(t("Atualizar addons e biblioteca"), t("Busca de novo a lista de addons instalados"), "", function () {
           Promise.all([load(true), getLibrary()]).then(function () {
             toast(t("Atualizado"));
@@ -16770,7 +16940,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           });
         }));
         body.appendChild(row(t("Sair da conta"), "", "", function () {
-          return confirmDialog(t("Sair da conta Stremio?"), t("Sair"), function () {
+          return confirmDialog(t("Sair da conta Stremio? Sai em todos os perfis."), t("Sair"), function () {
             logout();
             load(true).then(function () {
               dropTab("home");

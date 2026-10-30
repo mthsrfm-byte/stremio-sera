@@ -372,7 +372,7 @@ export function SettingsView() {
         )
       );
     }
-    body.appendChild(row(t('Adicionar perfil'), t('Para outra pessoa, com outra conta Stremio'), '', () => createProfile()));
+    body.appendChild(row(t('Adicionar perfil'), t('Para outra pessoa: mesma conta, histórico separado'), '', () => createProfile()));
     if (allProfiles.length > 1) {
       body.appendChild(
         row(t('Perguntar "Quem está assistindo?" ao abrir'), '', '', () => {
@@ -381,7 +381,7 @@ export function SettingsView() {
         }, toggle(s.askProfile))
       );
       body.appendChild(
-        row(t('Apagar este perfil'), t('Remove deste aparelho a conta e as preferências do perfil (a conta Stremio continua existindo)'), '', () =>
+        row(t('Apagar este perfil'), t('Remove deste aparelho o histórico e as preferências do perfil (a conta Stremio continua)'), '', () =>
           confirmDialog(t('Apagar o perfil "{name}" desta TV?', { name: prof.name }), t('Apagar'), () => {
             store.removeProfile(prof.id);
             switchProfile(store.activeProfile().id);
@@ -393,7 +393,7 @@ export function SettingsView() {
     body.appendChild(h('div.set-section', { text: t('Conta Stremio') }));
     if (stremio.isLoggedIn()) {
       const u = stremio.user();
-      body.appendChild(row(t('Conectado'), t('Addons e biblioteca sincronizados com a conta'), (u && u.email) || t('conta Stremio'), null));
+      body.appendChild(row(t('Conectado'), t('A mesma conta em todos os perfis; o que cada um assistiu fica separado'), (u && u.email) || t('conta Stremio'), null));
       body.appendChild(
         row(t('Atualizar addons e biblioteca'), t('Busca de novo a lista de addons instalados'), '', () => {
           Promise.all([addons.load(true), stremio.getLibrary()])
@@ -406,7 +406,7 @@ export function SettingsView() {
       );
       body.appendChild(
         row(t('Sair da conta'), '', '', () =>
-          confirmDialog(t('Sair da conta Stremio?'), t('Sair'), () => {
+          confirmDialog(t('Sair da conta Stremio? Sai em todos os perfis.'), t('Sair'), () => {
             stremio.logout();
             addons.load(true).then(() => {
               router.dropTab('home');

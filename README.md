@@ -29,7 +29,9 @@ mexendo até ficar com a minha cara, pensando em três coisas:
 - **Player que se vira.** Usa o player da própria TV (H.264, HEVC, HDR10), pula abertura e
   encerramento, escolhe legenda sozinho, emenda o próximo episódio na mesma fonte e reconecta se o
   vídeo travar.
-- **Perfis.** Tela de "Quem está assistindo?", cada perfil com a sua conta do Stremio.
+- **Perfis.** Tela de "Quem está assistindo?". Todos usam a mesma conta do Stremio (addons, debrid,
+  favoritos), mas cada perfil tem o seu histórico: "Continuar assistindo" e onde parou ficam separados.
+  O perfil que entrou na conta primeiro continua sincronizando o histórico com ela.
 - **Leve.** JavaScript simples, compilado para o navegador antigo das TVs; nada de WebAssembly.
 - **Se atualiza sozinho.** Cada mudança aqui no repositório chega na TV na próxima vez que o app abrir.
 

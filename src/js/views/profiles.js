@@ -1,9 +1,11 @@
 // Perfis: tela "Quem está assistindo?", avatar e troca de perfil.
-// Cada perfil tem sua própria conta Stremio (histórico, biblioteca, addons) e preferências.
+// Todos os perfis usam a mesma conta Stremio (addons, biblioteca); cada um tem o seu histórico
+// (o que assistiu e onde parou) e as suas preferências.
 import { LOGO_HTML } from '../lib/logo.js';
 import { h } from '../lib/dom.js';
 import * as nav from '../lib/nav.js';
 import * as store from '../lib/store.js';
+import * as stremio from '../api/stremio.js';
 import { t } from '../lib/i18n.js';
 
 const SESSION_PICKED = 'kai.profilePicked';
@@ -25,8 +27,9 @@ export function avatar(p, cls) {
   return h('div.avatar', { cls: cls || '', style: { backgroundColor: p.color || store.COLORS[0] }, text: initial });
 }
 
-// Troca de perfil recarregando o app: conta, biblioteca e addons do outro perfil entram limpos.
+// Troca de perfil recarregando o app: histórico e preferências do outro perfil entram limpos.
 export function switchProfile(id) {
+  stremio.flush(); // o histórico de quem estava assistindo não pode ficar para trás
   store.setActiveProfile(id);
   session(SESSION_PICKED, '1');
   window.location.reload();
@@ -119,7 +122,7 @@ export function showPicker(onPicked) {
     h('div.boot-logo', { html: LOGO_HTML }),
     h('h1', { text: t('Quem está assistindo?') }),
     h('div.profile-row', { 'data-group': '' }, cards),
-    h('p.profile-hint', { text: t('Cada perfil tem sua própria conta Stremio, com histórico e biblioteca separados.') }),
+    h('p.profile-hint', { text: t('Todos usam a mesma conta Stremio; cada perfil tem o seu histórico.') }),
   ]);
   document.getElementById('app').appendChild(el);
   const layer = nav.pushLayer(el, { onBack: () => pick(active.id) });
