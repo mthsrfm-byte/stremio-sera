@@ -10,6 +10,7 @@ import { log } from '../lib/log.js';
 import { getText, getJSON } from '../lib/http.js';
 import * as si from '../lib/streaminfo.js';
 import * as hlsplay from '../lib/hlsplay.js';
+import * as playlog from '../lib/playlog.js';
 import * as calendar from '../api/calendar.js';
 import * as server from '../api/server.js';
 import * as addons from '../api/addons.js';
@@ -177,6 +178,13 @@ function PlayerView(opts) {
   const tried = opts.stream ? [opts.stream] : [];
 
   const seriesInfo = () => (opts.isSeries ? { season: video.season, episode: video.episode } : null);
+  // Para o registro de plays (Ajustes → Sobre e depuração): o que é e de qual fonte.
+  const logTitle = () => (meta.name || '') + (opts.isSeries ? ' T' + video.season + 'E' + video.episode : '');
+  const logSource = () => {
+    if (!stream) return '';
+    const info = si.parse(stream);
+    return [info.addon, si.summary(info), info.cached ? t('em cache') : '', info.file].filter(Boolean).join(' · ');
+  };
 
   // Logo do título no canto (o nome escrito fica de reserva quando não tem logo, ex.: vídeos adultos).
   function setTitle() {
@@ -561,6 +569,7 @@ function PlayerView(opts) {
       scheduleAudioPick();
       // Abriu: é esta a fonte que o Smart Choice tenta primeiro ao continuar depois.
       if (meta.id !== 'dev') si.rememberStream(video.id, stream);
+      playlog.add(logTitle(), logSource(), 'ok', failedNotes.join('\n'));
     }
     hasPlayed = true;
     showSpinner(false);
@@ -933,6 +942,7 @@ function PlayerView(opts) {
     showSpinner(false);
     clear(msgEl);
     const reason = String(text || '').replace(/[.!\s]+$/, '').replace(/https?:\/\/\S+/g, (u) => (/:11470\b/.test(u) ? t('o servidor do PC') : t('o servidor')));
+    playlog.add(logTitle(), logSource(), 'erro', reason + (details ? '\n' + details : ''));
     const torrent = stream && server.needsServer(stream);
     const tip = torrent
       ? t('Esse torrent pode estar sem seeders ou o PC está lento para começar. Tente outra fonte.')

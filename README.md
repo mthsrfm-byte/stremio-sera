@@ -29,7 +29,9 @@ mexendo até ficar com a minha cara, pensando em três coisas:
 - **Player que se vira.** Usa o player da própria TV (H.264, HEVC, HDR10), pula abertura e
   encerramento, escolhe legenda sozinho, emenda o próximo episódio na mesma fonte e reconecta se o
   vídeo travar.
-- **Perfis.** Tela de "Quem está assistindo?", cada perfil com a sua conta do Stremio.
+- **Perfis.** Tela de "Quem está assistindo?". Todos usam a mesma conta do Stremio (addons, debrid,
+  favoritos), mas cada perfil tem o seu histórico: "Continuar assistindo" e onde parou ficam separados.
+  O perfil que entrou na conta primeiro continua sincronizando o histórico com ela.
 - **Leve.** JavaScript simples, compilado para o navegador antigo das TVs; nada de WebAssembly.
 - **Se atualiza sozinho.** Cada mudança aqui no repositório chega na TV na próxima vez que o app abrir.
 
@@ -69,6 +71,45 @@ mthsrfm-byte/stremio-sera
   **127.0.0.1**. Atualização de firmware ou reset de fábrica desligam isso.
 - **Um vídeo não toca:** tente uma fonte direta (debrid) ou confira se o stremio-service está
   aberto no computador, no caso de torrents.
+
+## No Fire TV Stick
+
+O Seraflix também roda no **Fire TV Stick** (Fire OS 5 em diante), como um app Android.
+
+1. No Fire TV: **Configurações → Minha Fire TV → Opções do desenvolvedor** e ligue
+   **Apps de fontes desconhecidas** (ou, no Fire OS 7, libere o app *Downloader* em
+   "Instalar apps desconhecidos"). Se "Opções do desenvolvedor" não aparecer, entre em
+   **Minha Fire TV → Sobre** e clique 7 vezes no nome do aparelho.
+2. Instale o app **Downloader** (da loja da Amazon), abra e digite o link:
+   ```
+   https://github.com/mthsrfm-byte/stremio-sera/releases/download/firetv/Seraflix-FireTV.apk
+   ```
+3. Instale e abra o **Seraflix** (fica em "Seus apps e canais").
+
+**Se atualiza sozinho:** toda vez que abre, ele confere a `main` do GitHub e baixa só o que mudou
+(a pasta `dist-firetv/`, que a Action gera a cada push). O APK em si só precisa ser instalado de
+novo quando a pasta `android/` mudar, e o novo instala por cima, sem perder nada.
+
+Diferenças em relação à TV Samsung:
+
+- **Sem conteúdo adulto.** Não tem aba NSFW, e os addons adultos da conta ficam escondidos de tudo.
+- **Smart Choice pensado para o stick.** Com Real-Debrid, a prioridade é fonte em cache e **dublada**;
+  sem dublagem, a que toca liso no stick: 1080p (4K e remux só pesam numa tela 1080p), H.264 com
+  áudio AAC, arquivo de tamanho moderado, sem Dolby Vision, DTS ou TrueHD. **Sem Real-Debrid**, vai
+  de torrent pelo stremio-service do PC (dublado e bem semeado primeiro, arquivos menores na
+  frente) e, sem o PC, de link direto.
+- **Agenda desligada.** Liga colando o link iCal em Ajustes.
+- **Controle:** setas, OK e Voltar como na Samsung; ⏯, ⏪ e ⏩ no player; **☰ (Menu)** favorita
+  o título em foco, como a tecla amarela.
+- **Não tem** o controle pelo celular (ele depende do serviço do TizenBrew).
+
+Para gerar o APK localmente: `npm run build:firetv && ANDROID_HOME=... android/build.sh`
+(precisa do Android SDK com `build-tools;35.0.0` e `platforms;android-34`). O APK só instala por cima
+do anterior se for assinado com a mesma chave, que fica fora do repositório: crie uma
+(`keytool -genkeypair -keystore seraflix.jks -alias seraflix -keyalg RSA -validity 36500`) e
+guarde nos segredos do GitHub `FIRETV_KEYSTORE_B64` (o arquivo em base64) e
+`FIRETV_KEYSTORE_PASSWORD`. Sem eles, cada APK sai com uma chave temporária e, para instalar um
+novo, é preciso desinstalar o anterior.
 
 ---
 

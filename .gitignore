@@ -6,3 +6,7 @@ site/
 .claude/
 .agents/
 skills-lock.json
+android/build/
+# Chave de assinatura do APK: nunca no repositório (é público)
+*.jks
+*.keystore

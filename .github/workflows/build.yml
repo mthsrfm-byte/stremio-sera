@@ -1,5 +1,6 @@
-# A cada push na main: gera a dist/ (que é o que a TV roda), faz commit dela se mudou
-# e limpa o cache do jsDelivr, para o TizenBrew pegar a versão nova na próxima vez que abrir.
+# A cada push na main: gera a dist/ (que é o que a TV roda) e a dist-firetv/ (que o app do Fire TV
+# baixa ao abrir), faz commit delas se mudaram e limpa o cache do jsDelivr, para o TizenBrew pegar
+# a versão nova na próxima vez que abrir.
 name: Build e publicar na TV
 
 on:
@@ -41,10 +42,12 @@ jobs:
           case "$MSG" in "Merge pull request"*) B="$(git log -1 --format=%b | head -1)"; [ -n "$B" ] && MSG="$B";; esac
           export KAI_COMMIT_MSG="$MSG"
           npm run build
+          # Fire TV: sem o link da agenda embutido (lá ela começa desligada).
+          KAI_CALENDAR= npm run build:firetv
 
-      - name: Commit da dist/ se mudou
+      - name: Commit da dist/ e da dist-firetv/ se mudaram
         run: |
-          git add -A dist
+          git add -A dist dist-firetv
           # Push feito com o GITHUB_TOKEN não dispara a Action de novo, então não entra em loop.
           if git diff --cached --quiet; then
             echo "dist/ já está em dia."

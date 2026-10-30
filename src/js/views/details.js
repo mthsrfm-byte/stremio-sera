@@ -16,6 +16,7 @@ import * as si from '../lib/streaminfo.js';
 import * as nsfwSaved from '../lib/nsfwSaved.js';
 import * as store from '../lib/store.js';
 import { genreName } from '../lib/genres.js';
+import * as playlog from '../lib/playlog.js';
 import { openFilmography } from './filmography.js';
 
 // Logos das notas (SVG pequeno, sem depender de imagem externa).
@@ -448,18 +449,13 @@ function DetailsView(type, id, opts) {
       if (st || !alive) return;
       showStreams(video, true);
       const torrentsOnly = all.length && all.every((x) => server.needsServer(x));
-      setTimeout(
-        () =>
-          toast(
-            !all.length
-              ? t('Nenhuma fonte encontrada para este título.')
-              : torrentsOnly && !server.isAvailable()
-                ? t('As fontes deste título são torrent: precisam do servidor do PC ligado.')
-                : t('Nenhuma fonte deste título abre na TV.'),
-            6000
-          ),
-        400
-      );
+      const why = !all.length
+        ? t('Nenhuma fonte encontrada para este título.')
+        : torrentsOnly && !server.isAvailable()
+          ? t('As fontes deste título são torrent: precisam do servidor do PC ligado.')
+          : t('Nenhuma fonte deste título abre na TV.');
+      playlog.add(meta.name + (isSeries() ? ' T' + video.season + 'E' + video.episode : ''), t('{n} fonte(s) de {a} addon(s)', { n: all.length, a: srcs.length }), 'sem fonte', why);
+      setTimeout(() => toast(why, 6000), 400);
     });
     play(video, null, all, pick);
   }

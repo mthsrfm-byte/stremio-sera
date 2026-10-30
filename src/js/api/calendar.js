@@ -7,6 +7,7 @@ import * as store from '../lib/store.js';
 import { log } from '../lib/log.js';
 import { IS_WEB } from '../lib/platform.js';
 
+// No Fire TV quem atende esse endereço é o próprio app Android (baixa a agenda sem CORS).
 const SERVICE = 'http://127.0.0.1:8092/api/cal?u=';
 const REFRESH_MS = 5 * 60 * 1000;
 // Cor de cada agenda (na ordem dos links em Ajustes).

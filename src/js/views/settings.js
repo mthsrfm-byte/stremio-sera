@@ -4,7 +4,8 @@ import * as nav from '../lib/nav.js';
 import * as store from '../lib/store.js';
 import { log } from '../lib/log.js';
 import { deviceInfo } from '../lib/tv.js';
-import { IS_WEB } from '../lib/platform.js';
+import { IS_WEB, IS_FIRETV, HAS_TV_SERVICE, android } from '../lib/platform.js';
+import * as playlog from '../lib/playlog.js';
 import * as substyle from '../lib/substyle.js';
 import * as update from '../api/update.js';
 import * as phoneRemote from '../api/phoneRemote.js';
@@ -18,10 +19,10 @@ import * as reco from '../api/recommend.js';
 import * as intro from '../lib/intro.js';
 import * as screensaver from '../lib/screensaver.js';
 import { getJSON, recentErrors } from '../lib/http.js';
-import { topbar, toast, menu, confirmDialog, refreshProfileChips, refreshTabs } from '../ui.js';
+import { topbar, toast, menu, confirmDialog, refreshProfileChips, refreshTabs, timeHM } from '../ui.js';
 import * as router from '../router.js';
 import { openLogin } from './login.js';
-import { avatar, switchProfile, createProfile } from './profiles.js';
+import { avatar, avatarStyle, switchProfile, createProfile, canAddProfile, chooseColor } from './profiles.js';
 import { t } from '../lib/i18n.js';
 import * as pinLock from './pin.js';
 import { themeOf, applyTheme } from '../lib/theme.js';
@@ -306,7 +307,14 @@ export function SettingsView() {
     // ---- Atualizações (direto do GitHub, sem fechar o app; na web o site já é atualizado sozinho) ----
     if (!IS_WEB) {
       body.appendChild(h('div.set-section', { text: t('Atualizações') }));
-      body.appendChild(row(t('Procurar atualização'), updateStatus || t('Busca a versão mais nova no GitHub ({repo})', { repo: update.REPO }), '', () => checkForUpdate()));
+      // Fire TV: o app Android baixa a versão nova sozinho ao abrir; aqui dá para forçar agora.
+      if (IS_FIRETV) body.appendChild(row(t('Procurar atualização'), t('O app se atualiza sozinho ao abrir; aqui busca agora no GitHub ({repo})', { repo: update.REPO }), '', () => {
+        const a = android();
+        if (!a) return toast(t('Só no app do Fire TV'));
+        toast(t('Procurando atualização...'), 15000);
+        a.checkUpdate();
+      }));
+      else body.appendChild(row(t('Procurar atualização'), updateStatus || t('Busca a versão mais nova no GitHub ({repo})', { repo: update.REPO }), '', () => checkForUpdate()));
       const b = update.BUILD;
       body.appendChild(
         row(
@@ -317,16 +325,20 @@ export function SettingsView() {
         )
       );
     }
-    if (device && !IS_WEB) body.appendChild(row(t('TV'), '', device, null));
+    if (device && !IS_WEB) body.appendChild(row(t(IS_FIRETV ? 'Aparelho' : 'TV'), '', device, null));
 
-    // ---- Perfil (cada perfil tem sua conta Stremio, histórico e preferências) ----
+    // ---- Perfil (a conta Stremio é de todos; cada perfil tem o seu histórico e preferências) ----
     const prof = store.activeProfile();
     const allProfiles = store.profiles();
     body.appendChild(h('div.set-section', { text: t('Perfil') }));
-    const nameInput = h('input.input', { type: 'text', value: prof.name });
+    const nameInput = h('input.input', { type: 'text', value: prof.name, maxlength: '20' });
     nameInput.__submit = (v) => {
-      const name = v.trim();
-      if (!name) return;
+      const name = v.trim().slice(0, 20);
+      if (!name || name === prof.name) return;
+      if (allProfiles.some((p) => p.id !== prof.id && p.name.toLowerCase() === name.toLowerCase())) {
+        nameInput.value = prof.name;
+        return toast(t('Já existe um perfil com esse nome.'));
+      }
       store.updateProfile(prof.id, { name: name });
       refreshProfileChips();
       toast(t('Nome do perfil salvo'));
@@ -334,38 +346,32 @@ export function SettingsView() {
     };
     body.appendChild(
       h('div.set-row', { focusable: true, onSelect: () => nav.select(nameInput) }, [
-        h('div.label', null, [avatar(prof, 'small'), ' ' + t('Nome do perfil'), h('small', { text: t('Este perfil usa a conta Stremio abaixo') })]),
+        h('div.label', null, [avatar(prof, 'small'), ' ' + t('Nome do perfil'), h('small', { text: t('Aparece em "Quem está assistindo?"') })]),
         nameInput,
       ])
     );
     body.appendChild(
-      row(t('Cor do perfil'), '', '', () =>
-        menu(
-          t('Cor do perfil'),
-          store.COLORS.map((c, i) => ({ label: [t('Roxo'), t('Rosa'), t('Verde-água'), t('Laranja'), t('Azul'), t('Vermelho'), t('Verde'), t('Cinza')][i], value: c, checked: c === prof.color })),
-          {
-            onPick: (c) => {
-              store.updateProfile(prof.id, { color: c });
-              refreshProfileChips();
-              render();
-            },
-          }
-        ),
-        h('div.avatar.small', { style: { backgroundColor: prof.color }, text: ' ' })
+      row(t('Cor do perfil'), prof.colorPicked ? '' : t('Sorteada ao criar o perfil'), '', () =>
+        chooseColor(prof, () => {
+          refreshProfileChips();
+          render();
+        }),
+        h('div.avatar.small', { style: avatarStyle(prof.color), text: ' ' })
       )
     );
     if (allProfiles.length > 1) {
       body.appendChild(
-        row(t('Trocar de perfil'), t('{n} perfis nesta TV', { n: allProfiles.length }), '', () =>
+        row(t('Trocar de perfil'), t('{n} perfis neste aparelho', { n: allProfiles.length }), '', () =>
           menu(
             t('Trocar de perfil'),
-            allProfiles.map((p) => ({ label: p.name, value: p.id, checked: p.id === prof.id })),
+            allProfiles.map((p) => ({ label: [avatar(p, 'swatch'), p.name], value: p.id, checked: p.id === prof.id })),
             { onPick: (id) => id !== prof.id && switchProfile(id) }
           )
         )
       );
     }
-    body.appendChild(row(t('Adicionar perfil'), t('Para outra pessoa, com outra conta Stremio'), '', () => createProfile()));
+    if (canAddProfile()) body.appendChild(row(t('Adicionar perfil'), t('Para outra pessoa: mesma conta, histórico separado'), '', () => createProfile()));
+    else body.appendChild(row(t('Adicionar perfil'), t('Limite de {n} perfis: apague um para criar outro', { n: store.MAX_PROFILES }), '', null));
     if (allProfiles.length > 1) {
       body.appendChild(
         row(t('Perguntar "Quem está assistindo?" ao abrir'), '', '', () => {
@@ -374,8 +380,8 @@ export function SettingsView() {
         }, toggle(s.askProfile))
       );
       body.appendChild(
-        row(t('Apagar este perfil'), t('Remove deste aparelho a conta e as preferências do perfil (a conta Stremio continua existindo)'), '', () =>
-          confirmDialog(t('Apagar o perfil "{name}" desta TV?', { name: prof.name }), t('Apagar'), () => {
+        row(t('Apagar este perfil'), t('Remove deste aparelho o histórico e as preferências do perfil (a conta Stremio continua)'), '', () =>
+          confirmDialog(t('Apagar o perfil "{name}"? O histórico dele some deste aparelho.', { name: prof.name }), t('Apagar'), () => {
             store.removeProfile(prof.id);
             switchProfile(store.activeProfile().id);
           })
@@ -386,7 +392,7 @@ export function SettingsView() {
     body.appendChild(h('div.set-section', { text: t('Conta Stremio') }));
     if (stremio.isLoggedIn()) {
       const u = stremio.user();
-      body.appendChild(row(t('Conectado'), t('Addons e biblioteca sincronizados com a conta'), (u && u.email) || t('conta Stremio'), null));
+      body.appendChild(row(t('Conectado'), t('A mesma conta em todos os perfis; o que cada um assistiu fica separado'), (u && u.email) || t('conta Stremio'), null));
       body.appendChild(
         row(t('Atualizar addons e biblioteca'), t('Busca de novo a lista de addons instalados'), '', () => {
           Promise.all([addons.load(true), stremio.getLibrary()])
@@ -399,7 +405,7 @@ export function SettingsView() {
       );
       body.appendChild(
         row(t('Sair da conta'), '', '', () =>
-          confirmDialog(t('Sair da conta Stremio?'), t('Sair'), () => {
+          confirmDialog(t('Sair da conta Stremio? Sai em todos os perfis.'), t('Sair'), () => {
             stremio.logout();
             addons.load(true).then(() => {
               router.dropTab('home');
@@ -462,7 +468,7 @@ export function SettingsView() {
         })
       )
     );
-    if (!IS_WEB) body.appendChild(row(t('Testar torrent na TV (sem o PC)'), t('Mede se a própria TV aguenta baixar torrent: Node, memória, rede e disco'), '', () => torrentTest()));
+    if (HAS_TV_SERVICE) body.appendChild(row(t('Testar torrent na TV (sem o PC)'), t('Mede se a própria TV aguenta baixar torrent: Node, memória, rede e disco'), '', () => torrentTest()));
 
     body.appendChild(h('div.set-section', { text: t('Aparência (Kai)') }));
     const heroName = t((hero.SOURCES.find((x) => x.id === s.heroSource) || hero.SOURCES[0]).name);
@@ -526,7 +532,7 @@ export function SettingsView() {
 
     body.appendChild(h('div.set-section', { text: t('Reprodução') }));
     body.appendChild(
-      row(t('Smart Choice'), t('Ao escolher um episódio, já abre a melhor fonte: original + dublado, boa qualidade e bem semeada'), '', () => {
+      row(t('Smart Choice'), IS_FIRETV ? t('Ao escolher um episódio, já abre a melhor fonte: Real-Debrid dublado primeiro; senão a que toca liso no Fire TV (1080p, sem 4K pesado)') : t('Ao escolher um episódio, já abre a melhor fonte: original + dublado, boa qualidade e bem semeada'), '', () => {
         store.saveSettings({ smartChoice: store.settings().smartChoice === false });
         render();
       }, toggle(s.smartChoice !== false))
@@ -673,7 +679,7 @@ export function SettingsView() {
         menu(t('Addons ativos'), list.map((a) => ({ label: a.manifest.name || a.manifest.id, sub: a.transportUrl })), {})
       )
     );
-    if (!IS_WEB) nsfwSection(list); // os addons adultos vêm do serviço da TV
+    if (HAS_TV_SERVICE) nsfwSection(list); // os addons adultos vêm do serviço da TV (no Fire TV ficam escondidos)
     // Addons recomendados (só aparecem se ainda não estiverem instalados).
     RECOMMENDED.filter((r) => !list.some((a) => a.transportUrl === r.url || (a.manifest && a.manifest.id === r.id))).forEach((r) =>
       body.appendChild(row(t('Instalar {name}', { name: r.name }), t(r.desc), '', () => installFromUrl(r.url, r.name)))
@@ -699,7 +705,7 @@ export function SettingsView() {
     );
 
     // ---- Controle pelo celular (só na TV: o serviço do Seraflix roda nela) ----
-    if (!IS_WEB) {
+    if (HAS_TV_SERVICE) {
       body.appendChild(h('div.set-section', { text: t('Controle no celular') }));
       body.appendChild(row(t('Abrir o controle no celular'), t('Mostra um QR code: é só apontar a câmera'), '', () => showPhoneRemote()));
     }
@@ -708,6 +714,22 @@ export function SettingsView() {
     body.appendChild(h('div.set-section', { text: t('Sobre e depuração') }));
     body.appendChild(row(t('Testar conexão'), t(IS_WEB ? 'Coisas não carregam? Veja qual servidor este aparelho não alcança' : 'Coisas não carregam? Veja qual servidor a TV não alcança'), '', () => showNetworkCheck()));
     body.appendChild(row(t('Último trailer'), t('Resultado do trailer na aba Recomendado'), reco.getTrailerReport() || t('nenhum ainda'), null));
+    const plays = playlog.list();
+    const lastPlay = plays[0];
+    body.appendChild(
+      row(t('Últimos plays'), t('O que tocou e o que não tocou, com o motivo'), lastPlay ? (lastPlay.result === 'ok' ? '✓ ' : '✗ ') + lastPlay.title : t('nenhum ainda'), () =>
+        menu(
+          t('Últimos plays'),
+          plays.map((x, i) => ({
+            label: (x.result === 'ok' ? '✓ ' : '✗ ') + x.title,
+            sub: [timeHM(new Date(x.at)) + ' · ' + (x.result === 'ok' ? t('tocou') : x.result === 'erro' ? t('não tocou') : t('sem fonte')), x.source, x.details].filter(Boolean).join('\n'),
+            value: i,
+            wrap: true,
+          })),
+          { empty: t('Nenhum play ainda.') }
+        )
+      )
+    );
     const logInput = h('input.input', { type: 'text', value: s.devlogUrl || '', placeholder: 'http://IP-DO-PC:8099/log' });
     logInput.__submit = (v) => {
       store.saveSettings({ devlogUrl: v.trim() });
