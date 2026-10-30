@@ -11,6 +11,7 @@ let auth = store.get('auth', null); // { authKey, user }: a conta é a mesma par
 
 // Recarrega conta, biblioteca e histórico do perfil ativo (chamado ao escolher o perfil na abertura).
 export function reloadProfile() {
+  flush(); // o que ainda estava para gravar é do perfil anterior
   auth = store.get('auth', null);
   watchMem = null;
   merged = null;
@@ -56,7 +57,6 @@ export function authKey() {
 function saveAuth(result) {
   auth = { authKey: result.authKey, user: result.user || null };
   store.set('auth', auth);
-  store.claimAccount(); // primeiro login do aparelho: este perfil fica com o histórico da conta
   return auth;
 }
 
@@ -157,6 +157,7 @@ export function getLibrary() {
 let libMem = null;
 let libSaveTimer = null;
 let watchMem = null; // { id: { state, name, type, poster, posterShape } } de um perfil que não é o dono
+let watchProfile = null; // de qual perfil é o watchMem (o salvamento atrasado grava nele)
 let watchSaveTimer = null;
 let merged = null;
 const MAX_WATCH = 400;
@@ -185,7 +186,10 @@ function accountLibrary() {
 }
 
 function watchMap() {
-  if (!watchMem) watchMem = store.get('watch', {}) || {};
+  if (!watchMem) {
+    watchMem = store.get('watch', {}) || {};
+    watchProfile = store.activeProfile().id;
+  }
   return watchMem;
 }
 
@@ -200,7 +204,7 @@ function saveWatchNow() {
   const all = watchMap();
   const ids = Object.keys(all).sort((a, b) => String(all[b].state.lastWatched || '').localeCompare(String(all[a].state.lastWatched || '')));
   ids.slice(MAX_WATCH).forEach((id) => delete all[id]);
-  store.set('watch', all);
+  store.setFor(watchProfile, 'watch', all);
 }
 
 export function cachedLibrary() {
@@ -208,11 +212,14 @@ export function cachedLibrary() {
   if (merged) return merged;
   const watch = watchMap();
   const seen = {};
-  // Itens da conta com o histórico deste perfil (ou zerado, se ele nunca assistiu).
+  // Itens da conta com o histórico deste perfil (ou zerado, se ele nunca assistiu). Tirado da
+  // biblioteca por alguém (removed) mas com progresso deste perfil: continua no "Continuar
+  // assistindo" dele, como um item que nunca foi favoritado (temp).
   merged = accountLibrary().map((it) => {
     seen[it._id] = true;
     const w = watch[it._id];
-    return Object.assign({}, it, { state: w ? w.state : newLibraryItem(it).state });
+    if (!w) return Object.assign({}, it, { state: newLibraryItem(it).state });
+    return Object.assign({}, it, { state: w.state, temp: it.temp || !!it.removed });
   });
   // O que só este perfil assistiu (fora da biblioteca da conta).
   Object.keys(watch).forEach((id) => {

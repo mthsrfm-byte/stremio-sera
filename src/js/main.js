@@ -78,10 +78,13 @@ function boot() {
     });
   } else start();
 
-  // Ao voltar do segundo plano, revalida o servidor do PC.
+  // Ao voltar do segundo plano, revalida o servidor do PC. Ao sair (Home do controle, fechar o
+  // app), grava já o progresso que ainda esperava o atraso de 1,5 s.
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) server.check();
+    else stremio.flush();
   });
+  window.addEventListener('pagehide', () => stremio.flush());
 }
 
 // Carrega o perfil escolhido: conta, biblioteca, addons e a tela inicial.

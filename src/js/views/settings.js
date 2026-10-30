@@ -331,10 +331,14 @@ export function SettingsView() {
     const prof = store.activeProfile();
     const allProfiles = store.profiles();
     body.appendChild(h('div.set-section', { text: t('Perfil') }));
-    const nameInput = h('input.input', { type: 'text', value: prof.name });
+    const nameInput = h('input.input', { type: 'text', value: prof.name, maxlength: '20' });
     nameInput.__submit = (v) => {
-      const name = v.trim();
-      if (!name) return;
+      const name = v.trim().slice(0, 20);
+      if (!name || name === prof.name) return;
+      if (allProfiles.some((p) => p.id !== prof.id && p.name.toLowerCase() === name.toLowerCase())) {
+        nameInput.value = prof.name;
+        return toast(t('Já existe um perfil com esse nome.'));
+      }
       store.updateProfile(prof.id, { name: name });
       refreshProfileChips();
       toast(t('Nome do perfil salvo'));

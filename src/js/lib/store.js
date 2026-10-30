@@ -97,10 +97,12 @@ const ACCOUNT_KEYS = ['auth', 'addons', 'library'];
 // - perfil que estava em OUTRA conta leva o histórico dela (era só dele);
 // - perfil que estava na MESMA conta (mesmo e-mail, logado duas vezes) começa limpo: o histórico
 //   daquela conta é o mesmo do dono, misturado, e fica com o dono.
-function accountId(a) {
-  const u = a && a.user;
-  if (!u) return '';
-  return String(u._id || u.email || '').toLowerCase();
+// Mesma conta: mesmo id de usuário ou mesmo e-mail (um login pode ter guardado só um dos dois).
+function sameAccount(a, b) {
+  const x = (a && a.user) || {};
+  const y = (b && b.user) || {};
+  if (x._id && y._id) return x._id === y._id;
+  return !!(x.email && y.email && String(x.email).toLowerCase() === String(y.email).toLowerCase());
 }
 
 function ensureSharedAccount(list) {
@@ -110,11 +112,11 @@ function ensureSharedAccount(list) {
     const a = authOf(p);
     return !!(a && a.authKey);
   })[0] || null;
-  const ownerId = owner ? accountId(authOf(owner)) : '';
+  const ownerAuth = owner ? authOf(owner) : null;
   list.forEach((p) => {
     if (owner && p.id === owner.id) {
       ACCOUNT_KEYS.forEach((k) => rawSet('account.' + k, rawGet(profileKey(p.id, k), null)));
-    } else if (!(ownerId && accountId(authOf(p)) === ownerId)) {
+    } else if (!sameAccount(authOf(p), ownerAuth)) {
       const watch = {};
       (rawGet(profileKey(p.id, 'library'), []) || []).forEach((it) => {
         if (it && it._id && it.state && (it.state.timeOffset > 0 || it.state.lastWatched)) {
@@ -126,7 +128,7 @@ function ensureSharedAccount(list) {
     ACCOUNT_KEYS.forEach((k) => rawSet(profileKey(p.id, k), null));
   });
   const next = list.map((p) => Object.assign({}, p, { owner: !!(owner && p.id === owner.id) }));
-  rawSet('profiles', next);
+  saveProfiles(next);
   rawSet('sharedAccount', true);
   return next;
 }
@@ -142,48 +144,63 @@ function ensureRandomColors(list) {
     taken.push(c);
     return Object.assign({}, p, { color: c });
   });
-  rawSet('profiles', next);
+  saveProfiles(next);
   rawSet('randomColors', true);
   return next;
 }
 
+// Sempre exatamente um dono (o histórico da conta precisa ser de alguém): sem dono, o primeiro.
+function ensureOwner(list) {
+  const owners = list.filter((p) => p.owner);
+  if (owners.length === 1) return list;
+  const keep = owners[0] || list[0];
+  const next = list.map((p) => Object.assign({}, p, { owner: p.id === keep.id }));
+  saveProfiles(next);
+  return next;
+}
+
+// A lista fica em memória: perfis são lidos a cada get/set (vários por cartão na tela), e reler e
+// converter o JSON toda vez pesava na TV. Só este módulo grava a lista (saveProfiles).
+let listMem = null;
+let activeMem;
+
+function saveProfiles(list) {
+  listMem = list;
+  rawSet('profiles', list);
+}
+
 export function profiles() {
-  return ensureRandomColors(ensureSharedAccount(ensureProfiles()));
+  if (!listMem) listMem = ensureOwner(ensureRandomColors(ensureSharedAccount(ensureProfiles())));
+  return listMem;
 }
 
 // O perfil dono da conta Stremio: o histórico dele é o da conta (sincroniza com o celular, o PC...).
-// Sem dono ainda (ninguém entrou na conta), quem entrar primeiro vira o dono.
+// Os outros perfis guardam o que assistiram só neste aparelho.
 export function isAccountOwner() {
-  const me = activeProfile();
-  return !!me.owner || !profiles().some((p) => p.owner);
-}
-
-export function claimAccount() {
-  if (profiles().some((p) => p.owner)) return;
-  updateProfile(activeProfile().id, { owner: true });
+  return !!activeProfile().owner;
 }
 
 export function activeProfile() {
   const list = profiles();
-  const id = rawGet('activeProfile', null);
-  return list.find((p) => p.id === id) || list[0];
+  if (activeMem === undefined) activeMem = rawGet('activeProfile', null);
+  return list.find((p) => p.id === activeMem) || list[0];
 }
 
 export function setActiveProfile(id) {
+  activeMem = id;
   rawSet('activeProfile', id);
 }
 
 export function addProfile(name, color) {
-  const list = profiles();
+  const list = profiles().slice();
   const p = { id: 'p' + Date.now().toString(36), name: name || 'Perfil ' + (list.length + 1), color: color || randomColor(list.map((x) => x.color)) };
   list.push(p);
-  rawSet('profiles', list);
+  saveProfiles(list);
   return p;
 }
 
 export function updateProfile(id, patch) {
-  const list = profiles().map((p) => (p.id === id ? Object.assign({}, p, patch) : p));
-  rawSet('profiles', list);
+  saveProfiles(profiles().map((p) => (p.id === id ? Object.assign({}, p, patch) : p)));
 }
 
 // Cor escolhida pela pessoa: a partir daí ela não é mais sorteada.
@@ -196,17 +213,25 @@ export function removeProfile(id) {
   const gone = all.filter((p) => p.id === id)[0];
   const list = all.filter((p) => p.id !== id);
   if (!list.length) return false;
-  ['watch', 'settings'].forEach((k) => rawSet(profileKey(id, k), null));
+  // Tudo o que é do perfil: histórico, preferências, fonte da última vez, favoritos adultos...
+  try {
+    const prefix = PREFIX + profileKey(id, '');
+    const keys = [];
+    for (let i = 0; i < window.localStorage.length; i++) keys.push(window.localStorage.key(i));
+    keys.forEach((k) => k && k.indexOf(prefix) === 0 && window.localStorage.removeItem(k));
+  } catch (e) {
+    /* armazenamento bloqueado */
+  }
   // Apagou o dono: o próximo perfil passa a usar o histórico da conta.
   if (gone && gone.owner) list[0] = Object.assign({}, list[0], { owner: true });
-  rawSet('profiles', list);
-  if (rawGet('activeProfile', null) === id) rawSet('activeProfile', list[0].id);
+  saveProfiles(list);
+  if (activeProfile().id === id || !list.some((p) => p.id === activeMem)) setActiveProfile(list[0].id);
   return true;
 }
 
-// Lê/grava dados de um perfil que não é o ativo (ex.: login de outro perfil).
-export function getFor(profileId, key, fallback) {
-  return rawGet(profileKey(profileId, key), fallback);
+// Grava um dado de um perfil específico (um salvamento atrasado não pode cair no perfil errado).
+export function setFor(profileId, key, value) {
+  rawSet(profileKey(profileId, key), value);
 }
 
 // ---------- Dados do perfil ativo (a conta é de todos) ----------

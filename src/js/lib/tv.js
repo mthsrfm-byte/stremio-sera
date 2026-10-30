@@ -1,7 +1,9 @@
 // Integração com a TV Samsung (Tizen) ou com o app Android do Fire TV: sair do app, IP e modelo.
 import { android } from './platform.js';
+import { flush } from '../api/stremio.js';
 
 export function platformBack() {
+  flush(); // o progresso ainda não gravado não pode se perder ao sair
   const a = android();
   if (a) return a.exit();
   try {

@@ -69,7 +69,8 @@ export function avatarStyle(color) {
 }
 
 export function avatar(p, cls) {
-  const initial = String(p.name || '?').trim().charAt(0).toUpperCase() || '?';
+  // Primeiro caractere inteiro (um emoji ocupa dois "caracteres" no JavaScript).
+  const initial = (String(p.name || '').trim().match(/[\uD800-\uDBFF][\uDC00-\uDFFF]|[\s\S]/) || ['?'])[0].toUpperCase();
   return h('div.avatar', { cls: cls || '', style: avatarStyle(p.color || store.COLORS[0]), text: initial });
 }
 

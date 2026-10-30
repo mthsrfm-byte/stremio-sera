@@ -5643,10 +5643,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return list4;
   }
   var ACCOUNT_KEYS = ["auth", "addons", "library"];
-  function accountId(a) {
-    var u = a && a.user;
-    if (!u) return "";
-    return String(u._id || u.email || "").toLowerCase();
+  function sameAccount(a, b) {
+    var x = a && a.user || {};
+    var y = b && b.user || {};
+    if (x._id && y._id) return x._id === y._id;
+    return !!(x.email && y.email && String(x.email).toLowerCase() === String(y.email).toLowerCase());
   }
   function ensureSharedAccount(list4) {
     if (rawGet("sharedAccount", false)) return list4;
@@ -5657,13 +5658,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var a = authOf(p);
       return !!(a && a.authKey);
     })[0] || null;
-    var ownerId = owner2 ? accountId(authOf(owner2)) : "";
+    var ownerAuth = owner2 ? authOf(owner2) : null;
     list4.forEach(function (p) {
       if (owner2 && p.id === owner2.id) {
         ACCOUNT_KEYS.forEach(function (k) {
           return rawSet("account." + k, rawGet(profileKey(p.id, k), null));
         });
-      } else if (!(ownerId && accountId(authOf(p)) === ownerId)) {
+      } else if (!sameAccount(authOf(p), ownerAuth)) {
         var watch = {};
         (rawGet(profileKey(p.id, "library"), []) || []).forEach(function (it) {
           if (it && it._id && it.state && (it.state.timeOffset > 0 || it.state.lastWatched)) {
@@ -5687,7 +5688,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         owner: !!(owner2 && p.id === owner2.id)
       });
     });
-    rawSet("profiles", next);
+    saveProfiles(next);
     rawSet("sharedAccount", true);
     return next;
   }
@@ -5702,39 +5703,50 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         color: c
       });
     });
-    rawSet("profiles", next);
+    saveProfiles(next);
     rawSet("randomColors", true);
     return next;
   }
+  function ensureOwner(list4) {
+    var owners = list4.filter(function (p) {
+      return p.owner;
+    });
+    if (owners.length === 1) return list4;
+    var keep = owners[0] || list4[0];
+    var next = list4.map(function (p) {
+      return Object.assign({}, p, {
+        owner: p.id === keep.id
+      });
+    });
+    saveProfiles(next);
+    return next;
+  }
+  var listMem = null;
+  var activeMem;
+  function saveProfiles(list4) {
+    listMem = list4;
+    rawSet("profiles", list4);
+  }
   function profiles() {
-    return ensureRandomColors(ensureSharedAccount(ensureProfiles()));
+    if (!listMem) listMem = ensureOwner(ensureRandomColors(ensureSharedAccount(ensureProfiles())));
+    return listMem;
   }
   function isAccountOwner() {
-    var me = activeProfile();
-    return !!me.owner || !profiles().some(function (p) {
-      return p.owner;
-    });
-  }
-  function claimAccount() {
-    if (profiles().some(function (p) {
-      return p.owner;
-    })) return;
-    updateProfile(activeProfile().id, {
-      owner: true
-    });
+    return !!activeProfile().owner;
   }
   function activeProfile() {
     var list4 = profiles();
-    var id = rawGet("activeProfile", null);
+    if (activeMem === void 0) activeMem = rawGet("activeProfile", null);
     return list4.find(function (p) {
-      return p.id === id;
+      return p.id === activeMem;
     }) || list4[0];
   }
   function setActiveProfile(id) {
+    activeMem = id;
     rawSet("activeProfile", id);
   }
   function addProfile(name, color) {
-    var list4 = profiles();
+    var list4 = profiles().slice();
     var p = {
       id: "p" + Date.now().toString(36),
       name: name || "Perfil " + (list4.length + 1),
@@ -5743,14 +5755,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }))
     };
     list4.push(p);
-    rawSet("profiles", list4);
+    saveProfiles(list4);
     return p;
   }
   function updateProfile(id, patch) {
-    var list4 = profiles().map(function (p) {
+    saveProfiles(profiles().map(function (p) {
       return p.id === id ? Object.assign({}, p, patch) : p;
-    });
-    rawSet("profiles", list4);
+    }));
   }
   function setProfileColor(id, color) {
     updateProfile(id, {
@@ -5767,15 +5778,25 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return p.id !== id;
     });
     if (!list4.length) return false;
-    ["watch", "settings"].forEach(function (k) {
-      return rawSet(profileKey(id, k), null);
-    });
+    try {
+      var prefix = PREFIX + profileKey(id, "");
+      var keys = [];
+      for (var i = 0; i < window.localStorage.length; i++) keys.push(window.localStorage.key(i));
+      keys.forEach(function (k) {
+        return k && k.indexOf(prefix) === 0 && window.localStorage.removeItem(k);
+      });
+    } catch (e) {}
     if (gone && gone.owner) list4[0] = Object.assign({}, list4[0], {
       owner: true
     });
-    rawSet("profiles", list4);
-    if (rawGet("activeProfile", null) === id) rawSet("activeProfile", list4[0].id);
+    saveProfiles(list4);
+    if (activeProfile().id === id || !list4.some(function (p) {
+      return p.id === activeMem;
+    })) setActiveProfile(list4[0].id);
     return true;
+  }
+  function setFor(profileId, key, value) {
+    rawSet(profileKey(profileId, key), value);
   }
   function get(key, fallback) {
     if (ACCOUNT_KEYS.indexOf(key) >= 0) {
@@ -5851,6 +5872,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var LINK = "https://link.stremio.com/api/v2/";
   var auth = get("auth", null);
   function reloadProfile() {
+    flush3();
     auth = get("auth", null);
     watchMem = null;
     merged = null;
@@ -5892,7 +5914,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       user: result.user || null
     };
     set("auth", auth);
-    claimAccount();
     return auth;
   }
   function login(email, password) {
@@ -6016,6 +6037,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var libMem = null;
   var libSaveTimer = null;
   var watchMem = null;
+  var watchProfile = null;
   var watchSaveTimer = null;
   var merged = null;
   var MAX_WATCH = 400;
@@ -6040,7 +6062,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return libMem;
   }
   function watchMap() {
-    if (!watchMem) watchMem = get("watch", {}) || {};
+    if (!watchMem) {
+      watchMem = get("watch", {}) || {};
+      watchProfile = activeProfile().id;
+    }
     return watchMem;
   }
   function saveWatch() {
@@ -6057,7 +6082,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     ids.slice(MAX_WATCH).forEach(function (id) {
       return delete all[id];
     });
-    set("watch", all);
+    setFor(watchProfile, "watch", all);
   }
   function cachedLibrary() {
     if (owner()) return accountLibrary();
@@ -6067,8 +6092,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     merged = accountLibrary().map(function (it) {
       seen[it._id] = true;
       var w = watch[it._id];
+      if (!w) return Object.assign({}, it, {
+        state: newLibraryItem(it).state
+      });
       return Object.assign({}, it, {
-        state: w ? w.state : newLibraryItem(it).state
+        state: w.state,
+        temp: it.temp || !!it.removed
       });
     });
     Object.keys(watch).forEach(function (id) {
@@ -6265,6 +6294,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // src/js/lib/tv.js
   function platformBack() {
+    flush3();
     var a = android();
     if (a) return a.exit();
     try {
@@ -6604,9 +6634,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "0c5990617a6a2920f93516fda02ff58e01629129",
-    date: "2026-10-30T00:16:05+00:00",
-    message: "Perfis: cor sorteada, avatar em degradê com grão e gerenciar na tela de perfis"
+    commit: "193552bd87a46139ddde92a3f96ada4dc312ecbd",
+    date: "2026-10-30T00:19:01+00:00",
+    message: "Mesma conta logada em dois perfis vira uma só; registro dos últimos plays"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -7187,7 +7217,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     };
   }
   function avatar(p, cls) {
-    var initial = String(p.name || "?").trim().charAt(0).toUpperCase() || "?";
+    var initial = (String(p.name || "").trim().match(/[\uD800-\uDBFF][\uDC00-\uDFFF]|[\s\S]/) || ["?"])[0].toUpperCase();
     return h("div.avatar", {
       cls: cls || "",
       style: avatarStyle(p.color || COLORS[0]),
@@ -17122,11 +17152,18 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }));
       var nameInput = h("input.input", {
         type: "text",
-        value: prof.name
+        value: prof.name,
+        maxlength: "20"
       });
       nameInput.__submit = function (v) {
-        var name = v.trim();
-        if (!name) return;
+        var name = v.trim().slice(0, 20);
+        if (!name || name === prof.name) return;
+        if (allProfiles.some(function (p) {
+          return p.id !== prof.id && p.name.toLowerCase() === name.toLowerCase();
+        })) {
+          nameInput.value = prof.name;
+          return toast(t("Já existe um perfil com esse nome."));
+        }
         updateProfile(prof.id, {
           name: name
         });
@@ -17973,7 +18010,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       });
     } else start4();
     document.addEventListener("visibilitychange", function () {
-      if (!document.hidden) _check();
+      if (!document.hidden) _check();else flush3();
+    });
+    window.addEventListener("pagehide", function () {
+      return flush3();
     });
   }
   function start4() {
