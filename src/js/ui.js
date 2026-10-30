@@ -40,7 +40,7 @@ export function menu(title, options, opts) {
             if (o.onPick) o.onPick(opt.value, opt);
           },
         },
-        [opt.label, opt.sub ? h('small', { text: opt.sub }) : null]
+        [opt.label, opt.sub ? h('small', { text: opt.sub, cls: opt.wrap ? 'wrap' : '' }) : null]
       )
     );
   });

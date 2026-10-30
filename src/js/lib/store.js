@@ -91,22 +91,30 @@ function ensureProfiles() {
 // Da conta (iguais para todos os perfis): login, addons e a biblioteca da conta.
 const ACCOUNT_KEYS = ['auth', 'addons', 'library'];
 
-// Migração para a conta única: antes cada perfil tinha a sua. Fica a do perfil ativo (ou a do
-// primeiro que tiver conta), e esse perfil vira o "dono": ele lê e grava o histórico da própria
-// conta Stremio, como antes. Os outros perfis guardam o que assistiram só neste aparelho
-// ('watch'), começando pelo histórico que já tinham na conta antiga deles.
+// Migração para a conta única: antes cada perfil tinha a sua. Fica a do primeiro perfil (na ordem
+// em que foram criados) que tinha conta, e esse perfil vira o "dono": ele lê e grava o histórico
+// da conta Stremio, como antes. Os outros guardam o que assistiram só neste aparelho ('watch'):
+// - perfil que estava em OUTRA conta leva o histórico dela (era só dele);
+// - perfil que estava na MESMA conta (mesmo e-mail, logado duas vezes) começa limpo: o histórico
+//   daquela conta é o mesmo do dono, misturado, e fica com o dono.
+function accountId(a) {
+  const u = a && a.user;
+  if (!u) return '';
+  return String(u._id || u.email || '').toLowerCase();
+}
+
 function ensureSharedAccount(list) {
   if (rawGet('sharedAccount', false)) return list;
-  const active = rawGet('activeProfile', null);
-  const withAuth = (p) => {
-    const a = rawGet(profileKey(p.id, 'auth'), null);
+  const authOf = (p) => rawGet(profileKey(p.id, 'auth'), null);
+  const owner = list.filter((p) => {
+    const a = authOf(p);
     return !!(a && a.authKey);
-  };
-  const owner = list.filter((p) => p.id === active && withAuth(p))[0] || list.filter(withAuth)[0] || null;
+  })[0] || null;
+  const ownerId = owner ? accountId(authOf(owner)) : '';
   list.forEach((p) => {
     if (owner && p.id === owner.id) {
       ACCOUNT_KEYS.forEach((k) => rawSet('account.' + k, rawGet(profileKey(p.id, k), null)));
-    } else {
+    } else if (!(ownerId && accountId(authOf(p)) === ownerId)) {
       const watch = {};
       (rawGet(profileKey(p.id, 'library'), []) || []).forEach((it) => {
         if (it && it._id && it.state && (it.state.timeOffset > 0 || it.state.lastWatched)) {

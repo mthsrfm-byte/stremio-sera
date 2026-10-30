@@ -5,6 +5,7 @@ import * as store from '../lib/store.js';
 import { log } from '../lib/log.js';
 import { deviceInfo } from '../lib/tv.js';
 import { IS_WEB, IS_FIRETV, HAS_TV_SERVICE, android } from '../lib/platform.js';
+import * as playlog from '../lib/playlog.js';
 import * as substyle from '../lib/substyle.js';
 import * as update from '../api/update.js';
 import * as phoneRemote from '../api/phoneRemote.js';
@@ -18,7 +19,7 @@ import * as reco from '../api/recommend.js';
 import * as intro from '../lib/intro.js';
 import * as screensaver from '../lib/screensaver.js';
 import { getJSON, recentErrors } from '../lib/http.js';
-import { topbar, toast, menu, confirmDialog, refreshProfileChips, refreshTabs } from '../ui.js';
+import { topbar, toast, menu, confirmDialog, refreshProfileChips, refreshTabs, timeHM } from '../ui.js';
 import * as router from '../router.js';
 import { openLogin } from './login.js';
 import { avatar, avatarStyle, switchProfile, createProfile, canAddProfile, chooseColor } from './profiles.js';
@@ -709,6 +710,22 @@ export function SettingsView() {
     body.appendChild(h('div.set-section', { text: t('Sobre e depuração') }));
     body.appendChild(row(t('Testar conexão'), t(IS_WEB ? 'Coisas não carregam? Veja qual servidor este aparelho não alcança' : 'Coisas não carregam? Veja qual servidor a TV não alcança'), '', () => showNetworkCheck()));
     body.appendChild(row(t('Último trailer'), t('Resultado do trailer na aba Recomendado'), reco.getTrailerReport() || t('nenhum ainda'), null));
+    const plays = playlog.list();
+    const lastPlay = plays[0];
+    body.appendChild(
+      row(t('Últimos plays'), t('O que tocou e o que não tocou, com o motivo'), lastPlay ? (lastPlay.result === 'ok' ? '✓ ' : '✗ ') + lastPlay.title : t('nenhum ainda'), () =>
+        menu(
+          t('Últimos plays'),
+          plays.map((x, i) => ({
+            label: (x.result === 'ok' ? '✓ ' : '✗ ') + x.title,
+            sub: [timeHM(new Date(x.at)) + ' · ' + (x.result === 'ok' ? t('tocou') : x.result === 'erro' ? t('não tocou') : t('sem fonte')), x.source, x.details].filter(Boolean).join('\n'),
+            value: i,
+            wrap: true,
+          })),
+          { empty: t('Nenhum play ainda.') }
+        )
+      )
+    );
     const logInput = h('input.input', { type: 'text', value: s.devlogUrl || '', placeholder: 'http://IP-DO-PC:8099/log' });
     logInput.__submit = (v) => {
       store.saveSettings({ devlogUrl: v.trim() });
