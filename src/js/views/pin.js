@@ -19,23 +19,31 @@ let unlocked = false; // vale até fechar o app
 let failures = 0;
 let lockedUntil = 0;
 
-// App foi para segundo plano (botão Home, outro app): tranca de novo.
+// App foi para segundo plano (botão Home, outro app): tranca de novo, mas não tira da aba.
+// Ao voltar, se a aba NSFW estiver aberta, pede o PIN por cima; só sai dela se cancelar.
+let relocked = false;
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden) return;
-  unlocked = false;
-  // Quem voltar ao app não cai direto na aba.
-  const v = router.currentView();
-  if (v && v.el.classList.contains('nsfw-view')) router.goTab('home');
-  else if (router.tabView('nsfw')) router.dropTab('nsfw');
+  if (document.hidden) {
+    if (unlocked) relocked = true;
+    unlocked = false;
+    return;
+  }
+  if (!relocked) return;
+  relocked = false;
+  const root = router.rootView();
+  if (!root || root.tabId !== 'nsfw') {
+    if (router.tabView('nsfw')) router.dropTab('nsfw');
+    return;
+  }
+  askPin(t('NSFW'), (ok) => {
+    if (ok) unlocked = true;
+    else router.goTab('home');
+  });
 });
 
 export function pin() {
   const p = store.settings().nsfwPin;
   return /^\d{4,8}$/.test(p || '') ? p : DEFAULT_PIN;
-}
-
-export function isUnlocked() {
-  return unlocked;
 }
 
 export function lock() {
@@ -62,7 +70,7 @@ export function requirePin(onOk) {
   });
 }
 
-// onDone(true) com o PIN certo; fechar pelo Voltar não chama nada.
+// onDone(true) com o PIN certo; onDone(false) ao fechar pelo Voltar.
 export function askPin(title, onDone) {
   const dots = h('div.pin-dots');
   const msg = h('div.pin-msg');
@@ -144,7 +152,10 @@ export function askPin(title, onDone) {
   renderPad();
   document.getElementById('app').appendChild(modal);
   const layer = nav.pushLayer(modal, {
-    onBack: () => close(),
+    onBack: () => {
+      close();
+      onDone(false);
+    },
     onKey: (e) => {
       // Teclas 0-9 do controle (e do teclado/numpad no PC).
       const c = e.keyCode;

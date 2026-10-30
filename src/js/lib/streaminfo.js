@@ -51,11 +51,11 @@ export function parse(s) {
     seeders: seedM ? parseInt(seedM[1], 10) : null,
     sizeMb: sizeM ? parseFloat(sizeM[1].replace(',', '.')) * (/^g/i.test(sizeM[2]) ? 1024 : 1) : 0,
     // Debrid com o arquivo em cache ([RD+], [AD+]...) abre na hora, sem depender de seeders.
-    cached: /\[[A-Z]{2,3}\+\]|\binstant\b|⚡/i.test(name),
+    cached: /\[[A-Z]{2,3}\+\]|\b(?:RD|AD|PM|TB|ED|OC)\+|\binstant\b|⚡/i.test(name),
     // Fonte de debrid ([RD+], [RD download], [AD]...). Sem o "+" ainda não está no debrid: abrir só
     // manda baixar, e o vídeo não toca na hora.
-    debrid: /\[(?:RD|AD|PM|DL|DLX|TB|ED|OC)[+\] ]/.test(name),
-    rd: /\[RD[+\] ]/.test(name),
+    debrid: /\[(?:RD|AD|PM|DL|DLX|TB|ED|OC)[+\] ⚡]|\b(?:RD|AD|PM|TB|ED|OC)\+|\breal.?debrid\b/i.test(name),
+    rd: /\[RD[+\] ⚡]|\bRD\+|\breal.?debrid\b/i.test(name),
     // Codec de vídeo e áudio e o contêiner, pelo nome do arquivo (o Fire TV toca uns melhor que outros).
     codec: /\bav1\b/i.test(text) ? 'av1' : /[xh][ .]?265|\bhevc\b/i.test(text) ? 'hevc' : /[xh][ .]?264|\bavc\b/i.test(text) ? 'h264' : '',
     tenBit: /10[ .-]?bit/i.test(text),
@@ -137,38 +137,96 @@ export function good(info) {
   return res && healthy;
 }
 
-// Smart Choice, em camadas (a primeira que tiver fonte vence):
-//   1) debrid em cache ([RD+]) com original + dublado em 1080p/4K;  2) debrid em cache em 1080p/4K;
-//   3) qualquer debrid em cache;  4) torrent ideal;  5) torrent bom (1080p/4K e seeders);
-//   6) o que não for debrid fora do cache;  7) o resto (debrid ainda baixando).
-// Dolby Vision fica por último em tudo: as TVs Samsung não têm DV, e o arquivo DV sem a camada
-// HDR10 (perfil 5, comum em WEB-DL) nem abre. Retorna { stream, ideal } ou null.
-export function smartPick(list, serverOk) {
+// ---------- Banda para debrid ----------
+// Debrid entrega o arquivo inteiro na taxa dele: um 4K REMUX (60–100 Mbps) trava no Wi-Fi da TV
+// mesmo com o link perfeito. O app guarda quanto a TV aguenta (começa em 30 Mbps) e aprende:
+// travou com debrid → baixa para abaixo da taxa daquele arquivo; tocou 10 min liso → sobe até ela.
+const BUDGET_KEY = 'debridMbps';
+const BUDGET_DEFAULT = 30;
+const BUDGET_MIN = 8;
+const BUDGET_MAX = 150;
+
+export function debridBudget() {
+  const v = store.get(BUDGET_KEY, null);
+  return typeof v === 'number' && v >= BUDGET_MIN ? v : BUDGET_DEFAULT;
+}
+
+// ok=false: travou tocando a mbps; ok=true: tocou liso a mbps. Retorna a banda nova.
+export function learnDebrid(mbps, ok) {
+  if (!mbps) return debridBudget();
+  const cur = debridBudget();
+  const next = ok ? Math.min(BUDGET_MAX, Math.max(cur, Math.round(mbps * 1.1))) : Math.max(BUDGET_MIN, Math.min(cur, Math.round(mbps * 0.75)));
+  if (next !== cur) store.set(BUDGET_KEY, next);
+  return next;
+}
+
+// Duração em minutos pelo "runtime" do meta ("1h 52min", "112 min"); sem ele, um padrão.
+export function minutesOf(meta, series) {
+  const r = String((meta && meta.runtime) || '');
+  const hM = r.match(/(\d+)\s*h/i);
+  const mM = r.match(/(\d+)\s*m/i);
+  const mins = (hM ? parseInt(hM[1], 10) * 60 : 0) + (mM ? parseInt(mM[1], 10) : 0);
+  return mins || (series ? 45 : 110);
+}
+
+// Taxa média do arquivo (tamanho ÷ duração), em Mbps. 0 quando o tamanho não veio.
+export function fileMbps(info, minutes) {
+  if (!info.sizeMb || !minutes) return 0;
+  return Math.round((info.sizeMb * 8) / (minutes * 60));
+}
+
+// Smart Choice: ordena as fontes e fica com a primeira. A ordem:
+//   1) debrid em cache ([RD+]) dublado (português), da melhor qualidade para a pior;
+//   2) debrid em cache sem dublagem, da melhor qualidade (4K primeiro) para a pior;
+//   (nos dois, primeiro os arquivos que cabem na banda da TV; os mais pesados vêm depois)
+//   3) torrent/direto bom e dublado;  4) torrent/direto bom;  5) o resto que não for debrid;
+//   6) debrid ainda baixando (fora do cache).
+// Dolby Vision fica por último dentro de cada grupo: as TVs Samsung não têm DV, e o arquivo DV
+// sem a camada HDR10 (perfil 5, comum em WEB-DL) nem abre. Retorna { stream, ideal } ou null.
+const RES_SCORE = { '4K': 4, '1080p': 3, '720p': 2, SD: 1 };
+
+function group(i) {
+  if (i.cached) return i.dub ? 0 : 1;
+  if (i.debrid) return 5;
+  if (good(i)) return i.dub ? 2 : 3;
+  return 4;
+}
+
+// minutes: duração do vídeo, para estimar a taxa dos arquivos de debrid (sem ela, não filtra por banda).
+export function rank(list, minutes) {
+  const budget = debridBudget();
+  const heavy = (i) => !!minutes && i.cached && fileMbps(i, minutes) > budget;
+  return list
+    .map((s, idx) => ({ s: s, i: parse(s), idx: idx }))
+    .sort((a, b) => {
+      const g = group(a.i) - group(b.i);
+      if (g) return g;
+      if (a.i.dv !== b.i.dv) return a.i.dv ? 1 : -1;
+      const hv = (heavy(a.i) ? 1 : 0) - (heavy(b.i) ? 1 : 0);
+      if (hv) return hv;
+      // Pesados entre si: o mais leve primeiro (o que tem mais chance de não travar).
+      if (heavy(a.i)) return fileMbps(a.i, minutes) - fileMbps(b.i, minutes);
+      const r = (RES_SCORE[b.i.res] || 0) - (RES_SCORE[a.i.res] || 0);
+      if (r) return r;
+      // Mesma resolução: dublado + original primeiro; no torrent, mais seeders.
+      const o = (b.i.dub && b.i.original ? 1 : 0) - (a.i.dub && a.i.original ? 1 : 0);
+      if (o) return o;
+      if (!a.i.cached) {
+        const sd = (b.i.seeders || 0) - (a.i.seeders || 0);
+        if (sd) return sd;
+      }
+      return a.idx - b.idx;
+    })
+    .map((x) => x.s);
+}
+
+export function smartPick(list, serverOk, minutes) {
   const playable = list.filter((s) => canPlay(s, serverOk));
   if (!playable.length) return null;
-  if (IS_FIRETV) return firePick(playable);
-  const hiRes = (info) => info.res === '4K' || info.res === '1080p';
-  const ideal = (info) => info.dub && info.original && good(info);
-  const waiting = (info) => info.debrid && !info.cached;
-  const tiers = [
-    (i) => i.cached && ideal(i),
-    (i) => i.cached && hiRes(i),
-    (i) => i.cached,
-    (i) => !waiting(i) && ideal(i),
-    (i) => !waiting(i) && good(i),
-    (i) => !waiting(i),
-    () => true,
-  ];
-  const noDv = playable.filter((s) => !parse(s).dv);
-  // Laços simples (sem find/for-of): o mesmo código roda nas TVs antigas.
-  const pools = [noDv, playable];
-  for (let p = 0; p < pools.length; p++) {
-    for (let t = 0; t < tiers.length; t++) {
-      const hit = pools[p].filter((s) => tiers[t](parse(s)))[0];
-      if (hit) return { stream: hit, ideal: ideal(parse(hit)) };
-    }
-  }
-  return null;
+  if (IS_FIRETV) return firePick(playable, minutes);
+  const hit = rank(playable, minutes)[0];
+  const info = parse(hit);
+  return { stream: hit, ideal: info.dub && info.original && good(info) };
 }
 
 // ---------- Smart Choice do Fire TV Stick ----------
@@ -176,7 +234,7 @@ export function smartPick(list, serverOk) {
 // remux só pesam (mais download, mais chance de travar no Wi-Fi) sem ganho na tela; H.264 com
 // áudio AAC é o que abre em qualquer um; HEVC costuma ir, AV1 e DTS/TrueHD não.
 // Nota de 0 (não toca) para cima: quanto maior, mais chance de tocar liso e bonito.
-function fireScore(info) {
+function baseScore(info) {
   let n = 100;
   n += { '1080p': 40, '720p': 25, SD: 0, '4K': -60 }[info.res] || 10; // sem resolução: meio-termo
   if (info.remux) n -= 50;
@@ -222,8 +280,13 @@ function best(list, score) {
 // Sem debrid (ou nada em cache): o vídeo vem por torrent no PC ou por link direto.
 //   6) torrent dublado, liso e bem semeado;  7) torrent liso e bem semeado;  8) link direto dublado e liso;
 //   9) link direto liso;  10) torrent liso com pouca semente;  11) o que sobrar (menos debrid baixando).
-function firePick(playable) {
+function firePick(playable, minutes) {
   const cached = (i) => i.debrid && i.cached;
+  // Banda que o stick aguenta com debrid (aprendida pelo player, como na TV): arquivo acima dela
+  // perde pontos, para um mais leve ganhar quando existir.
+  const budget = debridBudget();
+  const heavy = (i) => !!minutes && i.cached && fileMbps(i, minutes) > budget;
+  const fireScore = (i) => baseScore(i) - (heavy(i) ? 35 : 0);
   const torrent = (s) => !!s.infoHash && !parse(s).debrid;
   const direct = (s) => !s.infoHash && !parse(s).debrid;
   const seeded = (i) => i.seeders === null || i.seeders >= MIN_SEEDERS;
@@ -239,7 +302,7 @@ function firePick(playable) {
     [(s, i) => direct(s) && i.dub && fits(i) && !!i.res, fireScore],
     [(s, i) => direct(s) && fits(i) && !!i.res, fireScore],
     [(s, i) => torrent(s) && fits(i), torrentScore],
-    [(s, i) => !(i.debrid && !i.cached), (i) => fireScore(i) + seedScore(i)],
+    [(s, i) => !(i.debrid && !i.cached), (i) => baseScore(i) + seedScore(i)],
     [() => true, fireScore],
   ];
   for (let t = 0; t < tiers.length; t++) {

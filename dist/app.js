@@ -5126,7 +5126,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   function onLoaded() {
     if (!this.__on) return;
     this.classList.add("ready");
-    if (this.parentNode) this.parentNode.classList.add("img-loaded");
+    if (this.parentNode) {
+      this.parentNode.classList.add("img-loaded");
+      this.parentNode.classList.remove("img-loading");
+    }
+  }
+  function onFailed() {
+    if (this.parentNode) this.parentNode.classList.remove("img-loading");
   }
   function setOn(el2, on) {
     if (on && !el2.__on) {
@@ -5134,7 +5140,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       if (!el2.__readyHook) {
         el2.__readyHook = true;
         el2.addEventListener("load", onLoaded);
+        el2.addEventListener("error", onFailed);
       }
+      if (el2.parentNode && !el2.parentNode.classList.contains("img-loaded")) el2.parentNode.classList.add("img-loading");
       var url2 = el2.getAttribute("data-lazy");
       var kitsu = kitsuInfo(url2);
       if (!kitsu) {
@@ -5151,7 +5159,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     } else if (!on && el2.__on) {
       el2.__on = false;
       el2.classList.remove("ready");
-      if (el2.parentNode) el2.parentNode.classList.remove("img-loaded");
+      if (el2.parentNode) {
+        el2.parentNode.classList.remove("img-loaded");
+        el2.parentNode.classList.remove("img-loading");
+      }
       el2.src = BLANK;
     }
   }
@@ -5219,7 +5230,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   };
   var layers = [];
   var scrollHook = null;
-  var pointerMode = false;
   var smooth = false;
   function setSmooth(on) {
     smooth = !!on;
@@ -5341,8 +5351,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
     layer.current = el2;
     el2.classList.add("focused");
-    var group = el2.closest("[data-group]");
-    if (group) group.__last = el2;
+    var group2 = el2.closest("[data-group]");
+    if (group2) group2.__last = el2;
     if (!(opts && opts.noScroll)) ensureVisible(el2);
     if (el2.__focus && prev !== el2) el2.__focus(el2);
   }
@@ -5376,24 +5386,26 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var all = candidates(layer.root).filter(function (e) {
       return e !== cur && !(stay && e.closest(".topbar"));
     });
-    var group = cur.closest("[data-group]");
+    var group2 = cur.closest("[data-group]");
     var horizontal = dir === "left" || dir === "right";
-    if (group && horizontal === !group.hasAttribute("data-vertical")) {
+    if (group2 && horizontal === !group2.hasAttribute("data-vertical")) {
       var inGroup = all.filter(function (e) {
-        return group.contains(e);
+        return group2.contains(e);
       });
       var g = pick(inGroup, cur, dir);
       if (g) {
         focus(g);
         return true;
       }
-      if (group.hasAttribute("data-trap")) return false;
+      if (group2.hasAttribute("data-trap")) return false;
     }
     var best = pick(all, cur, dir);
     if (!best) return false;
     var bg = best.closest("[data-group]");
-    if (bg && bg !== group) {
+    if (bg && bg !== group2) {
       if (bg.classList.contains("topbar")) best = topbarTarget(bg) || best;else if (!horizontal && bg.hasAttribute("data-scroll-x")) best = all.filter(function (e) {
+        return bg.contains(e) && e.classList.contains("active");
+      })[0] || all.filter(function (e) {
         return bg.contains(e);
       })[0] || best;else if (bg.__last && bg.contains(bg.__last) && isVisible(bg.__last)) best = bg.__last;
     }
@@ -5449,7 +5461,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         active.blur();
       } else return;
     }
-    if (code >= 37 && code <= 40 && pointerMode) pointerMode = false;
     if (layer.onKey && layer.onKey(e) === true) {
       e.preventDefault();
       return;
@@ -5484,7 +5495,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   function onMouseOver(e) {
     var layer = top();
     if (!layer) return;
-    pointerMode = true;
     var el2 = e.target.closest ? e.target.closest("[data-focus]") : null;
     if (el2 && layer.root.contains(el2) && el2 !== layer.current) focus(el2, {
       noScroll: true
@@ -6067,6 +6077,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }, function () {});
     });
   }
+  function systemScreenSaver(on) {
+    try {
+      var ac = window.webapis && window.webapis.appcommon;
+      if (!ac || !ac.setScreenSaver) return;
+      var st = ac.AppCommonScreenSaverState || {};
+      ac.setScreenSaver(on ? st.SCREEN_SAVER_ON : st.SCREEN_SAVER_OFF, function () {}, function () {});
+    } catch (e) {}
+  }
 
   // src/js/api/server.js
   var status = {
@@ -6336,12 +6354,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
   // src/js/api/update.js
   var REPO = "mthsrfm-byte/stremio-sera";
-  var REPO_URL = "https://github.com/" + REPO;
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "04f9b4a3413dd708fff3c17bc0a1f4fa5b7d1e75",
-    date: "2026-10-28T18:13:24-03:00",
-    message: "Smart Choice prefere debrid em cache (TV e site)"
+    commit: "61e92f0965f4c67305885bbbe121c32d4aed8eac",
+    date: "2026-10-29T12:59:14-03:00",
+    message: "Desempenho e navegação: tela parada sem repintar, categoria NSFW não troca sozinha"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -6661,7 +6678,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
   var ADULT_FIRST = ["seraflix.pornhub", "seraflix.xvideos"];
   function adultAddons() {
-    var rank2 = function rank2(a) {
+    var rank3 = function rank3(a) {
       var i = ADULT_FIRST.indexOf(a.manifest && a.manifest.id);
       return i < 0 ? ADULT_FIRST.length : i;
     };
@@ -6671,7 +6688,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         i: i
       };
     }).sort(function (x, y) {
-      return rank2(x.a) - rank2(y.a) || x.i - y.i;
+      return rank3(x.a) - rank3(y.a) || x.i - y.i;
     }).map(function (x) {
       return x.a;
     });
@@ -7025,11 +7042,23 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var unlocked = false;
   var failures = 0;
   var lockedUntil = 0;
+  var relocked = false;
   document.addEventListener("visibilitychange", function () {
-    if (!document.hidden) return;
-    unlocked = false;
-    var v = currentView();
-    if (v && v.el.classList.contains("nsfw-view")) goTab("home");else if (tabView("nsfw")) dropTab("nsfw");
+    if (document.hidden) {
+      if (unlocked) relocked = true;
+      unlocked = false;
+      return;
+    }
+    if (!relocked) return;
+    relocked = false;
+    var root = rootView();
+    if (!root || root.tabId !== "nsfw") {
+      if (tabView("nsfw")) dropTab("nsfw");
+      return;
+    }
+    askPin(t("NSFW"), function (ok) {
+      if (ok) unlocked = true;else goTab("home");
+    });
   });
   function pin() {
     var p = settings().nsfwPin;
@@ -7151,7 +7180,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     document.getElementById("app").appendChild(modal);
     var layer = pushLayer(modal, {
       onBack: function onBack() {
-        return close();
+        close();
+        onDone(false);
       },
       onKey: function onKey(e) {
         var c = e.keyCode;
@@ -7627,23 +7657,25 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
     focus(btns[0]);
   }
-  function confirmDialog(text2, okLabel, onOk) {
-    var box = h("div.modal-box.center", null, [h("h3", {
-      text: text2
-    }), h("div.modal-actions", null, [h("div.btn.primary", {
+  function confirmDialog(text2, okLabel, onOk, opts) {
+    var o = opts || {};
+    var ok = h("div.btn.primary", {
       focusable: true,
-      "data-autofocus": "",
       text: okLabel || "OK",
       onSelect: function onSelect() {
         return close(), onOk && onOk();
       }
-    }), h("div.btn", {
+    });
+    var cancel = h("div.btn", {
       focusable: true,
-      text: t("Cancelar"),
+      text: o.cancelLabel || t("Cancelar"),
       onSelect: function onSelect() {
         return close();
       }
-    })])]);
+    });
+    var box = h("div.modal-box.center", null, [h("h3", {
+      text: text2
+    }), h("div.modal-actions", null, o.safe ? [cancel, ok] : [ok, cancel])]);
     var modal = h("div.modal", null, box);
     document.getElementById("app").appendChild(modal);
     var layer = pushLayer(modal, {
@@ -7651,7 +7683,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         return close();
       }
     });
-    focusFirst(modal);
+    focus(o.safe ? cancel : ok);
     function close() {
       popLayer(layer);
       if (modal.parentNode) modal.parentNode.removeChild(modal);
@@ -8153,9 +8185,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     if (o.dropWithoutImage && !src) setTimeout(dropCard, 0);
     return el2;
   }
-  function skeletonCards(n) {
+  function skeletonCards(n, wide) {
     var list3 = [];
-    for (var i = 0; i < (n || 8); i++) list3.push(h("div.card.skeleton", null, [h("div.poster-wrap"), h("div.name-sk")]));
+    for (var i = 0; i < (n || 8); i++) list3.push(h("div.card.skeleton", {
+      cls: wide ? "wide" : ""
+    }, [h("div.poster-wrap"), h("div.name-sk")]));
     return list3;
   }
   function retrying(fn) {
@@ -8200,6 +8234,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
     var moreWrap = h("div.reco-more-wrap.paged-more", null, more);
     var el2 = h("div.paged-wrap", null, [grid, moreWrap]);
+    if (opts.skeleton) {
+      opts.skeleton().forEach(function (c) {
+        return grid.appendChild(c);
+      });
+      moreWrap.style.display = "none";
+    }
     var GAP = 26;
     var seen = {};
     var page = 0;
@@ -8240,13 +8280,16 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       pool.slice(0, n).forEach(add);
       buffer2 = pool.slice(n);
     }
+    var dead = false;
+    var focusAtStart = null;
     function loadMore(byButton) {
-      if (busy2 || ended) return;
+      if (busy2 || ended || dead) return;
       busy2 = true;
       more.textContent = t("Carregando...");
       var lastRowFirst = count ? grid.children[count - (count % cols || cols)] : null;
       var first = page === 0;
       opts.load(++page).then(function (items2) {
+        if (dead) return;
         var fresh = (items2 || []).filter(function (it) {
           var k = opts.key(it);
           if (seen[k]) return false;
@@ -8254,6 +8297,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           return true;
         });
         if (!fresh.length) ended = true;
+        if (first && opts.skeleton) clear(grid);
         buffer2 = buffer2.concat(fresh);
         var before = count;
         flush3();
@@ -8262,21 +8306,34 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         moreWrap.style.display = ended ? "none" : "";
         loadVisibleImages(el2, 400);
         if (first && !count && opts.onEmpty) opts.onEmpty();
-        if (first && grid.firstChild) focus(grid.firstChild);else if (byButton && lastRowFirst) focus(lastRowFirst);
+        var untouched = !current2() || current2() === focusAtStart || !document.body.contains(current2());
+        if (first && grid.firstChild && untouched) focus(grid.firstChild);else if (byButton && lastRowFirst) focus(lastRowFirst);
         if (!ended && count === before) loadMore(byButton);
       }).catch(function () {
+        if (dead) return;
         busy2 = false;
+        if (first) {
+          page = 0;
+          moreWrap.style.display = "";
+        }
         more.textContent = t("Carregar mais");
         toast(t("Não foi possível carregar"));
       });
     }
+    function start5() {
+      if (page !== 0) return;
+      if (opts.skeleton && grid.firstChild && el2.parentNode) layout(grid.firstChild);
+      focusAtStart = current2();
+      loadMore(false);
+    }
     return {
       el: el2,
-      start: function start() {
-        return page === 0 && loadMore(false);
-      },
+      start: start5,
       started: function started() {
         return page > 0;
+      },
+      destroy: function destroy() {
+        return dead = true;
       }
     };
   }
@@ -8344,16 +8401,19 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return;
     }
     if (view && view.tabId && view.tabId !== "home") {
-      goTab("home");
-      var homeBtn = tabs.home && tabs.home.el.querySelector('.topbar .tab[data-tab="home"]');
-      if (homeBtn) focus(homeBtn, {
-        noScroll: true
-      });
+      goHome();
       return;
     }
     if (IS_WEB) return;
     confirmDialog(t("Sair do Stremio Kai?"), t("Sair"), function () {
       return platformBack();
+    });
+  }
+  function goHome() {
+    goTab("home");
+    var homeBtn = tabs.home && tabs.home.el.querySelector('.topbar .tab[data-tab="home"]');
+    if (homeBtn) focus(homeBtn, {
+      noScroll: true
     });
   }
   function goTab(id) {
@@ -8382,6 +8442,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
   function tabView(id) {
     return tabs[id] || null;
+  }
+  function rootView() {
+    return stack[0] || null;
   }
   function currentView() {
     return stack[stack.length - 1] || null;
@@ -9059,7 +9122,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var fileSource = SOURCES2.filter(function (x) {
       return fileSet[x];
     })[0];
-    var group = fileTok.length ? fileTok[fileTok.length - 1] : "";
+    var group2 = fileTok.length ? fileTok[fileTok.length - 1] : "";
     var out = [];
     (list3 || []).forEach(function (s, order) {
       var li = prefLangs.indexOf(String(s.lang).toLowerCase());
@@ -9077,7 +9140,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         seen[x] = true;
         score2 += SOURCES2.indexOf(x) >= 0 ? 4 : 1;
       });
-      if (group && group.length > 2 && NOISE.indexOf(group) < 0 && seen[group]) score2 += 6;
+      if (group2 && group2.length > 2 && NOISE.indexOf(group2) < 0 && seen[group2]) score2 += 6;
       var subSource = SOURCES2.filter(function (x) {
         return st.indexOf(x) >= 0;
       })[0];
@@ -9343,10 +9406,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       seeders: seedM ? parseInt(seedM[1], 10) : null,
       sizeMb: sizeM ? parseFloat(sizeM[1].replace(",", ".")) * (/^g/i.test(sizeM[2]) ? 1024 : 1) : 0,
       // Debrid com o arquivo em cache ([RD+], [AD+]...) abre na hora, sem depender de seeders.
-      cached: /\[[A-Z]{2,3}\+\]|\binstant\b|⚡/i.test(name),
+      cached: /\[[A-Z]{2,3}\+\]|\b(?:RD|AD|PM|TB|ED|OC)\+|\binstant\b|⚡/i.test(name),
       // Fonte de debrid ([RD+], [RD download], [AD]...). Sem o "+" ainda não está no debrid: abrir só
       // manda baixar, e o vídeo não toca na hora.
-      debrid: /\[(?:RD|AD|PM|DL|DLX|TB|ED|OC)[+\] ]/.test(name),
+      debrid: /\[(?:RD|AD|PM|DL|DLX|TB|ED|OC)[+\] ⚡]|\b(?:RD|AD|PM|TB|ED|OC)\+|\breal.?debrid\b/i.test(name),
       addon: name.split("\n")[0].replace(/\[[A-Z]{2,3}\+?\]/g, "").trim(),
       file: titleLine.replace(ICONS_RE, "").replace(FLAG_RE, "").replace(/\s{2,}/g, " ").trim()
     };
@@ -9415,58 +9478,86 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var healthy = info.cached || info.seeders !== null && info.seeders >= MIN_SEEDERS;
     return res && healthy;
   }
-  function smartPick(list3, serverOk) {
+  var BUDGET_KEY = "debridMbps";
+  var BUDGET_DEFAULT = 30;
+  var BUDGET_MIN = 8;
+  var BUDGET_MAX = 150;
+  function debridBudget() {
+    var v = get(BUDGET_KEY, null);
+    return typeof v === "number" && v >= BUDGET_MIN ? v : BUDGET_DEFAULT;
+  }
+  function learnDebrid(mbps, ok) {
+    if (!mbps) return debridBudget();
+    var cur = debridBudget();
+    var next = ok ? Math.min(BUDGET_MAX, Math.max(cur, Math.round(mbps * 1.1))) : Math.max(BUDGET_MIN, Math.min(cur, Math.round(mbps * 0.75)));
+    if (next !== cur) set(BUDGET_KEY, next);
+    return next;
+  }
+  function minutesOf(meta, series) {
+    var r = String(meta && meta.runtime || "");
+    var hM = r.match(/(\d+)\s*h/i);
+    var mM = r.match(/(\d+)\s*m/i);
+    var mins = (hM ? parseInt(hM[1], 10) * 60 : 0) + (mM ? parseInt(mM[1], 10) : 0);
+    return mins || (series ? 45 : 110);
+  }
+  function fileMbps(info, minutes2) {
+    if (!info.sizeMb || !minutes2) return 0;
+    return Math.round(info.sizeMb * 8 / (minutes2 * 60));
+  }
+  var RES_SCORE = {
+    "4K": 4,
+    "1080p": 3,
+    "720p": 2,
+    SD: 1
+  };
+  function group(i) {
+    if (i.cached) return i.dub ? 0 : 1;
+    if (i.debrid) return 5;
+    if (good(i)) return i.dub ? 2 : 3;
+    return 4;
+  }
+  function rank2(list3, minutes2) {
+    var budget = debridBudget();
+    var heavy = function heavy(i) {
+      return !!minutes2 && i.cached && fileMbps(i, minutes2) > budget;
+    };
+    return list3.map(function (s, idx2) {
+      return {
+        s: s,
+        i: parse3(s),
+        idx: idx2
+      };
+    }).sort(function (a, b) {
+      var g = group(a.i) - group(b.i);
+      if (g) return g;
+      if (a.i.dv !== b.i.dv) return a.i.dv ? 1 : -1;
+      var hv = (heavy(a.i) ? 1 : 0) - (heavy(b.i) ? 1 : 0);
+      if (hv) return hv;
+      if (heavy(a.i)) return fileMbps(a.i, minutes2) - fileMbps(b.i, minutes2);
+      var r = (RES_SCORE[b.i.res] || 0) - (RES_SCORE[a.i.res] || 0);
+      if (r) return r;
+      var o = (b.i.dub && b.i.original ? 1 : 0) - (a.i.dub && a.i.original ? 1 : 0);
+      if (o) return o;
+      if (!a.i.cached) {
+        var sd = (b.i.seeders || 0) - (a.i.seeders || 0);
+        if (sd) return sd;
+      }
+      return a.idx - b.idx;
+    }).map(function (x) {
+      return x.s;
+    });
+  }
+  function smartPick(list3, serverOk, minutes2) {
     var playable = list3.filter(function (s) {
       return canPlay(s, serverOk);
     });
     if (!playable.length) return null;
-    var hiRes = function hiRes(info) {
-      return info.res === "4K" || info.res === "1080p";
+    var hit = rank2(playable, minutes2)[0];
+    var info = parse3(hit);
+    return {
+      stream: hit,
+      ideal: info.dub && info.original && good(info)
     };
-    var ideal = function ideal(info) {
-      return info.dub && info.original && good(info);
-    };
-    var waiting = function waiting(info) {
-      return info.debrid && !info.cached;
-    };
-    var tiers = [function (i) {
-      return i.cached && ideal(i);
-    }, function (i) {
-      return i.cached && hiRes(i);
-    }, function (i) {
-      return i.cached;
-    }, function (i) {
-      return !waiting(i) && ideal(i);
-    }, function (i) {
-      return !waiting(i) && good(i);
-    }, function (i) {
-      return !waiting(i);
-    }, function () {
-      return true;
-    }];
-    var noDv = playable.filter(function (s) {
-      return !parse3(s).dv;
-    });
-    var pools = [noDv, playable];
-    for (var p = 0; p < pools.length; p++) {
-      var _loop4 = function _loop4(t2) {
-          var hit = pools[p].filter(function (s) {
-            return tiers[t2](parse3(s));
-          })[0];
-          if (hit) return {
-            v: {
-              stream: hit,
-              ideal: ideal(parse3(hit))
-            }
-          };
-        },
-        _ret2;
-      for (var t2 = 0; t2 < tiers.length; t2++) {
-        _ret2 = _loop4(t2);
-        if (_ret2) return _ret2.v;
-      }
-    }
-    return null;
   }
   function summary(info) {
     return [info.res, info.dv ? "Dolby Vision" : info.hdr ? "HDR" : "", info.dub ? info.original ? "Original + Dublado" : "Dublado" : "", info.seeders !== null ? info.seeders + " seeders" : ""].filter(Boolean).join(" · ");
@@ -9683,6 +9774,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var HIDE_MS = 5e3;
   var SLOW_MS = 4e4;
   var SLOW_COUNTDOWN = 5;
+  var DEBRID_SLOW_MS = 15e3;
+  var DEBRID_SMOOTH_MS = 10 * 6e4;
+  var DEBRID_STALLS = 2;
   var SAVE_MS = 15e3;
   var LANG_NAMES = {
     por: "Português (Portugal)",
@@ -9752,6 +9846,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
   function PlayerView(opts) {
     var meta = opts.meta;
+    var minutes2 = minutesOf(meta, opts.isSeries);
     var video = opts.video;
     var stream = opts.stream;
     var settings2 = settings();
@@ -10101,7 +10196,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var forUrl = mediaUrl;
       addonSubs = null;
       subsSettled = false;
-      var ready2 = viaServer && !hasPlayed ? untilPlaying(6e4) : Promise.resolve();
+      var ready2 = (viaServer || isDebrid()) && !hasPlayed ? untilPlaying(6e4) : Promise.resolve();
       ready2.then(function () {
         return videoInfo(stream, mediaUrl, server_exports);
       }).then(function (info) {
@@ -10278,6 +10373,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       hideIntro();
       clearTimeout(slowTimer);
       closeSlow();
+      debridResumed();
+      systemScreenSaver(false);
       if (!hasPlayed) {
         scheduleAudioPick();
         if (meta.id !== "dev") rememberStream(video.id, stream);
@@ -10289,12 +10386,15 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       scheduleHide();
     });
     videoEl.addEventListener("pause", function () {
+      clearTimeout(smoothTimer);
+      systemScreenSaver(true);
       updatePlayBtn();
       if (!syncUi) showControls();
       saveProgress2();
     });
     videoEl.addEventListener("waiting", function () {
-      return showSpinner(true);
+      showSpinner(true);
+      debridWaiting();
     });
     videoEl.addEventListener("canplay", function () {
       return showSpinner(false);
@@ -10362,7 +10462,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       });
       var pick2 = smartPick(cands.filter(function (x) {
         return parse3(x).res === res;
-      }), ok) || smartPick(cands, ok);
+      }), ok, minutes2) || smartPick(cands, ok, minutes2);
       if (!pick2) return null;
       autoTries++;
       return pick2.stream;
@@ -10587,6 +10687,18 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         }
         recoveries++;
         lastRecoveryAt = Date.now();
+        if (isDebrid() && recoveries >= 2) {
+          var lighter = lighterDebrid(fileMbps(parse3(stream), minutes2));
+          learnDebrid(fileMbps(parse3(stream), minutes2), false);
+          if (lighter && downgrades < 2) {
+            downgrades++;
+            toast(t("Conexão não aguentou este arquivo. Indo para um mais leve: {what}", {
+              what: summary(parse3(lighter)) || parse3(lighter).addon
+            }), 5e3);
+            switchTo(lighter);
+            return;
+          }
+        }
         diag("travado-recuperando#" + recoveries);
         reopenAt(pos);
       }
@@ -11293,8 +11405,80 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         }
       });
     }
+    function isDebrid() {
+      var i = stream ? parse3(stream) : null;
+      return !!(i && (i.debrid || i.cached));
+    }
+    var lastSeekAt = 0;
+    var waitStart = 0;
+    var stalls = [];
+    var smoothTimer = null;
+    var downgrades = 0;
+    videoEl.addEventListener("seeking", function () {
+      return lastSeekAt = Date.now();
+    });
+    function debridWaiting() {
+      if (!hasPlayed || !isDebrid() || seekTarget !== null || Date.now() - lastSeekAt < 4e3) return;
+      waitStart = Date.now();
+      clearTimeout(smoothTimer);
+    }
+    function debridResumed() {
+      if (!isDebrid()) return;
+      if (waitStart) {
+        var waited = Date.now() - waitStart;
+        waitStart = 0;
+        if (waited > 1500) debridStall(waited);
+      }
+      clearTimeout(smoothTimer);
+      var forStream = stream;
+      smoothTimer = setTimeout(function () {
+        if (!alive || stream !== forStream || stalls.length) return;
+        var mbps = fileMbps(parse3(stream), minutes2);
+        var b = learnDebrid(mbps, true);
+        log.info("Debrid liso", mbps + " Mbps", "banda " + b);
+      }, DEBRID_SMOOTH_MS);
+    }
+    function debridStall(waited) {
+      var now = Date.now();
+      stalls = stalls.filter(function (x) {
+        return now - x < 18e4;
+      }).concat(now);
+      diag("debrid-travou " + waited + "ms #" + stalls.length);
+      if (stalls.length < DEBRID_STALLS) return;
+      stalls = [];
+      var mbps = fileMbps(parse3(stream), minutes2);
+      var budget = learnDebrid(mbps, false);
+      log.warn("Debrid travando", mbps + " Mbps", "banda agora " + budget);
+      if (downgrades >= 2) return;
+      var lighter = lighterDebrid(mbps);
+      if (!lighter) return;
+      downgrades++;
+      var info = parse3(lighter);
+      toast(t("Conexão não aguentou este arquivo. Indo para um mais leve: {what}", {
+        what: summary(info) || info.addon
+      }), 5e3);
+      switchTo(lighter);
+    }
+    function lighterDebrid(mbps) {
+      var cur = parse3(stream);
+      var budget = debridBudget();
+      var cands = (opts.streams || []).filter(function (x) {
+        if (tried.indexOf(x) >= 0) return false;
+        var i = parse3(x);
+        var m = fileMbps(i, minutes2);
+        return i.cached && !i.dv && canPlay(x, _isAvailable()) && (!mbps || m && m < mbps) && (!m || m <= budget);
+      });
+      var dub = cands.filter(function (x) {
+        return parse3(x).dub === cur.dub;
+      });
+      var pick2 = smartPick(dub.length ? dub : cands, _isAvailable(), minutes2);
+      return pick2 ? pick2.stream : null;
+    }
     function switchTo(s) {
       saveProgress2();
+      clearTimeout(smoothTimer);
+      waitStart = 0;
+      stalls = [];
       if (videoEl.currentTime > 1) pendingStart = videoEl.currentTime * 1e3;
       stream = s;
       slowExtensions = 0;
@@ -11311,7 +11495,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       closeSlow();
       slowTimer = setTimeout(function () {
         if (alive && !hasPlayed) checkSlow();
-      }, SLOW_MS);
+      }, isDebrid() ? DEBRID_SLOW_MS : SLOW_MS);
     }
     var slowExtensions = 0;
     function checkSlow() {
@@ -11440,11 +11624,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         var rest = (opts.streams || []).filter(function (x) {
           return tried.indexOf(x) < 0;
         });
-        var res = parse3(stream).res;
-        var same = rest.filter(function (x) {
-          return parse3(x).res === res;
-        });
-        var pick2 = smartPick(same, _isAvailable()) || smartPick(rest, _isAvailable());
+        var pick2 = smartPick(rest, _isAvailable(), minutes2);
         if (!pick2) {
           message("");
           fail(t("Nenhuma outra fonte disponível para tentar."));
@@ -11461,13 +11641,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var nv = nextVideo();
       if (!nv) return;
       saveProgress2();
-      var group = stream.behaviorHints && stream.behaviorHints.bingeGroup;
+      var group2 = stream.behaviorHints && stream.behaviorHints.bingeGroup;
       showSpinner(true);
       message(t("Procurando o próximo episódio..."));
       fetchStreams(meta.type, nv.id).then(function (list3) {
         if (!alive) return;
-        var match = group ? list3.find(function (s) {
-          return s.behaviorHints && s.behaviorHints.bingeGroup === group;
+        var match = group2 ? list3.find(function (s) {
+          return s.behaviorHints && s.behaviorHints.bingeGroup === group2;
         }) : null;
         if (match && (!_needsServer(match) || _isAvailable())) {
           video = nv;
@@ -11604,6 +11784,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       },
       destroy: function destroy() {
         alive = false;
+        systemScreenSaver(true);
         clearInterval(ticker);
         clearInterval(saveTimer);
         clearInterval(watchTimer);
@@ -12173,6 +12354,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     function setArt(url2, tk) {
       if (!url2) {
         front2.classList.remove("show");
+        el2.classList.remove("has-art");
         return;
       }
       var pre = new Image();
@@ -12186,6 +12368,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             back3.classList.add("show");
             front2.classList.remove("show");
             front2 = back3;
+            el2.classList.add("has-art");
           });
         });
       };
@@ -13616,7 +13799,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         serverReady.then(function (ok) {
           var last = rememberedStream(video.id, all);
           if (last && canPlay(last, ok)) return resolve(last);
-          var p = smartPick(all, ok);
+          var p = smartPick(all, ok, minutesOf(meta, isSeries()));
           resolve(p ? p.stream : null);
         });
       };
@@ -13645,17 +13828,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       });
       play2(video, null, all, pick2);
     }
-    function runtimeMinutes() {
-      var r = String(meta.runtime || "");
-      var hMatch = r.match(/(\d+)\s*h/i);
-      var mMatch = r.match(/(\d+)\s*min/i);
-      var mins = (hMatch ? parseInt(hMatch[1], 10) * 60 : 0) + (mMatch ? parseInt(mMatch[1], 10) : 0);
-      return mins || (isSeries() ? 45 : 110);
-    }
+    var runtimeMinutes = function runtimeMinutes() {
+      return minutesOf(meta, isSeries());
+    };
     function heavyMbps(info2) {
-      if (!info2.sizeMb) return 0;
-      var mbps = Math.round(info2.sizeMb * 8 / (runtimeMinutes() * 60));
-      return mbps > 30 ? mbps : 0;
+      var mbps = fileMbps(info2, runtimeMinutes());
+      return mbps > debridBudget() ? mbps : 0;
     }
     function showStreams(video, focusFirst2) {
       panel.style.display = "";
@@ -14121,7 +14299,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var d = days();
       var today = /* @__PURE__ */new Date();
       var now = Date.now();
-      var group = function group(label, date, events2) {
+      var group2 = function group2(label, date, events2) {
         var cards = events2.map(function (e) {
           var soon = eventSoon(e);
           var sub = e.location || e.calendar || "";
@@ -14154,9 +14332,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           text: label
         }), dayLabel(date, true)]), h("div.cal-cards", null, cards)]);
       };
-      track.appendChild(group(t("HOJE"), today, d.today));
+      track.appendChild(group2(t("HOJE"), today, d.today));
       track.appendChild(h("div.cal-sep"));
-      track.appendChild(group(t("AMANHÃ"), new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1), d.tomorrow));
+      track.appendChild(group2(t("AMANHÃ"), new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1), d.tomorrow));
       calRow.appendChild(track);
     }
     var offCalendar = onChange2(function () {
@@ -14167,7 +14345,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     function loadNearby() {
       if (el2.offsetParent === null) return;
       var limit = window.innerHeight * 2.2;
-      var _loop5 = function _loop5() {
+      var _loop4 = function _loop4() {
           var p = pending[i];
           if (p.state !== "idle") return 0; // continue
           if (!p.row.parentNode) {
@@ -14183,11 +14361,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             loadNearby();
           });
         },
-        _ret3;
+        _ret2;
       for (var i = 0; i < pending.length && active < 2; i++) {
-        _ret3 = _loop5();
-        if (_ret3 === 0) continue;
-        if (_ret3 === 1) break;
+        _ret2 = _loop4();
+        if (_ret2 === 0) continue;
+        if (_ret2 === 1) break;
       }
     }
     function renderBoard() {
@@ -14399,6 +14577,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             back3.classList.add("show");
             front2.classList.remove("show");
             front2 = back3;
+            el2.classList.add("has-art");
           });
         });
       };
@@ -14463,6 +14642,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         bgB.style.backgroundImage = "";
         bgA.classList.remove("show");
         bgB.classList.remove("show");
+        el2.classList.remove("has-art");
       },
       resume: function resume() {
         paused = false;
@@ -14663,6 +14843,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
     if (pv) el2.__blur = stopPreview;
     return el2;
+  }
+  function wideCatalog(entry) {
+    var shape = entry && entry.catalog.posterShape;
+    return shape !== "poster" && shape !== "square";
   }
   function catalogOrder(e) {
     var n = (e.catalog.name || e.catalog.id || "") + " " + (e.catalog.id || "");
@@ -15048,36 +15232,37 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         title: title
       };
     }
-    function genreStrip(site) {
-      var seen = {};
-      var chips = [];
-      site.addons.forEach(function (a) {
-        return adultCatalogs(a).forEach(function (e) {
-          return genreOptions(e.catalog).forEach(function (g) {
-            if (seen[g] || isHiddenCategory(g)) return;
-            seen[g] = true;
-            chips.push(h("div.chip", {
-              focusable: true,
-              text: genre(g),
-              onSelect: function onSelect() {
-                return push(GridView(e, {
-                  genre: g
-                }));
-              }
-            }));
-          });
+    function genreStrip(site, jumps) {
+      var cats = siteCategories(site);
+      if (!cats.length) return;
+      var chips = cats.map(function (c, i) {
+        return h("div.chip", {
+          focusable: true,
+          text: genre(c.g),
+          onSelect: function onSelect() {
+            return push(GridView(c.e, {
+              genre: c.g
+            }, cats, i));
+          }
         });
       });
-      if (!chips.length) return;
-      body.appendChild(h("div.row.nsfw-genres", {
+      var row = h("div.row.nsfw-genres", {
         "data-anchor": "30"
       }, [h("div.row-title", {
-        text: t("Mais categorias")
+        text: t("Categorias")
       }), h("div.chip-track", {
         "data-scroll-x": "",
         "data-group": "",
         "data-trap": ""
-      }, chips)]));
+      }, chips)]);
+      body.appendChild(row);
+      if (jumps) jumps.appendChild(h("div.chip", {
+        focusable: true,
+        text: t("Categorias"),
+        onSelect: function onSelect() {
+          return focus(chips[0]);
+        }
+      }));
     }
     function renderSearch() {
       var input = h("input.input", {
@@ -15202,9 +15387,25 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }
       return false;
     }
+    function onBack() {
+      var cur = current2();
+      if (cur && body.contains(cur) && filters.firstChild) {
+        onRail();
+        scroller.scrollTop = 0;
+        return true;
+      }
+      confirmDialog(t("Sair da área NSFW?"), t("Sair"), function () {
+        return goHome();
+      }, {
+        safe: true,
+        cancelLabel: t("Ficar")
+      });
+      return true;
+    }
     return {
       el: el2,
       onKey: onKey,
+      onBack: onBack,
       onShow: function onShow() {
         if (ready2) {
           if (scope !== "search") {
@@ -15236,6 +15437,23 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }
     };
   }
+  function siteCategories(site) {
+    var seen = {};
+    var out = [];
+    site.addons.forEach(function (a) {
+      return adultCatalogs(a).forEach(function (e) {
+        return genreOptions(e.catalog).forEach(function (g) {
+          if (seen[g] || isHiddenCategory(g)) return;
+          seen[g] = true;
+          out.push({
+            e: e,
+            g: g
+          });
+        });
+      });
+    });
+    return out;
+  }
   function catName(entry) {
     return entry.title || genre(entry.catalog.name || entry.catalog.id);
   }
@@ -15250,7 +15468,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       "data-scroll-x": "",
       "data-group": "",
       "data-trap": ""
-    }, skeletonCards());
+    }, skeletonCards(6, wideCatalog(entry)));
     row.appendChild(h("div.row-title", null, [catName(entry), h("small", {
       text: sub
     })]));
@@ -15314,31 +15532,32 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return !isUncensored(m);
     }
   };
-  function GridView(entry, extra2) {
+  function GridView(entry, extra2, cats, at) {
     var el2 = h("div.view.nsfw-view", {
       "data-stay": ""
     });
     var scroller = h("div.scroll-y", {
       "data-scroll-y": ""
     });
-    var crumb = [h("span", {
-      text: "NSFW › " + siteName(entry.addon)
-    }), " › ", h("b", {
-      text: extra2.genre ? genre(extra2.genre) : catName(entry)
-    })];
-    var isHentai = /hentai/i.test((extra2.genre || "") + " " + catName(entry));
+    var crumb = h("div.reco-crumb");
+    var filterRow = h("div.row.nsfw-genres", {
+      "data-anchor": "30"
+    });
     var slot = h("div");
     var mode = "all";
     var pg = null;
+    var isHentai = false;
     function fetcher() {
       var skip = 0;
       var keep = FILTER_KEEP[mode];
+      var e = entry;
+      var x = extra2;
       return function load4() {
         var got = [];
         var _step3 = function step(tries) {
-          return fetchCatalog(entry, Object.assign({
+          return fetchCatalog(e, Object.assign({
             skip: skip || void 0
-          }, extra2)).then(function (metas) {
+          }, x)).then(function (metas) {
             skip += metas.length;
             metas.forEach(function (m) {
               return keep(m) && got.push(m);
@@ -15351,14 +15570,20 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       };
     }
     function build2() {
+      stopPreview();
+      if (pg) pg.destroy();
       var load4 = fetcher();
+      var e = entry;
       pg = pagedGrid({
         load: load4,
         key: function key(m) {
           return m.id;
         },
         card: function card(m) {
-          return itemCard(m, entry);
+          return itemCard(m, e);
+        },
+        skeleton: function skeleton() {
+          return skeletonCards(8, wideCatalog(e));
         },
         onEmpty: function onEmpty() {
           return pg.el.insertBefore(h("div.hint", {
@@ -15369,11 +15594,24 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       clear(slot);
       slot.appendChild(pg.el);
     }
-    scroller.appendChild(h("div.reco-crumb", null, crumb));
-    if (isHentai) {
+    function renderHead() {
+      var title = extra2.genre ? genre(extra2.genre) : catName(entry);
+      clear(crumb);
+      [h("span", {
+        text: "NSFW › " + siteName(entry.addon) + " › "
+      }), h("b", {
+        text: title
+      })].forEach(function (n) {
+        return crumb.appendChild(n);
+      });
+      isHentai = /hentai/i.test((extra2.genre || "") + " " + catName(entry));
+      clear(filterRow);
+      filterRow.style.display = isHentai ? "" : "none";
+      if (!isHentai) return;
       var chips = UNCENSORED_FILTERS.map(function (f) {
         return h("div.chip", {
           focusable: true,
+          cls: f.id === mode ? "active" : "",
           text: t(f.label),
           onSelect: function onSelect() {
             if (f.id === mode) return;
@@ -15386,17 +15624,50 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           }
         });
       });
-      chips.forEach(function (c, i) {
-        return c.classList.toggle("active", UNCENSORED_FILTERS[i].id === mode);
-      });
-      scroller.appendChild(h("div.row.nsfw-genres", {
-        "data-anchor": "30"
-      }, [h("div.chip-track", {
+      filterRow.appendChild(h("div.chip-track", {
         "data-scroll-x": "",
         "data-group": "",
         "data-trap": ""
-      }, chips)]));
+      }, chips));
     }
+    scroller.appendChild(crumb);
+    if (cats && cats.length > 1) {
+      var catChips = cats.map(function (c, i) {
+        return h("div.chip", {
+          focusable: true,
+          cls: i === at ? "active" : "",
+          "data-autofocus": i === at ? "" : void 0,
+          text: genre(c.g),
+          onSelect: function onSelect() {
+            if (i === at) return;
+            at = i;
+            catChips.forEach(function (x, j) {
+              return x.classList.toggle("active", j === at);
+            });
+            catChips.forEach(function (x) {
+              return x.removeAttribute("data-autofocus");
+            });
+            entry = c.e;
+            extra2 = {
+              genre: c.g
+            };
+            mode = "all";
+            renderHead();
+            build2();
+            pg.start();
+          }
+        });
+      });
+      scroller.appendChild(h("div.row.nsfw-genres.nsfw-catbar", {
+        "data-anchor": "30"
+      }, h("div.chip-track", {
+        "data-scroll-x": "",
+        "data-group": "",
+        "data-trap": ""
+      }, catChips)));
+    }
+    scroller.appendChild(filterRow);
+    renderHead();
     build2();
     scroller.appendChild(slot);
     el2.appendChild(scroller);
@@ -15753,6 +16024,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       lastMove = now;
       if (el) stop();else arm();
     });
+    document.addEventListener("playing", function (e) {
+      if (el && e.target && e.target.tagName === "VIDEO" && isMain(e.target)) stop();else arm();
+    }, true);
     arm();
   }
   function arm() {
@@ -15763,11 +16037,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   function busy() {
     if (document.hidden) return true;
     var vids = document.getElementsByTagName("video");
-    for (var i = 0; i < vids.length; i++) {
-      var v = vids[i];
-      if (!v.paused && !v.ended && v.readyState > 2 && v.offsetWidth > 400) return true;
-    }
+    for (var i = 0; i < vids.length; i++) if (isMain(vids[i]) && !vids[i].paused && !vids[i].ended) return true;
     return false;
+  }
+  function isMain(v) {
+    return !!(v.currentSrc || v.getAttribute("src")) && v.offsetWidth > 400;
   }
   function maybeStart() {
     if (busy()) return arm();
@@ -15911,6 +16185,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     layer.classList.add("front");
     back2.classList.remove("front");
     setTransform(layer, "scale(" + mv[0] + ") translate(" + mv[1] + "px, " + mv[2] + "px)");
+    var upNext = items[(idx + 1) % items.length];
     p.info.classList.remove("in");
     setTimeout(function () {
       if (!el) return;
@@ -15960,9 +16235,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       p.desc.textContent = it.description || "";
       void p.info.offsetWidth;
       p.info.classList.add("in");
-      var nx2 = items[(idx + 1) % items.length];
-      p.nextImg.style.backgroundImage = nx2.background ? 'url("' + nx2.background + '")' : "none";
-      p.nextName.textContent = nx2.name || "";
+      p.nextImg.style.backgroundImage = upNext.background ? 'url("' + upNext.background + '")' : "none";
+      p.nextName.textContent = upNext.name || "";
     }, 600);
     var bars = p.bars.children;
     var cur = idx % items.length;

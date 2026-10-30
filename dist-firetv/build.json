@@ -1,6 +1,6 @@
 {
   "version": "1.2.0",
-  "commit": "193552bd87a46139ddde92a3f96ada4dc312ecbd",
-  "date": "2026-10-30T00:19:01+00:00",
-  "message": "Mesma conta logada em dois perfis vira uma só; registro dos últimos plays"
+  "commit": "5989599f063ae30cc201415277376b5814ac5b89",
+  "date": "2026-10-30T00:24:27+00:00",
+  "message": "Perfis: correções no armazenamento e no histórico separado"
 }

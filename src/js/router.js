@@ -68,13 +68,17 @@ export function back() {
   }
   // Voltar numa aba (inclusive a NSFW) leva ao Início com o foco no botão da casinha.
   if (view && view.tabId && view.tabId !== 'home') {
-    goTab('home');
-    const homeBtn = tabs.home && tabs.home.el.querySelector('.topbar .tab[data-tab="home"]');
-    if (homeBtn) nav.focus(homeBtn, { noScroll: true });
+    goHome();
     return;
   }
   if (IS_WEB) return; // no navegador não há "sair do app": fechar a aba é com o usuário
   confirmDialog(t('Sair do Stremio Kai?'), t('Sair'), () => platformBack());
+}
+
+export function goHome() {
+  goTab('home');
+  const homeBtn = tabs.home && tabs.home.el.querySelector('.topbar .tab[data-tab="home"]');
+  if (homeBtn) nav.focus(homeBtn, { noScroll: true });
 }
 
 // Troca de aba principal: limpa a pilha e mostra a aba (mantida viva).
@@ -107,6 +111,10 @@ export function registerTab(id, factory) {
 
 export function tabView(id) {
   return tabs[id] || null;
+}
+
+export function rootView() {
+  return stack[0] || null;
 }
 
 export function currentView() {

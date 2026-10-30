@@ -52,17 +52,18 @@ export function $$(sel, root) {
 // DESCARREGA as que ficaram longe, para a TV (≈180 MB livres) não entrar em swap.
 const BLANK = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
 
-export function lazyImg(url, cls) {
-  const el = h('img', { cls: cls, alt: '' });
-  if (url) el.setAttribute('data-lazy', url);
-  return el;
-}
-
 // A imagem só aparece pronta (classe "ready" com fade no CSS), nunca se formando aos pedaços.
 function onLoaded() {
   if (!this.__on) return;
   this.classList.add('ready');
-  if (this.parentNode) this.parentNode.classList.add('img-loaded'); // para o esqueleto (shimmer)
+  if (this.parentNode) {
+    this.parentNode.classList.add('img-loaded'); // para o esqueleto (shimmer)
+    this.parentNode.classList.remove('img-loading');
+  }
+}
+
+function onFailed() {
+  if (this.parentNode) this.parentNode.classList.remove('img-loading');
 }
 
 function setOn(el, on) {
@@ -71,7 +72,9 @@ function setOn(el, on) {
     if (!el.__readyHook) {
       el.__readyHook = true;
       el.addEventListener('load', onLoaded);
+      el.addEventListener('error', onFailed);
     }
+    if (el.parentNode && !el.parentNode.classList.contains('img-loaded')) el.parentNode.classList.add('img-loading');
     const url = el.getAttribute('data-lazy');
     const kitsu = kitsuInfo(url);
     if (!kitsu) {
@@ -89,7 +92,10 @@ function setOn(el, on) {
   } else if (!on && el.__on) {
     el.__on = false;
     el.classList.remove('ready');
-    if (el.parentNode) el.parentNode.classList.remove('img-loaded');
+    if (el.parentNode) {
+      el.parentNode.classList.remove('img-loaded');
+      el.parentNode.classList.remove('img-loading');
+    }
     el.src = BLANK;
   }
 }
@@ -129,14 +135,4 @@ export function unloadImages(root) {
       el.src = BLANK;
     }
   });
-}
-
-export function debounce(fn, ms) {
-  let t = null;
-  return function () {
-    const args = arguments;
-    const self = this;
-    clearTimeout(t);
-    t = setTimeout(() => fn.apply(self, args), ms);
-  };
 }
