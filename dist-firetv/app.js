@@ -6651,9 +6651,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO = "mthsrfm-byte/stremio-sera";
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "5989599f063ae30cc201415277376b5814ac5b89",
-    date: "2026-10-30T00:24:27+00:00",
-    message: "Perfis: correções no armazenamento e no histórico separado"
+    commit: "cffca0a853dd183251c17a8702113c53e0c47584",
+    date: "2026-10-29T21:30:02-03:00",
+    message: "Seraflix no Fire TV Stick + perfis na mesma conta com histórico separado"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -9112,8 +9112,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return m ? m[0] : null;
   }
   var BUILTIN_KEYS = {
-    tmdbKey: true ? "" : "",
-    mdblistKey: true ? "" : ""
+    tmdbKey: true ? "9c57ed7ea044b2f01eea2fcc2e954c2e" : "",
+    mdblistKey: true ? "t9e4f1z29b3c36i1j25rul1wx" : ""
   };
   function keyOf(name) {
     return (settings()[name] || "").trim() || BUILTIN_KEYS[name];

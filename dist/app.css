@@ -295,6 +295,7 @@ body.oled .details-shade { background: linear-gradient(to right, #000 25%, rgba(
 .modal-list { overflow: hidden; max-height: 680px; }
 .opt { padding: 16px 36px; font-size: 23px; font-weight: 600; border-left: 6px solid transparent; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .opt small { display: block; font-size: 18px; font-weight: 400; color: rgba(255,255,255,0.55); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.opt small.wrap { white-space: pre-line; word-break: break-word; line-height: 1.35; margin-top: 4px; }
 .opt.checked:before { content: '● '; color: #9d85ff; }
 .opt.focused { background: rgba(123,91,245,0.35); border-left-color: #9d85ff; }
 .modal-text { padding: 0 36px 24px; font-size: 22px; color: rgba(255,255,255,0.8); white-space: pre-line; }
@@ -391,6 +392,19 @@ body.oled .details-shade { background: linear-gradient(to right, #000 25%, rgba(
 .profile-card.focused .avatar { border-color: #fff; -webkit-transform: scale(1.08); transform: scale(1.08); }
 .profile-card.focused .profile-name { color: #fff; }
 .profile-hint { margin-top: 70px; font-size: 22px; color: rgba(255,255,255,0.45); }
+/* Avatar: degradê com grão (avatarStyle em views/profiles.js); a inicial com uma sombra leve. */
+.avatar { text-shadow: 0 2px 10px rgba(0,0,0,0.28); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.14); }
+.avatar.big { box-shadow: inset 0 0 0 1px rgba(255,255,255,0.16), 0 18px 40px rgba(0,0,0,0.35); }
+.avatar.add { text-shadow: none; box-shadow: inset 0 0 0 2px rgba(255,255,255,0.12); }
+.avatar.swatch { width: 34px; height: 34px; line-height: 34px; font-size: 16px; margin-right: 16px; vertical-align: middle; }
+.profile-face { position: relative; display: inline-block; }
+.profile-card .avatar.big { -webkit-transition: -webkit-transform 0.18s ease; transition: transform 0.18s ease; }
+.profile-edit { position: absolute; left: 5px; top: 5px; right: 5px; bottom: 5px; border-radius: 23px; background: rgba(0,0,0,0.38); display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; -webkit-justify-content: center; justify-content: center; }
+.profile-picker.managing .avatar.big { color: transparent; text-shadow: none; }
+.profile-picker.managing .profile-card.focused .avatar { -webkit-transform: none; transform: none; }
+.profile-picker.managing .profile-card.focused .profile-face { -webkit-transform: scale(1.08); transform: scale(1.08); }
+.profile-manage { margin-top: 56px; }
+.profile-picker .profile-manage + .profile-hint { margin-top: 28px; }
 .modal-text .input { width: 100%; }
 .err-text { color: #ff8a8a; min-height: 34px; padding-bottom: 6px; font-size: 21px; }
 .wizard .input { width: 100%; margin-bottom: 14px; }
