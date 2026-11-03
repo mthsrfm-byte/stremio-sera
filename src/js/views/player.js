@@ -82,6 +82,8 @@ export function openPlayer(opts) {
 function PlayerView(opts) {
   const meta = opts.meta;
   const minutes = si.minutesOf(meta, opts.isSeries);
+  // Série: o Smart Choice lembra a fonte que tocou (dublada, grupo) para o próximo episódio.
+  const seriesKey = opts.isSeries && meta.id !== 'dev' ? meta.id : '';
   let video = opts.video;
   let stream = opts.stream;
   const settings = store.settings();
@@ -569,6 +571,7 @@ function PlayerView(opts) {
       scheduleAudioPick();
       // Abriu: é esta a fonte que o Smart Choice tenta primeiro ao continuar depois.
       if (meta.id !== 'dev') si.rememberStream(video.id, stream);
+      si.rememberSeries(seriesKey, stream);
       playlog.add(logTitle(), logSource(), 'ok', failedNotes.join('\n'));
     }
     hasPlayed = true;
@@ -648,7 +651,7 @@ function PlayerView(opts) {
     const res = si.parse(stream).res;
     const ok = server.isAvailable();
     const cands = rest.filter((x) => !si.parse(x).dv && si.canPlay(x, ok));
-    const pick = si.smartPick(cands.filter((x) => si.parse(x).res === res), ok, minutes) || si.smartPick(cands, ok, minutes);
+    const pick = si.smartPick(cands.filter((x) => si.parse(x).res === res), ok, minutes, seriesKey) || si.smartPick(cands, ok, minutes, seriesKey);
     if (!pick) return null;
     autoTries++;
     return pick.stream;
@@ -1602,7 +1605,7 @@ function PlayerView(opts) {
       return i.cached && !i.dv && si.canPlay(x, server.isAvailable()) && (!mbps || (m && m < mbps)) && (!m || m <= budget);
     });
     const dub = cands.filter((x) => si.parse(x).dub === cur.dub);
-    const pick = si.smartPick(dub.length ? dub : cands, server.isAvailable(), minutes);
+    const pick = si.smartPick(dub.length ? dub : cands, server.isAvailable(), minutes, seriesKey);
     return pick ? pick.stream : null;
   }
 
@@ -1723,7 +1726,7 @@ function PlayerView(opts) {
       // Próxima fonte: a melhor (Smart Choice) entre as que ainda não foram tentadas. Na ordem do
       // Smart Choice, todas as de debrid em cache vêm antes de qualquer torrent.
       const rest = (opts.streams || []).filter((x) => tried.indexOf(x) < 0);
-      const pick = si.smartPick(rest, server.isAvailable(), minutes);
+      const pick = si.smartPick(rest, server.isAvailable(), minutes, seriesKey);
       if (!pick) {
         message('');
         fail(t('Nenhuma outra fonte disponível para tentar.'));

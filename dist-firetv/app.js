@@ -6651,9 +6651,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO = "mthsrfm-byte/stremio-sera";
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "cffca0a853dd183251c17a8702113c53e0c47584",
-    date: "2026-10-29T21:30:02-03:00",
-    message: "Seraflix no Fire TV Stick + perfis na mesma conta com histórico separado"
+    commit: "e16dd454243ada64de09b54ab90a37f00d5a693d",
+    date: "2026-10-30T00:30:25+00:00",
+    message: "Build da dist/ para a TV"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -9112,8 +9112,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return m ? m[0] : null;
   }
   var BUILTIN_KEYS = {
-    tmdbKey: true ? "9c57ed7ea044b2f01eea2fcc2e954c2e" : "",
-    mdblistKey: true ? "t9e4f1z29b3c36i1j25rul1wx" : ""
+    tmdbKey: true ? "" : "",
+    mdblistKey: true ? "" : ""
   };
   function keyOf(name) {
     return (settings()[name] || "").trim() || BUILTIN_KEYS[name];
@@ -9837,15 +9837,36 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     if (/480p|\bsd\b|dvdrip|\bcam\b|\bts\b/i.test(text2)) return "SD";
     return "";
   }
-  function dubbed(text2, flags) {
-    if (flags.indexOf(BR) >= 0 || flags.indexOf(PT2) >= 0) return true;
-    return /dublad[oa]|\bdub(?:lagem)?[ ._-]?(?:pt|br)\b|\bpt[ ._-]?br\b|\bnacional\b|portugu[eê]s|\bdual\b[^\n]*\b(?:pt|br|por)\b|\b(?:pt|br|por)\b[^\n]*\bdual\b/i.test(text2);
+  var DUB_STRONG_RE = /dublad[oa]s?|dublagem|\bdub(?:bed)?[ ._-]?(?:pt|br|por|ptbr|pt[ ._-]br)\b|\b(?:pt|br|ptbr|pt[ ._-]br|por)[ ._-]?dub(?:bed)?\b|\bnacional\b|[aá]udio[ ._:-]*(?:em[ ._-]?)?(?:portugu[eê]s|pt|br|por)\b|\bportuguese[ ._-]?(?:audio|dub)|\bdual[ ._-]?(?:pt|br|ptbr|por)\b|\b(?:pt|br|ptbr|por)[ ._-]?dual\b|\btri[ ._-]?[aá]udio\b[^\n]*\b(?:pt|br|por)\b/i;
+  var SUB_RE = /legendad[oa]s?|\blegendas?\b|\bleg\b|\bsub(?:s|bed|titulado|title[sd]?)?[ ._-]*(?:pt|br|por|ptbr|portugu[eê]s|portuguese)\b|\b(?:pt|br|ptbr|pt[ ._-]br|por|portuguese)[ ._-]?subs?\b|\bvost\b/i;
+  var BR_PROVIDER_RE = /\b(?:comando|bludv|lapumia|micoleao|ondebaixa|torrentdosfilmes|baixafilmes|thepiratefilmes|vacatorrent|redetorrent|brazuca|apache ?torrent|nerd ?torrent|amigos ?share|starck|wolfmax|filmestorrent)\b/i;
+  var DUB_WEAK_RE = /\bpt[ ._-]?br\b|\bptbr\b|portugu[eê]s|\bportuguese\b|\bdual\b[^\n]*\b(?:pt|br|por)\b|\b(?:pt|br|por)\b[^\n]*\bdual\b|\bdual[ ._-]?[aá]udio\b[^\n]*\b(?:pt|br|por)\b/i;
+  function dubLevel(text2, flags) {
+    if (DUB_STRONG_RE.test(text2)) return 2;
+    if (SUB_RE.test(text2)) return 0;
+    if (/^\s*\[[^\]]+\][^\n]*\[\s*pt[ ._-]?br\s*\]/im.test(text2)) return 0;
+    var subFlags = /\bmulti(?:ple)?[ ._-]?sub(?:s|titles?)?\b|\bsubs?\b/i.test(text2) && !/\bmulti[ ._-]?audio|\bdual\b|\bdub/i.test(text2);
+    if (!subFlags && (flags.indexOf(BR) >= 0 || flags.indexOf(PT2) >= 0)) return 2;
+    if (DUB_WEAK_RE.test(text2) || BR_PROVIDER_RE.test(text2) || /\bdual[ ._-]?áudio\b/i.test(text2)) return 1;
+    return 0;
+  }
+  function releaseGroup(text2) {
+    var lines = text2.split("\n");
+    for (var i = 0; i < lines.length; i++) {
+      var l = lines[i].replace(ICONS_RE, "").trim();
+      var a = l.match(/^\[([^\]]{2,30})\]/);
+      if (a && !/^(?:RD|AD|PM|TB|ED|OC|DL|DLX)\+?$/i.test(a[1])) return a[1].toLowerCase();
+      var b = l.match(/[-.]([A-Za-z0-9]{2,20})(?:\.(?:mkv|mp4|avi|ts|m4v))?$/);
+      if (b && /[A-Za-z]/.test(b[1]) && !/^(?:mkv|mp4|avi|x264|x265|h264|h265|hevc|aac|ac3|web|dl|br|pt|dual|multi|dublado|legendado|nacional)$/i.test(b[1])) return b[1].toLowerCase();
+    }
+    return "";
   }
   function parse3(s) {
     if (s.__info) return s.__info;
     var text2 = textOf(s);
     var flags = text2.match(FLAG_RE) || [];
-    var dub = dubbed(text2, flags);
+    var level = dubLevel(text2, flags);
+    var dub = level > 0;
     var others = flags.filter(function (f) {
       return f !== BR && f !== PT2;
     });
@@ -9859,6 +9880,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       hdr: /hdr/i.test(text2),
       remux: /remux/i.test(text2),
       dub: dub,
+      dubLevel: level,
+      // Marcada como legendada (e sem dublagem): nunca entra como dublada por afinidade.
+      subbed: level === 0 && SUB_RE.test(text2),
+      group: releaseGroup(String(s.title || s.description || "") + "\n" + (s.behaviorHints && s.behaviorHints.filename || "")),
       // Original junto: "dual"/"multi", ou outras línguas além do português na lista de bandeiras.
       original: !dub || /\bdual\b|\bmulti\b|dual.?[aá]udio/i.test(text2) || others.length > 0,
       seeders: seedM ? parseInt(seedM[1], 10) : null,
@@ -9933,6 +9958,36 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return streamKey(s) === last.key;
     })[0] || null;
   }
+  var SERIES_KEY = "seriesStream";
+  function rememberSeries(seriesId, s) {
+    if (!seriesId || !s) return;
+    var i = parse3(s);
+    var all = get(SERIES_KEY, {}) || {};
+    all[seriesId] = {
+      dub: i.dub,
+      group: i.group,
+      addon: i.addon,
+      debrid: i.cached,
+      at: Date.now()
+    };
+    var ids = Object.keys(all).sort(function (a, b) {
+      return all[b].at - all[a].at;
+    });
+    ids.slice(200).forEach(function (id) {
+      return delete all[id];
+    });
+    set(SERIES_KEY, all);
+  }
+  function seriesPref(seriesId) {
+    return seriesId && (get(SERIES_KEY, {}) || {})[seriesId] || null;
+  }
+  function sameRelease(i, pref) {
+    return !!(pref && pref.group && i.group === pref.group && (!pref.addon || i.addon === pref.addon));
+  }
+  function dubOf(i, pref) {
+    if (i.dubLevel) return i.dubLevel;
+    return pref && pref.dub && !i.subbed && sameRelease(i, pref) ? 1 : 0;
+  }
   function canPlay(s, serverOk) {
     return _isPlayableType(s) && (!_needsServer(s) || serverOk);
   }
@@ -9974,14 +10029,15 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     "720p": 2,
     SD: 1
   };
-  function group(i) {
-    if (i.cached) return i.dub ? 0 : 1;
+  function group(i, pref) {
+    if (i.cached) return dubOf(i, pref) ? 0 : 1;
     if (i.debrid) return 5;
-    if (good(i)) return i.dub ? 2 : 3;
+    if (good(i)) return dubOf(i, pref) ? 2 : 3;
     return 4;
   }
-  function rank2(list4, minutes2) {
+  function rank2(list4, minutes2, seriesId) {
     var budget = debridBudget();
+    var pref = seriesPref(seriesId);
     var heavy = function heavy(i) {
       return !!minutes2 && i.cached && fileMbps(i, minutes2) > budget;
     };
@@ -9992,16 +10048,22 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         idx: idx2
       };
     }).sort(function (a, b) {
-      var g = group(a.i) - group(b.i);
+      var g = group(a.i, pref) - group(b.i, pref);
       if (g) return g;
       if (a.i.dv !== b.i.dv) return a.i.dv ? 1 : -1;
+      var dl = dubOf(b.i, pref) - dubOf(a.i, pref);
+      if (dl) return dl;
       var hv = (heavy(a.i) ? 1 : 0) - (heavy(b.i) ? 1 : 0);
       if (hv) return hv;
+      var sr = (sameRelease(b.i, pref) ? 1 : 0) - (sameRelease(a.i, pref) ? 1 : 0);
+      if (sr) return sr;
       if (heavy(a.i)) return fileMbps(a.i, minutes2) - fileMbps(b.i, minutes2);
       var r = (RES_SCORE[b.i.res] || 0) - (RES_SCORE[a.i.res] || 0);
       if (r) return r;
       var o = (b.i.dub && b.i.original ? 1 : 0) - (a.i.dub && a.i.original ? 1 : 0);
       if (o) return o;
+      var rd = (b.i.rd ? 1 : 0) - (a.i.rd ? 1 : 0);
+      if (rd && a.i.cached) return rd;
       if (!a.i.cached) {
         var sd = (b.i.seeders || 0) - (a.i.seeders || 0);
         if (sd) return sd;
@@ -10011,13 +10073,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return x.s;
     });
   }
-  function smartPick(list4, serverOk, minutes2) {
+  function smartPick(list4, serverOk, minutes2, seriesId) {
     var playable = list4.filter(function (s) {
       return canPlay(s, serverOk);
     });
     if (!playable.length) return null;
-    if (IS_FIRETV) return firePick(playable, minutes2);
-    var hit = rank2(playable, minutes2)[0];
+    if (IS_FIRETV) return firePick(playable, minutes2, seriesId);
+    var hit = rank2(playable, minutes2, seriesId)[0];
     var info = parse3(hit);
     return {
       stream: hit,
@@ -10069,7 +10131,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
     return hit;
   }
-  function firePick(playable, minutes2) {
+  function firePick(playable, minutes2, seriesId) {
+    var pref = seriesPref(seriesId);
+    var dub = function dub(i) {
+      return dubOf(i, pref) > 0;
+    };
     var cached = function cached(i) {
       return i.debrid && i.cached;
     };
@@ -10078,7 +10144,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return !!minutes2 && i.cached && fileMbps(i, minutes2) > budget;
     };
     var fireScore = function fireScore(i) {
-      return baseScore(i) - (heavy(i) ? 35 : 0);
+      return baseScore(i) - (heavy(i) ? 35 : 0) + dubOf(i, pref) * 15 + (sameRelease(i, pref) ? 30 : 0);
     };
     var torrent = function torrent(s) {
       return !!s.infoHash && !parse3(s).debrid;
@@ -10093,9 +10159,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return fireScore(i) + seedScore(i) - (i.sizeMb > 6144 ? 20 : 0);
     };
     var tiers = [[function (s, i) {
-      return cached(i) && i.rd && i.dub && fits(i);
+      return cached(i) && i.rd && dub(i) && fits(i);
     }, fireScore], [function (s, i) {
-      return cached(i) && i.dub && fits(i);
+      return cached(i) && dub(i) && fits(i);
     }, fireScore], [function (s, i) {
       return cached(i) && i.rd && fits(i);
     }, fireScore], [function (s, i) {
@@ -10103,11 +10169,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }, fireScore], [function (s, i) {
       return cached(i) && !i.dv;
     }, fireScore], [function (s, i) {
-      return torrent(s) && i.dub && fits(i) && seeded(i);
+      return torrent(s) && dub(i) && fits(i) && seeded(i);
     }, torrentScore], [function (s, i) {
       return torrent(s) && fits(i) && seeded(i);
     }, torrentScore], [function (s, i) {
-      return direct(s) && i.dub && fits(i) && !!i.res;
+      return direct(s) && dub(i) && fits(i) && !!i.res;
     }, fireScore], [function (s, i) {
       return direct(s) && fits(i) && !!i.res;
     }, fireScore], [function (s, i) {
@@ -10115,7 +10181,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }, torrentScore], [function (s, i) {
       return !(i.debrid && !i.cached);
     }, function (i) {
-      return baseScore(i) + seedScore(i);
+      return fireScore(i) + seedScore(i);
     }], [function () {
       return true;
     }, fireScore]];
@@ -10453,6 +10519,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   function PlayerView(opts) {
     var meta = opts.meta;
     var minutes2 = minutesOf(meta, opts.isSeries);
+    var seriesKey = opts.isSeries && meta.id !== "dev" ? meta.id : "";
     var video = opts.video;
     var stream = opts.stream;
     var settings2 = settings();
@@ -10992,6 +11059,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       if (!hasPlayed) {
         scheduleAudioPick();
         if (meta.id !== "dev") rememberStream(video.id, stream);
+        rememberSeries(seriesKey, stream);
         add(logTitle(), logSource(), "ok", failedNotes.join("\n"));
       }
       hasPlayed = true;
@@ -11077,7 +11145,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       });
       var pick2 = smartPick(cands.filter(function (x) {
         return parse3(x).res === res;
-      }), ok, minutes2) || smartPick(cands, ok, minutes2);
+      }), ok, minutes2, seriesKey) || smartPick(cands, ok, minutes2, seriesKey);
       if (!pick2) return null;
       autoTries++;
       return pick2.stream;
@@ -12087,7 +12155,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var dub = cands.filter(function (x) {
         return parse3(x).dub === cur.dub;
       });
-      var pick2 = smartPick(dub.length ? dub : cands, _isAvailable(), minutes2);
+      var pick2 = smartPick(dub.length ? dub : cands, _isAvailable(), minutes2, seriesKey);
       return pick2 ? pick2.stream : null;
     }
     function switchTo(s) {
@@ -12240,7 +12308,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         var rest = (opts.streams || []).filter(function (x) {
           return tried.indexOf(x) < 0;
         });
-        var pick2 = smartPick(rest, _isAvailable(), minutes2);
+        var pick2 = smartPick(rest, _isAvailable(), minutes2, seriesKey);
         if (!pick2) {
           message("");
           fail(t("Nenhuma outra fonte disponível para tentar."));
@@ -14415,7 +14483,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         serverReady.then(function (ok) {
           var last = rememberedStream(video.id, all);
           if (last && canPlay(last, ok)) return resolve(last);
-          var p = smartPick(all, ok, minutesOf(meta, isSeries()));
+          var p = smartPick(all, ok, minutesOf(meta, isSeries()), isSeries() ? meta.id : "");
           resolve(p ? p.stream : null);
         });
       };

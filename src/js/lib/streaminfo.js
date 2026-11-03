@@ -23,18 +23,50 @@ export function resolution(text) {
   return '';
 }
 
-// Dublado: bandeira do Brasil ou de Portugal (o Torrentio marca assim áudio em português; a de
-// Portugal quase sempre é a mesma dublagem) ou as palavras dos lançamentos brasileiros.
-function dubbed(text, flags) {
-  if (flags.indexOf(BR) >= 0 || flags.indexOf(PT) >= 0) return true;
-  return /dublad[oa]|\bdub(?:lagem)?[ ._-]?(?:pt|br)\b|\bpt[ ._-]?br\b|\bnacional\b|portugu[eê]s|\bdual\b[^\n]*\b(?:pt|br|por)\b|\b(?:pt|br|por)\b[^\n]*\bdual\b/i.test(text);
+// Dublado em português, com grau de certeza: 2 = certo, 1 = provável, 0 = não.
+// Cuidado com anime: "[PT-BR]" de fansub brasileiro é LEGENDA, e "Dual Audio" de anime costuma ser
+// japonês + inglês. Por isso "legendado"/"sub pt-br" derruba a bandeira e o "pt-br" sozinhos, e só
+// as palavras de dublagem ("dublado", "dublagem", "áudio português"...) passam por cima disso.
+const DUB_STRONG_RE = /dublad[oa]s?|dublagem|\bdub(?:bed)?[ ._-]?(?:pt|br|por|ptbr|pt[ ._-]br)\b|\b(?:pt|br|ptbr|pt[ ._-]br|por)[ ._-]?dub(?:bed)?\b|\bnacional\b|[aá]udio[ ._:-]*(?:em[ ._-]?)?(?:portugu[eê]s|pt|br|por)\b|\bportuguese[ ._-]?(?:audio|dub)|\bdual[ ._-]?(?:pt|br|ptbr|por)\b|\b(?:pt|br|ptbr|por)[ ._-]?dual\b|\btri[ ._-]?[aá]udio\b[^\n]*\b(?:pt|br|por)\b/i;
+const SUB_RE = /legendad[oa]s?|\blegendas?\b|\bleg\b|\bsub(?:s|bed|titulado|title[sd]?)?[ ._-]*(?:pt|br|por|ptbr|portugu[eê]s|portuguese)\b|\b(?:pt|br|ptbr|pt[ ._-]br|por|portuguese)[ ._-]?subs?\b|\bvost\b/i;
+// Sites brasileiros que o Torrentio lista (⚙️ provedor): quase tudo lá é dual com português.
+const BR_PROVIDER_RE = /\b(?:comando|bludv|lapumia|micoleao|ondebaixa|torrentdosfilmes|baixafilmes|thepiratefilmes|vacatorrent|redetorrent|brazuca|apache ?torrent|nerd ?torrent|amigos ?share|starck|wolfmax|filmestorrent)\b/i;
+const DUB_WEAK_RE = /\bpt[ ._-]?br\b|\bptbr\b|portugu[eê]s|\bportuguese\b|\bdual\b[^\n]*\b(?:pt|br|por)\b|\b(?:pt|br|por)\b[^\n]*\bdual\b|\bdual[ ._-]?[aá]udio\b[^\n]*\b(?:pt|br|por)\b/i;
+
+export function dubLevel(text, flags) {
+  if (DUB_STRONG_RE.test(text)) return 2;
+  if (SUB_RE.test(text)) return 0;
+  // Fansub de anime ("[Grupo] Nome - 01 [PT-BR]") sem palavra de dublagem: é legenda.
+  if (/^\s*\[[^\]]+\][^\n]*\[\s*pt[ ._-]?br\s*\]/im.test(text)) return 0;
+  // Bandeiras vindas da lista de legendas ("Multi-Subs" sem áudio múltiplo) não dizem nada do áudio.
+  const subFlags = /\bmulti(?:ple)?[ ._-]?sub(?:s|titles?)?\b|\bsubs?\b/i.test(text) && !/\bmulti[ ._-]?audio|\bdual\b|\bdub/i.test(text);
+  // Bandeira do Brasil ou de Portugal: o Torrentio marca assim o áudio em português (a de
+  // Portugal quase sempre é a mesma dublagem).
+  if (!subFlags && (flags.indexOf(BR) >= 0 || flags.indexOf(PT) >= 0)) return 2;
+  if (DUB_WEAK_RE.test(text) || BR_PROVIDER_RE.test(text) || /\bdual[ ._-]?áudio\b/i.test(text)) return 1;
+  return 0;
+}
+
+// Grupo do lançamento: "[SubsPlease] Nome - 01" ou "Nome.S01E01.1080p-GRUPO.mkv". Na mesma série o
+// mesmo grupo costuma manter o mesmo áudio de um episódio para o outro.
+function releaseGroup(text) {
+  const lines = text.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i].replace(ICONS_RE, '').trim();
+    const a = l.match(/^\[([^\]]{2,30})\]/);
+    if (a && !/^(?:RD|AD|PM|TB|ED|OC|DL|DLX)\+?$/i.test(a[1])) return a[1].toLowerCase();
+    const b = l.match(/[-.]([A-Za-z0-9]{2,20})(?:\.(?:mkv|mp4|avi|ts|m4v))?$/);
+    if (b && /[A-Za-z]/.test(b[1]) && !/^(?:mkv|mp4|avi|x264|x265|h264|h265|hevc|aac|ac3|web|dl|br|pt|dual|multi|dublado|legendado|nacional)$/i.test(b[1])) return b[1].toLowerCase();
+  }
+  return '';
 }
 
 export function parse(s) {
   if (s.__info) return s.__info;
   const text = textOf(s);
   const flags = text.match(FLAG_RE) || [];
-  const dub = dubbed(text, flags);
+  const level = dubLevel(text, flags);
+  const dub = level > 0;
   const others = flags.filter((f) => f !== BR && f !== PT);
   const seedM = text.match(/👤\s*(\d+)/) || text.match(/\bseed(?:er)?s?\b[:\s]*(\d+)/i) || text.match(/\bS:\s*(\d+)/);
   const sizeM = text.match(/(\d+(?:[.,]\d+)?)\s*(GB|MB|GiB|MiB)\b/i);
@@ -46,6 +78,10 @@ export function parse(s) {
     hdr: /hdr/i.test(text),
     remux: /remux/i.test(text),
     dub: dub,
+    dubLevel: level,
+    // Marcada como legendada (e sem dublagem): nunca entra como dublada por afinidade.
+    subbed: level === 0 && SUB_RE.test(text),
+    group: releaseGroup(String(s.title || s.description || '') + '\n' + ((s.behaviorHints && s.behaviorHints.filename) || '')),
     // Original junto: "dual"/"multi", ou outras línguas além do português na lista de bandeiras.
     original: !dub || /\bdual\b|\bmulti\b|dual.?[aá]udio/i.test(text) || others.length > 0,
     seeders: seedM ? parseInt(seedM[1], 10) : null,
@@ -123,6 +159,36 @@ export function rememberedStream(videoId, list) {
   return (list || []).filter((s) => streamKey(s) === last.key)[0] || null;
 }
 
+// ---------- Fonte preferida da série ----------
+// O que tocou no último episódio (inclusive quando você trocou na mão no menu Fontes): se era
+// dublado e de qual grupo/addon. No próximo episódio o Smart Choice vai primeiro no mesmo grupo,
+// e um arquivo desse grupo sem marcação de idioma conta como dublado (anime costuma vir assim).
+const SERIES_KEY = 'seriesStream';
+export function rememberSeries(seriesId, s) {
+  if (!seriesId || !s) return;
+  const i = parse(s);
+  const all = store.get(SERIES_KEY, {}) || {};
+  all[seriesId] = { dub: i.dub, group: i.group, addon: i.addon, debrid: i.cached, at: Date.now() };
+  const ids = Object.keys(all).sort((a, b) => all[b].at - all[a].at);
+  ids.slice(200).forEach((id) => delete all[id]);
+  store.set(SERIES_KEY, all);
+}
+
+function seriesPref(seriesId) {
+  return (seriesId && (store.get(SERIES_KEY, {}) || {})[seriesId]) || null;
+}
+
+// Mesmo grupo de lançamento (e mesmo addon) do episódio anterior.
+function sameRelease(i, pref) {
+  return !!(pref && pref.group && i.group === pref.group && (!pref.addon || i.addon === pref.addon));
+}
+
+// Grau de dublagem levando em conta a série: 0, 1 ou 2.
+function dubOf(i, pref) {
+  if (i.dubLevel) return i.dubLevel;
+  return pref && pref.dub && !i.subbed && sameRelease(i, pref) ? 1 : 0;
+}
+
 export function canPlay(s, serverOk) {
   return server.isPlayableType(s) && (!server.needsServer(s) || serverOk);
 }
@@ -176,7 +242,8 @@ export function fileMbps(info, minutes) {
 }
 
 // Smart Choice: ordena as fontes e fica com a primeira. A ordem:
-//   1) debrid em cache ([RD+]) dublado (português), da melhor qualidade para a pior;
+//   1) debrid em cache ([RD+]) dublado (português), do dublado certo para o provável e, dentro
+//      disso, do mesmo lançamento do episódio anterior e da melhor qualidade para a pior;
 //   2) debrid em cache sem dublagem, da melhor qualidade (4K primeiro) para a pior;
 //   (nos dois, primeiro os arquivos que cabem na banda da TV; os mais pesados vêm depois)
 //   3) torrent/direto bom e dublado;  4) torrent/direto bom;  5) o resto que não for debrid;
@@ -185,32 +252,42 @@ export function fileMbps(info, minutes) {
 // sem a camada HDR10 (perfil 5, comum em WEB-DL) nem abre. Retorna { stream, ideal } ou null.
 const RES_SCORE = { '4K': 4, '1080p': 3, '720p': 2, SD: 1 };
 
-function group(i) {
-  if (i.cached) return i.dub ? 0 : 1;
+function group(i, pref) {
+  if (i.cached) return dubOf(i, pref) ? 0 : 1;
   if (i.debrid) return 5;
-  if (good(i)) return i.dub ? 2 : 3;
+  if (good(i)) return dubOf(i, pref) ? 2 : 3;
   return 4;
 }
 
 // minutes: duração do vídeo, para estimar a taxa dos arquivos de debrid (sem ela, não filtra por banda).
-export function rank(list, minutes) {
+// seriesId: série do episódio, para preferir o mesmo lançamento do episódio anterior.
+export function rank(list, minutes, seriesId) {
   const budget = debridBudget();
+  const pref = seriesPref(seriesId);
   const heavy = (i) => !!minutes && i.cached && fileMbps(i, minutes) > budget;
   return list
     .map((s, idx) => ({ s: s, i: parse(s), idx: idx }))
     .sort((a, b) => {
-      const g = group(a.i) - group(b.i);
+      const g = group(a.i, pref) - group(b.i, pref);
       if (g) return g;
       if (a.i.dv !== b.i.dv) return a.i.dv ? 1 : -1;
+      // Dublagem certa ("dublado", bandeira) antes da provável ("pt-br", site brasileiro).
+      const dl = dubOf(b.i, pref) - dubOf(a.i, pref);
+      if (dl) return dl;
       const hv = (heavy(a.i) ? 1 : 0) - (heavy(b.i) ? 1 : 0);
       if (hv) return hv;
+      // O mesmo lançamento do episódio anterior: já se sabe que toca e com que áudio.
+      const sr = (sameRelease(b.i, pref) ? 1 : 0) - (sameRelease(a.i, pref) ? 1 : 0);
+      if (sr) return sr;
       // Pesados entre si: o mais leve primeiro (o que tem mais chance de não travar).
       if (heavy(a.i)) return fileMbps(a.i, minutes) - fileMbps(b.i, minutes);
       const r = (RES_SCORE[b.i.res] || 0) - (RES_SCORE[a.i.res] || 0);
       if (r) return r;
-      // Mesma resolução: dublado + original primeiro; no torrent, mais seeders.
+      // Mesma resolução: dublado + original primeiro; Real-Debrid antes dos outros; no torrent, mais seeders.
       const o = (b.i.dub && b.i.original ? 1 : 0) - (a.i.dub && a.i.original ? 1 : 0);
       if (o) return o;
+      const rd = (b.i.rd ? 1 : 0) - (a.i.rd ? 1 : 0);
+      if (rd && a.i.cached) return rd;
       if (!a.i.cached) {
         const sd = (b.i.seeders || 0) - (a.i.seeders || 0);
         if (sd) return sd;
@@ -220,11 +297,11 @@ export function rank(list, minutes) {
     .map((x) => x.s);
 }
 
-export function smartPick(list, serverOk, minutes) {
+export function smartPick(list, serverOk, minutes, seriesId) {
   const playable = list.filter((s) => canPlay(s, serverOk));
   if (!playable.length) return null;
-  if (IS_FIRETV) return firePick(playable, minutes);
-  const hit = rank(playable, minutes)[0];
+  if (IS_FIRETV) return firePick(playable, minutes, seriesId);
+  const hit = rank(playable, minutes, seriesId)[0];
   const info = parse(hit);
   return { stream: hit, ideal: info.dub && info.original && good(info) };
 }
@@ -280,29 +357,32 @@ function best(list, score) {
 // Sem debrid (ou nada em cache): o vídeo vem por torrent no PC ou por link direto.
 //   6) torrent dublado, liso e bem semeado;  7) torrent liso e bem semeado;  8) link direto dublado e liso;
 //   9) link direto liso;  10) torrent liso com pouca semente;  11) o que sobrar (menos debrid baixando).
-function firePick(playable, minutes) {
+function firePick(playable, minutes, seriesId) {
+  const pref = seriesPref(seriesId);
+  const dub = (i) => dubOf(i, pref) > 0;
   const cached = (i) => i.debrid && i.cached;
   // Banda que o stick aguenta com debrid (aprendida pelo player, como na TV): arquivo acima dela
   // perde pontos, para um mais leve ganhar quando existir.
   const budget = debridBudget();
   const heavy = (i) => !!minutes && i.cached && fileMbps(i, minutes) > budget;
-  const fireScore = (i) => baseScore(i) - (heavy(i) ? 35 : 0);
+  // Dublagem certa e o mesmo lançamento do episódio anterior ganham pontos dentro da camada.
+  const fireScore = (i) => baseScore(i) - (heavy(i) ? 35 : 0) + dubOf(i, pref) * 15 + (sameRelease(i, pref) ? 30 : 0);
   const torrent = (s) => !!s.infoHash && !parse(s).debrid;
   const direct = (s) => !s.infoHash && !parse(s).debrid;
   const seeded = (i) => i.seeders === null || i.seeders >= MIN_SEEDERS;
   const torrentScore = (i) => fireScore(i) + seedScore(i) - (i.sizeMb > 6144 ? 20 : 0);
   const tiers = [
-    [(s, i) => cached(i) && i.rd && i.dub && fits(i), fireScore],
-    [(s, i) => cached(i) && i.dub && fits(i), fireScore],
+    [(s, i) => cached(i) && i.rd && dub(i) && fits(i), fireScore],
+    [(s, i) => cached(i) && dub(i) && fits(i), fireScore],
     [(s, i) => cached(i) && i.rd && fits(i), fireScore],
     [(s, i) => cached(i) && fits(i), fireScore],
     [(s, i) => cached(i) && !i.dv, fireScore],
-    [(s, i) => torrent(s) && i.dub && fits(i) && seeded(i), torrentScore],
+    [(s, i) => torrent(s) && dub(i) && fits(i) && seeded(i), torrentScore],
     [(s, i) => torrent(s) && fits(i) && seeded(i), torrentScore],
-    [(s, i) => direct(s) && i.dub && fits(i) && !!i.res, fireScore],
+    [(s, i) => direct(s) && dub(i) && fits(i) && !!i.res, fireScore],
     [(s, i) => direct(s) && fits(i) && !!i.res, fireScore],
     [(s, i) => torrent(s) && fits(i), torrentScore],
-    [(s, i) => !(i.debrid && !i.cached), (i) => baseScore(i) + seedScore(i)],
+    [(s, i) => !(i.debrid && !i.cached), (i) => fireScore(i) + seedScore(i)],
     [() => true, fireScore],
   ];
   for (let t = 0; t < tiers.length; t++) {

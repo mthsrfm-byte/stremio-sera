@@ -1,6 +1,6 @@
 {
   "version": "1.2.0",
-  "commit": "cffca0a853dd183251c17a8702113c53e0c47584",
-  "date": "2026-10-29T21:30:02-03:00",
-  "message": "Seraflix no Fire TV Stick + perfis na mesma conta com histórico separado"
+  "commit": "e16dd454243ada64de09b54ab90a37f00d5a693d",
+  "date": "2026-10-30T00:30:25+00:00",
+  "message": "Build da dist/ para a TV"
 }

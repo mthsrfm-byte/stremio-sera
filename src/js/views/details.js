@@ -428,7 +428,7 @@ function DetailsView(type, id, opts) {
         // Continuando: a mesma fonte da última vez, se ela ainda veio; senão, a escolha de sempre.
         const last = si.rememberedStream(video.id, all);
         if (last && si.canPlay(last, ok)) return resolve(last);
-        const p = si.smartPick(all, ok, si.minutesOf(meta, isSeries()));
+        const p = si.smartPick(all, ok, si.minutesOf(meta, isSeries()), isSeries() ? meta.id : '');
         resolve(p ? p.stream : null);
       });
     };
