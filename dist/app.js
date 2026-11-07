@@ -6875,9 +6875,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO = "mthsrfm-byte/stremio-sera";
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "5904017fae9f029a3aa9f23500cbe7f2869dca40",
-    date: "2026-11-07T06:01:34-03:00",
-    message: "Semana 5: privacidade NSFW, Pornhub + Real-Debrid, Smart Choice dublado, NSFW reorganizada e design system"
+    commit: "5a4c7fa248bad4465df176c71dce158ae138453e",
+    date: "2026-11-07T06:11:06-03:00",
+    message: "Pornhub abre direto no HLS pela TV; cada site lembra a variante que tocou"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -7062,6 +7062,33 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return !!(s && tubes && tubes.some(function (a) {
       return a.manifest && a.manifest.name === s.addon;
     }));
+  }
+  function tubeKind(s) {
+    if (/127\.0\.0\.1:\d+\/px\//.test(String(s && s.url || ""))) return "tv";
+    return /mp4/i.test(String(s && s.name || "") + " " + String(s && s.title || "")) ? "mp4" : "hls";
+  }
+  var TUBE_DEFAULT = {
+    Pornhub: "tv"
+  };
+  function rememberTubeKind(s) {
+    if (!isTubeStream(s)) return;
+    var all = get("tubeKind", {}) || {};
+    all[s.addon] = tubeKind(s);
+    set("tubeKind", all);
+  }
+  function orderTube(list4) {
+    var pref = get("tubeKind", {}) || {};
+    return list4.map(function (s, i) {
+      return {
+        s: s,
+        i: i,
+        top: tubeKind(s) === (pref[s.addon] || TUBE_DEFAULT[s.addon]) ? 0 : 1
+      };
+    }).sort(function (a, b) {
+      return a.top - b.top || a.i - b.i;
+    }).map(function (x) {
+      return x.s;
+    });
   }
   function withTubes(list4) {
     if (!tubes || !tubes.length) return list4;
@@ -11398,6 +11425,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       if (!hasPlayed) {
         scheduleAudioPick();
         if (meta.id !== "dev") rememberStream(video.id, stream);
+        rememberTubeKind(stream);
         if (opts.isSeries && meta.id !== "dev") rememberSeries(meta.id, stream);
         add(logTitle(), logSource(), "ok", failedNotes.join("\n"));
       }
@@ -11473,9 +11501,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var rest = (opts.streams || []).filter(function (x) {
         return tried.indexOf(x) < 0;
       });
-      if (isTubeStream(stream)) return rest.find(function (x) {
+      if (isTubeStream(stream)) return orderTube(rest.filter(function (x) {
         return x.addon === stream.addon;
-      }) || null;
+      }))[0] || null;
       if (autoTries >= 2) return null;
       var res = parse3(stream).res;
       var ok = _isAvailable();
@@ -14836,9 +14864,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         serverReady.then(function (ok) {
           var last = rememberedStream(video.id, all);
           if (last && canPlay(last, ok)) return resolve2(last);
-          var tube = all.filter(function (x) {
+          var tube = orderTube(all.filter(function (x) {
             return isTubeStream(x);
-          });
+          }));
           if (tube.length) return resolve2(tube[0]);
           var p = smartPick(all, ok, minutesOf(meta, isSeries()), pickOptions(meta, isSeries()));
           resolve2(p ? p.stream : null);
