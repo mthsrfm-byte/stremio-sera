@@ -23,6 +23,7 @@ import { sortedVideos, openDetails } from './details.js';
 import { t } from '../lib/i18n.js';
 import { IS_WEB } from '../lib/platform.js';
 import { systemScreenSaver } from '../lib/tv.js';
+import { ico } from '../lib/icons.js';
 
 const HIDE_MS = 5000;
 const SLOW_MS = 40000; // sem começar a tocar depois disso: oferece outro provedor
@@ -82,6 +83,8 @@ export function openPlayer(opts) {
 function PlayerView(opts) {
   const meta = opts.meta;
   const minutes = si.minutesOf(meta, opts.isSeries);
+  // Anime? E o que já tocou nesta série (mesmo pacote de episódios, mesma dublagem)?
+  const pickOpts = () => si.pickOptions(meta, opts.isSeries);
   let video = opts.video;
   let stream = opts.stream;
   const settings = store.settings();
@@ -102,28 +105,33 @@ function PlayerView(opts) {
   const curTimeEl = h('span');
   const durEl = h('span');
   const playBtn = h('div.btn', { focusable: true, onSelect: () => togglePlay() });
-  const audioBtn = h('div.btn', { focusable: true, html: '<span class="ico">♫</span>' + t('Áudio'), onSelect: () => audioMenu() });
-  const subsBtn = h('div.btn', { focusable: true, html: '<span class="ico">≡</span>' + t('Legendas'), onSelect: () => subsMenu() });
-  const srcBtn = h('div.btn', { focusable: true, html: '<span class="ico">⇄</span>' + t('Fontes'), onSelect: () => sourcesMenu() });
-  const nextBtn = h('div.btn', { focusable: true, html: '<span class="ico">⏭</span>' + t('Próximo'), onSelect: () => playNext() });
+  const audioBtn = h('div.btn', { focusable: true, html: ico('audio') + t('Áudio'), onSelect: () => audioMenu() });
+  const subsBtn = h('div.btn', { focusable: true, html: ico('subs') + t('Legendas'), onSelect: () => subsMenu() });
+  const srcBtn = h('div.btn', { focusable: true, html: ico('sources') + t('Fontes'), onSelect: () => sourcesMenu() });
+  const nextBtn = h('div.btn', { focusable: true, html: ico('next') + t('Próximo'), onSelect: () => playNext() });
   // Favoritar sem sair do vídeo (filmes e séries: biblioteca da conta; adultos: só nesta TV).
   const favItem = { id: meta.id, type: meta.type, name: meta.name, poster: meta.poster, posterShape: meta.posterShape };
   const favBtn = h('div.btn', { focusable: true, onSelect: () => toggleFavorite(favItem).then(paintFav) });
   function paintFav() {
     const on = isFavorite(favItem);
-    favBtn.innerHTML = on ? '<span class="ico fav">♥</span>' + t('Favoritado') : '<span class="ico">♡</span>' + t('Favoritar');
+    favBtn.innerHTML = on ? ico('heartOn', 'fav') + t('Favoritado') : ico('heart') + t('Favoritar');
   }
   paintFav();
   if (meta.id === 'dev') favBtn.style.display = 'none';
   // Retomou sozinho (Smart Choice): atalho para começar do zero, visível nos primeiros minutos.
-  const restartBtn = h('div.btn', { focusable: true, html: '<span class="ico">↺</span>' + t('Do início'), onSelect: () => restart() });
+  const restartBtn = h('div.btn', { focusable: true, html: ico('restart') + t('Do início'), onSelect: () => restart() });
   restartBtn.style.display = opts.startTime > 30000 ? '' : 'none';
   const buttons = h('div.p-buttons', { 'data-group': '' }, [playBtn, restartBtn, audioBtn, subsBtn, srcBtn, favBtn, nextBtn]);
   const spinner = h('div.p-center', null, h('div.spinner'));
   const msgEl = h('div.p-msg');
-  const skipFill = h('i');
-  const skipBtn = h('div.btn', { focusable: true, onSelect: () => doSkip() });
-  const skipBox = h('div.p-skip', null, [skipBtn, h('div.bar', null, skipFill)]);
+  // Pular abertura/recapitulação e "Próximo episódio": pílula escura translúcida com o ícone, o texto
+  // e o tempo que falta do trecho enchendo o fundo; no foco ela acende em branco (como nos streamings).
+  const skipFill = h('i.sk-fill');
+  const skipIco = h('span.sk-ico');
+  const skipLabel = h('b');
+  const skipSub = h('small');
+  const skipBtn = h('div.btn.skip-btn', { focusable: true, onSelect: () => doSkip() }, [skipFill, skipIco, h('span.sk-text', null, [skipLabel, skipSub])]);
+  const skipBox = h('div.p-skip', null, skipBtn);
   const overlay = h('div.p-overlay', null, [
     h('div.p-top', null, [titleEl, clockEl]),
     h('div.p-bottom', null, [bar, h('div.p-times', null, [curTimeEl, h('div.spacer'), durEl]), buttons]),
@@ -228,8 +236,9 @@ function PlayerView(opts) {
     segmentsLoaded = false;
     hideSkip();
     server
-      .toPlayable(stream, seriesInfo())
+      .toPlayable(stream, seriesInfo(), (msg) => alive && message(msg))
       .then((res) => {
+        message('');
         if (!alive) return;
         mediaUrl = res.url;
         viaServer = res.viaServer;
@@ -569,6 +578,7 @@ function PlayerView(opts) {
       scheduleAudioPick();
       // Abriu: é esta a fonte que o Smart Choice tenta primeiro ao continuar depois.
       if (meta.id !== 'dev') si.rememberStream(video.id, stream);
+      if (opts.isSeries && meta.id !== 'dev') si.rememberSeries(meta.id, stream);
       playlog.add(logTitle(), logSource(), 'ok', failedNotes.join('\n'));
     }
     hasPlayed = true;
@@ -648,7 +658,7 @@ function PlayerView(opts) {
     const res = si.parse(stream).res;
     const ok = server.isAvailable();
     const cands = rest.filter((x) => !si.parse(x).dv && si.canPlay(x, ok));
-    const pick = si.smartPick(cands.filter((x) => si.parse(x).res === res), ok, minutes) || si.smartPick(cands, ok, minutes);
+    const pick = si.smartPick(cands.filter((x) => si.parse(x).res === res), ok, minutes, pickOpts()) || si.smartPick(cands, ok, minutes, pickOpts());
     if (!pick) return null;
     autoTries++;
     return pick.stream;
@@ -724,7 +734,11 @@ function PlayerView(opts) {
         doSkip();
         return;
       }
-      skipBtn.innerHTML = '<span class="ico">⏭</span>' + segLabel(seg);
+      const nv = seg.type === 'outro' && opts.isSeries ? nextVideo() : null;
+      skipIco.innerHTML = ico(nv ? 'next' : 'skip');
+      skipLabel.textContent = segLabel(seg);
+      skipSub.textContent = nv ? 'T' + nv.season + 'E' + nv.episode + (nv.namePt || nv.name ? ' · ' + (nv.namePt || nv.name) : '') : '';
+      skipBtn.classList.toggle('two-line', !!nv);
       skipBox.classList.add('show');
       if (controlsOn) nav.focus(skipBtn, { noScroll: true });
     }
@@ -944,10 +958,12 @@ function PlayerView(opts) {
     const reason = String(text || '').replace(/[.!\s]+$/, '').replace(/https?:\/\/\S+/g, (u) => (/:11470\b/.test(u) ? t('o servidor do PC') : t('o servidor')));
     playlog.add(logTitle(), logSource(), 'erro', reason + (details ? '\n' + details : ''));
     const torrent = stream && server.needsServer(stream);
-    const tip = torrent
+    const tip = torrent && !server.isAvailable() && server.viaDebrid(stream)
+      ? t('O Real-Debrid não tem esse arquivo pronto. Tente outra fonte.')
+      : torrent
       ? t('Esse torrent pode estar sem seeders ou o PC está lento para começar. Tente outra fonte.')
       : t('Tente outra fonte (de preferência MP4/MKV com H.264 ou HEVC e áudio AAC/AC3).');
-    const buttons = [{ label: '<span class="ico">⇄</span>' + t('Escolher outra fonte'), primary: true, onSelect: () => sourcesMenu() }];
+    const buttons = [{ label: ico('sources') + t('Escolher outra fonte'), primary: true, onSelect: () => sourcesMenu() }];
     if (offerTranscode) buttons.push({ label: t('Converter no PC'), onSelect: () => transcode() });
     buttons.push({ label: t('Voltar'), onSelect: () => router.pop() });
     choiceDialog(t('Problema na reprodução'), reason.charAt(0).toUpperCase() + reason.slice(1) + '. ' + tip + (details ? '\n\n' + t('Detalhes') + ': ' + details : ''), buttons);
@@ -977,7 +993,7 @@ function PlayerView(opts) {
   }
 
   function updatePlayBtn() {
-    playBtn.innerHTML = videoEl.paused ? '<span class="ico">▶</span>' + t('Tocar') : '<span class="ico">❚❚</span>' + t('Pausar');
+    playBtn.innerHTML = videoEl.paused ? ico('play') + t('Tocar') : ico('pause') + t('Pausar');
   }
 
   function updateTimes() {
@@ -1521,18 +1537,35 @@ function PlayerView(opts) {
     );
   }
 
+  // Fontes na ordem do Smart Choice: Real-Debrid/debrid em cache primeiro (os mais rápidos), dentro
+  // deles os dublados e os que cabem na banda da TV; depois torrents bem semeados; as que não abrem
+  // aqui (torrent sem o PC) vão para o fim. Cada linha: o arquivo e só o que decide a escolha.
   function sourcesMenu() {
-    const list = (opts.streams || []).map((s, i) => ({
-      label: ((s.name || s.addon || '') + '').replace(/\n/g, ' '),
-      sub: ((s.title || s.description || '') + '').replace(/\n/g, ' · '),
-      value: i,
-      checked: s === stream,
-    }));
+    const ok = server.isAvailable();
+    const all = opts.streams || [];
+    const ranked = si.rank(all, minutes, pickOpts());
+    const playable = ranked.filter((s) => si.canPlay(s, ok));
+    const blocked = ranked.filter((s) => !si.canPlay(s, ok));
+    const tube = all.some((s) => addons.isTubeStream(s));
+    const order = tube ? all : playable.concat(blocked);
+    const list = order.map((s) => {
+      const info = si.parse(s);
+      const debrid = info.cached ? '⚡ ' + (info.rd ? 'Real-Debrid' : t('Debrid')) : info.debrid ? t('Debrid (baixando)') : '';
+      const parts = [debrid || info.addon, si.summary(info), si.sizeText(info.sizeMb)];
+      if (!info.cached && server.needsServer(s)) parts.push(ok ? t('torrent pelo PC') : server.viaDebrid(s) ? t('torrent pelo Real-Debrid') : t('precisa do PC'));
+      const name = tube ? String(s.name || '').replace(/\n/g, ' · ') : info.file || ((s.title || s.description || '') + '').split('\n')[0] || info.addon;
+      return {
+        label: name,
+        sub: (tube ? String(s.title || '') : parts.filter(Boolean).join(' · ')).replace(/\n/g, ' · '),
+        value: all.indexOf(s),
+        checked: s === stream,
+      };
+    });
     menu(t('Fontes'), list, {
       onPick: (i) => {
-        const s = opts.streams[i];
+        const s = all[i];
         if (!s || s === stream) return;
-        if (server.needsServer(s) && !server.isAvailable()) return toast(t('Essa fonte precisa do servidor do PC.'));
+        if (server.needsServer(s) && !server.isAvailable() && !server.viaDebrid(s)) return toast(t('Essa fonte precisa do servidor do PC.'));
         switchTo(s);
       },
     });
@@ -1602,7 +1635,7 @@ function PlayerView(opts) {
       return i.cached && !i.dv && si.canPlay(x, server.isAvailable()) && (!mbps || (m && m < mbps)) && (!m || m <= budget);
     });
     const dub = cands.filter((x) => si.parse(x).dub === cur.dub);
-    const pick = si.smartPick(dub.length ? dub : cands, server.isAvailable(), minutes);
+    const pick = si.smartPick(dub.length ? dub : cands, server.isAvailable(), minutes, pickOpts());
     return pick ? pick.stream : null;
   }
 
@@ -1690,7 +1723,7 @@ function PlayerView(opts) {
       () => true,
       () => false
     );
-    const srv = server.needsServer(stream) ? server.check().then((r) => !!(r && r.ok), () => false) : Promise.resolve(true);
+    const srv = server.needsServer(stream) && !server.viaDebrid(stream) ? server.check().then((r) => !!(r && r.ok), () => false) : Promise.resolve(true);
     return Promise.all([net, srv]).then((r) => ({ internet: r[0], server: r[1] }));
   }
 
@@ -1723,7 +1756,7 @@ function PlayerView(opts) {
       // Próxima fonte: a melhor (Smart Choice) entre as que ainda não foram tentadas. Na ordem do
       // Smart Choice, todas as de debrid em cache vêm antes de qualquer torrent.
       const rest = (opts.streams || []).filter((x) => tried.indexOf(x) < 0);
-      const pick = si.smartPick(rest, server.isAvailable(), minutes);
+      const pick = si.smartPick(rest, server.isAvailable(), minutes, pickOpts());
       if (!pick) {
         message('');
         fail(t('Nenhuma outra fonte disponível para tentar.'));
@@ -1746,7 +1779,7 @@ function PlayerView(opts) {
     addons.fetchStreams(meta.type, nv.id).then((list) => {
       if (!alive) return;
       const match = group ? list.find((s) => s.behaviorHints && s.behaviorHints.bingeGroup === group) : null;
-      if (match && (!server.needsServer(match) || server.isAvailable())) {
+      if (match && (!server.needsServer(match) || server.isAvailable() || server.viaDebrid(match))) {
         video = nv;
         stream = match;
         opts.streams = list;

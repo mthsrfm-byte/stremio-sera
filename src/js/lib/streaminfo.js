@@ -25,9 +25,20 @@ export function resolution(text) {
 
 // Dublado: bandeira do Brasil ou de Portugal (o Torrentio marca assim áudio em português; a de
 // Portugal quase sempre é a mesma dublagem) ou as palavras dos lançamentos brasileiros.
+// Também vale português no meio de uma lista de idiomas do áudio ("Multi Audio Es+Fr+Pt+En",
+// "[POR-ENG]", "Jpn/Por"), comum nos lançamentos de anime.
+const LANG = '(?:pt|por|ptbr|pt-br|eng?|es|spa|fr|fre|jpn?|ja|ita?|ger|de|rus?|lat|kor|chi|hin)';
+const PT_IN_LIST = new RegExp('(?:^|[^a-z])(?:pt-?br|por|pt)(?=[+/|,&-]' + LANG + '(?![a-z]))|(?:^|[^a-z])' + LANG + '[+/|,&-](?:pt-?br|por|pt)(?![a-z])', 'i');
 function dubbed(text, flags) {
   if (flags.indexOf(BR) >= 0 || flags.indexOf(PT) >= 0) return true;
-  return /dublad[oa]|\bdub(?:lagem)?[ ._-]?(?:pt|br)\b|\bpt[ ._-]?br\b|\bnacional\b|portugu[eê]s|\bdual\b[^\n]*\b(?:pt|br|por)\b|\b(?:pt|br|por)\b[^\n]*\bdual\b/i.test(text);
+  if (/dublad[oa]|\bdub(?:lagem)?[ ._-]?(?:pt|br)\b|\bpt[ ._-]?br\b|\bnacional\b|portugu[eê]s|brazilian|\bdual\b[^\n]*\b(?:pt|br|por)\b|\b(?:pt|br|por)\b[^\n]*\bdual\b/i.test(text)) return true;
+  return PT_IN_LIST.test(text);
+}
+
+// Dublado em qualquer língua (anime com áudio em inglês além do japonês): "Dubbed", "Dual Audio",
+// "Multi Audio". No anime, é melhor que só japonês quando não há dublagem em português.
+function anyDubbed(text) {
+  return /\bdub(?:bed|s)?\b|dual[ ._-]?(?:audio|áudio)|mult[iy][ ._-]?(?:audio|áudio)|\beng?[ ._-]?dub\b/i.test(text);
 }
 
 export function parse(s) {
@@ -46,6 +57,7 @@ export function parse(s) {
     hdr: /hdr/i.test(text),
     remux: /remux/i.test(text),
     dub: dub,
+    anyDub: dub || anyDubbed(text),
     // Original junto: "dual"/"multi", ou outras línguas além do português na lista de bandeiras.
     original: !dub || /\bdual\b|\bmulti\b|dual.?[aá]udio/i.test(text) || others.length > 0,
     seeders: seedM ? parseInt(seedM[1], 10) : null,
@@ -117,6 +129,37 @@ export function rememberStream(videoId, s) {
   store.set(LAST_KEY, all);
 }
 
+// Gosto da série: a fonte que tocou por último nela (o pacote de episódios e se era dublada). O
+// próximo episódio, ou o mesmo anime aberto outro dia, sai na mesma linha, sem ter que trocar na mão.
+const SERIES_KEY = 'seriesStream';
+export function rememberSeries(metaId, s) {
+  if (!metaId || !s) return;
+  const i = parse(s);
+  const all = store.get(SERIES_KEY, {}) || {};
+  all[metaId] = { hash: s.infoHash ? String(s.infoHash).toLowerCase() : '', dub: i.dub, anyDub: i.anyDub, at: Date.now() };
+  const ids = Object.keys(all).sort((a, b) => all[b].at - all[a].at);
+  ids.slice(150).forEach((id) => delete all[id]);
+  store.set(SERIES_KEY, all);
+}
+
+export function seriesTaste(metaId) {
+  return (store.get(SERIES_KEY, {}) || {})[metaId] || null;
+}
+
+// Anime: id do Kitsu/MAL/AniList ou gênero Anime/Animação japonesa.
+export function isAnime(meta) {
+  if (!meta) return false;
+  if (/^(kitsu|mal|anilist|anidb):/.test(String(meta.id || ''))) return true;
+  const g = (meta.genres || meta.genre || []).join ? (meta.genres || meta.genre || []).join(' ') : String(meta.genres || '');
+  if (/\banime\b/i.test(g)) return true;
+  return /animation|anima[çc][aã]o/i.test(g) && /japan|jap[aã]o/i.test(String(meta.country || '') + ' ' + String(meta.language || ''));
+}
+
+// Opções do Smart Choice para um título (anime? o que já foi escolhido nesta série?).
+export function pickOptions(meta, isSeries) {
+  return { anime: isAnime(meta), like: isSeries && meta ? seriesTaste(meta.id) : null };
+}
+
 export function rememberedStream(videoId, list) {
   const last = (store.get(LAST_KEY, {}) || {})[videoId];
   if (!last) return null;
@@ -124,7 +167,7 @@ export function rememberedStream(videoId, list) {
 }
 
 export function canPlay(s, serverOk) {
-  return server.isPlayableType(s) && (!server.needsServer(s) || serverOk);
+  return server.isPlayableType(s) && (!server.needsServer(s) || serverOk || server.viaDebrid(s));
 }
 
 const MIN_SEEDERS = 15;
@@ -185,22 +228,37 @@ export function fileMbps(info, minutes) {
 // sem a camada HDR10 (perfil 5, comum em WEB-DL) nem abre. Retorna { stream, ideal } ou null.
 const RES_SCORE = { '4K': 4, '1080p': 3, '720p': 2, SD: 1 };
 
-function group(i) {
-  if (i.cached) return i.dub ? 0 : 1;
+// Anime: dublado em outra língua (inglês) fica entre o dublado em português e o só japonês.
+function group(i, o) {
+  const dub = i.dub ? 0 : o && o.anime && i.anyDub ? 0.5 : 1;
+  if (i.cached) return dub;
   if (i.debrid) return 5;
-  if (good(i)) return i.dub ? 2 : 3;
+  if (good(i)) return 2 + dub;
   return 4;
 }
 
+// opts.anime: é anime (dublagem em qualquer língua conta). opts.like: o que foi escolhido antes nesta
+// série ({ hash, dub, anyDub }): o mesmo pacote de episódios vem primeiro, depois o mesmo áudio.
+function likeScore(s, i, like) {
+  if (!like) return 0;
+  if (like.hash && s.infoHash && String(s.infoHash).toLowerCase() === like.hash) return 3;
+  if (like.dub && i.dub) return 2;
+  if (like.anyDub && i.anyDub) return 1;
+  return 0;
+}
+
 // minutes: duração do vídeo, para estimar a taxa dos arquivos de debrid (sem ela, não filtra por banda).
-export function rank(list, minutes) {
+export function rank(list, minutes, opts) {
+  const po = opts || {};
   const budget = debridBudget();
   const heavy = (i) => !!minutes && i.cached && fileMbps(i, minutes) > budget;
   return list
     .map((s, idx) => ({ s: s, i: parse(s), idx: idx }))
     .sort((a, b) => {
-      const g = group(a.i) - group(b.i);
+      const g = group(a.i, po) - group(b.i, po);
       if (g) return g;
+      const lk = likeScore(b.s, b.i, po.like) - likeScore(a.s, a.i, po.like);
+      if (lk) return lk;
       if (a.i.dv !== b.i.dv) return a.i.dv ? 1 : -1;
       const hv = (heavy(a.i) ? 1 : 0) - (heavy(b.i) ? 1 : 0);
       if (hv) return hv;
@@ -220,11 +278,11 @@ export function rank(list, minutes) {
     .map((x) => x.s);
 }
 
-export function smartPick(list, serverOk, minutes) {
+export function smartPick(list, serverOk, minutes, opts) {
   const playable = list.filter((s) => canPlay(s, serverOk));
   if (!playable.length) return null;
   if (IS_FIRETV) return firePick(playable, minutes);
-  const hit = rank(playable, minutes)[0];
+  const hit = rank(playable, minutes, opts)[0];
   const info = parse(hit);
   return { stream: hit, ideal: info.dub && info.original && good(info) };
 }
@@ -317,7 +375,7 @@ function firePick(playable, minutes) {
 }
 
 export function summary(info) {
-  return [info.res, info.dv ? 'Dolby Vision' : info.hdr ? 'HDR' : '', info.dub ? (info.original ? 'Original + Dublado' : 'Dublado') : '', info.seeders !== null ? info.seeders + ' seeders' : '']
+  return [info.res, info.dv ? 'Dolby Vision' : info.hdr ? 'HDR' : '', info.dub ? (info.original ? 'Original + Dublado' : 'Dublado') : info.anyDub ? 'Áudio duplo' : '', info.seeders !== null ? info.seeders + ' seeders' : '']
     .filter(Boolean)
     .join(' · ');
 }

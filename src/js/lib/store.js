@@ -253,13 +253,14 @@ export function set(key, value) {
 
 // ---------- Preferências ----------
 // Da TV (iguais para todos os perfis):
-const DEVICE_KEYS = ['introSound', 'serverUrl', 'tmdbKey', 'mdblistKey', 'smoothScroll', 'devlogUrl', 'lastUpdateCheck', 'askProfile', 'wizardDone', 'language', 'screensaver'];
+const DEVICE_KEYS = ['introSound', 'serverUrl', 'tmdbKey', 'mdblistKey', 'rdKey', 'smoothScroll', 'devlogUrl', 'lastUpdateCheck', 'askProfile', 'wizardDone', 'language', 'screensaver'];
 
 const DEFAULT_SETTINGS = {
   // TV
   serverUrl: '',
   tmdbKey: '', // vazio = usa a chave embutida no build (BUILTIN_KEYS em api/extras.js), se houver
   mdblistKey: '',
+  rdKey: '', // vazio = acha a chave do Real-Debrid na URL dos addons da conta (ex.: Torrentio)
   introSound: true, // som da abertura
   smoothScroll: false, // rolagem animada (mais bonita, mais pesada na TV)
   devlogUrl: typeof __KAI_DEVLOG__ !== 'undefined' ? __KAI_DEVLOG__ : '',

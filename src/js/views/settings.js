@@ -18,6 +18,7 @@ import * as calendar from '../api/calendar.js';
 import * as reco from '../api/recommend.js';
 import * as intro from '../lib/intro.js';
 import * as screensaver from '../lib/screensaver.js';
+import * as debrid from '../api/debrid.js';
 import { getJSON, recentErrors } from '../lib/http.js';
 import { topbar, toast, menu, confirmDialog, refreshProfileChips, refreshTabs, timeHM } from '../ui.js';
 import * as router from '../router.js';
@@ -142,6 +143,7 @@ export function SettingsView() {
       [t('Imagens do TMDB (pôsteres)'), () => image('https://image.tmdb.org/t/p/w92/rK1KljqmbvO9HQa1PBFLILWah72.png')],
       [t('Cinemeta (detalhes dos títulos)'), () => getJSON('https://v3-cinemeta.strem.io/manifest.json', { timeout: 10000, quiet: true })],
     ];
+    if (debrid.available()) tests.push([t('Real-Debrid (torrents sem o PC)'), () => debrid.ping()]);
     addons.list().forEach((a) => {
       if (!/^https?:/.test(a.transportUrl || '') || /cinemeta/.test(a.transportUrl)) return;
       tests.push([t('Addon: {name}', { name: a.manifest.name || a.manifest.id }), () => getJSON(a.transportUrl, { timeout: 10000, quiet: true })]);
@@ -156,6 +158,19 @@ export function SettingsView() {
           const ago = Math.round((Date.now() - e.at) / 60000);
           list.appendChild(h('div.diag-err', { text: e.msg + ' · ' + e.ms + ' ms · ' + t('há {n} min', { n: ago }) + ' · ' + e.url.slice(0, 70) }));
         });
+        // Pornhub/XVideos: o que os sites responderam para o serviço da TV (lista vazia, bloqueio...).
+        if (!HAS_TV_SERVICE) return;
+        getJSON('http://127.0.0.1:8092/api/tubelog', { timeout: 3000, quiet: true })
+          .then((log) => {
+            const items = (Array.isArray(log) ? log : []).slice(-8).reverse();
+            if (!items.length) return;
+            list.appendChild(h('div.diag-head', { text: t('Pornhub e XVideos (pedidos do serviço da TV)') }));
+            items.forEach((x) => {
+              const ago = Math.round((Date.now() - x.at) / 60000);
+              list.appendChild(h('div.diag-err', { cls: /^ok/.test(x.result) ? 'ok' : '', text: (x.tube === 'ph' ? 'Pornhub' : 'XVideos') + ' · ' + x.what + ' · ' + x.result + ' · ' + t('há {n} min', { n: ago }) }));
+            });
+          })
+          .catch(() => list.appendChild(h('div.diag-err', { text: t('O serviço da TV (Pornhub/XVideos) não respondeu.') })));
       });
   }
 
@@ -646,6 +661,16 @@ export function SettingsView() {
     };
     keyRow(t('Chave TMDB'), t('Sinopses e títulos em PT-BR, logos e elenco com fotos (grátis em themoviedb.org)'), 'tmdbKey', 'API key (v3)');
     keyRow(t('Chave MDBList'), t('Notas do Rotten Tomatoes, Metacritic, Trakt e Letterboxd (grátis em mdblist.com)'), 'mdblistKey', 'API key');
+    {
+      // Real-Debrid: a chave costuma vir sozinha da URL do Torrentio da conta; aqui é só para outra.
+      const found = !s.rdKey && debrid.available();
+      keyRow(
+        t('Chave do Real-Debrid'),
+        (found ? t('Achei a da sua conta (pelos addons)') : t('Para tocar torrents sem o PC, inclusive os da área NSFW')) + ' · real-debrid.com/apitoken',
+        'rdKey',
+        found ? t('Já encontrada nos addons') : 'API token'
+      );
+    }
 
     // ---- Agenda ----
     if (!IS_WEB) {

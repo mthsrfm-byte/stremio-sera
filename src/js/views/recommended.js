@@ -6,7 +6,7 @@
 import { h, clear, loadVisibleImages } from '../lib/dom.js';
 import * as nav from '../lib/nav.js';
 import { KEY } from '../lib/nav.js';
-import { topbar, card, skeletonCards, retrying, rowRetry, toast, pagedGrid } from '../ui.js';
+import { topbar, card, skeletonCards, retrying, rowRetry, toast, pagedGrid, seeAllCard } from '../ui.js';
 import * as router from '../router.js';
 import { openDetails } from './details.js';
 import * as reco from '../api/recommend.js';
@@ -369,18 +369,14 @@ function buildRow(def, index, ctx) {
           )
         );
         track.appendChild(
-          h(
-            'div.card.see-all',
-            {
-              focusable: true,
-              onSelect: () => openCategory(ctx.crumb, def),
-              onFocus: () => {
-                focusRow();
-                ctx.billboard.stop();
-              },
+          seeAllCard({
+            label: t(def.title),
+            onSelect: () => openCategory(ctx.crumb, def),
+            onFocus: () => {
+              focusRow();
+              ctx.billboard.stop();
             },
-            [h('div.poster-wrap', null, h('div.see-all-label', null, [h('b', { text: t('Ver tudo') }), h('span', { text: t(def.title) })]))]
-          )
+          })
         );
         loadVisibleImages(row);
       })
@@ -585,11 +581,7 @@ export function simpleRow(def, crumb) {
         }
         items.slice(0, def.ranked ? 10 : ROW_LIMIT).forEach((it, i) => track.appendChild(card(it, { onSelect: () => openItem(it), rank: def.ranked ? i + 1 : 0 })));
         if (!def.ranked)
-          track.appendChild(
-            h('div.card.see-all', { focusable: true, onSelect: () => openCategory(crumb, def) }, [
-              h('div.poster-wrap', null, h('div.see-all-label', null, [h('b', { text: t('Ver tudo') }), h('span', { text: t(def.title) })])),
-            ])
-          );
+          track.appendChild(seeAllCard({ label: t(def.title), onSelect: () => openCategory(crumb, def) }));
         loadVisibleImages(row);
       })
       .catch(failed);

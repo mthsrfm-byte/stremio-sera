@@ -14,6 +14,7 @@ import { t } from '../lib/i18n.js';
 import * as reco from '../api/recommend.js';
 import { simpleRow, showRetry } from './recommended.js';
 import { genreName } from '../lib/genres.js';
+import { ico } from '../lib/icons.js';
 
 const ROTATE_MS = 8000;
 
@@ -266,8 +267,8 @@ function buildHero() {
   const meta = h('div.hero-meta');
   const desc = h('div.hero-desc');
   const dots = h('div.hero-dots');
-  const watchBtn = h('div.btn.primary', { focusable: true, html: '<span class="ico">▶</span>' + t('Assistir'), onSelect: () => open(true) });
-  const infoBtn = h('div.btn', { focusable: true, html: '<span class="ico">ⓘ</span>' + t('Detalhes'), onSelect: () => open(false) });
+  const watchBtn = h('div.btn.primary', { focusable: true, html: ico('play') + t('Assistir'), onSelect: () => open(true) });
+  const infoBtn = h('div.btn', { focusable: true, html: ico('info') + t('Detalhes'), onSelect: () => open(false) });
   const buttons = h('div.hero-buttons', { 'data-group': '' }, [watchBtn, infoBtn]);
   buttons.__last = watchBtn; // entrar no banner sempre pelo "Assistir"
   const el = h('div.hero', { 'data-anchor': '0' }, [

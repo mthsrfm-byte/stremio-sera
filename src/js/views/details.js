@@ -18,6 +18,7 @@ import * as store from '../lib/store.js';
 import { genreName } from '../lib/genres.js';
 import * as playlog from '../lib/playlog.js';
 import { openFilmography } from './filmography.js';
+import { ico } from '../lib/icons.js';
 
 // Logos das notas (SVG pequeno, sem depender de imagem externa).
 const IMDB_SVG =
@@ -253,12 +254,12 @@ function DetailsView(type, id, opts) {
       const ep = isSeries() ? sortedVideos(meta).find((v) => v.id === li.state.video_id) : null;
       label = t('Continuar') + (ep ? ' T' + ep.season + 'E' + ep.episode : '');
     }
-    watchBtn.innerHTML = '<span class="ico">▶</span>' + label;
+    watchBtn.innerHTML = ico('play') + label;
     // Adulto: "Salvar" guarda só neste aparelho (aba NSFW), em vez de ir para a biblioteca da conta.
     // Favoritar: filmes e séries vão para a biblioteca da conta; vídeos adultos ficam só nesta TV.
     const fav = isAdult() ? nsfwSaved.has(meta.id) : stremio.isInLibrary(meta.id);
     libBtn.classList.toggle('faved', fav);
-    libBtn.innerHTML = fav ? '<span class="ico fav">♥</span>' + t('Favoritado') : '<span class="ico">♡</span>' + t('Favoritar');
+    libBtn.innerHTML = fav ? ico('heartOn', 'fav') + t('Favoritado') : ico('heart') + t('Favoritar');
   }
 
   // Vídeo adulto: os números que dizem se o vídeo é bom (aprovação, curtidas, visualizações, duração).
@@ -428,7 +429,10 @@ function DetailsView(type, id, opts) {
         // Continuando: a mesma fonte da última vez, se ela ainda veio; senão, a escolha de sempre.
         const last = si.rememberedStream(video.id, all);
         if (last && si.canPlay(last, ok)) return resolve(last);
-        const p = si.smartPick(all, ok, si.minutesOf(meta, isSeries()));
+        // XVideos/Pornhub (serviço da TV): a ordem do próprio serviço já é a de mais chance de tocar.
+        const tube = all.filter((x) => addons.isTubeStream(x));
+        if (tube.length) return resolve(tube[0]);
+        const p = si.smartPick(all, ok, si.minutesOf(meta, isSeries()), si.pickOptions(meta, isSeries()));
         resolve(p ? p.stream : null);
       });
     };
@@ -448,7 +452,7 @@ function DetailsView(type, id, opts) {
     pick.then((st) => {
       if (st || !alive) return;
       showStreams(video, true);
-      const torrentsOnly = all.length && all.every((x) => server.needsServer(x));
+      const torrentsOnly = all.length && all.every((x) => server.needsServer(x) && !server.viaDebrid(x));
       const why = !all.length
         ? t('Nenhuma fonte encontrada para este título.')
         : torrentsOnly && !server.isAvailable()
@@ -564,8 +568,21 @@ function DetailsView(type, id, opts) {
           if (g) {
             g.done = true;
             g.count = streams.length;
-            g.streams = streams;
-            streams.forEach((s) => g.el.appendChild(streamItem(s, video, serverOk, all)));
+            // Dentro do addon, na ordem do Smart Choice (em cache, dublado, cabe na banda...).
+            g.streams = si.rank(streams, runtimeMinutes(), si.pickOptions(meta, isSeries()));
+            g.debrid = streams.some((s) => si.parse(s).debrid || si.parse(s).cached);
+            // Addon que trouxe fontes de debrid (os mais rápidos) sobe para o topo da lista, mesmo
+            // quando o nome dele não diz que é debrid (ex.: Torrentio configurado com Real-Debrid).
+            if (g.debrid) {
+              const at = groups.indexOf(g);
+              const firstPlain = groups.filter((x, i) => i < at && !x.debrid)[0];
+              if (firstPlain) {
+                groups.splice(at, 1);
+                groups.splice(groups.indexOf(firstPlain), 0, g);
+                list.insertBefore(g.el, firstPlain.el);
+              }
+            }
+            g.streams.forEach((s) => g.el.appendChild(streamItem(s, video, serverOk, all)));
             // "all" segue a ordem da tela (addon de maior prioridade primeiro), não a de chegada:
             // é nela que o Smart Choice e o player procuram a próxima fonte.
             all.length = 0;
@@ -593,7 +610,8 @@ function DetailsView(type, id, opts) {
   // sinal de seeders, tamanho). Sem a fileira de bandeirinhas.
   function streamItem(s, video, serverOk, all) {
     const playableType = server.isPlayableType(s);
-    const needs = server.needsServer(s);
+    const rdTorrent = server.needsServer(s) && !serverOk && server.viaDebrid(s);
+    const needs = server.needsServer(s) && !rdTorrent;
     const disabled = !playableType || (needs && !serverOk);
     const info = si.parse(s);
     const tags = [];
@@ -611,7 +629,7 @@ function DetailsView(type, id, opts) {
       info.seeders !== null ? h('span.s-seed', { cls: 'lv' + si.signal(info.seeders), html: si.signalSvg(si.signal(info.seeders)) + '<b>' + info.seeders + '</b>' }) : null,
       info.cached ? h('span.s-seed.lv4', { html: si.signalSvg(4) + '<b>' + t('Instantâneo') + '</b>' }) : null,
       info.sizeMb ? h('span.s-size', { text: si.sizeText(info.sizeMb) }) : null,
-      h('span.s-src', { text: info.addon + (needs ? ' · torrent' : playableType ? ' · ' + t('direto') : '') }),
+      h('span.s-src', { text: info.addon + (rdTorrent ? ' · ' + t('torrent pelo Real-Debrid') : needs ? ' · torrent' : playableType ? ' · ' + t('direto') : '') }),
     ]);
     return h(
       'div.stream',
@@ -638,8 +656,8 @@ function DetailsView(type, id, opts) {
       start(resumeMs);
     } else if (resumeMs > 30000) {
       choiceDialog(t('Continuar de onde parou?'), isSeries() ? 'T' + video.season + 'E' + video.episode + ' · ' + (video.namePt || video.name || '') : meta.name, [
-        { label: '<span class="ico">▶</span>' + t('Continuar de {time}', { time: fmtTime(resumeMs / 1000) }), primary: true, onSelect: () => start(resumeMs) },
-        { label: '<span class="ico">↺</span>' + t('Do início'), onSelect: () => start(0) },
+        { label: ico('play') + t('Continuar de {time}', { time: fmtTime(resumeMs / 1000) }), primary: true, onSelect: () => start(resumeMs) },
+        { label: ico('restart') + t('Do início'), onSelect: () => start(0) },
       ]);
     } else start(0);
   }

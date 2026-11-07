@@ -493,6 +493,15 @@ export function card(item, opts) {
   return el;
 }
 
+// "Ver tudo" no fim de uma fileira: um componente só para o app inteiro, no mesmo formato dos
+// cartões da fileira (wide: 16:9). o: { label, onSelect, onFocus, wide }.
+const ICON_ARROW = '<svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>';
+export function seeAllCard(o) {
+  return h('div.card.see-all', { focusable: true, cls: o.wide ? 'wide' : '', onSelect: o.onSelect, onFocus: o.onFocus }, [
+    h('div.poster-wrap', null, h('div.see-all-label', null, [h('i', { html: ICON_ARROW }), h('b', { text: t('Ver tudo') }), o.label ? h('span', { text: o.label }) : null])),
+  ]);
+}
+
 // Cartões de esqueleto (com brilho) no lugar de uma fileira que ainda está carregando.
 // wide: capas deitadas (16:9), como as dos vídeos da aba NSFW.
 export function skeletonCards(n, wide) {
@@ -618,7 +627,7 @@ export function pagedGrid(opts) {
         loadVisibleImages(el, 400);
         if (first && !count && opts.onEmpty) opts.onEmpty();
         const untouched = !nav.current() || nav.current() === focusAtStart || !document.body.contains(nav.current());
-        if (first && grid.firstChild && untouched) nav.focus(grid.firstChild);
+        if (first && grid.firstChild && untouched && opts.autoFocus !== false) nav.focus(grid.firstChild);
         else if (byButton && lastRowFirst) nav.focus(lastRowFirst);
         // Página que não fechou nem uma linha nova: busca a próxima já.
         if (!ended && count === before) loadMore(byButton);
