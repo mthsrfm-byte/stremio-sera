@@ -19,27 +19,40 @@ let unlocked = false; // vale até fechar o app
 let failures = 0;
 let lockedUntil = 0;
 
-// App foi para segundo plano (botão Home, outro app): tranca de novo, mas não tira da aba.
-// Ao voltar, se a aba NSFW estiver aberta, pede o PIN por cima; só sai dela se cancelar.
-let relocked = false;
-document.addEventListener('visibilitychange', () => {
-  if (document.hidden) {
-    if (unlocked) relocked = true;
-    unlocked = false;
-    return;
-  }
-  if (!relocked) return;
-  relocked = false;
+// Privacidade: o app foi para segundo plano (TV desligada, botão Home, outro app) com algo da
+// área NSFW aberto (a aba, os detalhes ou o player de um vídeo adulto). Sai de tudo na hora, ainda
+// escondido: grava onde parou, fecha o vídeo e menus, e vai para o Início. Ao voltar, nada do que
+// estava na tela aparece, nem por um instante, e a aba pede o PIN de novo só se for reaberta.
+let curtainTimer = null;
+function onHidden() {
+  unlocked = false;
+  document.body.classList.add('privacy-curtain');
   const root = router.rootView();
-  if (!root || root.tabId !== 'nsfw') {
-    if (router.tabView('nsfw')) router.dropTab('nsfw');
-    return;
-  }
-  askPin(t('NSFW'), (ok) => {
-    if (ok) unlocked = true;
-    else router.goTab('home');
-  });
-});
+  if (root && root.tabId === 'nsfw') {
+    const cur = router.currentView();
+    // Player: o mesmo caminho do Voltar (salva o progresso antes de fechar).
+    if (cur && cur.el && cur.el.classList.contains('player') && cur.onBack) {
+      try {
+        cur.onBack();
+      } catch (e) {
+        /* segue para o Início de qualquer jeito */
+      }
+    }
+    nav.closeOverlays();
+    router.goHome();
+  } else nav.closeOverlays((root) => root.classList.contains('pin-screen'));
+  if (router.tabView('nsfw')) router.dropTab('nsfw');
+}
+
+function onVisible() {
+  clearTimeout(curtainTimer);
+  // A TV às vezes mostra o último quadro antes de repintar: a cortina sai um pouco depois.
+  curtainTimer = setTimeout(() => document.body.classList.remove('privacy-curtain'), 350);
+}
+
+document.addEventListener('visibilitychange', () => (document.hidden ? onHidden() : onVisible()));
+window.addEventListener('pagehide', onHidden);
+document.addEventListener('freeze', onHidden);
 
 export function pin() {
   const p = store.settings().nsfwPin;

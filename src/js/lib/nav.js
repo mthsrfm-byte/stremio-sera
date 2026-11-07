@@ -259,6 +259,19 @@ export function popLayer(layer) {
   }
 }
 
+// Fecha as camadas por cima das telas (menus, avisos, PIN). Com filtro, só as que ele aceitar.
+export function closeOverlays(only) {
+  for (let i = layers.length - 1; i >= 0; i--) {
+    const root = layers[i].root;
+    if (!root || root.classList.contains('view')) continue;
+    if (only && !only(root)) continue;
+    layers.splice(i, 1);
+    if (root.parentNode) root.parentNode.removeChild(root);
+  }
+  const t = top();
+  if (t && t.current) t.current.classList.add('focused');
+}
+
 export function topLayer() {
   return top();
 }
