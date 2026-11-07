@@ -618,7 +618,7 @@ export function pagedGrid(opts) {
         loadVisibleImages(el, 400);
         if (first && !count && opts.onEmpty) opts.onEmpty();
         const untouched = !nav.current() || nav.current() === focusAtStart || !document.body.contains(nav.current());
-        if (first && grid.firstChild && untouched) nav.focus(grid.firstChild);
+        if (first && grid.firstChild && untouched && opts.autoFocus !== false) nav.focus(grid.firstChild);
         else if (byButton && lastRowFirst) nav.focus(lastRowFirst);
         // Página que não fechou nem uma linha nova: busca a próxima já.
         if (!ended && count === before) loadMore(byButton);

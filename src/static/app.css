@@ -143,6 +143,11 @@ body.oled .hero-shade-bottom { background: linear-gradient(to top, #000 0%, rgba
 .btn { display: -webkit-inline-flex; display: inline-flex; -webkit-align-items: center; align-items: center; height: 64px; padding: 0 34px; margin-right: 18px; border-radius: 32px; font-size: 24px; font-weight: 700; background: rgba(255,255,255,0.12); color: #fff; border: 3px solid transparent; white-space: nowrap; }
 .btn.primary { background: #fff; color: #120f1c; }
 .btn .ico { font-size: 26px; margin-right: 12px; }
+/* Ícones SVG dos botões (lib/icons.js): mesmo tamanho e traço em todos. */
+.ico svg { display: block; width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.ico.fill svg { fill: currentColor; stroke: none; }
+.btn .ico, .opt .ico { display: inline-block; vertical-align: middle; }
+.btn.small .ico svg { width: 22px; height: 22px; }
 .btn.focused { background: #7b5bf5; color: #fff; border-color: #c9bbff; -webkit-transform: scale(1.06); transform: scale(1.06); }
 .btn.small { height: 52px; padding: 0 24px; font-size: 21px; }
 
@@ -282,10 +287,17 @@ body.oled .details-shade { background: linear-gradient(to right, #000 25%, rgba(
 .p-skip { position: absolute; right: 96px; bottom: 96px; display: none; z-index: 5; }
 .p-skip.show { display: block; }
 .player.controls-on .p-skip { bottom: 290px; }
-.p-skip .btn { height: 70px; padding: 0 34px; font-size: 26px; background: rgba(20,16,32,0.88); border-color: rgba(255,255,255,0.35); }
-.p-skip .btn.focused { background: #7b5bf5; border-color: #c9bbff; }
-.p-skip .bar { position: absolute; left: 30px; right: 30px; bottom: 8px; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.25); overflow: hidden; }
-.p-skip .bar i { display: block; height: 4px; background: #c9bbff; }
+/* Pílula escura translúcida; o fundo enche com o tempo do trecho; no foco acende em branco. */
+.p-skip .skip-btn { position: relative; overflow: hidden; height: 76px; padding: 0 34px 0 26px; margin: 0; border-radius: 38px; font-size: 26px; background: rgba(17,17,16,0.72); color: #F5F4EF; border: 2px solid rgba(245,244,239,0.42); box-shadow: 0 8px 30px rgba(0,0,0,0.45); }
+.p-skip .skip-btn.two-line { height: 88px; border-radius: 44px; }
+.p-skip .sk-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: rgba(245,244,239,0.14); }
+.p-skip .sk-ico, .p-skip .sk-text { position: relative; }
+.p-skip .sk-ico .ico { margin-right: 14px; }
+.p-skip .sk-text b { display: block; font-weight: 700; letter-spacing: 0.2px; }
+.p-skip .sk-text small { display: block; max-width: 420px; margin-top: 2px; font-size: 18px; font-weight: 500; opacity: 0.72; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.p-skip .sk-text small:empty { display: none; }
+body .player .p-skip .skip-btn.focused, body.sera .player .p-skip .skip-btn.focused { background: #F5F4EF; color: #111110; border-color: #F5F4EF; -webkit-transform: scale(1.04); transform: scale(1.04); }
+.p-skip .skip-btn.focused .sk-fill { background: rgba(17,17,16,0.1); }
 
 /* ---------- Modal / menus ---------- */
 .modal { position: absolute; left: 0; top: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 50; }
@@ -557,7 +569,7 @@ body.sera .details-panel { background: rgba(17,17,16,0.86); }
 body.sera .hero-dots span.on, body.sera .card .progress i, body.sera .load-bar i, body.sera .p-bar .pos { background: #3347FF; }
 
 body.sera .btn.primary { background: #F5F4EF; color: #111110; }
-body.sera .btn.focused, body.sera .p-buttons .btn.focused, body.sera .p-skip .btn.focused { background: #3347FF; color: #fff; border-color: #A9B4F5; }
+body.sera .btn.focused, body.sera .p-buttons .btn.focused { background: #3347FF; color: #fff; border-color: #A9B4F5; }
 body.sera .card.focused .poster-wrap { border-color: #3347FF; }
 body.sera .input.focused, body.sera .input:focus { border-color: #3347FF; }
 body.sera .episode.focused, body.sera .stream.focused, body.sera .set-row.focused, body.sera .opt.focused { background: rgba(51,71,255,0.22); border-color: #3347FF; border-left-color: #3347FF; }
@@ -688,12 +700,9 @@ body.light .card.ranked .rank { color: #F5F4EF; -webkit-text-stroke-color: rgba(
 .mood-tile span { margin-top: 6px; font-size: 19px; font-weight: 600; opacity: 0.85; }
 .card.mood.focused .mood-tile { border-color: #F5F4EF; }
 
-/* Aba NSFW */
-.nsfw-badge { display: inline-block; margin-left: 16px; padding: 2px 12px; border-radius: 8px; background: #e55353; color: #fff; font-size: 20px; font-weight: 800; vertical-align: middle; }
-.nsfw-section { padding: 30px 96px 6px; font-size: 30px; font-weight: 800; color: #c9bbff; }
+/* Fileira de chips (filtros) */
 .chip-track { display: -webkit-flex; display: flex; padding: 0 96px 10px; white-space: nowrap; overflow: hidden; }
 .chip-track .chip { -webkit-flex-shrink: 0; flex-shrink: 0; }
-.nsfw-genres { height: auto; }
 
 /* PIN da área adulta: tela cheia escurecida, cadeado, bolinhas e teclado de banco (dois números por tecla) */
 .pin-screen { background: radial-gradient(ellipse at 50% 35%, rgba(60,22,48,0.92) 0%, rgba(8,8,10,0.97) 65%); display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; -webkit-justify-content: center; justify-content: center; }
@@ -766,16 +775,7 @@ body.light .cast.focused .ph { box-shadow: 0 0 0 4px #F5F4EF, 0 0 0 8px #3347FF,
 body.light .cast.focused .nm { color: #111110; }
 body.light .cast.focused .ch { color: #2236E0; }
 
-/* Aba NSFW: brilho discreto no topo, seções com marcador e categorias em destaque */
-/* Brilho do topo fixo atrás da rolagem (pintado uma vez; no fundo da área que rola, a TV repintava a cada passo). */
-.nsfw-view:before { content: ''; position: absolute; left: 0; top: 0; right: 0; height: 420px; pointer-events: none; background: radial-gradient(1200px 420px at 15% 0, rgba(229,80,140,0.16), rgba(229,80,140,0) 70%), radial-gradient(900px 380px at 85% 0, rgba(123,91,245,0.14), rgba(123,91,245,0) 70%); }
-.nsfw-section { position: relative; padding-left: 116px; }
-.nsfw-section:before { content: ''; position: absolute; left: 96px; top: 36px; width: 6px; height: 30px; border-radius: 3px; background: #e5508c; }
-.nsfw-genres .chip { background: rgba(229,80,140,0.14); font-size: 27px; padding: 12px 30px; }
-.nsfw-genres .chip.active { background: rgba(229,80,140,0.42); color: #fff; }
-.nsfw-genres .chip.focused { background: #e5508c; border-color: #ffc2d9; color: #fff; }
-.nsfw-view .page-head { padding-bottom: 18px; }
-body.light .nsfw-genres .chip { background: rgba(229,80,140,0.12); }
+
 .load-bar { -webkit-transition: opacity 0.4s; transition: opacity 0.4s; }
 .load-bar.done { opacity: 0; }
 
@@ -887,22 +887,6 @@ body.light .fp-panel { background: rgba(255,255,255,0.5); }
 .profile-chip span { display: none; }
 .clock { font-size: 24px; }
 
-/* NSFW: trilho de provedores (mesmo visual de Streamings) e "Provedor: X" bem à vista */
-.nsfw-head { padding-bottom: 6px; }
-.nsfw-now { font-size: 22px; font-weight: 600; color: rgba(245,244,239,0.65); }
-.nsfw-rail { padding: 0 96px 26px; }
-.nsfw-rail .provider-logo { position: relative; background-color: #2a1622; }
-.nsfw-rail .provider-logo .mono { position: absolute; left: 0; top: 0; right: 0; bottom: 0; line-height: 64px; text-align: center; font-family: 'Bricolage Grotesque', 'Geist', sans-serif; font-size: 24px; font-weight: 800; color: #ffc2d9; background: linear-gradient(135deg, #e5508c, #7b5bf5); }
-.nsfw-rail .provider-logo.has-img .mono { display: none; }
-.nsfw-rail .provider-logo img { position: relative; object-fit: cover; }
-.nsfw-rail .provider-logo.icon { display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; -webkit-justify-content: center; justify-content: center; background: rgba(245,244,239,0.1); }
-.nsfw-rail .provider-logo.icon svg { width: 30px; height: 30px; fill: none; stroke: #F5F4EF; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.nsfw-rail .provider.on { background-color: rgba(229,80,140,0.22); }
-.nsfw-rail .provider.on.focused { background-color: rgba(229,80,140,0.4); }
-.nsfw-rail .provider.focused { box-shadow: 0 0 0 4px #e5508c; }
-body.light .nsfw-now { color: rgba(17,17,16,0.6); }
-.nsfw-rail .provider:not(.on):not(.focused) .provider-logo { opacity: 0.6; }
-
 /* ---------- Agenda (Google Agenda via iCal) ---------- */
 .topbar .cal-btn { position: relative; margin-right: 14px; }
 .topbar .cal-btn .cal-dot { display: none; position: absolute; right: 6px; top: 6px; width: 12px; height: 12px; border-radius: 6px; background: #F2A33A; border: 2px solid #111110; }
@@ -996,29 +980,6 @@ body.light .ev-label, body.light .ev-title-sm, body.light .ev-answer { color: rg
 .p-bar .seek-preview.pc .seek-preview-img { background-size: cover; background-position: center; }
 .p-bar .seek-preview.loading:after { content: ''; position: absolute; left: 50%; top: 50%; width: 36px; height: 36px; margin: -21px 0 0 -21px; border-radius: 50%; border: 3px solid rgba(245,244,239,0.3); border-top-color: #F5F4EF; -webkit-animation: spin 0.8s linear infinite; animation: spin 0.8s linear infinite; }
 
-/* ---------- Aba NSFW por site (redesenho) ---------- */
-.nsfw-view:before { display: none; }
-.site-rail { padding: 18px 96px 6px; }
-.site-rail .site-tile { height: 84px; padding: 0 28px 0 16px; margin-right: 18px; border-radius: 18px; background-color: rgba(245,244,239,0.05); border: 3px solid transparent; box-shadow: none; }
-.site-rail .site-tile .provider-logo { width: 52px; height: 52px; border-radius: 12px; opacity: 1; -webkit-filter: none; filter: none; background-color: #2B2B27; }
-.site-rail .provider-logo .mono { line-height: 52px; font-size: 20px; }
-.site-rail .provider-logo .site-mark { border-radius: 12px; }
-.site-rail .provider-logo.icon svg { width: 26px; height: 26px; }
-.site-rail .site-text { margin-left: 14px; }
-.site-rail .site-tile .provider-name { max-width: 360px; opacity: 1; margin-left: 0; font-size: 24px; }
-.site-rail .site-sub { font-size: 16px; font-weight: 500; color: rgba(245,244,239,0.55); white-space: nowrap; }
-.site-rail .site-tile.on { background-color: rgba(51,71,255,0.2); border-color: #3347FF; padding-right: 28px; }
-.site-rail .site-tile.focused { background-color: rgba(51,71,255,0.32); border-color: #A9B4F5; box-shadow: none; }
-.site-rail .site-tile:not(.on):not(.focused) .provider-logo { opacity: 0.75; }
-.site-rail .site-18 { margin-left: auto; background: transparent; border: 2px solid rgba(245,244,239,0.35); color: rgba(245,244,239,0.8); font-size: 16px; letter-spacing: 1px; padding: 4px 12px; }
-
-.nsfw-jumps { margin: 18px 0 8px; }
-.jump-chips .chip { font-size: 22px; padding: 9px 22px; margin-right: 12px; background: rgba(245,244,239,0.07); color: rgba(245,244,239,0.85); }
-.jump-chips .chip svg, .chip svg { width: 18px; height: 18px; margin-right: 8px; vertical-align: -3px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; }
-.nsfw-genres .chip { background: rgba(245,244,239,0.07); }
-.nsfw-genres .chip.focused { background: #3347FF; border-color: #A9B4F5; color: #fff; }
-.nsfw-view .row-title small { color: rgba(245,244,239,0.45); }
-
 /* Cartão com números (vídeos adultos): qualidade, duração, coração e a linha de qualidade embaixo. */
 .card-corner { position: absolute; left: 10px; top: 10px; font-size: 15px; font-weight: 800; letter-spacing: 0.5px; padding: 2px 8px; border-radius: 6px; background: rgba(0,0,0,0.72); color: #F5F4EF; }
 .card-corner.uhd { background: #F5F4EF; color: #111110; }
@@ -1049,7 +1010,6 @@ body.light .card-stats { color: rgba(17,17,16,0.6); }
 .astat-bar { margin-top: 10px; height: 6px; border-radius: 3px; background: rgba(245,244,239,0.15); }
 .astat-bar i { display: block; height: 6px; border-radius: 3px; background: #8FD9A8; }
 .btn .ico.fav { color: #FF6B8A; }
-.site-rail .site-tile.on.focused { background-color: rgba(51,71,255,0.32); border-color: #A9B4F5; box-shadow: none; }
 
 /* Player: logo do título no canto numa área fixa de 672×260 (35% da largura): logo pequeno é ampliado, sem distorcer. Sobre uma vinheta escura; o nome escrito fica de reserva. */
 .p-top:after { content: ''; position: absolute; left: 0; top: 0; width: 1500px; height: 640px; z-index: -1; pointer-events: none; background: radial-gradient(ellipse 1400px 600px at 0 0, rgba(0,0,0,0.82), rgba(0,0,0,0.4) 55%, rgba(0,0,0,0) 80%); }
@@ -1125,19 +1085,77 @@ body.light .card-stats { color: rgba(17,17,16,0.6); }
 .sv-hint { position: absolute; left: 0; right: 0; bottom: 30px; text-align: center; font-size: 20px; color: rgba(245,244,239,0.6); -webkit-transition: opacity 1s; transition: opacity 1s; }
 .saver.hint-off .sv-hint { opacity: 0; }
 
-/* ---------- Aba NSFW: tema rosa (mesmo clima da tela de senha) ---------- */
-/* Fundo no .view, que não rola: a TV pinta o degradê uma vez só. */
-body .view.nsfw-view { background: #0e0a0d; background: linear-gradient(to bottom, #22101b 0%, #150b12 38%, #0e0a0d 75%); }
-.nsfw-view:before { height: 620px; background: radial-gradient(1300px 560px at 18% 0, rgba(229,80,140,0.3), rgba(229,80,140,0) 70%), radial-gradient(1000px 480px at 88% 0, rgba(123,91,245,0.18), rgba(123,91,245,0) 70%); }
-body .nsfw-view .tab.focused, body .nsfw-view .chip.focused, body .nsfw-view .chip.active, body .nsfw-view .btn.focused { color: #fff; background: #e5508c; border-color: #ffc2d9; }
-body .nsfw-view .chip { background: rgba(229,80,140,0.14); }
-body .nsfw-view .card.focused .poster-wrap { border-color: #e5508c; }
-body .nsfw-view .card-flag { background: #e5508c; }
-.nsfw-view .row-title small, .nsfw-view .reco-crumb { color: rgba(255,194,217,0.6); }
-.nsfw-view .spinner { border-top-color: #e5508c; }
-body.light .view.nsfw-view { background: #F5F4EF; background: linear-gradient(to bottom, #ffe2ee 0%, #faeef2 38%, #F5F4EF 75%); }
-body.light .nsfw-view:before { background: radial-gradient(1300px 560px at 18% 0, rgba(229,80,140,0.18), rgba(229,80,140,0) 70%), radial-gradient(1000px 480px at 88% 0, rgba(123,91,245,0.1), rgba(123,91,245,0) 70%); }
-body.light .nsfw-view .row-title small, body.light .nsfw-view .reco-crumb { color: rgba(160,40,90,0.6); }
 /* Prévia do vídeo no cartão em foco (aparece por cima da capa quando começa a tocar). */
 .card-preview { position: absolute; left: 0; top: 0; width: 100%; height: 100%; object-fit: cover; background: #000; opacity: 0; -webkit-transition: opacity 0.3s; transition: opacity 0.3s; }
 .card-preview.ready { opacity: 1; }
+
+/* ---------- Área NSFW ----------
+   Um bloco só. Mesma base do resto do app (cartões 16:9, títulos de fileira, chips), com o rosa
+   #E5508C como cor de destaque em tudo o que recebe foco (antes misturava azul e rosa).
+   Fundo no .view, que não rola: a TV pinta o degradê uma vez só. */
+body .view.nsfw-view { background: #0e0a0d; background: linear-gradient(to bottom, #22101b 0%, #150b12 38%, #0e0a0d 75%); }
+body.light .view.nsfw-view { background: #F5F4EF; background: linear-gradient(to bottom, #ffe2ee 0%, #faeef2 38%, #F5F4EF 75%); }
+.nsfw-badge { display: inline-block; padding: 4px 12px; border-radius: 8px; font-size: 16px; font-weight: 800; letter-spacing: 1px; vertical-align: middle; }
+.nsfw-view .row-title small, .nsfw-view .reco-crumb { color: rgba(255,194,217,0.6); }
+.nsfw-view .reco-crumb b { color: #F5F4EF; }
+body.light .nsfw-view .row-title small, body.light .nsfw-view .reco-crumb { color: rgba(160,40,90,0.6); }
+body.light .nsfw-view .reco-crumb b { color: #111110; }
+.nsfw-view .spinner { border-top-color: #e5508c; }
+body .nsfw-view .tab.focused, body .nsfw-view .chip.focused, body .nsfw-view .btn.focused { color: #fff; background: #e5508c; border-color: #ffc2d9; }
+body .nsfw-view .chip { background: rgba(229,80,140,0.14); }
+body .nsfw-view .chip.active { background: rgba(229,80,140,0.42); color: #fff; }
+body .nsfw-view .card.focused .poster-wrap { border-color: #e5508c; }
+body .nsfw-view .card-flag { background: #e5508c; }
+body .nsfw-view .input.focused, body .nsfw-view .input:focus { border-color: #e5508c; }
+
+/* Sites no topo: logo + nome + o que tem dentro. O site aberto fica marcado; o foco acende em rosa. */
+.site-rail { padding: 18px 96px 10px; }
+.site-rail .site-tile { height: 84px; padding: 0 28px 0 16px; margin-right: 18px; border-radius: 18px; background-color: rgba(245,244,239,0.05); border: 3px solid transparent; box-shadow: none; }
+.site-rail .provider-logo { position: relative; width: 52px; height: 52px; border-radius: 12px; opacity: 1; -webkit-filter: none; filter: none; background-color: #2a1622; }
+.site-rail .provider-logo .mono { position: absolute; left: 0; top: 0; right: 0; bottom: 0; line-height: 52px; text-align: center; font-family: 'Bricolage Grotesque', 'Geist', sans-serif; font-size: 20px; font-weight: 800; color: #ffc2d9; background: linear-gradient(135deg, #e5508c, #7b5bf5); }
+.site-rail .provider-logo .site-mark { border-radius: 12px; }
+.site-rail .provider-logo.has-img .mono { display: none; }
+.site-rail .provider-logo img { position: relative; object-fit: cover; }
+.site-rail .provider-logo.icon { display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; -webkit-justify-content: center; justify-content: center; background: rgba(245,244,239,0.1); }
+.site-rail .provider-logo.icon svg { width: 26px; height: 26px; fill: none; stroke: #F5F4EF; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.site-rail .site-text { margin-left: 14px; }
+.site-rail .site-tile .provider-name { max-width: 360px; opacity: 1; margin-left: 0; font-size: 24px; }
+.site-rail .site-sub { font-size: 16px; font-weight: 500; color: rgba(245,244,239,0.55); white-space: nowrap; }
+.site-rail .site-tile.on { background-color: rgba(229,80,140,0.16); border-color: rgba(229,80,140,0.7); }
+.site-rail .site-tile.focused, .site-rail .site-tile.on.focused { background-color: rgba(229,80,140,0.34); border-color: #ffc2d9; box-shadow: none; }
+.site-rail .site-tile:not(.on):not(.focused) .provider-logo { opacity: 0.75; }
+.site-rail .site-18 { margin-left: auto; background: transparent; border: 2px solid rgba(245,244,239,0.35); color: rgba(245,244,239,0.8); }
+body.light .site-rail .site-tile { background-color: rgba(17,17,16,0.05); }
+body.light .site-rail .site-sub, body.light .site-rail .site-18 { color: rgba(17,17,16,0.6); border-color: rgba(17,17,16,0.3); }
+.nsfw-rows { padding-top: 16px; }
+
+/* Categorias: cartões 16:9 do mesmo tamanho dos vídeos, nome grande sobre um degradê. */
+.cat-tile .poster-wrap { display: -webkit-flex; display: flex; -webkit-align-items: flex-end; align-items: flex-end; }
+.cat-tile .poster-wrap:after { content: ''; position: absolute; left: 0; top: 0; right: 0; bottom: 0; background: radial-gradient(260px 160px at 85% 15%, rgba(255,255,255,0.16), rgba(255,255,255,0) 70%); }
+.cat-label { position: relative; z-index: 1; padding: 0 24px 20px; }
+.cat-label b { display: block; font-family: 'Bricolage Grotesque', 'Geist', sans-serif; font-size: 34px; font-weight: 800; line-height: 1.05; letter-spacing: -0.5px; color: #fff; text-shadow: 0 2px 10px rgba(0,0,0,0.35); }
+.cat-label span { display: block; margin-top: 6px; font-size: 16px; font-weight: 600; color: rgba(255,255,255,0.75); }
+.cat-track { padding-bottom: 10px; }
+
+/* "Ver tudo" no fim da fileira: mesmo formato dos cartões dela (16:9 nos vídeos). */
+.see-all-label i { display: block; width: 52px; height: 52px; margin: 0 auto 12px; border-radius: 26px; background: rgba(245,244,239,0.1); }
+.see-all-label i svg { width: 26px; height: 26px; margin: 13px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.see-all.focused .see-all-label i { background: rgba(255,255,255,0.22); }
+.nsfw-view .see-all.focused .poster-wrap { background: #e5508c; border-color: #ffc2d9; }
+
+/* Grade da categoria: lista de categorias à esquerda, grade de vídeos à direita. */
+.nsfw-side-wrap { position: absolute; left: 0; top: 0; bottom: 0; width: 420px; padding: 56px 0 0 96px; background: rgba(0,0,0,0.18); }
+.side-title { font-family: 'Bricolage Grotesque', 'Geist', sans-serif; font-size: 22px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: rgba(255,194,217,0.6); margin-bottom: 18px; padding-left: 20px; }
+.nsfw-side { position: absolute; left: 96px; right: 24px; top: 110px; bottom: 0; overflow: hidden; padding-bottom: 120px; }
+.side-item { height: 60px; line-height: 54px; padding: 0 20px; margin-bottom: 6px; border-radius: 14px; font-size: 22px; font-weight: 600; color: rgba(245,244,239,0.7); border: 3px solid transparent; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.side-item.active { color: #fff; background: rgba(229,80,140,0.2); }
+.side-item.active:before { content: ''; display: inline-block; width: 8px; height: 8px; margin: 0 12px 3px 0; border-radius: 4px; background: #e5508c; }
+.side-item.focused { color: #fff; background: #e5508c; border-color: #ffc2d9; }
+.side-item.focused:before { background: #fff; }
+.nsfw-grid-main.with-side { left: 420px; }
+.nsfw-grid-main.with-side .reco-crumb { padding-left: 154px; }
+.nsfw-grid-main.with-side .nsfw-filter .chip-track { padding-left: 154px; }
+body.light .nsfw-side-wrap { background: rgba(17,17,16,0.04); }
+body.light .side-item { color: rgba(17,17,16,0.7); }
+body.light .side-item.active { color: #111110; }
+.p-skip .sk-ico .ico svg { width: 30px; height: 30px; }
