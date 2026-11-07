@@ -105,6 +105,31 @@ export function isTubeStream(s) {
   return !!(s && tubes && tubes.some((a) => a.manifest && a.manifest.name === s.addon));
 }
 
+// Variante de uma fonte do serviço: 'tv' (passando pelo serviço da TV), 'mp4' ou 'hls' (direto).
+export function tubeKind(s) {
+  if (/127\.0\.0\.1:\d+\/px\//.test(String((s && s.url) || ''))) return 'tv';
+  return /mp4/i.test(String((s && s.name) || '') + ' ' + String((s && s.title) || '')) ? 'mp4' : 'hls';
+}
+
+// Qual variante tocou por último em cada site: as próximas abrem direto nela. Sem histórico, o
+// Pornhub começa pelo HLS passando pela TV (o link direto dele costuma não abrir na TV).
+const TUBE_DEFAULT = { Pornhub: 'tv' };
+export function rememberTubeKind(s) {
+  if (!isTubeStream(s)) return;
+  const all = store.get('tubeKind', {}) || {};
+  all[s.addon] = tubeKind(s);
+  store.set('tubeKind', all);
+}
+
+// Fontes do serviço com a variante que funciona na frente (o resto na ordem do serviço).
+export function orderTube(list) {
+  const pref = store.get('tubeKind', {}) || {};
+  return list
+    .map((s, i) => ({ s: s, i: i, top: tubeKind(s) === (pref[s.addon] || TUBE_DEFAULT[s.addon]) ? 0 : 1 }))
+    .sort((a, b) => a.top - b.top || a.i - b.i)
+    .map((x) => x.s);
+}
+
 function withTubes(list) {
   if (!tubes || !tubes.length) return list;
   return list.concat(tubes.filter((t) => !list.some((a) => a.transportUrl === t.transportUrl)));

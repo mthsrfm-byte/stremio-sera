@@ -578,6 +578,7 @@ function PlayerView(opts) {
       scheduleAudioPick();
       // Abriu: é esta a fonte que o Smart Choice tenta primeiro ao continuar depois.
       if (meta.id !== 'dev') si.rememberStream(video.id, stream);
+      addons.rememberTubeKind(stream); // Pornhub/XVideos: a próxima abre direto na variante que tocou
       if (opts.isSeries && meta.id !== 'dev') si.rememberSeries(meta.id, stream);
       playlog.add(logTitle(), logSource(), 'ok', failedNotes.join('\n'));
     }
@@ -653,7 +654,7 @@ function PlayerView(opts) {
   let autoTries = 0;
   function autoFallback() {
     const rest = (opts.streams || []).filter((x) => tried.indexOf(x) < 0);
-    if (addons.isTubeStream(stream)) return rest.find((x) => x.addon === stream.addon) || null;
+    if (addons.isTubeStream(stream)) return addons.orderTube(rest.filter((x) => x.addon === stream.addon))[0] || null;
     if (autoTries >= 2) return null;
     const res = si.parse(stream).res;
     const ok = server.isAvailable();

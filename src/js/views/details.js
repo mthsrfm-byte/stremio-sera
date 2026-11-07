@@ -429,8 +429,9 @@ function DetailsView(type, id, opts) {
         // Continuando: a mesma fonte da última vez, se ela ainda veio; senão, a escolha de sempre.
         const last = si.rememberedStream(video.id, all);
         if (last && si.canPlay(last, ok)) return resolve(last);
-        // XVideos/Pornhub (serviço da TV): a ordem do próprio serviço já é a de mais chance de tocar.
-        const tube = all.filter((x) => addons.isTubeStream(x));
+        // XVideos/Pornhub (serviço da TV): a variante que tocou da última vez naquele site primeiro
+        // (no Pornhub, sem histórico, o HLS passando pela TV); depois a ordem do serviço.
+        const tube = addons.orderTube(all.filter((x) => addons.isTubeStream(x)));
         if (tube.length) return resolve(tube[0]);
         const p = si.smartPick(all, ok, si.minutesOf(meta, isSeries()), si.pickOptions(meta, isSeries()));
         resolve(p ? p.stream : null);
