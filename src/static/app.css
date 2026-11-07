@@ -1170,3 +1170,8 @@ body.light .nsfw-side-wrap { background: rgba(17,17,16,0.04); }
 body.light .side-item { color: rgba(17,17,16,0.7); }
 body.light .side-item.active { color: #111110; }
 .p-skip .sk-ico .ico svg { width: 30px; height: 30px; }
+
+/* Privacidade: app indo para o segundo plano com a área NSFW aberta (views/pin.js). A tela fica
+   preta até o Início repintar ao voltar, para a TV não mostrar o último quadro. */
+body.privacy-curtain #app { visibility: hidden; }
+body.privacy-curtain { background: #000; }
