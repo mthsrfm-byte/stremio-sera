@@ -14,7 +14,7 @@ var urlLib = require('url');
 
 var PORT = 8090;
 var ADDON_PORT = 8092; // addons XVideos/Pornhub e vídeo (porta nova a cada mudança que versões antigas não sabem largar)
-var SERVICE_VERSION = 12;
+var SERVICE_VERSION = 13;
 var PAGE_BASE = 'https://cdn.jsdelivr.net/gh/mthsrfm-byte/stremio-sera/remote/';
 var APP_NAME = 'Seraflix Controle';
 var TOKEN_FILE = '/home/owner/share/seraflixRemote.json';
@@ -501,6 +501,22 @@ function phPageStats(html) {
   });
 }
 
+// Fim da <ul> que começa em "start", contando as listas de dentro (cada vídeo da categoria tem
+// uma <ul> própria: o primeiro "</ul>" cortava a lista depois de uns 6 vídeos).
+function closingUl(html, start) {
+  var depth = 0;
+  var re = /<ul\b|<\/ul>/g;
+  re.lastIndex = html.lastIndexOf('<ul', start);
+  var m;
+  while ((m = re.exec(html))) {
+    if (m[0] === '</ul>') {
+      depth--;
+      if (depth <= 0) return m.index;
+    } else depth++;
+  }
+  return -1;
+}
+
 function withThumbs(list, thumbs) {
   if (thumbs) list.forEach(function (s) { s.thumbs = thumbs; });
   return list;
@@ -526,6 +542,41 @@ var PH_LOGO = svgLogo('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 6
   '<rect x="11" y="33" width="42" height="21" rx="4" fill="#ff9000"/>' +
   '<text x="32" y="49" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-weight="700" font-size="17" fill="#000">hub</text></svg>');
 
+// Categorias dos sites (rótulo em português → termo de busca no XVideos / número da categoria no
+// Pornhub). Os rótulos vão no manifest como opções do extra "genre": a aba NSFW mostra cada um como
+// um cartão e abre a grade da categoria.
+var XV_CATS = [
+  ['Amador', 'amateur'], ['Anal', 'anal'], ['Asiáticas', 'asian'], ['Brasileiras', 'brasileira'], ['Bundudas', 'big ass'],
+  ['Caseiro', 'homemade'], ['Casal', 'couple'], ['Dotados', 'big cock'], ['Gozada', 'cumshot'], ['Hentai', 'hentai'],
+  ['Inter-racial', 'interracial'], ['Japonesas', 'japanese'], ['Latinas', 'latina'], ['Lésbicas', 'lesbian'], ['Loiras', 'blonde'],
+  ['Maduras', 'mature'], ['Massagem', 'massage'], ['Masturbação', 'masturbation'], ['Ménage', 'threesome'], ['MILF', 'milf'],
+  ['Morenas', 'brunette'], ['Negras', 'ebony'], ['Novinhas (18+)', 'teen'], ['Oral', 'blowjob'], ['Orgia', 'orgy'],
+  ['Peitudas', 'big tits'], ['POV', 'pov'], ['Em público', 'public'], ['Romântico', 'romantic'], ['Ruivas', 'redhead'],
+  ['Squirt', 'squirt'], ['Brinquedos', 'toys']
+];
+var XV_GAY_CATS = [
+  ['Amador', 'amateur'], ['Bareback', 'bareback'], ['Brasileiros', 'brasileiro'], ['Caseiro', 'homemade'], ['Daddy', 'daddy'],
+  ['Dotados', 'big cock'], ['Grupo', 'group'], ['Hétero curioso', 'straight'], ['Inter-racial', 'interracial'], ['Latinos', 'latino'],
+  ['Musculosos', 'muscle'], ['Negros', 'black'], ['Oral', 'blowjob'], ['POV', 'pov'], ['Twinks (18+)', 'twink'], ['Ursos', 'bear']
+];
+var PH_CATS = [
+  ['Amador', '3'], ['Anal', '35'], ['Asiáticas', '1'], ['Brasileiras', '102'], ['Bundudas', '4'], ['Casal verificado', '482'],
+  ['Dotados', '7'], ['Gozada', '16'], ['Hentai', '36'], ['Inter-racial', '25'], ['Japonesas', '111'], ['Latinas', '26'],
+  ['Lésbicas', '27'], ['Loiras', '9'], ['Maduras', '28'], ['Massagem', '78'], ['Ménage', '65'], ['MILF', '29'], ['Morenas', '11'],
+  ['Negras', '17'], ['Oral', '13'], ['Orgasmo feminino', '502'], ['Peitudas', '8'], ['POV', '41'], ['Em público', '24'],
+  ['Romântico', '522'], ['Ruivas', '42'], ['Sexo bruto', '67'], ['Squirt', '69'], ['Brinquedos', '23'], ['Amadoras verificadas', '138']
+];
+var PH_GAY_CATS = [
+  ['Amador', '252'], ['Bareback', '40'], ['Daddy', '47'], ['Dotados', '58'], ['Grupo', '62'], ['Héteros', '82'], ['Inter-racial', '64'],
+  ['Japoneses', '39'], ['Latinos', '50'], ['Musculosos', '51'], ['Negros', '44'], ['Oral', '56'], ['POV', '372'], ['Twinks (18+)', '49'],
+  ['Ursos', '66'], ['Amadores verificados', '731']
+];
+function optionsOf(list) { return list.map(function (x) { return x[0]; }); }
+function termOf(list, label) {
+  for (var i = 0; i < list.length; i++) if (list[i][0] === label) return list[i][1];
+  return '';
+}
+
 var TUBES = {
   xv: {
     manifest: {
@@ -539,24 +590,36 @@ var TUBES = {
       idPrefixes: ['xv:'],
       behaviorHints: { adult: true },
       catalogs: [
-        // Recomendadas primeiro: são as primeiras fileiras da aba NSFW.
+        // Recomendadas primeiro: são as primeiras fileiras da aba NSFW. Creampie: o que está em alta
+        // agora (mais vistos da semana/do mês), para a fileira mudar sempre em vez de repetir os
+        // mais vistos de todos os tempos.
         { type: 'movie', id: 'xv-cp', name: 'Creampie hétero', extra: [{ name: 'skip' }] },
         { type: 'movie', id: 'xv-cpgay', name: 'Creampie gay', extra: [{ name: 'skip' }] },
+        { type: 'movie', id: 'xv-cpnew', name: 'Creampie: lançamentos', extra: [{ name: 'skip' }] },
         { type: 'movie', id: 'xv-new', name: 'Novidades', extra: [{ name: 'skip' }] },
-        { type: 'movie', id: 'xv-top', name: 'Mais vistos em HD', extra: [{ name: 'skip' }] },
+        { type: 'movie', id: 'xv-top', name: 'Em alta no mês', extra: [{ name: 'skip' }] },
         { type: 'movie', id: 'xv-4k', name: '4K mais bem avaliados', extra: [{ name: 'skip' }] },
+        { type: 'movie', id: 'xv-cat', name: 'Categorias', extra: [{ name: 'genre', isRequired: true, options: optionsOf(XV_CATS) }, { name: 'skip' }] },
+        { type: 'movie', id: 'xv-gaycat', name: 'Categorias gay', extra: [{ name: 'genre', isRequired: true, options: optionsOf(XV_GAY_CATS) }, { name: 'skip' }] },
         { type: 'movie', id: 'xv-search', name: 'Busca', extra: [{ name: 'search', isRequired: true }, { name: 'skip' }] }
       ]
     },
-    PAGE: 27,
+    // Itens por página que o app recebe (o site manda ~27; cortando sempre no mesmo número, o "skip"
+    // que o app manda de volta aponta para a página certa, sem repetir nem pular).
+    PAGE: 20,
     listUrl: function (cat, page, extra) {
       var p = page ? '&p=' + page : '';
       if (cat === 'xv-search') return 'https://www.xvideos.com/?k=' + encodeURIComponent(extra.search || '') + p;
-      // Creampie: mais vistos primeiro.
-      if (cat === 'xv-cp') return 'https://www.xvideos.com/?k=creampie&sort=views' + p;
-      if (cat === 'xv-cpgay') return 'https://www.xvideos.com/?k=creampie&typef=gay&sort=views' + p;
-      if (cat === 'xv-top') return 'https://www.xvideos.com/?k=hd&sort=views' + p;
-      if (cat === 'xv-4k') return 'https://www.xvideos.com/?k=4k&sort=rating' + p;
+      if (cat === 'xv-cp') return 'https://www.xvideos.com/?k=creampie&sort=views&datef=week' + p;
+      if (cat === 'xv-cpgay') return 'https://www.xvideos.com/?k=creampie&typef=gay&sort=views&datef=month' + p;
+      if (cat === 'xv-cpnew') return 'https://www.xvideos.com/?k=creampie&sort=uploaddate' + p;
+      if (cat === 'xv-top') return 'https://www.xvideos.com/?k=hd&sort=views&datef=month' + p;
+      if (cat === 'xv-4k') return 'https://www.xvideos.com/?k=4k&sort=rating&datef=6month' + p;
+      if (cat === 'xv-cat' || cat === 'xv-gaycat') {
+        var term = termOf(cat === 'xv-cat' ? XV_CATS : XV_GAY_CATS, extra.genre);
+        if (!term) return '';
+        return 'https://www.xvideos.com/?k=' + encodeURIComponent(term) + (cat === 'xv-gaycat' ? '&typef=gay' : '') + '&sort=views&datef=month' + p;
+      }
       // Novidades: a primeira página é a inicial; as seguintes, /new/1, /new/2...
       return page ? 'https://www.xvideos.com/new/' + page : 'https://www.xvideos.com/';
     },
@@ -606,19 +669,31 @@ var TUBES = {
       catalogs: [
         { type: 'movie', id: 'ph-cp', name: 'Creampie hétero', extra: [{ name: 'skip' }] },
         { type: 'movie', id: 'ph-cpgay', name: 'Creampie gay', extra: [{ name: 'skip' }] },
+        { type: 'movie', id: 'ph-cpnew', name: 'Creampie: lançamentos', extra: [{ name: 'skip' }] },
+        { type: 'movie', id: 'ph-new', name: 'Novidades', extra: [{ name: 'skip' }] },
         { type: 'movie', id: 'ph-hot', name: 'Em alta', extra: [{ name: 'skip' }] },
-        { type: 'movie', id: 'ph-top', name: 'Mais vistos', extra: [{ name: 'skip' }] },
+        { type: 'movie', id: 'ph-top', name: 'Mais vistos do mês', extra: [{ name: 'skip' }] },
+        { type: 'movie', id: 'ph-cat', name: 'Categorias', extra: [{ name: 'genre', isRequired: true, options: optionsOf(PH_CATS) }, { name: 'skip' }] },
+        { type: 'movie', id: 'ph-gaycat', name: 'Categorias gay', extra: [{ name: 'genre', isRequired: true, options: optionsOf(PH_GAY_CATS) }, { name: 'skip' }] },
         { type: 'movie', id: 'ph-search', name: 'Busca', extra: [{ name: 'search', isRequired: true }, { name: 'skip' }] }
       ]
     },
-    PAGE: 32,
+    PAGE: 24, // o Pornhub manda 27 a 32 por página: corta em 24 (ver o PAGE do XVideos)
     listUrl: function (cat, page, extra) {
       var p = '&page=' + ((page || 0) + 1);
-      // Creampie: mais vistos primeiro.
-      if (cat === 'ph-cp') return 'https://www.pornhub.com/video/search?search=creampie&o=mv' + p;
-      if (cat === 'ph-cpgay') return 'https://www.pornhub.com/gay/video/search?search=creampie&o=mv' + p;
+      // Creampie: os mais vistos da semana (hétero) e do mês (gay, que tem menos vídeos novos).
+      if (cat === 'ph-cp') return 'https://www.pornhub.com/video/search?search=creampie&o=mv&t=w' + p;
+      if (cat === 'ph-cpgay') return 'https://www.pornhub.com/gay/video/search?search=creampie&o=mv&t=m' + p;
+      if (cat === 'ph-cpnew') return 'https://www.pornhub.com/video?c=15&o=cm' + p;
       if (cat === 'ph-search') return 'https://www.pornhub.com/video/search?search=' + encodeURIComponent(extra.search || '') + p;
-      return 'https://www.pornhub.com/video?o=' + (cat === 'ph-top' ? 'mv' : 'ht') + p;
+      if (cat === 'ph-cat' || cat === 'ph-gaycat') {
+        var c = termOf(cat === 'ph-cat' ? PH_CATS : PH_GAY_CATS, extra.genre);
+        if (!c) return '';
+        return 'https://www.pornhub.com/' + (cat === 'ph-gaycat' ? 'gay/' : '') + 'video?c=' + c + '&o=mv&t=m' + p; // mais vistos do mês: novo e sempre com a página cheia
+      }
+      if (cat === 'ph-new') return 'https://www.pornhub.com/video?o=cm' + p;
+      if (cat === 'ph-top') return 'https://www.pornhub.com/video?o=mv&t=m' + p;
+      return 'https://www.pornhub.com/video?o=ht' + p;
     },
     parseList: function (html) {
       var out = [];
@@ -626,7 +701,7 @@ var TUBES = {
       // Só a lista principal da página (antes dela vêm vídeos promovidos e, depois, recomendados).
       var start = Math.max(html.indexOf('id="videoSearchResult"'), html.indexOf('id="videoCategory"'), html.indexOf('id="mostRecentVideosSection"'));
       if (start > 0) {
-        var end = html.indexOf('</ul>', start);
+        var end = closingUl(html, start);
         html = html.slice(start, end > 0 ? end : undefined);
       }
       html.split('data-video-vkey="').slice(1).forEach(function (chunk) {
@@ -844,6 +919,23 @@ function calendarRoute(res, query) {
   });
 }
 
+// Últimos pedidos aos sites (catálogo e fontes): /api/tubelog, para o app explicar quando um site
+// não responde ("Pornhub: vazio (verificação de idade)") em vez de só mostrar a fileira vazia.
+var tubeLog = [];
+function tubeNote(tube, what, result) {
+  tubeLog.push({ at: Date.now(), tube: tube, what: String(what).slice(0, 80), result: String(result).slice(0, 120) });
+  if (tubeLog.length > 30) tubeLog.shift();
+}
+// O que veio no lugar da lista (para o diagnóstico).
+function pageKind(html) {
+  var t = String(html || '');
+  if (!t) return 'sem resposta';
+  if (/age[_ -]?verif|ageVerification|are you 18|over 18|idade/i.test(t.slice(0, 20000))) return 'verificação de idade';
+  if (/cf-chl|challenge-platform|captcha/i.test(t)) return 'bloqueio anti-robô';
+  if (/not available in your (country|region)|blocked in your/i.test(t)) return 'bloqueado na região';
+  return 'página sem vídeos, ' + Math.round(t.length / 1024) + ' KB';
+}
+
 function addonRoute(url, res) {
   var r = parseAddonUrl(url);
   if (!r) return false;
@@ -851,14 +943,28 @@ function addonRoute(url, res) {
   if (r.resource === 'manifest') { json(res, 200, tube.manifest); return true; }
   if (r.resource === 'catalog') {
     var page = Math.floor((parseInt(r.extra.skip, 10) || 0) / tube.PAGE);
-    fetchText(tube.listUrl(r.id, page, r.extra), safe(res, { metas: [] }, function (err, html) {
-      json(res, 200, { metas: err ? [] : tube.parseList(html) });
-    }));
+    var listUrl = tube.listUrl(r.id, page, r.extra);
+    if (!listUrl) { json(res, 200, { metas: [] }); return true; }
+    // Lista vazia na primeira visita costuma ser a página de entrada do site (verificação de idade,
+    // cookies): tenta mais uma vez já com os cookies da sessão antes de desistir.
+    var tries = 0;
+    var load = function () {
+      fetchText(listUrl, safe(res, { metas: [] }, function (err, html) {
+        var metas = err ? [] : tube.parseList(html).slice(0, tube.PAGE);
+        if (!metas.length && tries++ < 1) return setTimeout(load, 600);
+        tubeNote(r.tube, 'catalog ' + r.id + (r.extra.genre ? ' ' + r.extra.genre : '') + (page ? ' p' + page : ''), err ? String(err.message || err) : metas.length ? 'ok ' + metas.length : 'vazio (' + pageKind(html) + ')');
+        json(res, 200, { metas: metas });
+      }));
+    };
+    load();
     return true;
   }
   var empty = r.resource === 'meta' ? { meta: null } : { streams: [] };
   if (r.resource === 'stream' && tube.streams) {
-    tube.streams(r.id, safe(res, empty, function (err, list) { json(res, 200, { streams: err ? [] : list }); }));
+    tube.streams(r.id, safe(res, empty, function (err, list) {
+      tubeNote(r.tube, 'stream ' + r.id, err ? String(err.message || err) : list.length ? 'ok ' + list.length : 'sem link');
+      json(res, 200, { streams: err ? [] : list });
+    }));
     return true;
   }
   fetchText(tube.pageUrl(r.id), safe(res, empty, function (err, html) {
@@ -1101,6 +1207,7 @@ var addonServer = http.createServer(guarded(function (req, res) {
   if (url === '/api/version') return json(res, 200, { version: SERVICE_VERSION });
   if (url === '/api/quit' && req.method === 'POST') return quit(res);
   if (url === '/api/pxlog') return json(res, 200, pxLog);
+  if (url === '/api/tubelog') return json(res, 200, tubeLog);
   if (url === '/api/cal') return calendarRoute(res, urlLib.parse(req.url, true).query);
   if (addonRoute(url, res)) return;
   res.writeHead(404, { 'Content-Type': 'text/plain' });

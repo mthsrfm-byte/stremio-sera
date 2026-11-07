@@ -18,7 +18,9 @@ export function request(method, url, body, opts) {
     const xhr = new XMLHttpRequest();
     xhr.open(method, url, true);
     xhr.timeout = o.timeout || 20000;
-    if (body !== undefined && body !== null) xhr.setRequestHeader('Content-Type', 'application/json');
+    // form: corpo já montado como formulário (pedido "simples", sem pré-verificação de CORS).
+    if (o.form !== undefined && o.form !== null) xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+    else if (body !== undefined && body !== null) xhr.setRequestHeader('Content-Type', 'application/json');
     if (o.headers) for (const k in o.headers) xhr.setRequestHeader(k, o.headers[k]);
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) {
@@ -45,10 +47,11 @@ export function request(method, url, body, opts) {
       err.timeout = true;
       reject(err);
     };
-    xhr.send(body !== undefined && body !== null ? JSON.stringify(body) : null);
+    xhr.send(o.form !== undefined && o.form !== null ? o.form : body !== undefined && body !== null ? JSON.stringify(body) : null);
   }).catch((err) => {
     err.ms = Date.now() - started;
     if (!/127\.0\.0\.1|localhost/.test(url)) {
+      url = String(url).replace(/auth_token=[^&]+/, 'auth_token=…');
       netErrors.unshift({ at: Date.now(), url: shortUrl(url), msg: err.timeout ? 'tempo esgotado' : err.status ? 'HTTP ' + err.status : err.status === 0 ? 'falha de rede' : 'resposta inválida', ms: err.ms });
       if (netErrors.length > 12) netErrors.pop();
     }

@@ -5,6 +5,7 @@ import * as store from '../lib/store.js';
 import { getTvIp } from '../lib/tv.js';
 import { t } from '../lib/i18n.js';
 import { IS_WEB } from '../lib/platform.js';
+import * as debrid from './debrid.js';
 
 let status = { ok: false, checkedAt: 0, url: '' };
 
@@ -162,13 +163,23 @@ export function needsServer(stream) {
   return typeof stream.infoHash === 'string';
 }
 
+// Torrent que pode tocar sem o PC: a conta tem Real-Debrid (o RD baixa e devolve um link direto).
+export function viaDebrid(stream) {
+  return needsServer(stream) && !(stream.behaviorHints && stream.behaviorHints.proxyHeaders) && debrid.available();
+}
+
 export function isPlayableType(stream) {
   return typeof stream.url === 'string' || typeof stream.infoHash === 'string';
 }
 
 // Converte um stream de addon numa URL que o <video> da TV consegue abrir.
-export function toPlayable(stream, seriesInfo) {
+// onStatus(texto): o que está acontecendo (ex.: Real-Debrid preparando o torrent).
+export function toPlayable(stream, seriesInfo, onStatus) {
   const base = baseUrl();
+  // Torrent sem o PC ligado: vai pelo Real-Debrid da conta (vira link direto, como os [RD+]).
+  if (needsServer(stream) && !isAvailable() && viaDebrid(stream)) {
+    return debrid.resolve(stream, seriesInfo, onStatus).then((u) => ({ url: u, viaServer: false, viaDebrid: true }));
+  }
   if (typeof stream.url === 'string') {
     if (stream.url.indexOf('magnet:') === 0) {
       if (!base) return Promise.reject(new Error(t('Este link é torrent: configure o servidor do PC')));

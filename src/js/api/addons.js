@@ -6,11 +6,13 @@ import { log } from '../lib/log.js';
 import { t } from '../lib/i18n.js';
 import { startPinnedService } from './tizenbrew.js';
 import { IS_FIRETV, HAS_TV_SERVICE } from '../lib/platform.js';
+import * as debrid from './debrid.js';
 
 export const CINEMETA = 'https://v3-cinemeta.strem.io/manifest.json';
 export const OPENSUBTITLES = 'https://opensubtitles-v3.strem.io/manifest.json';
 
 let addons = null; // [{ transportUrl, manifest, base }]
+debrid.setAddonSource(() => addons || []);
 const listeners = [];
 
 // Avisa quando a lista de addons muda (ex.: a da conta chegou depois do cache).
@@ -69,6 +71,25 @@ const TUBES = ['xv', 'ph'];
 const TUBE_PREFIXES = ['xv:', 'ph:'];
 const TUBE_PORT = 8092;
 const SERVICE_MIN = 12;
+// Versão mais nova do serviço (catálogos e categorias novos). Com uma mais velha os vídeos tocam do
+// mesmo jeito; o app só pede ao TizenBrew a nova e troca os addons quando ela responder.
+const SERVICE_WANT = 13;
+let upgradeTimer = null;
+function awaitUpgrade(tries) {
+  clearTimeout(upgradeTimer);
+  if (tries > 12) return;
+  upgradeTimer = setTimeout(() => {
+    serviceVersion().then((v) => {
+      if (v < SERVICE_WANT) return awaitUpgrade(tries + 1);
+      Promise.all(TUBES.map(fetchTube)).then((list) => {
+        const found = normalize(list.filter(Boolean));
+        if (!found.length) return;
+        tubes = found;
+        if (addons) changed(withTubes(addons.filter((a) => a.transportUrl.indexOf('127.0.0.1:' + TUBE_PORT + '/') < 0)));
+      });
+    });
+  }, 6000);
+}
 let tubes = null; // null: ainda procurando; [] ou lista: já respondeu
 let tubeTries = 0;
 // 'searching' | 'ok' | 'old' (serviço antigo, sem os addons) | 'off' (serviço não responde)
@@ -121,6 +142,10 @@ function attachTubes() {
       tubes = found;
       tubeState = 'ok';
       if (addons) changed(withTubes(addons));
+      if (version < SERVICE_WANT) {
+        startPinnedService();
+        awaitUpgrade(0);
+      }
       return;
     }
     tubes = [];
@@ -171,6 +196,16 @@ export function list() {
   return IS_FIRETV ? all.filter((a) => !isAdult(a)) : all;
 }
 
+// O addon declara, para este recurso, um prefixo que bate com o id (não só "aceita qualquer id").
+function claimsPrefix(addon, resource, id) {
+  const m = addon.manifest;
+  return (m.resources || []).some((r) => {
+    const name = typeof r === 'string' ? r : r.name;
+    const prefixes = (typeof r === 'object' && r.idPrefixes) || m.idPrefixes || [];
+    return name === resource && prefixes.some((p) => p && id.indexOf(p) === 0);
+  });
+}
+
 function resourceMatch(addon, resource, type, id) {
   const m = addon.manifest;
   const resources = m.resources || [];
@@ -188,7 +223,15 @@ function resourceMatch(addon, resource, type, id) {
 }
 
 export function withResource(resource, type, id) {
-  return list().filter((a) => resourceMatch(a, resource, type, id));
+  const all = list().filter((a) => resourceMatch(a, resource, type, id));
+  // Vídeo adulto com dono (o addon que declara o prefixo, ex.: "ph:" do Pornhub): só ele responde.
+  // Addons que aceitam qualquer id (alguns de debrid) só atrasavam o Smart Choice ou traziam fontes
+  // de erro na frente das do site.
+  if (id && isAdultId(id)) {
+    const own = all.filter((a) => claimsPrefix(a, resource, id));
+    if (own.length) return own;
+  }
+  return all;
 }
 
 function url(addon, resource, type, id, extra) {
@@ -277,6 +320,11 @@ export function markAdult(id) {
   list.push(id);
   if (list.length > 2000) list.splice(0, list.length - 2000);
   store.set('nsfwIds', list);
+}
+
+// Vídeo adulto que já foi aberto alguma vez (as fileiras de descoberta deixam de fora).
+export function wasOpened(id) {
+  return !!id && seenIds().indexOf(String(id)) >= 0;
 }
 
 // Item (biblioteca, continuar assistindo) que veio de um addon adulto.
