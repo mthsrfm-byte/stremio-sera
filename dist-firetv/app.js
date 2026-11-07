@@ -130,9 +130,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       "use strict";
 
       var NATIVE_BIND = require_function_bind_native();
-      var call2 = Function.prototype.call;
-      module.exports = NATIVE_BIND ? call2.bind(call2) : function () {
-        return call2.apply(call2, arguments);
+      var call3 = Function.prototype.call;
+      module.exports = NATIVE_BIND ? call3.bind(call3) : function () {
+        return call3.apply(call3, arguments);
       };
     }
   });
@@ -177,11 +177,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
       var NATIVE_BIND = require_function_bind_native();
       var FunctionPrototype = Function.prototype;
-      var call2 = FunctionPrototype.call;
-      var uncurryThisWithBind = NATIVE_BIND && FunctionPrototype.bind.bind(call2, call2);
+      var call3 = FunctionPrototype.call;
+      var uncurryThisWithBind = NATIVE_BIND && FunctionPrototype.bind.bind(call3, call3);
       module.exports = NATIVE_BIND ? uncurryThisWithBind : function (fn) {
         return function () {
-          return call2.apply(fn, arguments);
+          return call3.apply(fn, arguments);
         };
       };
     }
@@ -446,15 +446,15 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     "node_modules/core-js/internals/ordinary-to-primitive.js": function node_modules_coreJs_internals_ordinaryToPrimitiveJs(exports, module) {
       "use strict";
 
-      var call2 = require_function_call();
+      var call3 = require_function_call();
       var isCallable = require_is_callable();
       var isObject = require_is_object();
       var $TypeError = TypeError;
       module.exports = function (input, pref) {
         var fn, val;
-        if (pref === "string" && isCallable(fn = input.toString) && !isObject(val = call2(fn, input))) return val;
-        if (isCallable(fn = input.valueOf) && !isObject(val = call2(fn, input))) return val;
-        if (pref !== "string" && isCallable(fn = input.toString) && !isObject(val = call2(fn, input))) return val;
+        if (pref === "string" && isCallable(fn = input.toString) && !isObject(val = call3(fn, input))) return val;
+        if (isCallable(fn = input.valueOf) && !isObject(val = call3(fn, input))) return val;
+        if (pref !== "string" && isCallable(fn = input.toString) && !isObject(val = call3(fn, input))) return val;
         throw new $TypeError("Can't convert object to primitive value");
       };
     }
@@ -594,7 +594,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     "node_modules/core-js/internals/to-primitive.js": function node_modules_coreJs_internals_toPrimitiveJs(exports, module) {
       "use strict";
 
-      var call2 = require_function_call();
+      var call3 = require_function_call();
       var isObject = require_is_object();
       var isSymbol = require_is_symbol();
       var getMethod = require_get_method();
@@ -608,7 +608,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         var result;
         if (exoticToPrim) {
           if (pref === void 0) pref = "default";
-          result = call2(exoticToPrim, input, pref);
+          result = call3(exoticToPrim, input, pref);
           if (!isObject(result) || isSymbol(result)) return result;
           throw new $TypeError("Can't convert object to primitive value");
         }
@@ -671,7 +671,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       "use strict";
 
       var DESCRIPTORS = require_descriptors();
-      var call2 = require_function_call();
+      var call3 = require_function_call();
       var propertyIsEnumerableModule = require_object_property_is_enumerable();
       var createPropertyDescriptor = require_create_property_descriptor();
       var toIndexedObject = require_to_indexed_object();
@@ -685,7 +685,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         if (IE8_DOM_DEFINE) try {
           return $getOwnPropertyDescriptor(O, P);
         } catch (error) {}
-        if (hasOwn(O, P)) return createPropertyDescriptor(!call2(propertyIsEnumerableModule.f, O, P), O[P]);
+        if (hasOwn(O, P)) return createPropertyDescriptor(!call3(propertyIsEnumerableModule.f, O, P), O[P]);
       };
     }
   });
@@ -1315,7 +1315,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
       var DESCRIPTORS = require_descriptors();
       var uncurryThis = require_function_uncurry_this();
-      var call2 = require_function_call();
+      var call3 = require_function_call();
       var fails = require_fails();
       var objectKeys = require_object_keys();
       var getOwnPropertySymbolsModule = require_object_get_own_property_symbols();
@@ -1362,7 +1362,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           var key;
           while (length > j) {
             key = keys[j++];
-            if (!DESCRIPTORS || call2(propertyIsEnumerable, S, key)) T[key] = S[key];
+            if (!DESCRIPTORS || call3(propertyIsEnumerable, S, key)) T[key] = S[key];
           }
         }
         return T;
@@ -1914,7 +1914,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       "use strict";
 
       var $ = require_export();
-      var call2 = require_function_call();
+      var call3 = require_function_call();
       var IS_PURE = require_is_pure();
       var FunctionName = require_function_name();
       var isCallable = require_is_callable();
@@ -1988,7 +1988,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           } else {
             INCORRECT_VALUES_NAME = true;
             defaultIterator = function values() {
-              return call2(nativeIterator, this);
+              return call3(nativeIterator, this);
             };
           }
         }
@@ -2101,7 +2101,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     "node_modules/core-js/internals/iterator-close.js": function node_modules_coreJs_internals_iteratorCloseJs(exports, module) {
       "use strict";
 
-      var call2 = require_function_call();
+      var call3 = require_function_call();
       var anObject = require_an_object();
       var getMethod = require_get_method();
       module.exports = function (iterator, kind, value) {
@@ -2113,7 +2113,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             if (kind === "throw") throw value;
             return value;
           }
-          innerResult = call2(innerResult, iterator);
+          innerResult = call3(innerResult, iterator);
         } catch (error) {
           innerError = true;
           innerResult = error;
@@ -2285,7 +2285,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     "node_modules/core-js/internals/get-iterator-internal.js": function node_modules_coreJs_internals_getIteratorInternalJs(exports, module) {
       "use strict";
 
-      var call2 = require_function_call();
+      var call3 = require_function_call();
       var isCallable = require_is_callable();
       var anObject = require_an_object();
       var tryToString = require_try_to_string();
@@ -2293,7 +2293,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var $TypeError = TypeError;
       module.exports = function (argument, usingIterator) {
         var iteratorMethod = arguments.length < 2 ? getIteratorMethod(argument) : usingIterator;
-        if (isCallable(iteratorMethod)) return anObject(call2(iteratorMethod, argument));
+        if (isCallable(iteratorMethod)) return anObject(call3(iteratorMethod, argument));
         throw new $TypeError(tryToString(argument) + " is not iterable");
       };
     }
@@ -2319,7 +2319,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       "use strict";
 
       var bind = require_function_bind_context();
-      var call2 = require_function_call();
+      var call3 = require_function_call();
       var toObject = require_to_object();
       var callWithSafeIterationClosing = require_call_with_safe_iteration_closing();
       var isArrayIteratorMethod = require_is_array_iterator_method();
@@ -2346,7 +2346,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           result = IS_CONSTRUCTOR ? new this() : [];
           iterator = getIterator(O, iteratorMethod);
           next = iterator.next;
-          for (; !(step = call2(next, iterator)).done; index++) {
+          for (; !(step = call3(next, iterator)).done; index++) {
             try {
               doesNotExceedSafeInteger(index);
             } catch (error) {
@@ -4931,17 +4931,17 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   function request(method, url2, body, opts) {
     var o = opts || {};
     var started2 = Date.now();
-    return new Promise(function (resolve, reject) {
+    return new Promise(function (resolve2, reject) {
       var xhr = new XMLHttpRequest();
       xhr.open(method, url2, true);
       xhr.timeout = o.timeout || 2e4;
-      if (body !== void 0 && body !== null) xhr.setRequestHeader("Content-Type", "application/json");
+      if (o.form !== void 0 && o.form !== null) xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");else if (body !== void 0 && body !== null) xhr.setRequestHeader("Content-Type", "application/json");
       if (o.headers) for (var k in o.headers) xhr.setRequestHeader(k, o.headers[k]);
       xhr.onload = function () {
         if (xhr.status >= 200 && xhr.status < 300) {
-          if (o.raw) return resolve(xhr.responseText);
+          if (o.raw) return resolve2(xhr.responseText);
           try {
-            resolve(xhr.responseText ? JSON.parse(xhr.responseText) : null);
+            resolve2(xhr.responseText ? JSON.parse(xhr.responseText) : null);
           } catch (e) {
             reject(new Error(t("JSON inválido de {url}", {
               url: url2
@@ -4971,10 +4971,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         err.timeout = true;
         reject(err);
       };
-      xhr.send(body !== void 0 && body !== null ? JSON.stringify(body) : null);
+      xhr.send(o.form !== void 0 && o.form !== null ? o.form : body !== void 0 && body !== null ? JSON.stringify(body) : null);
     }).catch(function (err) {
       err.ms = Date.now() - started2;
       if (!/127\.0\.0\.1|localhost/.test(url2)) {
+        url2 = String(url2).replace(/auth_token=[^&]+/, "auth_token=…");
         netErrors.unshift({
           at: Date.now(),
           url: shortUrl(url2),
@@ -5082,10 +5083,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   function kitsuSmall(info) {
     var key = info.id + ":" + info.kind;
     if (!kitsuCache[key]) {
-      kitsuCache[key] = new Promise(function (resolve) {
+      kitsuCache[key] = new Promise(function (resolve2) {
         (batch[info.id] = batch[info.id] || []).push({
           kind: info.kind,
-          resolve: resolve
+          resolve: resolve2
         });
         if (!batchTimer) batchTimer = setTimeout(flush2, 60);
       });
@@ -5441,6 +5442,17 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     if (t2 && t2.current) {
       t2.current.classList.add("focused");
     }
+  }
+  function closeOverlays(only) {
+    for (var i = layers.length - 1; i >= 0; i--) {
+      var root = layers[i].root;
+      if (!root || root.classList.contains("view")) continue;
+      if (only && !only(root)) continue;
+      layers.splice(i, 1);
+      if (root.parentNode) root.parentNode.removeChild(root);
+    }
+    var t2 = top();
+    if (t2 && t2.current) t2.current.classList.add("focused");
   }
   function topLayer() {
     return top();
@@ -5822,13 +5834,15 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
     rawSet(profileKey(activeProfile().id, key), value);
   }
-  var DEVICE_KEYS = ["introSound", "serverUrl", "tmdbKey", "mdblistKey", "smoothScroll", "devlogUrl", "lastUpdateCheck", "askProfile", "wizardDone", "language", "screensaver"];
+  var DEVICE_KEYS = ["introSound", "serverUrl", "tmdbKey", "mdblistKey", "rdKey", "smoothScroll", "devlogUrl", "lastUpdateCheck", "askProfile", "wizardDone", "language", "screensaver"];
   var DEFAULT_SETTINGS = {
     // TV
     serverUrl: "",
     tmdbKey: "",
     // vazio = usa a chave embutida no build (BUILTIN_KEYS em api/extras.js), se houver
     mdblistKey: "",
+    rdKey: "",
+    // vazio = acha a chave do Real-Debrid na URL dos addons da conta (ex.: Torrentio)
     introSound: true,
     // som da abertura
     smoothScroll: false,
@@ -6210,8 +6224,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return JSON.parse(JSON.stringify(o));
   }
   function setInLibrary(meta, inLibrary) {
-    var existing = libraryItem(meta.id);
-    var item = existing ? clone(existing) : newLibraryItem(meta);
+    var existing2 = libraryItem(meta.id);
+    var item = existing2 ? clone(existing2) : newLibraryItem(meta);
     item.removed = !inLibrary;
     item.temp = false;
     item._mtime = nowIso();
@@ -6224,8 +6238,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return !!(it && !it.removed);
   }
   function saveProgress(meta, videoId, timeMs, durationMs, deltaWatchedMs) {
-    var existing = libraryItem(meta.id);
-    var item = existing ? clone(existing) : newLibraryItem(meta);
+    var existing2 = libraryItem(meta.id);
+    var item = existing2 ? clone(existing2) : newLibraryItem(meta);
     var s = item.state;
     if (s.video_id !== videoId) {
       s.timeWatched = 0;
@@ -6299,6 +6313,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     },
     tracks: function tracks() {
       return _tracks;
+    },
+    viaDebrid: function viaDebrid() {
+      return _viaDebrid;
     }
   });
 
@@ -6346,7 +6363,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     } catch (e) {}
     var RTC = window.RTCPeerConnection || window.webkitRTCPeerConnection;
     if (!RTC) return Promise.reject(new Error("Sem IP"));
-    return new Promise(function (resolve, reject) {
+    return new Promise(function (resolve2, reject) {
       var pc = new RTC({
         iceServers: []
       });
@@ -6363,7 +6380,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         var m = e && e.candidate && /(\d+\.\d+\.\d+\.\d+)/.exec(e.candidate.candidate);
         if (m && !/^(0\.|127\.)/.test(m[1])) {
           clearTimeout(timer3);
-          done(resolve, m[1]);
+          done(resolve2, m[1]);
         }
       };
       pc.createDataChannel("ip");
@@ -6379,6 +6396,201 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var st = ac.AppCommonScreenSaverState || {};
       ac.setScreenSaver(on ? st.SCREEN_SAVER_ON : st.SCREEN_SAVER_OFF, function () {}, function () {});
     } catch (e) {}
+  }
+
+  // src/js/api/debrid.js
+  var API2 = "https://api.real-debrid.com/rest/1.0/";
+  var VIDEO_RE = /\.(mkv|mp4|m4v|avi|mov|wmv|ts|m2ts|webm|mpg|mpeg)$/i;
+  var addonsList = function addonsList() {
+    return [];
+  };
+  function setAddonSource(fn) {
+    addonsList = fn;
+  }
+  function keyFromUrl(u) {
+    var s = String(u || "");
+    try {
+      s = decodeURIComponent(s);
+    } catch (e) {}
+    var m = s.match(/realdebrid[=:"']+\s*"?([A-Za-z0-9]{40,64})/i) || s.match(/\b(?:debridApiKey|rdApiKey|realDebridApiKey|realdebridkey)["':=\s]+"?([A-Za-z0-9]{40,64})/i);
+    if (m) return m[1];
+    var parts2 = s.split(/[/?&=]/);
+    for (var i = 0; i < parts2.length; i++) {
+      var p = parts2[i];
+      if (p.length < 40 || !/^[A-Za-z0-9+/_-]+={0,2}$/.test(p)) continue;
+      try {
+        var txt = atob(p.replace(/-/g, "+").replace(/_/g, "/"));
+        if (!/real.?debrid|"rd"|debrid/i.test(txt)) continue;
+        var k = txt.match(/"(?:debridApiKey|apiKey|api_key|token|key|realdebrid|realDebridKey)"\s*:\s*"([A-Za-z0-9]{40,64})"/i);
+        if (k) return k[1];
+      } catch (e) {}
+    }
+    return "";
+  }
+  function apiKey() {
+    var manual = String(settings().rdKey || "").trim();
+    if (manual) return manual;
+    var list4 = addonsList() || [];
+    for (var i = 0; i < list4.length; i++) {
+      var k = keyFromUrl(list4[i].transportUrl);
+      if (k) return k;
+    }
+    return "";
+  }
+  function available() {
+    return !!apiKey();
+  }
+  function call2(method, path, form, opts) {
+    var key = apiKey();
+    if (!key) return Promise.reject(new Error(t("Sem chave do Real-Debrid")));
+    var url2 = API2 + path + (path.indexOf("?") >= 0 ? "&" : "?") + "auth_token=" + encodeURIComponent(key);
+    var body = form ? Object.keys(form).map(function (k) {
+      return encodeURIComponent(k) + "=" + encodeURIComponent(form[k]);
+    }).join("&") : null;
+    return request(method, url2, null, Object.assign({
+      timeout: 15e3,
+      quiet: true,
+      form: body
+    }, opts));
+  }
+  function ping() {
+    return call2("GET", "user");
+  }
+  function hashOf(stream) {
+    if (typeof stream.infoHash === "string") return stream.infoHash.toLowerCase();
+    var m = String(stream.url || "").match(/xt=urn:btih:([a-zA-Z0-9]+)/);
+    return m ? m[1].toLowerCase() : "";
+  }
+  function magnetOf(stream, hash) {
+    if (typeof stream.url === "string" && stream.url.indexOf("magnet:") === 0) return stream.url;
+    var tr = (stream.sources || []).filter(function (s) {
+      return /^tracker:/.test(s);
+    }).slice(0, 8).map(function (s) {
+      return "&tr=" + encodeURIComponent(s.replace(/^tracker:/, ""));
+    }).join("");
+    return "magnet:?xt=urn:btih:" + hash + tr;
+  }
+  function chooseFile(files, stream, seriesInfo) {
+    var videos = files.filter(function (f) {
+      return VIDEO_RE.test(f.path || "");
+    });
+    var pool = videos.length ? videos : files;
+    var idx2 = stream.fileIdx;
+    if (idx2 !== void 0 && idx2 !== null && isFinite(idx2)) {
+      var byId = files.filter(function (f) {
+        return f.id === Number(idx2) + 1;
+      })[0];
+      if (byId && VIDEO_RE.test(byId.path || "")) return byId;
+    }
+    var name = String(stream.behaviorHints && stream.behaviorHints.filename || "").toLowerCase();
+    if (name) {
+      var hit = pool.filter(function (f) {
+        return String(f.path || "").toLowerCase().indexOf(name) >= 0;
+      })[0];
+      if (hit) return hit;
+    }
+    if (seriesInfo && isFinite(seriesInfo.season) && isFinite(seriesInfo.episode)) {
+      var s = seriesInfo.season;
+      var e = seriesInfo.episode;
+      var re = new RegExp("s0?" + s + "[ ._-]?e0?" + e + "(?!\\d)|\\b" + s + "x0?" + e + "(?!\\d)", "i");
+      var _hit = pool.filter(function (f) {
+        return re.test(f.path || "");
+      })[0];
+      if (_hit) return _hit;
+    }
+    return pool.slice().sort(function (a, b) {
+      return (b.bytes || 0) - (a.bytes || 0);
+    })[0];
+  }
+  var wait = function wait(ms) {
+    return new Promise(function (ok) {
+      return setTimeout(ok, ms);
+    });
+  };
+  function existing(hash) {
+    return call2("GET", "torrents?limit=100").then(function (list4) {
+      return (Array.isArray(list4) ? list4 : []).filter(function (x) {
+        return String(x.hash || "").toLowerCase() === hash;
+      })[0] || null;
+    }).catch(function () {
+      return null;
+    });
+  }
+  function resolve(stream, seriesInfo, onStatus) {
+    var hash = hashOf(stream);
+    if (!hash) return Promise.reject(new Error(t("Torrent sem identificação")));
+    var say = function say(x) {
+      return onStatus && onStatus(x);
+    };
+    say(t("Pedindo ao Real-Debrid..."));
+    var id = null;
+    var chosen = null;
+    return existing(hash).then(function (hit) {
+      return hit || call2("POST", "torrents/addMagnet", {
+        magnet: magnetOf(stream, hash)
+      });
+    }).then(function (r) {
+      id = r && r.id;
+      if (!id) throw new Error(t("O Real-Debrid não aceitou o torrent"));
+      return poll(0);
+    });
+    function info() {
+      return call2("GET", "torrents/info/" + id);
+    }
+    function poll(n) {
+      return info().then(function (i) {
+        var st = i && i.status;
+        if (st === "waiting_files_selection") {
+          chosen = chooseFile(i.files || [], stream, seriesInfo);
+          if (!chosen) throw new Error(t("Nenhum vídeo dentro do torrent"));
+          return call2("POST", "torrents/selectFiles/" + id, {
+            files: String(chosen.id)
+          }).then(function () {
+            return wait(800).then(function () {
+              return poll(n + 1);
+            });
+          });
+        }
+        if (st === "downloaded") return unrestrict(i);
+        if (st === "magnet_error" || st === "error" || st === "virus" || st === "dead") throw new Error(t("O Real-Debrid não conseguiu baixar este torrent ({s})", {
+          s: st
+        }));
+        if (n >= 14) {
+          var pct = Math.round(i && i.progress ? i.progress : 0);
+          throw new Error(t("Este torrent não está no cache do Real-Debrid. Ele começou a baixar ({p}%); tente de novo daqui a pouco ou escolha outra fonte.", {
+            p: pct
+          }));
+        }
+        if (st === "downloading" || st === "queued" || st === "magnet_conversion" || st === "compressing" || st === "uploading") say(t("Real-Debrid: {s} {p}%", {
+          s: st === "downloading" ? t("baixando") : t("preparando"),
+          p: Math.round(i && i.progress || 0)
+        }));
+        return wait(n < 4 ? 1200 : 2e3).then(function () {
+          return poll(n + 1);
+        });
+      });
+    }
+    function unrestrict(i) {
+      var selected = (i.files || []).filter(function (f) {
+        return f.selected;
+      });
+      var at = 0;
+      if (chosen) at = Math.max(0, selected.map(function (f) {
+        return f.id;
+      }).indexOf(chosen.id));else if (selected.length > 1) {
+        var best2 = chooseFile(selected, stream, seriesInfo);
+        at = Math.max(0, selected.indexOf(best2));
+      }
+      var link = (i.links || [])[at] || (i.links || [])[0];
+      if (!link) throw new Error(t("O Real-Debrid não devolveu o link"));
+      return call2("POST", "unrestrict/link", {
+        link: link
+      }).then(function (u) {
+        if (!u || !u.download) throw new Error(t("O Real-Debrid não liberou o link"));
+        log.info("Real-Debrid: torrent virou link", hash.slice(0, 8));
+        return u.download;
+      });
+    }
   }
 
   // src/js/api/server.js
@@ -6561,11 +6773,23 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
     return typeof stream.infoHash === "string";
   }
+  function _viaDebrid(stream) {
+    return _needsServer(stream) && !(stream.behaviorHints && stream.behaviorHints.proxyHeaders) && available();
+  }
   function _isPlayableType(stream) {
     return typeof stream.url === "string" || typeof stream.infoHash === "string";
   }
-  function _toPlayable(stream, seriesInfo) {
+  function _toPlayable(stream, seriesInfo, onStatus) {
     var base = _baseUrl();
+    if (_needsServer(stream) && !_isAvailable() && _viaDebrid(stream)) {
+      return resolve(stream, seriesInfo, onStatus).then(function (u) {
+        return {
+          url: u,
+          viaServer: false,
+          viaDebrid: true
+        };
+      });
+    }
     if (typeof stream.url === "string") {
       if (stream.url.indexOf("magnet:") === 0) {
         if (!base) return Promise.reject(new Error(t("Este link é torrent: configure o servidor do PC")));
@@ -6651,9 +6875,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO = "mthsrfm-byte/stremio-sera";
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "cffca0a853dd183251c17a8702113c53e0c47584",
-    date: "2026-10-29T21:30:02-03:00",
-    message: "Seraflix no Fire TV Stick + perfis na mesma conta com histórico separado"
+    commit: "5904017fae9f029a3aa9f23500cbe7f2869dca40",
+    date: "2026-11-07T06:01:34-03:00",
+    message: "Semana 5: privacidade NSFW, Pornhub + Real-Debrid, Smart Choice dublado, NSFW reorganizada e design system"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -6756,6 +6980,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var CINEMETA = "https://v3-cinemeta.strem.io/manifest.json";
   var OPENSUBTITLES = "https://opensubtitles-v3.strem.io/manifest.json";
   var addons = null;
+  setAddonSource(function () {
+    return addons || [];
+  });
   var listeners = [];
   function onChange(fn) {
     listeners.push(fn);
@@ -6806,6 +7033,25 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var TUBE_PREFIXES = ["xv:", "ph:"];
   var TUBE_PORT = 8092;
   var SERVICE_MIN = 12;
+  var SERVICE_WANT = 13;
+  var upgradeTimer = null;
+  function awaitUpgrade(tries) {
+    clearTimeout(upgradeTimer);
+    if (tries > 12) return;
+    upgradeTimer = setTimeout(function () {
+      serviceVersion().then(function (v) {
+        if (v < SERVICE_WANT) return awaitUpgrade(tries + 1);
+        Promise.all(TUBES.map(fetchTube)).then(function (list4) {
+          var found = normalize(list4.filter(Boolean));
+          if (!found.length) return;
+          tubes = found;
+          if (addons) changed(withTubes(addons.filter(function (a) {
+            return a.transportUrl.indexOf("127.0.0.1:" + TUBE_PORT + "/") < 0;
+          })));
+        });
+      });
+    }, 6e3);
+  }
   var tubes = null;
   var tubeTries = 0;
   var tubeState = "searching";
@@ -6863,6 +7109,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         tubes = found;
         tubeState = "ok";
         if (addons) changed(withTubes(addons));
+        if (version < SERVICE_WANT) {
+          startPinnedService();
+          awaitUpgrade(0);
+        }
         return;
       }
       tubes = [];
@@ -6916,6 +7166,16 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return !isAdult(a);
     }) : all;
   }
+  function claimsPrefix(addon, resource, id) {
+    var m = addon.manifest;
+    return (m.resources || []).some(function (r) {
+      var name = typeof r === "string" ? r : r.name;
+      var prefixes = _typeof(r) === "object" && r.idPrefixes || m.idPrefixes || [];
+      return name === resource && prefixes.some(function (p) {
+        return p && id.indexOf(p) === 0;
+      });
+    });
+  }
   function resourceMatch(addon, resource, type, id) {
     var m = addon.manifest;
     var resources = m.resources || [];
@@ -6934,9 +7194,16 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return false;
   }
   function withResource(resource, type, id) {
-    return list().filter(function (a) {
+    var all = list().filter(function (a) {
       return resourceMatch(a, resource, type, id);
     });
+    if (id && isAdultId(id)) {
+      var own = all.filter(function (a) {
+        return claimsPrefix(a, resource, id);
+      });
+      if (own.length) return own;
+    }
+    return all;
   }
   function url(addon, resource, type, id, extra2) {
     var path = "/" + resource + "/" + encodeURIComponent(type) + "/" + encodeURIComponent(id);
@@ -7020,6 +7287,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     list4.push(id);
     if (list4.length > 2e3) list4.splice(0, list4.length - 2e3);
     set("nsfwIds", list4);
+  }
+  function wasOpened(id) {
+    return !!id && seenIds().indexOf(String(id)) >= 0;
   }
   function isAdultId(id) {
     var s = String(id || "");
@@ -7479,24 +7749,36 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var unlocked = false;
   var failures = 0;
   var lockedUntil = 0;
-  var relocked = false;
-  document.addEventListener("visibilitychange", function () {
-    if (document.hidden) {
-      if (unlocked) relocked = true;
-      unlocked = false;
-      return;
-    }
-    if (!relocked) return;
-    relocked = false;
+  var curtainTimer = null;
+  function onHidden() {
+    unlocked = false;
+    document.body.classList.add("privacy-curtain");
     var root = rootView();
-    if (!root || root.tabId !== "nsfw") {
-      if (tabView("nsfw")) dropTab("nsfw");
-      return;
-    }
-    askPin(t("NSFW"), function (ok) {
-      if (ok) unlocked = true;else goTab("home");
+    if (root && root.tabId === "nsfw") {
+      var cur = currentView();
+      if (cur && cur.el && cur.el.classList.contains("player") && cur.onBack) {
+        try {
+          cur.onBack();
+        } catch (e) {}
+      }
+      closeOverlays();
+      goHome();
+    } else closeOverlays(function (root2) {
+      return root2.classList.contains("pin-screen");
     });
+    if (tabView("nsfw")) dropTab("nsfw");
+  }
+  function onVisible() {
+    clearTimeout(curtainTimer);
+    curtainTimer = setTimeout(function () {
+      return document.body.classList.remove("privacy-curtain");
+    }, 350);
+  }
+  document.addEventListener("visibilitychange", function () {
+    return document.hidden ? onHidden() : onVisible();
   });
+  window.addEventListener("pagehide", onHidden);
+  document.addEventListener("freeze", onHidden);
   function pin() {
     var p = settings().nsfwPin;
     return /^\d{4,8}$/.test(p || "") ? p : DEFAULT_PIN;
@@ -8643,6 +8925,21 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     if (o.dropWithoutImage && !src) setTimeout(dropCard, 0);
     return el2;
   }
+  var ICON_ARROW = '<svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>';
+  function seeAllCard(o) {
+    return h("div.card.see-all", {
+      focusable: true,
+      cls: o.wide ? "wide" : "",
+      onSelect: o.onSelect,
+      onFocus: o.onFocus
+    }, [h("div.poster-wrap", null, h("div.see-all-label", null, [h("i", {
+      html: ICON_ARROW
+    }), h("b", {
+      text: t("Ver tudo")
+    }), o.label ? h("span", {
+      text: o.label
+    }) : null]))]);
+  }
   function skeletonCards(n, wide) {
     var list4 = [];
     for (var i = 0; i < (n || 8); i++) list4.push(h("div.card.skeleton", {
@@ -8765,7 +9062,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         loadVisibleImages(el2, 400);
         if (first && !count && opts.onEmpty) opts.onEmpty();
         var untouched = !current2() || current2() === focusAtStart || !document.body.contains(current2());
-        if (first && grid.firstChild && untouched) focus(grid.firstChild);else if (byButton && lastRowFirst) focus(lastRowFirst);
+        if (first && grid.firstChild && untouched && opts.autoFocus !== false) focus(grid.firstChild);else if (byButton && lastRowFirst) focus(lastRowFirst);
         if (!ended && count === before) loadMore(byButton);
       }).catch(function () {
         if (dead) return;
@@ -9837,9 +10134,15 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     if (/480p|\bsd\b|dvdrip|\bcam\b|\bts\b/i.test(text2)) return "SD";
     return "";
   }
+  var LANG = "(?:pt|por|ptbr|pt-br|eng?|es|spa|fr|fre|jpn?|ja|ita?|ger|de|rus?|lat|kor|chi|hin)";
+  var PT_IN_LIST = new RegExp("(?:^|[^a-z])(?:pt-?br|por|pt)(?=[+/|,&-]" + LANG + "(?![a-z]))|(?:^|[^a-z])" + LANG + "[+/|,&-](?:pt-?br|por|pt)(?![a-z])", "i");
   function dubbed(text2, flags) {
     if (flags.indexOf(BR) >= 0 || flags.indexOf(PT2) >= 0) return true;
-    return /dublad[oa]|\bdub(?:lagem)?[ ._-]?(?:pt|br)\b|\bpt[ ._-]?br\b|\bnacional\b|portugu[eê]s|\bdual\b[^\n]*\b(?:pt|br|por)\b|\b(?:pt|br|por)\b[^\n]*\bdual\b/i.test(text2);
+    if (/dublad[oa]|\bdub(?:lagem)?[ ._-]?(?:pt|br)\b|\bpt[ ._-]?br\b|\bnacional\b|portugu[eê]s|brazilian|\bdual\b[^\n]*\b(?:pt|br|por)\b|\b(?:pt|br|por)\b[^\n]*\bdual\b/i.test(text2)) return true;
+    return PT_IN_LIST.test(text2);
+  }
+  function anyDubbed(text2) {
+    return /\bdub(?:bed|s)?\b|dual[ ._-]?(?:audio|áudio)|mult[iy][ ._-]?(?:audio|áudio)|\beng?[ ._-]?dub\b/i.test(text2);
   }
   function parse3(s) {
     if (s.__info) return s.__info;
@@ -9859,6 +10162,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       hdr: /hdr/i.test(text2),
       remux: /remux/i.test(text2),
       dub: dub,
+      anyDub: dub || anyDubbed(text2),
       // Original junto: "dual"/"multi", ou outras línguas além do português na lista de bandeiras.
       original: !dub || /\bdual\b|\bmulti\b|dual.?[aá]udio/i.test(text2) || others.length > 0,
       seeders: seedM ? parseInt(seedM[1], 10) : null,
@@ -9926,6 +10230,41 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
     set(LAST_KEY, all);
   }
+  var SERIES_KEY = "seriesStream";
+  function rememberSeries(metaId, s) {
+    if (!metaId || !s) return;
+    var i = parse3(s);
+    var all = get(SERIES_KEY, {}) || {};
+    all[metaId] = {
+      hash: s.infoHash ? String(s.infoHash).toLowerCase() : "",
+      dub: i.dub,
+      anyDub: i.anyDub,
+      at: Date.now()
+    };
+    var ids = Object.keys(all).sort(function (a, b) {
+      return all[b].at - all[a].at;
+    });
+    ids.slice(150).forEach(function (id) {
+      return delete all[id];
+    });
+    set(SERIES_KEY, all);
+  }
+  function seriesTaste(metaId) {
+    return (get(SERIES_KEY, {}) || {})[metaId] || null;
+  }
+  function isAnime(meta) {
+    if (!meta) return false;
+    if (/^(kitsu|mal|anilist|anidb):/.test(String(meta.id || ""))) return true;
+    var g = (meta.genres || meta.genre || []).join ? (meta.genres || meta.genre || []).join(" ") : String(meta.genres || "");
+    if (/\banime\b/i.test(g)) return true;
+    return /animation|anima[çc][aã]o/i.test(g) && /japan|jap[aã]o/i.test(String(meta.country || "") + " " + String(meta.language || ""));
+  }
+  function pickOptions(meta, isSeries) {
+    return {
+      anime: isAnime(meta),
+      like: isSeries && meta ? seriesTaste(meta.id) : null
+    };
+  }
   function rememberedStream(videoId, list4) {
     var last = (get(LAST_KEY, {}) || {})[videoId];
     if (!last) return null;
@@ -9934,7 +10273,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     })[0] || null;
   }
   function canPlay(s, serverOk) {
-    return _isPlayableType(s) && (!_needsServer(s) || serverOk);
+    return _isPlayableType(s) && (!_needsServer(s) || serverOk || _viaDebrid(s));
   }
   var MIN_SEEDERS = 15;
   function good(info) {
@@ -9974,13 +10313,22 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     "720p": 2,
     SD: 1
   };
-  function group(i) {
-    if (i.cached) return i.dub ? 0 : 1;
+  function group(i, o) {
+    var dub = i.dub ? 0 : o && o.anime && i.anyDub ? 0.5 : 1;
+    if (i.cached) return dub;
     if (i.debrid) return 5;
-    if (good(i)) return i.dub ? 2 : 3;
+    if (good(i)) return 2 + dub;
     return 4;
   }
-  function rank2(list4, minutes2) {
+  function likeScore(s, i, like) {
+    if (!like) return 0;
+    if (like.hash && s.infoHash && String(s.infoHash).toLowerCase() === like.hash) return 3;
+    if (like.dub && i.dub) return 2;
+    if (like.anyDub && i.anyDub) return 1;
+    return 0;
+  }
+  function rank2(list4, minutes2, opts) {
+    var po = opts || {};
     var budget = debridBudget();
     var heavy = function heavy(i) {
       return !!minutes2 && i.cached && fileMbps(i, minutes2) > budget;
@@ -9992,8 +10340,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         idx: idx2
       };
     }).sort(function (a, b) {
-      var g = group(a.i) - group(b.i);
+      var g = group(a.i, po) - group(b.i, po);
       if (g) return g;
+      var lk = likeScore(b.s, b.i, po.like) - likeScore(a.s, a.i, po.like);
+      if (lk) return lk;
       if (a.i.dv !== b.i.dv) return a.i.dv ? 1 : -1;
       var hv = (heavy(a.i) ? 1 : 0) - (heavy(b.i) ? 1 : 0);
       if (hv) return hv;
@@ -10011,13 +10361,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return x.s;
     });
   }
-  function smartPick(list4, serverOk, minutes2) {
+  function smartPick(list4, serverOk, minutes2, opts) {
     var playable = list4.filter(function (s) {
       return canPlay(s, serverOk);
     });
     if (!playable.length) return null;
     if (IS_FIRETV) return firePick(playable, minutes2);
-    var hit = rank2(playable, minutes2)[0];
+    var hit = rank2(playable, minutes2, opts)[0];
     var info = parse3(hit);
     return {
       stream: hit,
@@ -10142,7 +10492,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return null;
   }
   function summary(info) {
-    return [info.res, info.dv ? "Dolby Vision" : info.hdr ? "HDR" : "", info.dub ? info.original ? "Original + Dublado" : "Dublado" : "", info.seeders !== null ? info.seeders + " seeders" : ""].filter(Boolean).join(" · ");
+    return [info.res, info.dv ? "Dolby Vision" : info.hdr ? "HDR" : "", info.dub ? info.original ? "Original + Dublado" : "Dublado" : info.anyDub ? "Áudio duplo" : "", info.seeders !== null ? info.seeders + " seeders" : ""].filter(Boolean).join(" · ");
   }
 
   // src/js/lib/hlsplay.js
@@ -10334,7 +10684,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
     return malCache[key];
   }
-  function isAnime(meta) {
+  function isAnime2(meta) {
     var g = (meta.genres || meta.genre || []).map(function (x) {
       return String(x).toLowerCase();
     });
@@ -10355,7 +10705,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       if (anime) {
         malPromise = malFromAnime(anime);
         ep = anime.episode;
-      } else if (imdb && isAnime(meta) && isFinite(episode)) malPromise = malFromImdb(imdb, season || 1);
+      } else if (imdb && isAnime2(meta) && isFinite(episode)) malPromise = malFromImdb(imdb, season || 1);
       if (!malPromise) return [];
       return malPromise.then(function (mal) {
         if (!mal || !ep) return [];
@@ -10374,6 +10724,53 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }).join(", "));
       return segs;
     });
+  }
+
+  // src/js/lib/icons.js
+  var PATHS = {
+    play: {
+      fill: true,
+      d: '<path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.6-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/>'
+    },
+    pause: {
+      fill: true,
+      d: '<rect x="6" y="5" width="4" height="14" rx="1.2"/><rect x="14" y="5" width="4" height="14" rx="1.2"/>'
+    },
+    restart: {
+      d: '<path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1"/><path d="M3.5 4.5v4.8h4.8"/>'
+    },
+    audio: {
+      d: '<path d="M4 10v4"/><path d="M8 7v10"/><path d="M12 4v16"/><path d="M16 8v8"/><path d="M20 11v2"/>'
+    },
+    subs: {
+      d: '<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M7 13h4"/><path d="M13 13h4"/><path d="M7 16.5h7"/>'
+    },
+    sources: {
+      d: '<path d="M4 8h13"/><path d="m14 4.5 3.5 3.5-3.5 3.5"/><path d="M20 16H7"/><path d="m10 12.5-3.5 3.5 3.5 3.5"/>'
+    },
+    next: {
+      fill: true,
+      d: '<path d="M5 6.2v11.6a1 1 0 0 0 1.55.83l8.3-5.8a1 1 0 0 0 0-1.66l-8.3-5.8A1 1 0 0 0 5 6.2z"/><rect x="16.6" y="5" width="2.8" height="14" rx="1.2"/>'
+    },
+    skip: {
+      fill: true,
+      d: '<path d="M2.5 7.1v9.8a1 1 0 0 0 1.6.8l6.6-4.9a1 1 0 0 0 0-1.6L4.1 6.3a1 1 0 0 0-1.6.8z"/><path d="M12 7.1v9.8a1 1 0 0 0 1.6.8l6.6-4.9a1 1 0 0 0 0-1.6l-6.6-4.9a1 1 0 0 0-1.6.8z"/>'
+    },
+    heart: {
+      d: '<path d="M12 20s-7.5-4.6-7.5-10.1A4.4 4.4 0 0 1 12 7.2a4.4 4.4 0 0 1 7.5 2.7C19.5 15.4 12 20 12 20z"/>'
+    },
+    heartOn: {
+      fill: true,
+      d: '<path d="M12 20s-7.5-4.6-7.5-10.1A4.4 4.4 0 0 1 12 7.2a4.4 4.4 0 0 1 7.5 2.7C19.5 15.4 12 20 12 20z"/>'
+    },
+    info: {
+      d: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5.5"/><path d="M12 7.6v.1"/>'
+    }
+  };
+  function ico(name, extraCls) {
+    var p = PATHS[name];
+    if (!p) return "";
+    return '<span class="ico' + (p.fill ? " fill" : "") + (extraCls ? " " + extraCls : "") + '"><svg viewBox="0 0 24 24">' + p.d + "</svg></span>";
   }
 
   // src/js/views/player.js
@@ -10453,6 +10850,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   function PlayerView(opts) {
     var meta = opts.meta;
     var minutes2 = minutesOf(meta, opts.isSeries);
+    var pickOpts = function pickOpts() {
+      return pickOptions(meta, opts.isSeries);
+    };
     var video = opts.video;
     var stream = opts.stream;
     var settings2 = settings();
@@ -10487,28 +10887,28 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
     var audioBtn = h("div.btn", {
       focusable: true,
-      html: '<span class="ico">♫</span>' + t("Áudio"),
+      html: ico("audio") + t("Áudio"),
       onSelect: function onSelect() {
         return audioMenu();
       }
     });
     var subsBtn = h("div.btn", {
       focusable: true,
-      html: '<span class="ico">≡</span>' + t("Legendas"),
+      html: ico("subs") + t("Legendas"),
       onSelect: function onSelect() {
         return subsMenu();
       }
     });
     var srcBtn = h("div.btn", {
       focusable: true,
-      html: '<span class="ico">⇄</span>' + t("Fontes"),
+      html: ico("sources") + t("Fontes"),
       onSelect: function onSelect() {
         return sourcesMenu();
       }
     });
     var nextBtn = h("div.btn", {
       focusable: true,
-      html: '<span class="ico">⏭</span>' + t("Próximo"),
+      html: ico("next") + t("Próximo"),
       onSelect: function onSelect() {
         return playNext();
       }
@@ -10528,13 +10928,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
     function paintFav() {
       var on = isFavorite(favItem);
-      favBtn.innerHTML = on ? '<span class="ico fav">♥</span>' + t("Favoritado") : '<span class="ico">♡</span>' + t("Favoritar");
+      favBtn.innerHTML = on ? ico("heartOn", "fav") + t("Favoritado") : ico("heart") + t("Favoritar");
     }
     paintFav();
     if (meta.id === "dev") favBtn.style.display = "none";
     var restartBtn = h("div.btn", {
       focusable: true,
-      html: '<span class="ico">↺</span>' + t("Do início"),
+      html: ico("restart") + t("Do início"),
       onSelect: function onSelect() {
         return restart();
       }
@@ -10545,14 +10945,17 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }, [playBtn, restartBtn, audioBtn, subsBtn, srcBtn, favBtn, nextBtn]);
     var spinner = h("div.p-center", null, h("div.spinner"));
     var msgEl = h("div.p-msg");
-    var skipFill = h("i");
-    var skipBtn = h("div.btn", {
+    var skipFill = h("i.sk-fill");
+    var skipIco = h("span.sk-ico");
+    var skipLabel = h("b");
+    var skipSub = h("small");
+    var skipBtn = h("div.btn.skip-btn", {
       focusable: true,
       onSelect: function onSelect() {
         return doSkip();
       }
-    });
-    var skipBox = h("div.p-skip", null, [skipBtn, h("div.bar", null, skipFill)]);
+    }, [skipFill, skipIco, h("span.sk-text", null, [skipLabel, skipSub])]);
+    var skipBox = h("div.p-skip", null, skipBtn);
     var overlay = h("div.p-overlay", null, [h("div.p-top", null, [titleEl, clockEl]), h("div.p-bottom", null, [bar, h("div.p-times", null, [curTimeEl, h("div.spacer"), durEl]), buttons])]);
     var introBg = h("div.pi-bg");
     var introLogo = h("img.pi-logo", {
@@ -10658,7 +11061,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       segments = [];
       segmentsLoaded = false;
       hideSkip();
-      _toPlayable(stream, seriesInfo()).then(function (res) {
+      _toPlayable(stream, seriesInfo(), function (msg) {
+        return alive && message(msg);
+      }).then(function (res) {
+        message("");
         if (!alive) return;
         mediaUrl = res.url;
         viaServer = res.viaServer;
@@ -10992,6 +11398,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       if (!hasPlayed) {
         scheduleAudioPick();
         if (meta.id !== "dev") rememberStream(video.id, stream);
+        if (opts.isSeries && meta.id !== "dev") rememberSeries(meta.id, stream);
         add(logTitle(), logSource(), "ok", failedNotes.join("\n"));
       }
       hasPlayed = true;
@@ -11077,7 +11484,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       });
       var pick2 = smartPick(cands.filter(function (x) {
         return parse3(x).res === res;
-      }), ok, minutes2) || smartPick(cands, ok, minutes2);
+      }), ok, minutes2, pickOpts()) || smartPick(cands, ok, minutes2, pickOpts());
       if (!pick2) return null;
       autoTries++;
       return pick2.stream;
@@ -11152,7 +11559,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           doSkip();
           return;
         }
-        skipBtn.innerHTML = '<span class="ico">⏭</span>' + segLabel(seg);
+        var nv = seg.type === "outro" && opts.isSeries ? nextVideo() : null;
+        skipIco.innerHTML = ico(nv ? "next" : "skip");
+        skipLabel.textContent = segLabel(seg);
+        skipSub.textContent = nv ? "T" + nv.season + "E" + nv.episode + (nv.namePt || nv.name ? " · " + (nv.namePt || nv.name) : "") : "";
+        skipBtn.classList.toggle("two-line", !!nv);
         skipBox.classList.add("show");
         if (controlsOn) focus(skipBtn, {
           noScroll: true
@@ -11346,9 +11757,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       });
       add(logTitle(), logSource(), "erro", reason + (details ? "\n" + details : ""));
       var torrent = stream && _needsServer(stream);
-      var tip = torrent ? t("Esse torrent pode estar sem seeders ou o PC está lento para começar. Tente outra fonte.") : t("Tente outra fonte (de preferência MP4/MKV com H.264 ou HEVC e áudio AAC/AC3).");
+      var tip = torrent && !_isAvailable() && _viaDebrid(stream) ? t("O Real-Debrid não tem esse arquivo pronto. Tente outra fonte.") : torrent ? t("Esse torrent pode estar sem seeders ou o PC está lento para começar. Tente outra fonte.") : t("Tente outra fonte (de preferência MP4/MKV com H.264 ou HEVC e áudio AAC/AC3).");
       var buttons2 = [{
-        label: '<span class="ico">⇄</span>' + t("Escolher outra fonte"),
+        label: ico("sources") + t("Escolher outra fonte"),
         primary: true,
         onSelect: function onSelect() {
           return sourcesMenu();
@@ -11392,7 +11803,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       showControls();
     }
     function updatePlayBtn() {
-      playBtn.innerHTML = videoEl.paused ? '<span class="ico">▶</span>' + t("Tocar") : '<span class="ico">❚❚</span>' + t("Pausar");
+      playBtn.innerHTML = videoEl.paused ? ico("play") + t("Tocar") : ico("pause") + t("Pausar");
     }
     function updateTimes() {
       var d = videoEl.duration;
@@ -12004,19 +12415,37 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       });
     }
     function sourcesMenu() {
-      var list4 = (opts.streams || []).map(function (s, i) {
+      var ok = _isAvailable();
+      var all = opts.streams || [];
+      var ranked = rank2(all, minutes2, pickOpts());
+      var playable = ranked.filter(function (s) {
+        return canPlay(s, ok);
+      });
+      var blocked = ranked.filter(function (s) {
+        return !canPlay(s, ok);
+      });
+      var tube = all.some(function (s) {
+        return isTubeStream(s);
+      });
+      var order = tube ? all : playable.concat(blocked);
+      var list4 = order.map(function (s) {
+        var info = parse3(s);
+        var debrid = info.cached ? "⚡ " + (info.rd ? "Real-Debrid" : t("Debrid")) : info.debrid ? t("Debrid (baixando)") : "";
+        var parts2 = [debrid || info.addon, summary(info), sizeText(info.sizeMb)];
+        if (!info.cached && _needsServer(s)) parts2.push(ok ? t("torrent pelo PC") : _viaDebrid(s) ? t("torrent pelo Real-Debrid") : t("precisa do PC"));
+        var name = tube ? String(s.name || "").replace(/\n/g, " · ") : info.file || ((s.title || s.description || "") + "").split("\n")[0] || info.addon;
         return {
-          label: ((s.name || s.addon || "") + "").replace(/\n/g, " "),
-          sub: ((s.title || s.description || "") + "").replace(/\n/g, " · "),
-          value: i,
+          label: name,
+          sub: (tube ? String(s.title || "") : parts2.filter(Boolean).join(" · ")).replace(/\n/g, " · "),
+          value: all.indexOf(s),
           checked: s === stream
         };
       });
       menu(t("Fontes"), list4, {
         onPick: function onPick(i) {
-          var s = opts.streams[i];
+          var s = all[i];
           if (!s || s === stream) return;
-          if (_needsServer(s) && !_isAvailable()) return toast(t("Essa fonte precisa do servidor do PC."));
+          if (_needsServer(s) && !_isAvailable() && !_viaDebrid(s)) return toast(t("Essa fonte precisa do servidor do PC."));
           switchTo(s);
         }
       });
@@ -12087,7 +12516,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       var dub = cands.filter(function (x) {
         return parse3(x).dub === cur.dub;
       });
-      var pick2 = smartPick(dub.length ? dub : cands, _isAvailable(), minutes2);
+      var pick2 = smartPick(dub.length ? dub : cands, _isAvailable(), minutes2, pickOpts());
       return pick2 ? pick2.stream : null;
     }
     function switchTo(s) {
@@ -12198,7 +12627,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }, function () {
         return false;
       });
-      var srv = _needsServer(stream) ? _check().then(function (r) {
+      var srv = _needsServer(stream) && !_viaDebrid(stream) ? _check().then(function (r) {
         return !!(r && r.ok);
       }, function () {
         return false;
@@ -12240,7 +12669,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         var rest = (opts.streams || []).filter(function (x) {
           return tried.indexOf(x) < 0;
         });
-        var pick2 = smartPick(rest, _isAvailable(), minutes2);
+        var pick2 = smartPick(rest, _isAvailable(), minutes2, pickOpts());
         if (!pick2) {
           message("");
           fail(t("Nenhuma outra fonte disponível para tentar."));
@@ -12265,7 +12694,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         var match = group2 ? list4.find(function (s) {
           return s.behaviorHints && s.behaviorHints.bingeGroup === group2;
         }) : null;
-        if (match && (!_needsServer(match) || _isAvailable())) {
+        if (match && (!_needsServer(match) || _isAvailable() || _viaDebrid(match))) {
           video = nv;
           stream = match;
           opts.streams = list4;
@@ -12845,7 +13274,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     caption: "Filmes de 1995 a 2019 que todo mundo ama",
     load: modernClassics
   }];
-  function available() {
+  function available2() {
     return hasTmdb();
   }
   function imdbId(it) {
@@ -13228,8 +13657,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             }
           }));
         });
-        track.appendChild(h("div.card.see-all", {
-          focusable: true,
+        track.appendChild(seeAllCard({
+          label: t(def.title),
           onSelect: function onSelect() {
             return openCategory(ctx.crumb, def);
           },
@@ -13237,11 +13666,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             focusRow();
             ctx.billboard.stop();
           }
-        }, [h("div.poster-wrap", null, h("div.see-all-label", null, [h("b", {
-          text: t("Ver tudo")
-        }), h("span", {
-          text: t(def.title)
-        })]))]));
+        }));
         loadVisibleImages(row);
       }).catch(failed2);
     };
@@ -13272,7 +13697,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     function load4() {
       if (loaded2) return;
       loaded2 = true;
-      if (!available()) {
+      if (!available2()) {
         rows.appendChild(h("div.hint", {
           text: t("Essa aba precisa da chave do TMDB (Ajustes → Metadados extras).")
         }));
@@ -13446,7 +13871,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       el: el2,
       onKey: onKey,
       onShow: function onShow() {
-        if (!available()) {
+        if (!available2()) {
           if (!rows.firstChild) rows.appendChild(h("div.hint", {
             text: t("Essa aba precisa da chave do TMDB (Ajustes → Metadados extras).")
           }));
@@ -13505,16 +13930,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             rank: def.ranked ? i + 1 : 0
           }));
         });
-        if (!def.ranked) track.appendChild(h("div.card.see-all", {
-          focusable: true,
+        if (!def.ranked) track.appendChild(seeAllCard({
+          label: t(def.title),
           onSelect: function onSelect() {
             return openCategory(crumb, def);
           }
-        }, [h("div.poster-wrap", null, h("div.see-all-label", null, [h("b", {
-          text: t("Ver tudo")
-        }), h("span", {
-          text: t(def.title)
-        })]))]));
+        }));
         loadVisibleImages(row);
       }).catch(failed2);
     };
@@ -14209,10 +14630,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         }) : null;
         label = t("Continuar") + (ep ? " T" + ep.season + "E" + ep.episode : "");
       }
-      watchBtn.innerHTML = '<span class="ico">▶</span>' + label;
+      watchBtn.innerHTML = ico("play") + label;
       var fav = isAdult2() ? has(meta.id) : isInLibrary(meta.id);
       libBtn.classList.toggle("faved", fav);
-      libBtn.innerHTML = fav ? '<span class="ico fav">♥</span>' + t("Favoritado") : '<span class="ico">♡</span>' + t("Favoritar");
+      libBtn.innerHTML = fav ? ico("heartOn", "fav") + t("Favoritado") : ico("heart") + t("Favoritar");
     }
     function adultStats(st) {
       var box = function box(label, value, extra2) {
@@ -14398,9 +14819,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         return null;
       });
       var all = [];
-      var resolve = null;
+      var resolve2 = null;
       var pick2 = new Promise(function (ok) {
-        return resolve = ok;
+        return resolve2 = ok;
       });
       var done = false;
       var serverReady = _isAvailable() ? Promise.resolve(true) : _check().then(function (r) {
@@ -14414,9 +14835,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         clearTimeout(timer3);
         serverReady.then(function (ok) {
           var last = rememberedStream(video.id, all);
-          if (last && canPlay(last, ok)) return resolve(last);
-          var p = smartPick(all, ok, minutesOf(meta, isSeries()));
-          resolve(p ? p.stream : null);
+          if (last && canPlay(last, ok)) return resolve2(last);
+          var tube = all.filter(function (x) {
+            return isTubeStream(x);
+          });
+          if (tube.length) return resolve2(tube[0]);
+          var p = smartPick(all, ok, minutesOf(meta, isSeries()), pickOptions(meta, isSeries()));
+          resolve2(p ? p.stream : null);
         });
       };
       var timer3 = setTimeout(finish2, 12e3);
@@ -14436,7 +14861,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         if (st || !alive) return;
         showStreams(video, true);
         var torrentsOnly = all.length && all.every(function (x) {
-          return _needsServer(x);
+          return _needsServer(x) && !_viaDebrid(x);
         });
         var why = !all.length ? t("Nenhuma fonte encontrada para este título.") : torrentsOnly && !_isAvailable() ? t("As fontes deste título são torrent: precisam do servidor do PC ligado.") : t("Nenhuma fonte deste título abre na TV.");
         add(meta.name + (isSeries() ? " T" + video.season + "E" + video.episode : ""), t("{n} fonte(s) de {a} addon(s)", {
@@ -14597,8 +15022,22 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           if (g) {
             g.done = true;
             g.count = streams.length;
-            g.streams = streams;
-            streams.forEach(function (s) {
+            g.streams = rank2(streams, runtimeMinutes(), pickOptions(meta, isSeries()));
+            g.debrid = streams.some(function (s) {
+              return parse3(s).debrid || parse3(s).cached;
+            });
+            if (g.debrid) {
+              var at = groups.indexOf(g);
+              var firstPlain = groups.filter(function (x, i) {
+                return i < at && !x.debrid;
+              })[0];
+              if (firstPlain) {
+                groups.splice(at, 1);
+                groups.splice(groups.indexOf(firstPlain), 0, g);
+                list4.insertBefore(g.el, firstPlain.el);
+              }
+            }
+            g.streams.forEach(function (s) {
               return g.el.appendChild(streamItem(s, video, serverOk, all));
             });
             all.length = 0;
@@ -14627,7 +15066,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
     function streamItem(s, video, serverOk, all) {
       var playableType = _isPlayableType(s);
-      var needs = _needsServer(s);
+      var rdTorrent = _needsServer(s) && !serverOk && _viaDebrid(s);
+      var needs = _needsServer(s) && !rdTorrent;
       var disabled = !playableType || needs && !serverOk;
       var info2 = parse3(s);
       var tags = [];
@@ -14665,7 +15105,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }) : null, info2.sizeMb ? h("span.s-size", {
         text: sizeText(info2.sizeMb)
       }) : null, h("span.s-src", {
-        text: info2.addon + (needs ? " · torrent" : playableType ? " · " + t("direto") : "")
+        text: info2.addon + (rdTorrent ? " · " + t("torrent pelo Real-Debrid") : needs ? " · torrent" : playableType ? " · " + t("direto") : "")
       })]);
       return h("div.stream", {
         focusable: true,
@@ -14697,7 +15137,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         start5(resumeMs);
       } else if (resumeMs > 3e4) {
         choiceDialog(t("Continuar de onde parou?"), isSeries() ? "T" + video.season + "E" + video.episode + " · " + (video.namePt || video.name || "") : meta.name, [{
-          label: '<span class="ico">▶</span>' + t("Continuar de {time}", {
+          label: ico("play") + t("Continuar de {time}", {
             time: fmtTime(resumeMs / 1e3)
           }),
           primary: true,
@@ -14705,7 +15145,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             return start5(resumeMs);
           }
         }, {
-          label: '<span class="ico">↺</span>' + t("Do início"),
+          label: ico("restart") + t("Do início"),
           onSelect: function onSelect() {
             return start5(0);
           }
@@ -14993,7 +15433,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       loadedBoard = true;
       pending = [];
       clear(rows);
-      if (available()) {
+      if (available2()) {
         var defs = HOME_ROWS.slice();
         var seeds = recentlyWatched().slice(0, 2);
         seeds.forEach(function (it, i) {
@@ -15147,14 +15587,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var dots = h("div.hero-dots");
     var watchBtn = h("div.btn.primary", {
       focusable: true,
-      html: '<span class="ico">▶</span>' + t("Assistir"),
+      html: ico("play") + t("Assistir"),
       onSelect: function onSelect() {
         return open(true);
       }
     });
     var infoBtn = h("div.btn", {
       focusable: true,
-      html: '<span class="ico">ⓘ</span>' + t("Detalhes"),
+      html: ico("info") + t("Detalhes"),
       onSelect: function onSelect() {
         return open(false);
       }
@@ -15471,8 +15911,61 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   }
   function catalogOrder(e) {
     var n = (e.catalog.name || e.catalog.id || "") + " " + (e.catalog.id || "");
-    if (!/creampie/i.test(n)) return 2;
+    if (!/creampie|cpnew|-cp\b/i.test(n)) return 3;
+    if (/lançamento|lancamento|cpnew|\bnew\b/i.test(n)) return 2;
     return /gay/i.test(n) ? 1 : 0;
+  }
+  var ROW_SUB = {
+    "xv-cp": "em alta na semana",
+    "ph-cp": "em alta na semana",
+    "xv-cpgay": "em alta no mês",
+    "ph-cpgay": "em alta no mês",
+    "xv-cpnew": "acabaram de sair",
+    "ph-cpnew": "acabaram de sair",
+    "xv-new": "acabaram de sair",
+    "ph-new": "acabaram de sair"
+  };
+  var SESSION_SEED = Math.floor(Math.random() * 1e9);
+  function seededShuffle(list4, seed) {
+    var a = list4.slice();
+    var x = seed || 1;
+    for (var i = a.length - 1; i > 0; i--) {
+      x = x * 1103515245 + 12345 & 2147483647;
+      var j = x % (i + 1);
+      var tmp = a[i];
+      a[i] = a[j];
+      a[j] = tmp;
+    }
+    return a;
+  }
+  function unseen(metas) {
+    var fresh = metas.filter(function (m) {
+      return !wasOpened(m.id);
+    });
+    return fresh.length >= 6 ? fresh : metas;
+  }
+  var CAT_HUES = [330, 345, 300, 280, 255, 228, 205, 350, 315];
+  function catColor(name) {
+    var n = 0;
+    for (var i = 0; i < name.length; i++) n = n * 31 + name.charCodeAt(i) & 65535;
+    var hue = CAT_HUES[n % CAT_HUES.length];
+    return "linear-gradient(135deg, hsl(" + hue + ",58%,34%) 0%, hsl(" + (hue + 28) % 360 + ",62%,16%) 100%)";
+  }
+  function categoryTile(label, onSelect, opts) {
+    var o = opts || {};
+    return h("div.card.wide.cat-tile", {
+      focusable: true,
+      cls: o.all ? "cat-all" : "",
+      onSelect: onSelect
+    }, [h("div.poster-wrap.img-loaded", {
+      style: o.all ? null : {
+        background: catColor(label)
+      }
+    }, [h("div.cat-label", null, [h("b", {
+      text: label
+    }), o.sub ? h("span", {
+      text: o.sub
+    }) : null])])]);
   }
   function NsfwView() {
     var el2 = h("div.view.nsfw-view", {
@@ -15482,11 +15975,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       "data-scroll-y": ""
     });
     var bar = topbar("nsfw", goTab);
-    var filters = h("div.provider-rail.nsfw-rail.site-rail", {
+    var filters = h("div.provider-rail.site-rail", {
       "data-group": "",
       "data-trap": ""
     });
-    var body = h("div.rows");
+    var body = h("div.rows.nsfw-rows");
     scroller.appendChild(bar);
     scroller.appendChild(filters);
     scroller.appendChild(body);
@@ -15521,17 +16014,21 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return out;
     }
     function siteSub(s) {
-      var n = s.addons.reduce(function (acc, a) {
+      var cats = siteCategories(s).reduce(function (n, g) {
+        return n + g.cats.length;
+      }, 0);
+      var rows = s.addons.reduce(function (acc, a) {
         return acc + adultCatalogs(a).filter(function (e) {
           return isBoardable(e.catalog);
         }).length;
       }, 0);
-      var cats = t(n === 1 ? "{n} catálogo" : "{n} catálogos", {
-        n: n
-      });
-      return s.addons.length > 1 ? t("{n} instalações", {
-        n: s.addons.length
-      }) + " · " + cats : cats;
+      var parts2 = [t(rows === 1 ? "{n} fileira" : "{n} fileiras", {
+        n: rows
+      })];
+      if (cats) parts2.push(t("{n} categorias", {
+        n: cats
+      }));
+      return parts2.join(" · ");
     }
     function siteMark(f) {
       var box = h("div.provider-logo");
@@ -15610,7 +16107,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     function pick2(id, enter) {
       clearTimeout(switchTimer);
       if (id === scope) {
-        var first = enter && body.querySelector(".card, .chip");
+        var first = enter && body.querySelector(".card, .input");
         if (first) focus(first);
         return;
       }
@@ -15648,12 +16145,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         startLoad(p);
       }
     }
-    function jumpTo(p) {
-      var first = p.row.querySelector(".card");
-      if (first) return focus(first);
-      p.wantFocus = true;
-      if (p.state === "idle") startLoad(p);
-    }
     function renderBody() {
       pending = [];
       clear(body);
@@ -15668,17 +16159,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         }));
         return;
       }
-      var chips = h("div.chip-track.jump-chips", {
-        "data-scroll-x": "",
-        "data-group": "",
-        "data-trap": ""
-      });
-      body.appendChild(h("div.row.nsfw-jumps", {
-        "data-anchor": "30"
-      }, chips));
       personalSlot = h("div.nsfw-personal");
       body.appendChild(personalSlot);
-      renderPersonal(site, all, chips);
+      renderPersonal(site, all);
       var entries = [];
       site.addons.forEach(function (a) {
         return adultCatalogs(a).forEach(function (e) {
@@ -15686,7 +16169,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         });
       });
       if (!entries.some(function (e) {
-        return catalogOrder(e) < 2;
+        return catalogOrder(e) < 3;
       })) {
         var searchable = [];
         site.addons.forEach(function (a) {
@@ -15699,57 +16182,44 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             extra: {
               search: "gay creampie"
             },
-            title: t("Creampie gay")
+            title: t("Creampie gay"),
+            order: 1
           }));
           entries.unshift(Object.assign({}, searchable[0], {
             extra: {
               search: "creampie"
             },
-            title: t("Creampie hétero")
+            title: t("Creampie hétero"),
+            order: 0
           }));
         }
       }
+      var orderOf = function orderOf(e) {
+        return e.order !== void 0 ? e.order : catalogOrder(e);
+      };
       var ordered = entries.map(function (e, i) {
         return {
           e: e,
           i: i
         };
       }).sort(function (a, b) {
-        return (a.e.extra ? a.e.extra.search === "creampie" ? 0 : 1 : catalogOrder(a.e)) - (b.e.extra ? b.e.extra.search === "creampie" ? 0 : 1 : catalogOrder(b.e)) || a.i - b.i;
+        return orderOf(a.e) - orderOf(b.e) || a.i - b.i;
       });
-      var genresDone = false;
+      var catsDone = false;
       ordered.forEach(function (x) {
-        var isCreampie = x.e.extra || catalogOrder(x.e) < 2;
-        if (!isCreampie && !genresDone) {
-          genresDone = true;
-          genreStrip(site, chips);
+        if (orderOf(x.e) >= 3 && !catsDone) {
+          catsDone = true;
+          categoryRows(site);
         }
-        var p = Object.assign(catalogRow(x.e, body), {
+        pending.push(Object.assign(catalogRow(x.e, body, orderOf(x.e) < 3), {
           state: "idle"
-        });
-        pending.push(p);
-        chips.appendChild(h("div.chip", {
-          focusable: true,
-          text: x.e.title || catName(x.e),
-          onSelect: function onSelect() {
-            return jumpTo(p);
-          }
         }));
       });
-      if (!genresDone) genreStrip(site, chips);
-      if (scopes().some(function (f) {
-        return f.id === "search";
-      })) chips.appendChild(h("div.chip", {
-        focusable: true,
-        html: ICON_SEARCH + t("Busca"),
-        onSelect: function onSelect() {
-          return pick2("search", true);
-        }
-      }));
+      if (!catsDone) categoryRows(site);
       loadVisibleImages(el2);
       loadNearby();
     }
-    function renderPersonal(site, all, chips) {
+    function renderPersonal(site, all) {
       if (!personalSlot) return;
       clear(personalSlot);
       var mine = function mine(id) {
@@ -15779,20 +16249,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           posterShape: it.posterShape
         });
       });
-      var rows = [];
-      if (favs.length) rows.push(staticRow("♥ " + t("Favoritos"), t("{n} vídeo(s)", {
-        n: favs.length
-      }), favs.slice(0, 40).map(function (it) {
-        return _card(it, {
-          wide: it.posterShape === "landscape",
-          rich: true,
-          image: it.posterShape === "landscape" ? it.poster : void 0,
-          onSelect: function onSelect() {
-            return openDetails2(it.type, it.id, null, it);
-          }
-        });
-      })));
-      if (watching.length) rows.push(staticRow(t("Continuar assistindo"), "", watching.slice(0, ROW_LIMIT3).map(function (it) {
+      if (watching.length) staticRow(t("Continuar assistindo"), "", watching.slice(0, ROW_LIMIT3).map(function (it) {
         var s = it.state;
         var left = s.duration ? Math.max(1, Math.round((s.duration - s.timeOffset) / 6e4)) : 0;
         return _card({
@@ -15818,22 +16275,19 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             });
           }
         });
-      })));
-      if (chips) {
-        var jumps = rows.map(function (r) {
-          return h("div.chip", {
-            focusable: true,
-            text: r.title,
-            onSelect: function onSelect() {
-              var c = r.row.querySelector(".card");
-              if (c) focus(c);
-            }
-          });
+      }));
+      if (favs.length) staticRow(t("Favoritos"), t(favs.length === 1 ? "{n} vídeo" : "{n} vídeos", {
+        n: favs.length
+      }), favs.slice(0, 40).map(function (it) {
+        return _card(it, {
+          wide: it.posterShape !== "poster",
+          rich: true,
+          image: it.posterShape !== "poster" ? it.poster : void 0,
+          onSelect: function onSelect() {
+            return openDetails2(it.type, it.id, null, it);
+          }
         });
-        jumps.reverse().forEach(function (j) {
-          return chips.insertBefore(j, chips.firstChild);
-        });
-      }
+      }));
       loadVisibleImages(personalSlot);
     }
     function staticRow(title, sub, cards) {
@@ -15848,47 +16302,35 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         text: sub
       }) : null]), track]);
       personalSlot.appendChild(row);
-      return {
-        row: row,
-        title: title
-      };
+      return row;
     }
-    function genreStrip(site, jumps) {
-      var cats = siteCategories(site);
-      if (!cats.length) return;
-      var chips = cats.map(function (c, i) {
-        return h("div.chip", {
-          focusable: true,
-          text: genre(c.g),
-          onSelect: function onSelect() {
+    function categoryRows(site) {
+      siteCategories(site).forEach(function (group2) {
+        var tiles = group2.cats.map(function (c, i) {
+          return categoryTile(genre(c.g), function () {
             return push(GridView(c.e, {
               genre: c.g
-            }, cats, i));
-          }
+            }, group2, i));
+          });
         });
+        var track = h("div.row-track.cat-track", {
+          "data-scroll-x": "",
+          "data-group": "",
+          "data-trap": ""
+        }, tiles);
+        body.appendChild(h("div.row.nsfw-cats", {
+          "data-anchor": "30"
+        }, [h("div.row-title", null, [group2.title, h("small", {
+          text: t("{n} categorias", {
+            n: group2.cats.length
+          })
+        })]), track]));
       });
-      var row = h("div.row.nsfw-genres", {
-        "data-anchor": "30"
-      }, [h("div.row-title", {
-        text: t("Categorias")
-      }), h("div.chip-track", {
-        "data-scroll-x": "",
-        "data-group": "",
-        "data-trap": ""
-      }, chips)]);
-      body.appendChild(row);
-      if (jumps) jumps.appendChild(h("div.chip", {
-        focusable: true,
-        text: t("Categorias"),
-        onSelect: function onSelect() {
-          return focus(chips[0]);
-        }
-      }));
     }
     function renderSearch() {
       var input = h("input.input", {
         type: "text",
-        placeholder: t("Buscar..."),
+        placeholder: t("Buscar em todos os sites..."),
         focusable: true
       });
       var go = h("div.btn.primary.search-go", {
@@ -15930,8 +16372,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           });
           var row = h("div.row", {
             "data-anchor": "30"
-          }, [h("div.row-title", null, [catName(entry), h("small", {
-            text: siteName(entry.addon)
+          }, [h("div.row-title", null, [siteName(entry.addon), h("small", {
+            text: catName(entry)
           })]), track]);
           fetchCatalog(entry, {
             search: query
@@ -15975,7 +16417,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var lastKey = null;
     var providersKey = function providersKey() {
       return tubeStatus() + "|" + adultAddons().map(function (a) {
-        return a.manifest.id;
+        return a.manifest.id + "@" + (a.manifest.catalogs || []).length;
       }).join(",");
     };
     var stopWatch = onChange(function () {
@@ -15999,7 +16441,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         return true;
       }
       if (e.keyCode === KEY.UP && body.contains(cur)) {
-        var firstRow = body.querySelector(".chip, .card");
+        var firstRow = body.querySelector(".card, .input");
         var top2 = firstRow ? firstRow.getBoundingClientRect().top : 0;
         if (Math.abs(cur.getBoundingClientRect().top - top2) < 10) {
           onRail();
@@ -16034,7 +16476,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             var site = all.filter(function (s) {
               return s.id === scope;
             })[0];
-            if (site && personalSlot && !personalSlot.contains(current2())) renderPersonal(site, all, null);
+            if (site && personalSlot && !personalSlot.contains(current2())) renderPersonal(site, all);
           }
           return loadNearby();
         }
@@ -16059,32 +16501,47 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     };
   }
   function siteCategories(site) {
-    var seen = {};
-    var out = [];
+    var groups = [];
     site.addons.forEach(function (a) {
       return adultCatalogs(a).forEach(function (e) {
-        return genreOptions(e.catalog).forEach(function (g) {
-          if (seen[g] || isHiddenCategory(g)) return;
-          seen[g] = true;
-          out.push({
+        var opts = genreOptions(e.catalog);
+        if (!opts.length) return;
+        var title = /gay/i.test((e.catalog.name || "") + " " + (e.catalog.id || "")) ? t("Categorias gay") : t("Categorias");
+        var g = groups.filter(function (x) {
+          return x.title === title;
+        })[0];
+        if (!g) {
+          g = {
+            title: title,
+            cats: [],
+            seen: {}
+          };
+          groups.push(g);
+        }
+        opts.forEach(function (name) {
+          if (g.seen[name] || isHiddenCategory(name)) return;
+          g.seen[name] = true;
+          g.cats.push({
             e: e,
-            g: g
+            g: name
           });
         });
       });
     });
-    return out;
+    return groups.filter(function (g) {
+      return g.cats.length;
+    });
   }
   function catName(entry) {
     return entry.title || genre(entry.catalog.name || entry.catalog.id);
   }
-  function catalogRow(entry, parent) {
+  function catalogRow(entry, parent, discovery) {
     var row = h("div.row", {
       "data-anchor": "30"
     });
     var sub = entry.extra && entry.extra.search ? t("busca no {site}", {
       site: siteName(entry.addon)
-    }) : /creampie/i.test(entry.catalog.name || "") ? t("mais vistos") : siteName(entry.addon);
+    }) : ROW_SUB[entry.catalog.id] ? t(ROW_SUB[entry.catalog.id]) : siteName(entry.addon);
     var track = h("div.row-track.pending", {
       "data-scroll-x": "",
       "data-group": "",
@@ -16098,10 +16555,26 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var out = {
       row: row
     };
-    var _load = function load4() {
+    var fetchRow = function fetchRow() {
       return retrying(function () {
         return fetchCatalog(entry, entry.extra);
-      }).then(function (metas) {
+      }).then(function (first) {
+        if (!discovery || !first.length) return first;
+        return fetchCatalog(entry, Object.assign({
+          skip: first.length
+        }, entry.extra)).catch(function () {
+          return [];
+        }).then(function (second) {
+          var ids = {};
+          var both = first.concat(second).filter(function (m) {
+            return !ids[m.id] && (ids[m.id] = true);
+          });
+          return seededShuffle(unseen(both), SESSION_SEED + entry.catalog.id.length);
+        });
+      });
+    };
+    var _load = function load4() {
+      return fetchRow().then(function (metas) {
         clear(track);
         track.classList.remove("pending");
         if (!metas.length) {
@@ -16111,18 +16584,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         metas.slice(0, ROW_LIMIT3).forEach(function (m) {
           return track.appendChild(itemCard(m, entry));
         });
-        if (metas.length > ROW_LIMIT3) track.appendChild(h("div.card.see-all", {
-          focusable: true,
+        if (metas.length >= ROW_LIMIT3) track.appendChild(seeAllCard({
+          label: catName(entry),
+          wide: wideCatalog(entry),
           onSelect: function onSelect() {
             return push(GridView(entry, entry.extra || {}));
           }
-        }, [h("div.poster-wrap", null, h("div.see-all-label", null, [h("b", {
-          text: t("Ver tudo")
-        }), h("span", {
-          text: catName(entry)
-        })]))]));
+        }));
         loadVisibleImages(row);
-        if (out.wantFocus && track.firstChild) focus(track.firstChild);
       }).catch(function () {
         return showRetry(track, function () {
           return _load();
@@ -16153,21 +16622,25 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       return !isUncensored(m);
     }
   };
-  function GridView(entry, extra2, cats, at) {
-    var el2 = h("div.view.nsfw-view", {
+  function GridView(entry, extra2, group2, at) {
+    var el2 = h("div.view.nsfw-view.nsfw-grid-view", {
       "data-stay": ""
     });
-    var scroller = h("div.scroll-y", {
-      "data-scroll-y": ""
-    });
     var crumb = h("div.reco-crumb");
-    var filterRow = h("div.row.nsfw-genres", {
+    var filterRow = h("div.row.nsfw-filter", {
       "data-anchor": "30"
     });
     var slot = h("div");
+    var hasSide = !!(group2 && group2.cats.length > 1);
+    var main = h("div.scroll-y.nsfw-grid-main", {
+      "data-scroll-y": "",
+      cls: hasSide ? "with-side" : ""
+    }, [crumb, filterRow, slot]);
+    var side = null;
     var mode = "all";
     var pg = null;
     var isHentai = false;
+    var switchTimer = null;
     function fetcher() {
       var skip = 0;
       var keep = FILTER_KEEP[mode];
@@ -16190,12 +16663,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         return _step3(0);
       };
     }
-    function build2() {
+    function build2(stay) {
       stopPreview();
       if (pg) pg.destroy();
       var load4 = fetcher();
       var e = entry;
       pg = pagedGrid({
+        autoFocus: !stay,
         load: load4,
         key: function key(m) {
           return m.id;
@@ -16204,7 +16678,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           return itemCard(m, e);
         },
         skeleton: function skeleton() {
-          return skeletonCards(8, wideCatalog(e));
+          return skeletonCards(hasSide ? 6 : 8, wideCatalog(e));
         },
         onEmpty: function onEmpty() {
           return pg.el.insertBefore(h("div.hint", {
@@ -16214,12 +16688,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       });
       clear(slot);
       slot.appendChild(pg.el);
+      main.scrollTop = 0;
     }
     function renderHead() {
       var title = extra2.genre ? genre(extra2.genre) : catName(entry);
       clear(crumb);
+      var trail = "NSFW › " + siteName(entry.addon) + " › " + (group2 ? group2.title + " › " : "");
       [h("span", {
-        text: "NSFW › " + siteName(entry.addon) + " › "
+        text: trail
       }), h("b", {
         text: title
       })].forEach(function (n) {
@@ -16251,57 +16727,79 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         "data-trap": ""
       }, chips));
     }
-    scroller.appendChild(crumb);
-    if (cats && cats.length > 1) {
-      var catChips = cats.map(function (c, i) {
-        return h("div.chip", {
+    function choose(i) {
+      clearTimeout(switchTimer);
+      if (i === at) return;
+      at = i;
+      var c = group2.cats[i];
+      Array.prototype.forEach.call(side.children, function (x, j) {
+        return x.classList.toggle("active", j === at);
+      });
+      entry = c.e;
+      extra2 = {
+        genre: c.g
+      };
+      mode = "all";
+      renderHead();
+      build2(true);
+      pg.start();
+    }
+    if (hasSide) {
+      side = h("div.nsfw-side", {
+        "data-scroll-y": "",
+        "data-pad-y": "200",
+        "data-group": "",
+        "data-vertical": ""
+      }, group2.cats.map(function (c, i) {
+        return h("div.side-item", {
           focusable: true,
           cls: i === at ? "active" : "",
           "data-autofocus": i === at ? "" : void 0,
           text: genre(c.g),
+          // Parar numa categoria troca a grade (como os sites no topo da aba); OK entra na grade.
+          onFocus: function onFocus() {
+            clearTimeout(switchTimer);
+            switchTimer = setTimeout(function () {
+              return choose(i);
+            }, 650);
+          },
           onSelect: function onSelect() {
-            if (i === at) return;
-            at = i;
-            catChips.forEach(function (x, j) {
-              return x.classList.toggle("active", j === at);
-            });
-            catChips.forEach(function (x) {
-              return x.removeAttribute("data-autofocus");
-            });
-            entry = c.e;
-            extra2 = {
-              genre: c.g
-            };
-            mode = "all";
-            renderHead();
-            build2();
-            pg.start();
+            choose(i);
+            var first = slot.querySelector(".card:not(.skeleton)");
+            if (first) focus(first);
           }
         });
-      });
-      scroller.appendChild(h("div.row.nsfw-genres.nsfw-catbar", {
-        "data-anchor": "30"
-      }, h("div.chip-track", {
-        "data-scroll-x": "",
-        "data-group": "",
-        "data-trap": ""
-      }, catChips)));
+      }));
+      side.__last = side.children[at];
+      el2.appendChild(h("div.nsfw-side-wrap", null, [h("div.side-title", {
+        text: group2.title
+      }), side]));
     }
-    scroller.appendChild(filterRow);
     renderHead();
     build2();
-    scroller.appendChild(slot);
-    el2.appendChild(scroller);
+    el2.appendChild(main);
     return {
       el: el2,
       onShow: function onShow() {
-        return pg.start();
+        pg.start();
+        if (side && side.children[at]) setTimeout(function () {
+          return ensureVisible(side.children[at]);
+        }, 0);
+      },
+      onBack: function onBack() {
+        var cur = current2();
+        if (side && cur && main.contains(cur)) {
+          focus(side.children[at]);
+          return true;
+        }
+        return false;
       },
       onHide: function onHide() {
         return stopPreview();
       },
       destroy: function destroy() {
-        return stopPreview();
+        clearTimeout(switchTimer);
+        stopPreview();
       }
     };
   }
@@ -16508,20 +17006,20 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var boot2 = document.getElementById("boot");
     if (boot2) boot2.classList.add("run");
     if (withSound) setTimeout(playSound, SOUND_AT_MS);
-    return new Promise(function (resolve) {
-      return setTimeout(resolve, MIN_MS);
+    return new Promise(function (resolve2) {
+      return setTimeout(resolve2, MIN_MS);
     });
   }
   function finish() {
     var boot2 = document.getElementById("boot");
     if (!boot2) return;
-    var wait = Math.max(0, MIN_MS - (Date.now() - started));
+    var wait2 = Math.max(0, MIN_MS - (Date.now() - started));
     setTimeout(function () {
       boot2.classList.add("out");
       setTimeout(function () {
         return boot2.parentNode && boot2.parentNode.removeChild(boot2);
       }, 600);
-    }, wait);
+    }, wait2);
   }
   function showStatic() {
     var boot2 = document.getElementById("boot");
@@ -16763,15 +17261,15 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var c = loaded[url2];
     if (c === true) return Promise.resolve(true);
     if (c && c.then) return c;
-    var pr = new Promise(function (resolve) {
+    var pr = new Promise(function (resolve2) {
       var img = new Image();
       img.onload = function () {
         loaded[url2] = !!img.naturalWidth;
-        resolve(loaded[url2]);
+        resolve2(loaded[url2]);
       };
       img.onerror = function () {
         loaded[url2] = false;
-        resolve(false);
+        resolve2(false);
       };
       img.src = url2;
     });
@@ -17176,6 +17674,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           quiet: true
         });
       }]];
+      if (available()) tests.push([t("Real-Debrid (torrents sem o PC)"), function () {
+        return ping();
+      }]);
       list().forEach(function (a) {
         if (!/^https?:/.test(a.transportUrl || "") || /cinemeta/.test(a.transportUrl)) return;
         tests.push([t("Addon: {name}", {
@@ -17202,6 +17703,30 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             text: e.msg + " · " + e.ms + " ms · " + t("há {n} min", {
               n: ago
             }) + " · " + e.url.slice(0, 70)
+          }));
+        });
+        if (!HAS_TV_SERVICE) return;
+        getJSON("http://127.0.0.1:8092/api/tubelog", {
+          timeout: 3e3,
+          quiet: true
+        }).then(function (log2) {
+          var items2 = (Array.isArray(log2) ? log2 : []).slice(-8).reverse();
+          if (!items2.length) return;
+          list4.appendChild(h("div.diag-head", {
+            text: t("Pornhub e XVideos (pedidos do serviço da TV)")
+          }));
+          items2.forEach(function (x) {
+            var ago = Math.round((Date.now() - x.at) / 6e4);
+            list4.appendChild(h("div.diag-err", {
+              cls: /^ok/.test(x.result) ? "ok" : "",
+              text: (x.tube === "ph" ? "Pornhub" : "XVideos") + " · " + x.what + " · " + x.result + " · " + t("há {n} min", {
+                n: ago
+              })
+            }));
+          });
+        }).catch(function () {
+          return list4.appendChild(h("div.diag-err", {
+            text: t("O serviço da TV (Pornhub/XVideos) não respondeu.")
           }));
         });
       });
@@ -17831,6 +18356,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       };
       keyRow(t("Chave TMDB"), t("Sinopses e títulos em PT-BR, logos e elenco com fotos (grátis em themoviedb.org)"), "tmdbKey", "API key (v3)");
       keyRow(t("Chave MDBList"), t("Notas do Rotten Tomatoes, Metacritic, Trakt e Letterboxd (grátis em mdblist.com)"), "mdblistKey", "API key");
+      {
+        var found = !s.rdKey && available();
+        keyRow(t("Chave do Real-Debrid"), (found ? t("Achei a da sua conta (pelos addons)") : t("Para tocar torrents sem o PC, inclusive os da área NSFW")) + " · real-debrid.com/apitoken", "rdKey", found ? t("Já encontrada nos addons") : "API token");
+      }
       if (!IS_WEB) {
         body.appendChild(h("div.set-section", {
           text: t("Google Agenda")
