@@ -9,7 +9,7 @@ import * as nav from '../lib/nav.js';
 import { KEY } from '../lib/nav.js';
 import * as addons from '../api/addons.js';
 import * as stremio from '../api/stremio.js';
-import { topbar, card, skeletonCards, retrying, pagedGrid, statsLine, confirmDialog } from '../ui.js';
+import { topbar, card, skeletonCards, retrying, pagedGrid, statsLine, confirmDialog, seeAllCard } from '../ui.js';
 import * as router from '../router.js';
 import { openDetails as openDetailsRaw } from './details.js';
 import { showRetry } from './recommended.js';
@@ -239,14 +239,6 @@ function categoryTile(label, onSelect, opts) {
     ]),
   ]);
 }
-
-// Cartão "Ver tudo" do fim da fileira: o mesmo formato dos cartões dela (16:9 nos vídeos).
-function seeAllCard(entry, onSelect) {
-  return h('div.card.see-all', { focusable: true, cls: wideCatalog(entry) ? 'wide' : '', onSelect: onSelect }, [
-    h('div.poster-wrap', null, h('div.see-all-label', null, [h('i', { html: ICON_ARROW }), h('b', { text: t('Ver tudo') }), h('span', { text: catName(entry) })])),
-  ]);
-}
-const ICON_ARROW = '<svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>';
 
 export function NsfwView() {
   const el = h('div.view.nsfw-view', { 'data-stay': '' });
@@ -692,7 +684,7 @@ function catalogRow(entry, parent, discovery) {
           return;
         }
         metas.slice(0, ROW_LIMIT).forEach((m) => track.appendChild(itemCard(m, entry)));
-        if (metas.length >= ROW_LIMIT) track.appendChild(seeAllCard(entry, () => router.push(GridView(entry, entry.extra || {}))));
+        if (metas.length >= ROW_LIMIT) track.appendChild(seeAllCard({ label: catName(entry), wide: wideCatalog(entry), onSelect: () => router.push(GridView(entry, entry.extra || {})) }));
         loadVisibleImages(row);
       })
       .catch(() => showRetry(track, () => load()));

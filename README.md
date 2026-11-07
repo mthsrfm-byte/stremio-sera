@@ -32,6 +32,14 @@ mexendo até ficar com a minha cara, pensando em três coisas:
 - **Perfis.** Tela de "Quem está assistindo?". Todos usam a mesma conta do Stremio (addons, debrid,
   favoritos), mas cada perfil tem o seu histórico: "Continuar assistindo" e onde parou ficam separados.
   O perfil que entrou na conta primeiro continua sincronizando o histórico com ela.
+- **Torrent sem o PC, pelo Real-Debrid.** Com Real-Debrid na conta (o app acha a chave na URL do
+  Torrentio, ou cole em **Ajustes → Chave do Real-Debrid**), fontes que só têm torrent tocam direto
+  na TV, inclusive as dos addons +18. O Smart Choice põe o Real-Debrid em cache e dublado na frente
+  e, em anime, prefere dublagem (português; senão outra língua) ao áudio só em japonês.
+- **Área +18 discreta.** Desligou a TV ou saiu do app com a área NSFW aberta: ao voltar, está no
+  Início, sem nada do que estava na tela. Dentro dela, cada site tem Creampie em alta e lançamentos
+  (mudam a cada abertura e deixam de fora o que você já viu), categorias em cartões e uma grade com
+  a lista de categorias ao lado.
 - **Leve.** JavaScript simples, compilado para o navegador antigo das TVs; nada de WebAssembly.
 - **Se atualiza sozinho.** Cada mudança aqui no repositório chega na TV na próxima vez que o app abrir.
 
