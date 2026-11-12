@@ -8,6 +8,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { tokens } from './tokens.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const src = path.join(root, 'src');
@@ -46,6 +47,20 @@ function copyDir(from, to) {
     if (entry.isDirectory()) copyDir(a, b);
     else fs.copyFileSync(a, b);
   }
+}
+
+// Tokens: `$nome` no CSS vira o valor de tools/tokens.mjs antes do minificador (a saída não tem var()).
+// Comentários, strings e url() ficam como estão; token desconhecido derruba o build com a linha do erro.
+function resolveTokens(css, file) {
+  const re = /(\/\*[\s\S]*?\*\/|"[^"]*"|'[^']*'|url\([^)]*\))|(?<![\w$])\$([a-z][a-z0-9-]*)/g;
+  return css.replace(re, (m, skip, name, offset) => {
+    if (skip) return m;
+    if (!Object.prototype.hasOwnProperty.call(tokens, name)) {
+      const linha = css.slice(0, offset).split('\n').length;
+      throw new Error(`token de CSS desconhecido "$${name}" em ${file}:${linha} (defina em tools/tokens.mjs)`);
+    }
+    return tokens[name];
+  });
 }
 
 async function downlevel(code) {
@@ -90,9 +105,10 @@ async function emit(result) {
   fs.rmSync(dist, { recursive: true, force: true });
   fs.mkdirSync(dist, { recursive: true });
   copyDir(path.join(src, 'static'), dist);
-  // CSS: tira os fallbacks .woff (ver fontes abaixo) e minifica. O target chrome47 faz o esbuild
+  // CSS: tira os fallbacks .woff (ver fontes abaixo), troca os tokens $nome e minifica. O target chrome47 faz o esbuild
   // manter a sintaxe antiga (sem #rrggbbaa nem "inset"): sem ele, a minificação reescreve para isso.
-  const cssSrc = fs.readFileSync(path.join(src, 'static', 'app.css'), 'utf8').replace(/,\s*url\('[^']+\.woff'\)\s*format\('woff'\)/g, '');
+  const cssRaw = fs.readFileSync(path.join(src, 'static', 'app.css'), 'utf8').replace(/,\s*url\('[^']+\.woff'\)\s*format\('woff'\)/g, '');
+  const cssSrc = resolveTokens(cssRaw, 'src/static/app.css');
   const css = await transform(cssSrc, { loader: 'css', minify: !watch, target: ['chrome47'] });
   fs.writeFileSync(path.join(dist, 'app.css'), css.code);
   if (web) {
