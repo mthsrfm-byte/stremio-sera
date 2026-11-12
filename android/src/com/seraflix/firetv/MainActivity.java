@@ -46,7 +46,7 @@ public class MainActivity extends Activity {
     // A agenda (iCal) que o serviço da TV Samsung buscava: aqui o próprio app atende.
     private static final String CAL_PREFIX = "http://127.0.0.1:8092/api/cal?u=";
     private static final Pattern CAL_HOSTS = Pattern.compile("^https://([a-z0-9-]+\\.)*(google\\.com|googleusercontent\\.com|outlook\\.com|office365\\.com|live\\.com|icloud\\.com|apple\\.com)/.*", Pattern.CASE_INSENSITIVE);
-    // Quanto esperar o GitHub na abertura antes de abrir a versão que já tem.
+    // Quanto esperar o GitHub na primeira abertura (sem versão baixada) antes de abrir a do APK.
     private static final int CHECK_TIMEOUT_MS = 4000;
 
     private static final Map<Integer, Integer> KEYS = new HashMap<>();
@@ -84,7 +84,6 @@ public class MainActivity extends Activity {
         super.onCreate(saved);
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
         updater = new Updater(this);
-        updater.prune();
 
         FrameLayout box = new FrameLayout(this);
         box.setBackgroundColor(Color.parseColor("#0d0b14"));
@@ -99,9 +98,22 @@ public class MainActivity extends Activity {
         setContentView(box);
         setup(web);
 
-        // Procura versão nova antes de abrir; se o GitHub demorar, abre a que já tem.
+        // Tudo que mexe em pastas e na rede roda fora da tela (thread de fundo).
         status.setText("Seraflix");
         new Thread(() -> {
+            // Apaga versões velhas antes de qualquer download (a pasta em uso é a que current() devolve).
+            updater.prune();
+            if (updater.current() != null) {
+                // Já há versão baixada: abre ela já. A checagem roda por trás e vale na próxima abertura.
+                ui.post(this::load);
+                String latest = updater.latestSha(15000);
+                if (latest != null && !updater.isCurrent(latest)) {
+                    boolean ok = updater.install(latest);
+                    Log.i(TAG, "Atualização " + latest + " (vale na próxima abertura): " + (ok ? "ok" : "falhou"));
+                }
+                return;
+            }
+            // Primeira vez (sem versão baixada): espera a checagem, com limite, para abrir a mais nova.
             final String[] sha = { null };
             Thread probe = new Thread(() -> sha[0] = updater.latestSha(CHECK_TIMEOUT_MS));
             probe.start();
