@@ -217,7 +217,7 @@ function wideCatalog(entry) {
 // Ordem das fileiras: Creampie hétero, gay, os lançamentos de creampie e depois o resto do addon.
 function catalogOrder(e) {
   const n = (e.catalog.name || e.catalog.id || '') + ' ' + (e.catalog.id || '');
-  if (!/creampie|cpnew|-cp\b/i.test(n)) return 3;
+  if (!/creampie|-cp(gay|new)?\b/i.test(n)) return 3;
   if (/lançamento|lancamento|cpnew|\bnew\b/i.test(n)) return 2;
   return /gay/i.test(n) ? 1 : 0;
 }
@@ -423,7 +423,7 @@ export function NsfwView() {
   const filters = h('div.provider-rail.site-rail', { 'data-group': '', 'data-trap': '' });
   const body = h('div.rows.nsfw-rows');
   // Destaque da vez (palco): o vídeo sorteado entre os da primeira fileira de descoberta que chega.
-  const hero = { pool: [], item: null, turn: 0, replace: false, wantFocus: false };
+  const hero = { pool: [], favIds: {}, item: null, turn: 0, replace: false, wantFocus: false };
   const stage = buildStage();
   scroller.appendChild(bar);
   scroller.appendChild(stage.el);
@@ -569,8 +569,10 @@ export function NsfwView() {
   function pickHero(exclude) {
     const others = hero.pool.filter((m) => !exclude || m.id !== exclude.id);
     if (!others.length) return null;
-    const fresh = others.filter((m) => !addons.wasOpened(m.id));
-    const list = fresh.length ? fresh : others;
+    const favs = others.filter((m) => hero.favIds[m.id]);
+    const base = favs.length ? favs : others;
+    const fresh = base.filter((m) => !addons.wasOpened(m.id));
+    const list = fresh.length ? fresh : base;
     hero.turn++;
     const rng = makeRng(mixSeed(hashStr('destaque'), seed, hero.turn));
     return list[Math.floor(rng() * list.length)];
@@ -578,9 +580,12 @@ export function NsfwView() {
 
   // Vídeos das fileiras que chegam entram no sorteio; o primeiro destaque (ou o novo, depois do
   // Embaralhar) sai na hora, sem esperar as outras fileiras.
-  function heroFeed(metas) {
+  // fav: veio de uma fileira preferida (Creampie hétero ou gay); o destaque sai delas quando houver.
+  function heroFeed(metas, fav) {
     metas.forEach((m) => {
-      if (!m || !m.id || hero.pool.length >= HERO_POOL) return;
+      if (!m || !m.id) return;
+      if (fav) hero.favIds[m.id] = true;
+      if (hero.pool.length >= HERO_POOL) return;
       if (!hero.pool.some((x) => x.id === m.id)) hero.pool.push(m);
     });
     if (hero.item && !hero.replace) return;
@@ -730,7 +735,10 @@ export function NsfwView() {
     const pg = pageSizeOf(entry);
     const opts = sortOptions(entry);
     const p = Math.floor(rng() * PAGE_SLOTS);
-    const sort = opts.length ? opts[Math.floor(rng() * opts.length)] : null;
+    // Fileira de lançamentos fica sempre em "recentes": só a página muda, senão o nome mentiria.
+    const isNew = entry.order === undefined && catalogOrder(entry) === 2;
+    const picked = opts.length ? opts[Math.floor(rng() * opts.length)] : null;
+    const sort = isNew ? (opts.indexOf('new') >= 0 ? 'new' : null) : picked;
     const extra = Object.assign({}, entry.extra || {});
     if (sort !== null) extra.sort = sort;
     return { skip: p * pg, page: pg, sort: sort, extra: extra, order: Math.floor(rng() * 4294967296) >>> 0 };
@@ -782,7 +790,7 @@ export function NsfwView() {
                 onSelect: () => router.push(GridView(entry, plan ? plan.extra : entry.extra || {}, null, undefined, plan ? plan.skip : 0)),
               })
             );
-          heroFeed(metas);
+          heroFeed(metas, (entry.order !== undefined ? entry.order : catalogOrder(entry)) < 2);
           loadVisibleImages(row);
         })
         .catch(() => {
@@ -853,9 +861,9 @@ export function NsfwView() {
     renderBody(true);
   }
 
-  // Arquitetura de cada site, de cima para baixo: o que é seu (Continuar assistindo, Favoritos,
-  // Vistos recentemente), as fileiras preferidas (Creampie hétero, gay e lançamentos), as categorias
-  // como cartões e as outras fileiras do site. Sem a barra de atalhos: Voltar leva de qualquer ponto aos sites.
+  // Arquitetura de cada site, de cima para baixo: as fileiras preferidas (Creampie hétero, gay e
+  // lançamentos), o que é seu (Continuar assistindo, Favoritos, Vistos recentemente), as categorias
+  // como cartões, os temas sorteados e as outras fileiras do site. Sem a barra de atalhos: Voltar leva de qualquer ponto aos sites.
   // keep: "Embaralhar" — o destaque atual continua na tela até a primeira fileira nova chegar.
   function renderBody(keep) {
     token++; // o que estava em voo (outro site, busca, fileiras) não toca mais no DOM
@@ -865,6 +873,7 @@ export function NsfwView() {
     clear(body);
     onSearchScroll = null;
     hero.pool = [];
+    hero.favIds = {};
     hero.replace = !!keep;
     if (!keep) clearHero();
     stage.el.style.display = scope === 'search' ? 'none' : '';
@@ -875,8 +884,8 @@ export function NsfwView() {
       body.appendChild(stateBox('', emptyHint(), '', null));
       return;
     }
+    // As fileiras preferidas (Creampie) abrem a tela; o que é seu vem logo depois delas, antes das categorias.
     personalSlot = h('div.nsfw-personal');
-    body.appendChild(personalSlot);
     renderPersonal(site, all);
 
     const entries = [];
@@ -900,7 +909,7 @@ export function NsfwView() {
           Object.assign({}, searchable[0], {
             extra: nsfwSearch.searchExtra(searchable[0], theme.search, theme.orientation),
             title: t(theme.title),
-            order: theme.order,
+            order: 2.9, // depois do que é seu e das categorias, antes do resto do site
             discovery: true,
             discoveryLite: true,
           })
@@ -910,9 +919,14 @@ export function NsfwView() {
     const orderOf = (e) => (e.order !== undefined ? e.order : catalogOrder(e));
     const ordered = entries.map((e, i) => ({ e: e, i: i })).sort((a, b) => orderOf(a.e) - orderOf(b.e) || a.i - b.i);
     let catsDone = false;
+    let personalDone = false;
     ordered.forEach((x) => {
+      if (orderOf(x.e) > 2 && !personalDone) {
+        personalDone = true;
+        body.appendChild(personalSlot);
+      }
       // Categorias logo depois das fileiras de Creampie: o caminho mais usado depois delas.
-      if (orderOf(x.e) >= 3 && !catsDone) {
+      if (orderOf(x.e) > 2 && !catsDone) {
         catsDone = true;
         categoryRows(site);
       }
@@ -922,6 +936,7 @@ export function NsfwView() {
       body.appendChild(r.row);
       pending.push(r);
     });
+    if (!personalDone) body.appendChild(personalSlot);
     if (!catsDone) categoryRows(site);
     loadVisibleImages(el);
     loadNearby();
