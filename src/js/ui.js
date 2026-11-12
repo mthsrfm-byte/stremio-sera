@@ -609,7 +609,9 @@ export function rowRetry(onRetry, onFocus) {
 // opts: { load(page) -> Promise<itens>, key(item), card(item) -> elemento, onEmpty(), skeleton(), autoFocus,
 //   errorState: erro na página vira "Tentar de novo" (repete sozinho só em erro; vazio não repete) e
 //   vazio mostra "Nada por aqui." se não houver onEmpty;
-//   partialRows: mostra já a última linha incompleta (ela completa quando a próxima página chega) }
+//   partialRows: mostra já a última linha incompleta (ela completa quando a próxima página chega);
+//   align: 'left' prende a grade à margem esquerda (insetLeft) em vez de centralizar; insetLeft e
+//   insetRight (padrão 96) são as margens laterais usadas para contar as colunas }
 export function pagedGrid(opts) {
   const grid = h('div.grid.paged');
   let failed = false; // errorState: a última página falhou (só o botão tenta de novo)
@@ -643,7 +645,15 @@ export function pagedGrid(opts) {
     if (cols) return;
     const width = el.clientWidth || window.innerWidth;
     const cw = sample.offsetWidth || 210;
-    cols = Math.max(1, Math.floor((width - 2 * 96 + GAP) / (cw + GAP)));
+    const inL = opts.insetLeft === undefined ? 96 : opts.insetLeft;
+    const inR = opts.insetRight === undefined ? 96 : opts.insetRight;
+    cols = Math.max(1, Math.floor((width - inL - inR + GAP) / (cw + GAP)));
+    if (opts.align === 'left') {
+      grid.style.paddingLeft = inL + 'px';
+      grid.style.paddingRight = inR + 'px';
+      moreWrap.style.paddingLeft = inL + 'px';
+      return;
+    }
     const side = Math.floor((width - (cols * (cw + GAP) - GAP)) / 2);
     grid.style.paddingLeft = side + 'px';
     grid.style.paddingRight = Math.max(0, side - GAP) + 'px'; // o último cartão também tem margem à direita
