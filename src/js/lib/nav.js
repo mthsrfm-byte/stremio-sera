@@ -57,15 +57,16 @@ function center(r) {
   return { x: (r.left + r.right) / 2, y: (r.top + r.bottom) / 2 };
 }
 
-function pick(list, cur, dir) {
-  const cr = cur.getBoundingClientRect();
+// rectOf(el): medida do elemento, lida uma vez por movimento (cache feito em move()).
+function pick(list, cur, dir, rectOf) {
+  const cr = rectOf(cur);
   const cc = center(cr);
   const tol = 8;
   let best = null;
   let bestScore = Infinity;
   for (let i = 0; i < list.length; i++) {
     const el = list[i];
-    const r = el.getBoundingClientRect();
+    const r = rectOf(el);
     let primary;
     let secondary;
     if (dir === 'right') {
@@ -125,21 +126,23 @@ function animateScroll(node, prop, target) {
 }
 
 export function ensureVisible(el) {
+  // Lê tudo primeiro (posições e limites) e só depois escreve a rolagem: antes, cada contêiner
+  // forçava um novo cálculo de layout.
+  const er = el.getBoundingClientRect();
+  const jobs = [];
   let node = el.parentNode;
   while (node && node.nodeType === 1) {
     if (node.hasAttribute('data-scroll-x')) {
       const pad = parseInt(node.getAttribute('data-pad') || '96', 10);
-      const er = el.getBoundingClientRect();
       const nr = node.getBoundingClientRect();
       let target = node.scrollLeft;
       if (er.left < nr.left + pad) target -= nr.left + pad - er.left;
       else if (er.right > nr.right - pad) target += er.right - (nr.right - pad);
       target = Math.max(0, Math.min(target, node.scrollWidth - node.clientWidth));
-      if (target !== node.scrollLeft) animateScroll(node, 'scrollLeft', target);
+      if (target !== node.scrollLeft) jobs.push([node, 'scrollLeft', target]);
     }
     if (node.hasAttribute('data-scroll-y')) {
       const pad = parseInt(node.getAttribute('data-pad-y') || '140', 10);
-      const er = el.getBoundingClientRect();
       const nr = node.getBoundingClientRect();
       let target = node.scrollTop;
       const anchor = el.closest('[data-anchor]');
@@ -150,10 +153,11 @@ export function ensureVisible(el) {
       } else if (er.top < nr.top + pad) target -= nr.top + pad - er.top;
       else if (er.bottom > nr.bottom - pad) target += er.bottom - (nr.bottom - pad);
       target = Math.max(0, Math.min(target, node.scrollHeight - node.clientHeight));
-      if (target !== node.scrollTop) animateScroll(node, 'scrollTop', target);
+      if (target !== node.scrollTop) jobs.push([node, 'scrollTop', target]);
     }
     node = node.parentNode;
   }
+  jobs.forEach((j) => animateScroll(j[0], j[1], j[2]));
 }
 
 export function focus(el, opts) {
@@ -207,18 +211,28 @@ export function move(dir) {
   // última fileira fica nela. Quem sai é o Voltar.
   const stay = cur.closest('[data-stay]') && !cur.closest('.topbar');
   const all = candidates(layer.root).filter((e) => e !== cur && !(stay && e.closest('.topbar')));
+  // Cada elemento é medido no máximo uma vez neste movimento (fileira primeiro, depois o resto).
+  const rects = new Map();
+  const rectOf = (el) => {
+    let r = rects.get(el);
+    if (!r) {
+      r = el.getBoundingClientRect();
+      rects.set(el, r);
+    }
+    return r;
+  };
   const group = cur.closest('[data-group]');
   const horizontal = dir === 'left' || dir === 'right';
   if (group && horizontal === !group.hasAttribute('data-vertical')) {
     const inGroup = all.filter((e) => group.contains(e));
-    const g = pick(inGroup, cur, dir);
+    const g = pick(inGroup, cur, dir, rectOf);
     if (g) {
       focus(g);
       return true;
     }
     if (group.hasAttribute('data-trap')) return false;
   }
-  let best = pick(all, cur, dir);
+  let best = pick(all, cur, dir, rectOf);
   if (!best) return false;
   const bg = best.closest('[data-group]');
   if (bg && bg !== group) {
@@ -280,6 +294,12 @@ export function onScroll(fn) {
   scrollHook = fn;
 }
 
+// Seta segurada (auto-repeat): no máximo um movimento a cada 80 ms, senão a TV engasga. O primeiro
+// toque sempre passa na hora; só a mesma seta repetida dentro desse intervalo é descartada.
+const ARROW_MS = 80;
+let lastArrow = 0;
+let lastArrowAt = 0;
+
 function onKeyDown(e) {
   const layer = top();
   if (!layer) return;
@@ -298,6 +318,15 @@ function onKeyDown(e) {
     } else if (code === KEY.UP || code === KEY.DOWN) {
       active.blur();
     } else return;
+  }
+  if (code === KEY.LEFT || code === KEY.RIGHT || code === KEY.UP || code === KEY.DOWN) {
+    const now = Date.now();
+    if (code === lastArrow && now - lastArrowAt < ARROW_MS) {
+      e.preventDefault();
+      return;
+    }
+    lastArrow = code;
+    lastArrowAt = now;
   }
   if (layer.onKey && layer.onKey(e) === true) {
     e.preventDefault();

@@ -6,7 +6,7 @@ import { KEY } from '../lib/nav.js';
 import * as addons from '../api/addons.js';
 import * as stremio from '../api/stremio.js';
 import * as hero from '../api/hero.js';
-import { topbar, card, spinnerLine, skeletonCards, retrying, agendaPanel, eventDetail, dayLabel, eventTime, eventSoon } from '../ui.js';
+import { topbar, card, spinnerLine, skeletonCards, retrying, rowRetry, agendaPanel, eventDetail, dayLabel, eventTime, eventSoon } from '../ui.js';
 import * as calendar from '../api/calendar.js';
 import * as router from '../router.js';
 import { openDetails } from './details.js';
@@ -35,9 +35,14 @@ export function HomeView() {
 
   let loadedBoard = false;
 
+  // Assinatura barata: a tela volta a aparecer a cada Voltar, então só redesenha se algo mudou.
+  let contSig = null;
   function renderContinue() {
-    clear(cwRow);
     const items = stremio.continueWatching().filter((it) => !addons.isAdultId(it._id)).slice(0, 20);
+    const sig = items.map((it) => it._id + ':' + it.state.video_id + ':' + it.state.timeOffset + ':' + it.state.duration).join('|');
+    if (sig === contSig) return;
+    contSig = sig;
+    clear(cwRow);
     if (!items.length) {
       cwRow.style.display = 'none';
       return;
@@ -67,7 +72,16 @@ export function HomeView() {
   }
 
   // Sua agenda: cartões pequenos de hoje e de amanhã, cada dia com o seu rótulo. Abre o painel.
+  let agendaSig = null;
   function renderAgenda() {
+    // Mesma assinatura (estado da busca + eventos, com passado/em breve no momento): não redesenha.
+    const now = Date.now();
+    const evSig = (list) => list.map((e) => e.title + '|' + e.start.getTime() + '|' + (e.end.getTime() <= now ? 'p' : '') + (eventSoon(e) || '')).join(',');
+    const ready = calendar.enabled() && !calendar.loading() && !calendar.failed();
+    const d = ready ? calendar.days() : null;
+    const sig = [calendar.enabled(), calendar.loading(), calendar.failed(), d ? evSig(d.today) + '#' + evSig(d.tomorrow) : ''].join('~');
+    if (sig === agendaSig) return;
+    agendaSig = sig;
     clear(calRow);
     if (!calendar.enabled()) {
       calRow.style.display = 'none';
@@ -87,9 +101,7 @@ export function HomeView() {
       calRow.appendChild(track);
       return;
     }
-    const d = calendar.days();
     const today = new Date();
-    const now = Date.now();
     const group = (label, date, events) => {
       const cards = events.map((e) => {
         const soon = eventSoon(e);
@@ -166,9 +178,10 @@ export function HomeView() {
         pending = cats.map((c) => Object.assign(buildRow(c, rows), { state: 'idle' }));
         loadNearby();
       })
-      .catch((e) => {
+      .catch(() => {
+        // Erro ao carregar os addons: botão para tentar de novo (como nas fileiras que falham).
         clear(rows);
-        rows.appendChild(h('div.row-empty', { text: t('Erro ao carregar addons: {msg}', { msg: e.message }) }));
+        rows.appendChild(rowRetry(() => renderBoard()));
       });
   }
 
@@ -182,7 +195,7 @@ export function HomeView() {
       if (!loadedBoard) renderBoard();
       else loadNearby(); // fileiras que ficaram esperando enquanto a tela estava escondida
       heroUi.resume();
-      loadVisibleImages(el);
+      // As imagens visíveis já são carregadas pelo router logo depois de onShow (sem repetir aqui).
     },
     onHide: () => heroUi.pause(),
     onScroll: () => loadNearby(),

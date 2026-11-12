@@ -106,24 +106,28 @@ export function loadVisibleImages(root, margin) {
   const H = window.innerHeight;
   // Margem curta: só ~1 tela além da visível fica na memória.
   const isFar = (r) => r.right < -W * 0.5 || r.left > W * 1.6 || r.bottom < -H * 0.8 || r.top > H * 1.8;
+  // Primeiro só leituras (mede tudo), depois só escritas: intercalar as duas força layout a cada imagem.
   const handled = [];
   // Fileiras inteiras longe da tela: descarrega sem medir imagem por imagem.
   $$('[data-scroll-x]', root).forEach((track) => {
     if (track.offsetParent === null) return;
     const tr = track.getBoundingClientRect();
-    if (tr.bottom < -H * 0.8 || tr.top > H * 1.8) {
-      $$('img[data-lazy]', track).forEach((el) => setOn(el, false));
-      handled.push(track);
-    }
+    if (tr.bottom < -H * 0.8 || tr.top > H * 1.8) handled.push(track);
   });
+  const toOff = [];
+  const toOn = [];
+  handled.forEach((track) => $$('img[data-lazy]', track).forEach((el) => toOff.push(el)));
   $$('img[data-lazy]', root).forEach((el) => {
     if (el.offsetParent === null) return; // oculta (display:none)
     for (let i = 0; i < handled.length; i++) if (handled[i].contains(el)) return;
     const r = el.getBoundingClientRect();
     const near = r.right > -m && r.left < W + m && r.bottom > -m && r.top < H + m;
-    if (near) setOn(el, true);
-    else if (isFar(r)) setOn(el, false);
+    if (near) toOn.push(el);
+    else if (isFar(r)) toOff.push(el);
   });
+  // Escritas: só depois de medir todas.
+  toOff.forEach((el) => setOn(el, false));
+  toOn.forEach((el) => setOn(el, true));
 }
 
 // Libera todas as imagens de uma tela que saiu de vista.

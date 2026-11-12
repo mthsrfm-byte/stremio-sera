@@ -21,6 +21,7 @@ const MAX_TRAILERS = 4; // depois disso desiste e fica só a arte
 const AUDIO_FADE_MS = 1600;
 const NOCOOKIE = 'www.youtube-nocookie.com';
 const YOUTUBE = 'www.youtube.com';
+const QUALITY = 'hd720'; // teto do trailer: 1080p engasga a TV e o celular fraco
 
 // Abre o título no Seraflix: os addons do Stremio usam o id do IMDb.
 export function openItem(it) {
@@ -73,6 +74,8 @@ function Billboard() {
   let frameWin = null; // janela do iframe do trailer (para reconhecer as mensagens dele)
   let revealed = false;
   let unmuteAt = 0;
+  let shownKey = null; // título cuja arte está na tela (outro cartão do mesmo título não recria o trailer)
+  const keyOf = (it) => (it.tmdbId ? it.mediaType + ':' + it.tmdbId : null);
 
   function stopTrailer() {
     clearTimeout(trailerTimer);
@@ -88,6 +91,10 @@ function Billboard() {
 
   function show(it) {
     current = it;
+    // Outro cartão do mesmo título: a arte e o trailer que já estão na tela ficam (sem recriar o iframe).
+    const k = keyOf(it);
+    if (k && k === shownKey) return;
+    shownKey = null;
     token++;
     clearTimeout(previewTimer);
     stopTrailer();
@@ -96,6 +103,7 @@ function Billboard() {
 
   function render(it, tk) {
     if (tk !== token) return;
+    shownKey = keyOf(it);
     title.textContent = it.name;
     meta.textContent = metaLine(it);
     desc.textContent = it.overview || '';
@@ -159,7 +167,7 @@ function Billboard() {
   function onPlaying() {
     el.classList.remove('buffering');
     if (revealed || revealTimer) return;
-    command('setPlaybackQuality', ['hd1080']);
+    command('setPlaybackQuality', [QUALITY]);
     const tk = token;
     revealTimer = setTimeout(() => {
       revealTimer = null;
@@ -251,10 +259,10 @@ function Billboard() {
       nextTrailer(tk);
     }, ATTEMPT_MS);
     const origin = window.location.protocol + '//' + window.location.host;
-    // mute=1: vídeo sem som pode tocar sozinho; vq=hd1080: pede alta definição (o YouTube decide no fim).
+    // mute=1: vídeo sem som pode tocar sozinho; vq: teto de qualidade (720p, não 1080p).
     const src =
       'https://' + host + '/embed/' + key +
-      '?autoplay=1&mute=1&controls=0&rel=0&modestbranding=1&playsinline=1&iv_load_policy=3&disablekb=1&fs=0&cc_load_policy=0&vq=hd1080&enablejsapi=1&origin=' +
+      '?autoplay=1&mute=1&controls=0&rel=0&modestbranding=1&playsinline=1&iv_load_policy=3&disablekb=1&fs=0&cc_load_policy=0&vq=' + QUALITY + '&enablejsapi=1&origin=' +
       encodeURIComponent(origin) + '&widget_referrer=' + encodeURIComponent(origin);
     const frame = h('iframe', { src: src, allow: 'autoplay; encrypted-media', referrerpolicy: 'strict-origin-when-cross-origin', tabindex: '-1', frameborder: '0' });
     frame.onload = () => {
@@ -264,13 +272,14 @@ function Billboard() {
       frameWin.postMessage(JSON.stringify({ event: 'listening', id: 1, channel: 'widget' }), '*');
       command('addEventListener', ['onStateChange']);
       command('addEventListener', ['onError']);
-      command('setPlaybackQuality', ['hd1080']);
+      command('setPlaybackQuality', [QUALITY]);
     };
     frameBox.appendChild(frame);
   }
 
   function stop() {
     token++;
+    shownKey = null;
     clearTimeout(previewTimer);
     stopTrailer();
   }
@@ -331,6 +340,8 @@ export function showRetry(track, load, onFocus) {
 }
 
 function buildRow(def, index, ctx) {
+  // ctx.alive (só na troca de serviço): falso quando outra carga já começou; esta não pede nem anexa mais nada.
+  const alive = () => !ctx.alive || ctx.alive();
   const row = h('div.row.reco-row', { 'data-anchor': '0' });
   // data-trap: no fim da fileira o foco para ali (antes pulava para outra fileira fora da tela).
   const track = h('div.row-track.pending', { 'data-scroll-x': '', 'data-group': '', 'data-trap': '' }, skeletonCards());
@@ -342,18 +353,18 @@ function buildRow(def, index, ctx) {
     const all = row.parentNode ? row.parentNode.children : [];
     for (let i = 0; i < all.length; i++) all[i].classList.toggle('past', i < index);
   };
-  const failed = () =>
-    showRetry(
-      track,
-      () => load(),
-      () => {
-        focusRow();
-        ctx.billboard.stop();
-      }
-    );
-  const load = () =>
-    retrying(() => def.load(1))
+  const failed = () => {
+    if (alive()) showRetry(track, () => load(), focusAndStop);
+  };
+  const focusAndStop = () => {
+    focusRow();
+    ctx.billboard.stop();
+  };
+  const load = () => {
+    if (!alive()) return Promise.resolve();
+    return retrying(() => (alive() ? def.load(1) : Promise.resolve([])))
       .then((items) => {
+        if (!alive()) return; // trocou de serviço enquanto carregava: não mexe mais na tela
         clear(track);
         track.classList.remove('pending');
         if (!items.length) return failed();
@@ -372,24 +383,22 @@ function buildRow(def, index, ctx) {
           seeAllCard({
             label: t(def.title),
             onSelect: () => openCategory(ctx.crumb, def),
-            onFocus: () => {
-              focusRow();
-              ctx.billboard.stop();
-            },
+            onFocus: focusAndStop,
           })
         );
         loadVisibleImages(row);
       })
       .catch(failed);
+  };
   return { row: row, load: load };
 }
 
 // No máximo 2 fileiras ao mesmo tempo (como no Início): várias de uma vez engasgam a TV.
-function loadRowsCapped(built, onFirst) {
+function loadRowsCapped(built, onFirst, alive) {
   let i = 0;
   let active = 0;
   const pump = () => {
-    while (active < 2 && i < built.length) {
+    while (active < 2 && i < built.length && (!alive || alive())) {
       const b = built[i++];
       active++;
       const p = Promise.resolve()
@@ -498,6 +507,8 @@ export function StreamingsView() {
   let current = null;
   let switchTimer = null;
   let firstItemOf = null;
+  // Geração da troca de serviço: a carga de um serviço que já saiu (ou o destroy) para de pedir e de mexer na tela.
+  let gen = 0;
 
   function scheduleSwitch(p) {
     clearTimeout(switchTimer);
@@ -511,6 +522,8 @@ export function StreamingsView() {
       return;
     }
     current = p;
+    const my = ++gen;
+    const alive = () => gen === my;
     logos.forEach((l, i) => l.classList.toggle('on', reco.STREAMINGS[i] === p));
     billboard.stop();
     rail.setDefs(p.rows);
@@ -520,16 +533,21 @@ export function StreamingsView() {
     clear(rows);
     rows.scrollTop = 0;
     requestAnimationFrame(() => requestAnimationFrame(() => rows.classList.remove('sw')));
-    const ctx = { billboard: billboard, rail: rail, crumb: 'Streamings › ' + p.name };
+    const ctx = { billboard: billboard, rail: rail, crumb: 'Streamings › ' + p.name, alive: alive };
     const built = p.rows.map((def, i) => buildRow(def, i, ctx));
     built.forEach((b) => rows.appendChild(b.row));
     firstItemOf = p;
-    loadRowsCapped(built, () => {
-      // Prévia no destaque: o primeiro título da home do serviço (sem tirar o foco dos logos).
-      const first = rows.querySelector('.card');
-      if (current === p && first && first.__focus && !nav.current().closest('.reco-rows')) first.__focus(first);
-      if (enterRows && current === p) focusFirstCard();
-    });
+    loadRowsCapped(
+      built,
+      () => {
+        if (!alive()) return;
+        // Prévia no destaque: o primeiro título da home do serviço (sem tirar o foco dos logos).
+        const first = rows.querySelector('.card');
+        if (current === p && first && first.__focus && !nav.current().closest('.reco-rows')) first.__focus(first);
+        if (enterRows && current === p) focusFirstCard();
+      },
+      alive
+    );
   }
 
   function focusFirstCard() {
@@ -572,6 +590,7 @@ export function StreamingsView() {
     onHide: () => billboard.stop(),
     destroy: () => {
       clearTimeout(switchTimer);
+      gen++; // cargas em andamento param aqui
       billboard.destroy();
       document.removeEventListener('visibilitychange', onVisibility);
       if (bar.__destroy) bar.__destroy();
@@ -645,5 +664,6 @@ function CategoryView(crumb, def) {
   return {
     el: el,
     onShow: () => pg.start(),
+    destroy: () => pg.destroy(), // a página que ainda chegava não mexe mais na tela
   };
 }

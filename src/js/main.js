@@ -33,10 +33,17 @@ import * as webkeys from './lib/webkeys.js';
 // Abertura (logo + som): o app só aparece depois dela, mesmo que carregue antes.
 let introDone = Promise.resolve();
 
+// Efeitos reduzidos (body.lowfx, CSS): o que está em Ajustes; sem escolha, liga na TV e no Fire TV
+// (no build web, desliga).
+function applyLowFx(s) {
+  document.body.classList.toggle('lowfx', typeof s.lowfx === 'boolean' ? s.lowfx : !IS_WEB);
+}
+
 function boot() {
   const s = store.settings();
   initI18n();
   applyTheme(s);
+  applyLowFx(s);
   introDone = intro.play(s.introSound !== false);
   if (s.devlogUrl) log.setRemote(s.devlogUrl);
   log.info('Iniciando', navigator.userAgent);
@@ -92,6 +99,7 @@ function start() {
   stremio.reloadProfile();
   const s = store.settings();
   applyTheme(s);
+  applyLowFx(s); // as configurações podem ser do perfil escolhido agora
   log.info('Perfil', store.activeProfile().name);
 
   // Atualiza a conta em segundo plano; a tela inicial abre com o cache.
@@ -100,7 +108,10 @@ function start() {
     stremio.getLibrary().catch(() => {});
   }
 
-  Promise.all([server.check(), addons.load().catch(() => null), introDone]).then(() => {
+  // O servidor do PC é revalidado em paralelo (check() nunca rejeita: se falhar, o status fica offline
+  // como antes). A tela inicial não espera mais o timeout de 4 s.
+  server.check();
+  Promise.all([addons.load().catch(() => null), introDone]).then(() => {
     router.goTab('home');
     intro.finish(); // a abertura some em fade por cima da tela inicial já pronta
     // Pedidos do controle no celular ("Mandar para a TV").
