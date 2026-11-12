@@ -6,7 +6,8 @@ import * as nav from '../lib/nav.js';
 import { KEY } from '../lib/nav.js';
 import * as router from '../router.js';
 import * as extras from '../api/extras.js';
-import { qrDataUrl } from '../api/phoneRemote.js';
+import { qrDataUrl } from '../lib/qr.js';
+import { ico } from '../lib/icons.js';
 import { spinnerLine } from '../ui.js';
 import { openItem } from './recommended.js';
 import { t } from '../lib/i18n.js';
@@ -215,7 +216,7 @@ function FilmographyView(person) {
     chips.appendChild(
       h('div.chip.fp-order', {
         focusable: true,
-        text: newestFirst ? t('↓ Mais recentes') : t('↑ Mais antigos'),
+        html: ico(newestFirst ? 'arrowDown' : 'arrowUp', 'tiny') + t(newestFirst ? 'Mais recentes' : 'Mais antigos'),
         onSelect: () => {
           newestFirst = !newestFirst;
           refresh();

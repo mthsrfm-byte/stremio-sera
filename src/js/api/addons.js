@@ -73,9 +73,9 @@ const TUBES = ['xv', 'ph'];
 const TUBE_PREFIXES = ['xv:', 'ph:'];
 const TUBE_PORT = 8092;
 const SERVICE_MIN = 12;
-// Versão mais nova do serviço (busca com orientation gay/hétero). Com uma mais velha os vídeos
+// Versão mais nova do serviço (15: sem o controle pelo celular). Com uma mais velha os vídeos
 // tocam do mesmo jeito; o app só pede ao TizenBrew a nova e troca os addons quando ela responder.
-const SERVICE_WANT = 14;
+const SERVICE_WANT = 15;
 let upgradeTimer = null;
 function awaitUpgrade(tries) {
   clearTimeout(upgradeTimer);
@@ -176,9 +176,11 @@ function attachTubes() {
       return;
     }
     tubes = [];
-    // O serviço responde mas não tem os addons: é a versão antiga ainda rodando.
+    // Sem addons: um serviço mais velho que o esperado (ou sem /api/version) é "old"; um da versão
+    // certa sem addons fica "off". Última pista: as versões até a 14 ainda abrem a 8090 (a nova não),
+    // então a sonda acha uma antiga que não respondeu na 8092.
     const before = tubeState;
-    const anyOld = version > 0 || list.some(Boolean);
+    const anyOld = (version > 0 && version < SERVICE_WANT) || list.some(Boolean);
     getJSON('http://127.0.0.1:8090/api/ip', { timeout: 3000, quiet: true })
       .then(
         () => (tubeState = 'old'),

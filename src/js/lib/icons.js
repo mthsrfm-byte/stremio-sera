@@ -13,6 +13,10 @@ const PATHS = {
   heart: { d: '<path d="M12 20s-7.5-4.6-7.5-10.1A4.4 4.4 0 0 1 12 7.2a4.4 4.4 0 0 1 7.5 2.7C19.5 15.4 12 20 12 20z"/>' },
   heartOn: { fill: true, d: '<path d="M12 20s-7.5-4.6-7.5-10.1A4.4 4.4 0 0 1 12 7.2a4.4 4.4 0 0 1 7.5 2.7C19.5 15.4 12 20 12 20z"/>' },
   info: { d: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5.5"/><path d="M12 7.6v.1"/>' },
+  check: { d: '<path d="M5 12.5 9.5 17 19 7.5"/>' },
+  x: { d: '<path d="M6.5 6.5l11 11"/><path d="M17.5 6.5l-11 11"/>' },
+  arrowDown: { d: '<path d="M12 5v14"/><path d="m6 13 6 6 6-6"/>' },
+  arrowUp: { d: '<path d="M12 19V5"/><path d="m6 11 6-6 6 6"/>' },
 };
 
 export function ico(name, extraCls) {

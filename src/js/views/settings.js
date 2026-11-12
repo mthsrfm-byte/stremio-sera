@@ -5,6 +5,7 @@ import * as nav from '../lib/nav.js';
 import * as store from '../lib/store.js';
 import { log } from '../lib/log.js';
 import { deviceInfo } from '../lib/tv.js';
+import { ico } from '../lib/icons.js';
 import { IS_WEB, IS_FIRETV, HAS_TV_SERVICE, android } from '../lib/platform.js';
 import * as playlog from '../lib/playlog.js';
 import * as substyle from '../lib/substyle.js';
@@ -125,6 +126,11 @@ export function SettingsView() {
     return h('div.set-row', { focusable: true, onSelect: onSelect || (() => nav.select(input)) }, [h('div.label', null, label), input]);
   }
 
+  // ✓/✗ em SVG (a fonte da TV não tem esses caracteres): um ícone antes do texto.
+  function mark(ok) {
+    return h('span', { html: ico(ok ? 'check' : 'x', 'tiny') });
+  }
+
   // Diagnóstico de rede: testa cada servidor que o app usa e mostra os últimos erros.
   // Tudo ao mesmo tempo (5 s no máximo por teste); cada linha muda ao terminar. Fechar o modal
   // faz as respostas que chegarem depois serem ignoradas.
@@ -153,12 +159,14 @@ export function SettingsView() {
       return withLimit(run, LIMIT).then(
         () => {
           if (!alive) return;
-          res.textContent = '✓ ' + (Date.now() - t0) + ' ms';
+          res.textContent = (Date.now() - t0) + ' ms';
+          res.insertBefore(mark(true), res.firstChild);
           res.className = 'diag-res ok';
         },
         (e) => {
           if (!alive) return;
-          res.textContent = '✗ ' + (e.timeout ? t('tempo esgotado') : e.status ? 'HTTP ' + e.status : t('falha de rede')) + ' (' + (Date.now() - t0) + ' ms)';
+          res.textContent = (e.timeout ? t('tempo esgotado') : e.status ? 'HTTP ' + e.status : t('falha de rede')) + ' (' + (Date.now() - t0) + ' ms)';
+          res.insertBefore(mark(false), res.firstChild);
           res.className = 'diag-res bad';
         }
       );
@@ -317,17 +325,18 @@ export function SettingsView() {
     toast(t('Testando a TV... leva até 40 segundos'), 6000);
     getJSON('http://127.0.0.1:8092/api/torrent-test', { timeout: 45000, quiet: true })
       .then((r) => {
-        const yes = (ok) => (ok ? '✓ ' : '✗ ');
+        // Linha com ✓/✗ (nó, não texto: o menu aceita nós no rótulo).
+        const yes = (ok, text) => h('span', null, [mark(!!ok), text]);
         const nodeMajor = parseInt(String(r.node || 'v0').slice(1), 10) || 0;
         const disk = r.disk || {};
         const writable = Object.keys(disk).filter((d) => disk[d] === true);
         const lines = [
-          { label: yes(nodeMajor >= 8) + 'Node ' + r.node, sub: nodeMajor >= 8 ? t('Dá para rodar um motor de torrent') : t('Muito antigo para os motores de torrent atuais') },
-          { label: yes(r.memFreeMB >= 150) + t('Memória livre: {n} MB', { n: r.memFreeMB }), sub: t('de {n} MB · {c} núcleos', { n: r.memTotalMB, c: r.cpus }) },
-          { label: yes(r.udp && r.udp.ok) + t('UDP (trackers e DHT)'), sub: r.udp && r.udp.ok ? r.udp.ms + ' ms' : (r.udp && r.udp.why) || '-' },
-          { label: yes(r.tcp && r.tcp.ok) + t('TCP de saída (peers)'), sub: r.tcp && r.tcp.ok ? r.tcp.ms + ' ms' : (r.tcp && r.tcp.why) || '-' },
-          { label: yes(r.speed && r.speed.ok) + t('Download: {n} Mbps', { n: (r.speed && r.speed.mbps) || 0 }), sub: r.speed && r.speed.ok ? t('{mb} MB em {s} s', { mb: r.speed.MB, s: r.speed.s }) : (r.speed && r.speed.why) || '-' },
-          { label: yes(writable.length > 0) + t('Gravar no disco'), sub: writable.length ? writable.join(', ') : t('nenhuma pasta gravável') },
+          { label: yes(nodeMajor >= 8, 'Node ' + r.node), sub: nodeMajor >= 8 ? t('Dá para rodar um motor de torrent') : t('Muito antigo para os motores de torrent atuais') },
+          { label: yes(r.memFreeMB >= 150, t('Memória livre: {n} MB', { n: r.memFreeMB })), sub: t('de {n} MB · {c} núcleos', { n: r.memTotalMB, c: r.cpus }) },
+          { label: yes(r.udp && r.udp.ok, t('UDP (trackers e DHT)')), sub: r.udp && r.udp.ok ? r.udp.ms + ' ms' : (r.udp && r.udp.why) || '-' },
+          { label: yes(r.tcp && r.tcp.ok, t('TCP de saída (peers)')), sub: r.tcp && r.tcp.ok ? r.tcp.ms + ' ms' : (r.tcp && r.tcp.why) || '-' },
+          { label: yes(r.speed && r.speed.ok, t('Download: {n} Mbps', { n: (r.speed && r.speed.mbps) || 0 })), sub: r.speed && r.speed.ok ? t('{mb} MB em {s} s', { mb: r.speed.MB, s: r.speed.s }) : (r.speed && r.speed.why) || '-' },
+          { label: yes(writable.length > 0, t('Gravar no disco')), sub: writable.length ? writable.join(', ') : t('nenhuma pasta gravável') },
         ];
         const viable = nodeMajor >= 8 && r.memFreeMB >= 150 && r.tcp && r.tcp.ok && r.speed && r.speed.ok;
         lines.push({ label: viable ? t('Veredito: dá para tentar torrent na TV') : t('Veredito: a TV não aguenta torrent sozinha'), sub: viable ? t('Me mande uma foto desta tela') : t('Continue com o PC ou use debrid') });
@@ -523,7 +532,7 @@ export function SettingsView() {
   function secServidor(s) {
     body.appendChild(h('div.set-section', { text: t('Servidor de streaming (PC)') }));
     const st = server.lastStatus();
-    const stText = !s.serverUrl ? t('não configurado') : st.ok && st.url === server.baseUrl() ? t('conectado ✓') : t('sem resposta');
+    const stText = !s.serverUrl ? t('não configurado') : st.ok && st.url === server.baseUrl() ? t('conectado') : t('sem resposta');
     const urlInput = h('input.input', { type: 'text', value: s.serverUrl || '', placeholder: 'ex.: 192.168.0.10' });
     urlInput.__submit = (v) => {
       store.saveSettings({ serverUrl: v.trim() });
@@ -786,17 +795,19 @@ export function SettingsView() {
     const plays = playlog.list();
     const lastPlay = plays[0];
     body.appendChild(
-      row(t('Últimos plays'), t('O que tocou e o que não tocou, com o motivo'), lastPlay ? (lastPlay.result === 'ok' ? '✓ ' : '✗ ') + lastPlay.title : t('nenhum ainda'), () =>
+      row(t('Últimos plays'), t('O que tocou e o que não tocou, com o motivo'), lastPlay ? null : t('nenhum ainda'), () =>
         menu(
           t('Últimos plays'),
           plays.map((x, i) => ({
-            label: (x.result === 'ok' ? '✓ ' : '✗ ') + x.title,
+            label: h('span', null, [mark(x.result === 'ok'), x.title]),
             sub: [timeHM(new Date(x.at)) + ' · ' + (x.result === 'ok' ? t('tocou') : x.result === 'erro' ? t('não tocou') : t('sem fonte')), x.source, x.details].filter(Boolean).join('\n'),
             value: i,
             wrap: true,
           })),
           { empty: t('Nenhum play ainda.') }
-        )
+        ),
+        null,
+        lastPlay ? h('div.value', null, [mark(lastPlay.result === 'ok'), lastPlay.title]) : null
       )
     );
     if (!IS_WEB) body.appendChild(inputRow(t('Log remoto'), t('npm run logs no PC'), logInput()));

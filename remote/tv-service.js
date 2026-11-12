@@ -1,6 +1,6 @@
 'use strict';
 // Serviço do Seraflix que roda DENTRO da TV (serviceFile do TizenBrew; liga quando o Seraflix abre).
-// Serve os addons do Seraflix (XVideos e Pornhub, com o vídeo passando pela TV) na porta 8092, e os
+// Serve os addons do Seraflix (XVideos e Pornhub, com o vídeo passando pela TV) na porta 8092 (só em 127.0.0.1), e os
 // diagnósticos de Ajustes (/api/info e /api/torrent-test). Não há mais controle pelo celular: este
 // serviço não escuta a porta 8090; só pede para a versão antiga que ainda a usa sair.
 // Só usa módulos nativos do Node e ES5, porque a versão do Node muda de TV para TV.
@@ -1024,9 +1024,9 @@ addonServer.on('error', function (e) {
   // Outra versão deste serviço está na porta: pede para ela sair e tenta de novo.
   if (e && e.code === 'EADDRINUSE' && addonTries++ < 10) {
     askQuit(ADDON_PORT);
-    setTimeout(function () { addonServer.listen(ADDON_PORT, '0.0.0.0'); }, 1500);
+    setTimeout(function () { addonServer.listen(ADDON_PORT, '127.0.0.1'); }, 1500);
   }
 });
-addonServer.listen(ADDON_PORT, '0.0.0.0');
+addonServer.listen(ADDON_PORT, '127.0.0.1'); // só a própria TV (o app fala em 127.0.0.1)
 retireOld();
 enableAutoLaunch();

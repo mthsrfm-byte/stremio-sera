@@ -7,6 +7,7 @@ import * as store from './lib/store.js';
 import { avatar, switchProfile, createProfile, canAddProfile, editProfile } from './views/profiles.js';
 import { t } from './lib/i18n.js';
 import { IS_WEB } from './lib/platform.js';
+import { ico } from './lib/icons.js';
 import * as addons from './api/addons.js';
 import { requirePin } from './views/pin.js';
 import * as calendar from './api/calendar.js';
@@ -408,17 +409,25 @@ export function isFavorite(item) {
   return addons.isAdultId(id) ? nsfwSaved.has(id) : stremio.isInLibrary(id);
 }
 
+// Aviso de favorito: o toast só leva texto, então o coração em SVG entra antes dele.
+export function heartToast(msg) {
+  toast(msg);
+  const el = document.getElementById('toast');
+  el.insertBefore(h('span', { html: ico('heartOn'), style: { display: 'inline-block', verticalAlign: 'middle', color: '#FF6B8A', marginRight: '10px' } }), el.firstChild);
+}
+
 // Liga/desliga o favorito; devolve uma Promise com o estado novo.
 export function toggleFavorite(item) {
   const id = item.id || item._id;
+  const notify = (on) => (on ? heartToast(t('Favoritado')) : toast(t('Tirado dos favoritos')));
   if (addons.isAdultId(id)) {
     const on = nsfwSaved.toggle(Object.assign({}, item, { id: id }));
-    toast(on ? t('♥ Favoritado') : t('Tirado dos favoritos'));
+    notify(on);
     return Promise.resolve(on);
   }
   const on = !stremio.isInLibrary(id);
   return stremio.setInLibrary(Object.assign({}, item, { id: id }), on).then(() => {
-    toast(on ? t('♥ Favoritado') : t('Tirado dos favoritos'));
+    notify(on);
     return on;
   });
 }

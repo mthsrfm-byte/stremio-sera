@@ -160,6 +160,8 @@ body.oled .hero-shade-bottom { background: linear-gradient(to top, $black 0%, rg
 .ico.fill svg { fill: currentColor; stroke: none; }
 .btn .ico, .opt .ico { display: inline-block; vertical-align: middle; }
 .btn.small .ico svg { width: 22px; height: 22px; }
+.ico.tiny { display: inline-block; vertical-align: -0.15em; margin-right: 0.35em; }
+.ico.tiny svg { width: 1em; height: 1em; stroke-width: 2.6; }
 .btn.focused { background: $kai; color: $white; border-color: $lilac; -webkit-transform: scale(1.06); transform: scale(1.06); }
 .btn.small { height: 52px; padding: 0 24px; font-size: $fs-text; }
 
@@ -349,12 +351,11 @@ body .player .p-skip .skip-btn.focused, body.sera .player .p-skip .skip-btn.focu
 .login .input { width: 100%; margin-bottom: 20px; }
 .login .err { color: $error; font-size: $fs-text; min-height: 30px; margin-bottom: 10px; }
 
-/* ---------- QR do controle no celular ---------- */
+/* ---------- QR grande do perfil do elenco (filmografia) ---------- */
 .qr-box { width: 760px; text-align: center; }
 .qr-box .modal-text { text-align: center; }
 .qr-big { display: block; width: 420px; height: 420px; margin: 0 auto 18px; border-radius: $r-block; background: $white; padding: 14px; image-rendering: pixelated; }
 .qr-url { font-size: $fs-lead; font-weight: 700; margin-bottom: 26px; }
-.qr-box .modal-actions { -webkit-justify-content: center; justify-content: center; }
 
 /* ---------- Toast ---------- */
 .toast { position: absolute; left: 50%; bottom: 60px; -webkit-transform: translateX(-50%); transform: translateX(-50%); background: rgba(27,23,40,0.96); color: $white; padding: 18px 36px; border-radius: 16px; font-size: $fs-text; font-weight: 600; opacity: 0; -webkit-transition: opacity 0.25s; transition: opacity 0.25s; z-index: 100; max-width: 1400px; border: 2px solid rgba(157,133,255,0.4); }

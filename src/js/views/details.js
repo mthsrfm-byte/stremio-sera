@@ -5,7 +5,7 @@ import * as addons from '../api/addons.js';
 import * as stremio from '../api/stremio.js';
 import * as server from '../api/server.js';
 import * as hero from '../api/hero.js';
-import { toast, spinnerLine, menu, fmtTime, choiceDialog } from '../ui.js';
+import { toast, spinnerLine, menu, fmtTime, choiceDialog, heartToast } from '../ui.js';
 import * as router from '../router.js';
 import { openPlayer } from './player.js';
 import * as extras from '../api/extras.js';
@@ -56,13 +56,6 @@ const BR_FLAG =
 
 // Episódios da temporada entram em lotes (uma temporada inteira de DOM de uma vez pesa na TV).
 const EP_BATCH = 30;
-
-// Aviso de favorito: o toast só leva texto, então o coração em SVG entra antes dele.
-function heartToast(msg) {
-  toast(msg);
-  const el = document.getElementById('toast');
-  el.insertBefore(h('span', { html: ico('heartOn'), style: { display: 'inline-block', verticalAlign: 'middle', color: '#FF6B8A', marginRight: '10px' } }), el.firstChild);
-}
 
 // Seta do filtro de fontes em SVG (a fonte da TV não tem o caractere ▾).
 const CARET_HTML =

@@ -130,7 +130,7 @@ function start() {
       setTimeout(() => {
         update
           .check()
-          .then((info) => info.isNew && toast(t('Tem Seraflix novo saindo do forno! Ajustes → Procurar atualização'), 7000))
+          .then((info) => info.isNew && toast(t('Tem Seraflix novo saindo do forno! Ajustes > Procurar atualização'), 7000))
           .catch(() => {});
       }, 8000);
     }

@@ -432,7 +432,7 @@ function CuratedView(cfg) {
     if (loaded) return;
     loaded = true;
     if (!reco.available()) {
-      rows.appendChild(h('div.hint', { text: t('Essa aba precisa da chave do TMDB (Ajustes → Metadados extras).') }));
+      rows.appendChild(h('div.hint', { text: t('Essa aba precisa da chave do TMDB (Ajustes > Metadados extras).') }));
       return;
     }
     rail.set(0);
@@ -580,7 +580,7 @@ export function StreamingsView() {
     onKey: onKey,
     onShow: () => {
       if (!reco.available()) {
-        if (!rows.firstChild) rows.appendChild(h('div.hint', { text: t('Essa aba precisa da chave do TMDB (Ajustes → Metadados extras).') }));
+        if (!rows.firstChild) rows.appendChild(h('div.hint', { text: t('Essa aba precisa da chave do TMDB (Ajustes > Metadados extras).') }));
         return;
       }
       if (!current) switchTo(reco.STREAMINGS[0]);

@@ -1,5 +1,4 @@
-// Só o gerador de QR code (data URL, preto no branco, para qualquer câmera ler). Hoje quem usa é o
-// perfil do elenco (Instagram). O controle pelo celular que morava aqui foi removido.
+// Gerador de QR code (data URL, preto no branco, para qualquer câmera ler). Hoje usado no perfil do elenco.
 import qrcode from 'qrcode-generator';
 
 export function qrDataUrl(text, cellSize) {
