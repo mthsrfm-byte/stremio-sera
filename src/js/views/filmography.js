@@ -231,37 +231,58 @@ function FilmographyView(person) {
     if (idx >= 0) nav.focus(chips.children[idx]);
   }
 
+  // Grade em lotes de 30: o próximo lote entra quando o foco chega perto do fim. Trocar filtro ou
+  // ordem refaz só o primeiro lote (a filmografia de quem tem 300+ créditos não vira DOM de uma vez).
+  const GRID_BATCH = 30;
+  let shownList = [];
+  let shownCount = 0;
+
   function renderGrid() {
     clear(grid);
     scroller.scrollTop = 0;
-    const shown = items.filter((it) => filter === 'all' || it.mediaType === filter);
-    if (newestFirst) shown.reverse();
-    countEl.textContent = t('{n} títulos', { n: shown.length });
-    if (!shown.length) {
+    shownList = items.filter((it) => filter === 'all' || it.mediaType === filter);
+    if (newestFirst) shownList.reverse();
+    countEl.textContent = t('{n} títulos', { n: shownList.length });
+    shownCount = 0;
+    if (!shownList.length) {
       grid.appendChild(h('div.hint', { text: t('Nada por aqui.') }));
       return;
     }
-    shown.forEach((it) => {
-      const poster = h('div.fp-poster');
-      const im = h('img', { alt: '' });
-      im.setAttribute('data-lazy', it.poster);
-      im.onerror = () => {
-        im.style.display = 'none';
-        poster.classList.add('img-loaded');
-        poster.appendChild(h('div.ph', { text: it.name }));
-      };
-      poster.appendChild(im);
-      poster.appendChild(h('span.fp-year', { text: it.year }));
-      if (it.mediaType === 'tv') poster.appendChild(h('span.fp-kind', { text: t('Série') }));
-      grid.appendChild(
-        h('div.fp-item', { focusable: true, onSelect: () => openItem(it) }, [
-          poster,
-          h('div.fp-item-name', { text: it.name }),
-          h('div.fp-item-role', { text: role(it.character) }),
-        ])
-      );
-    });
+    addBatch();
+  }
+
+  function addBatch() {
+    if (shownCount >= shownList.length) return;
+    const end = Math.min(shownList.length, shownCount + GRID_BATCH);
+    for (let i = shownCount; i < end; i++) grid.appendChild(filmItem(shownList[i], i));
+    shownCount = end;
     loadVisibleImages(panel, 600);
+  }
+
+  function filmItem(it, i) {
+    const poster = h('div.fp-poster');
+    const im = h('img', { alt: '' });
+    im.setAttribute('data-lazy', it.poster);
+    im.onerror = () => {
+      im.style.display = 'none';
+      poster.classList.add('img-loaded');
+      poster.appendChild(h('div.ph', { text: it.name }));
+    };
+    poster.appendChild(im);
+    poster.appendChild(h('span.fp-year', { text: it.year }));
+    if (it.mediaType === 'tv') poster.appendChild(h('span.fp-kind', { text: t('Série') }));
+    return h(
+      'div.fp-item',
+      {
+        focusable: true,
+        // Perto do fim do lote: já mostra o próximo.
+        onFocus: () => {
+          if (i >= shownCount - 12) addBatch();
+        },
+        onSelect: () => openItem(it),
+      },
+      [poster, h('div.fp-item-name', { text: it.name }), h('div.fp-item-role', { text: role(it.character) })]
+    );
   }
 
   grid.appendChild(spinnerLine(t('Carregando filmografia...')));

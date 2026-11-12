@@ -54,6 +54,20 @@ function castPhoto(url) {
 const BR_FLAG =
   '<svg class="flag" width="24" height="17" viewBox="0 0 24 17"><rect width="24" height="17" rx="3" fill="#009C3B"/><path d="M12 2.2 21.4 8.5 12 14.8 2.6 8.5z" fill="#FFDF00"/><circle cx="12" cy="8.5" r="3.6" fill="#002776"/></svg>';
 
+// Episódios da temporada entram em lotes (uma temporada inteira de DOM de uma vez pesa na TV).
+const EP_BATCH = 30;
+
+// Aviso de favorito: o toast só leva texto, então o coração em SVG entra antes dele.
+function heartToast(msg) {
+  toast(msg);
+  const el = document.getElementById('toast');
+  el.insertBefore(h('span', { html: ico('heartOn'), style: { display: 'inline-block', verticalAlign: 'middle', color: '#FF6B8A', marginRight: '10px' } }), el.firstChild);
+}
+
+// Seta do filtro de fontes em SVG (a fonte da TV não tem o caractere ▾).
+const CARET_HTML =
+  '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>';
+
 export function openDetails(type, id, opts) {
   router.push(DetailsView(type, id, opts || {}));
 }
@@ -83,6 +97,7 @@ function DetailsView(type, id, opts) {
   let mode = 'none';
   let season = null;
   let streamsVideo = null;
+  let lateStream = null; // Smart Choice: { video, fn } recebe as fontes que chegam depois, se a lista do mesmo episódio estiver aberta
   let alive = true;
   let watchBtn = null;
   let libBtn = null;
@@ -295,13 +310,15 @@ function DetailsView(type, id, opts) {
     if (isAdult()) {
       const on = nsfwSaved.toggle(meta);
       updateButtons();
-      toast(on ? t('♥ Favoritado') : t('Tirado dos favoritos'));
+      if (on) heartToast(t('Favoritado'));
+      else toast(t('Tirado dos favoritos'));
       return;
     }
     const inLib = stremio.isInLibrary(meta.id);
     stremio.setInLibrary(meta, !inLib).then(() => {
       updateButtons();
-      toast(inLib ? t('Tirado dos favoritos') : t('♥ Favoritado'));
+      if (inLib) toast(t('Tirado dos favoritos'));
+      else heartToast(t('Favoritado'));
     });
   }
 
@@ -344,44 +361,71 @@ function DetailsView(type, id, opts) {
     panel.appendChild(chips);
     const list = h('div.list', { 'data-scroll-y': '', 'data-pad-y': '120', 'data-group': '', 'data-vertical': '' });
     list.style.top = '190px';
+    panel.appendChild(list);
     const li = stremio.libraryItem(meta.id);
-    let focusEl = null;
-    sortedVideos(meta)
-      .filter((v) => (v.season || 0) === season)
-      .forEach((v) => {
-        const thumb = h('div.thumb');
-        if (v.thumbnail) {
-          const im = h('img', { alt: '' });
-          im.setAttribute('data-lazy', smallThumb(v.thumbnail));
-          im.onerror = () => {
-            im.style.display = 'none';
-            thumb.classList.add('img-loaded'); // sem imagem: para o esqueleto
-          };
-          thumb.appendChild(im);
-        } else thumb.classList.add('img-loaded');
-        let sub = t('Episódio {n}', { n: v.episode || '?' });
-        if (v.released) sub += ' · ' + formatDate(v.released);
-        const inProgress = li && li.state && li.state.video_id === v.id && li.state.timeOffset > 0;
-        if (inProgress) sub += ' · ' + t('parou em {time}', { time: fmtTime(li.state.timeOffset / 1000) });
-        const soon = isUpcoming(v);
-        const row = h('div.episode', { focusable: true, cls: soon ? 'upcoming' : '', onSelect: () => (soon ? toast(t('Esse episódio ainda não saiu. Estreia em {date}.', { date: formatDate(v.released) })) : watch(v)) }, [
+    const eps = sortedVideos(meta).filter((v) => (v.season || 0) === season);
+    // Episódio que abre focado (o último que bate, como antes): tem de estar renderizado já.
+    let focusIdx = -1;
+    eps.forEach((v, i) => {
+      const inProgress = li && li.state && li.state.video_id === v.id && li.state.timeOffset > 0;
+      if (v.id === focusVideoId || (!focusVideoId && inProgress)) focusIdx = i;
+    });
+    let shown = 0;
+    // Uma linha de episódio. Perto do fim do lote, o foco já pede o próximo.
+    function episodeRow(v, i) {
+      const thumb = h('div.thumb');
+      if (v.thumbnail) {
+        const im = h('img', { alt: '' });
+        im.setAttribute('data-lazy', smallThumb(v.thumbnail));
+        im.onerror = () => {
+          im.style.display = 'none';
+          thumb.classList.add('img-loaded'); // sem imagem: para o esqueleto
+        };
+        thumb.appendChild(im);
+      } else thumb.classList.add('img-loaded');
+      let sub = t('Episódio {n}', { n: v.episode || '?' });
+      if (v.released) sub += ' · ' + formatDate(v.released);
+      const inProgress = li && li.state && li.state.video_id === v.id && li.state.timeOffset > 0;
+      if (inProgress) sub += ' · ' + t('parou em {time}', { time: fmtTime(li.state.timeOffset / 1000) });
+      const soon = isUpcoming(v);
+      const row = h(
+        'div.episode',
+        {
+          focusable: true,
+          cls: soon ? 'upcoming' : '',
+          onFocus: () => {
+            if (i >= shown - 8) addBatch(shown + EP_BATCH);
+          },
+          onSelect: () => (soon ? toast(t('Esse episódio ainda não saiu. Estreia em {date}.', { date: formatDate(v.released) })) : watch(v)),
+        },
+        [
           thumb,
           h('div.ep-info', null, [
             h('div.ep-title', null, [soon ? h('span.soon-tag', { text: t('Em breve') }) : null, (v.episode ? v.episode + '. ' : '') + (v.name || v.title || t('Episódio'))]),
             h('div.ep-sub', { text: sub }),
             h('div.ep-desc', { text: v.overview || v.description || '' }),
           ]),
-        ]);
-        row.__episode = v.episode;
-        row.__video = v;
-        if (v.id === focusVideoId || (!focusVideoId && inProgress)) focusEl = row;
-        list.appendChild(row);
-      });
-    panel.appendChild(list);
+        ]
+      );
+      row.__episode = v.episode;
+      row.__video = v;
+      return row;
+    }
+    // Renderiza os episódios até "upTo" (sem passar do fim da temporada).
+    function addBatch(upTo) {
+      const end = Math.min(eps.length, upTo);
+      if (end <= shown) return;
+      while (shown < end) {
+        const i = shown++;
+        list.appendChild(episodeRow(eps[i], i));
+      }
+      localizeEpisodes();
+      loadVisibleImages(panel, 300);
+    }
+    addBatch(Math.max(EP_BATCH, focusIdx + 1));
+    const focusEl = focusIdx >= 0 ? list.children[focusIdx] : null;
     // Ao entrar na lista, cai no episódio em andamento (ou no primeiro), não no mais próximo.
     list.__last = focusEl || list.firstChild;
-    localizeEpisodes();
-    loadVisibleImages(panel, 300);
     if (focusEl && focusVideoId) setTimeout(() => nav.focus(focusEl), 0);
   }
 
@@ -446,13 +490,17 @@ function DetailsView(type, id, opts) {
           per.forEach((l) => l && l.forEach((x) => all.push(x)));
           // A fonte da última vez já chegou: não precisa esperar os outros addons.
           if (si.rememberedStream(video.id, all)) finish();
+          // Addon lento que chega depois da lista aberta: entra nela (sem buscar de novo).
+          // (só para o mesmo episódio: a lista aberta pode ser de outro, ex.: Assistir do próximo com a lista ainda aberta)
+          if (lateStream && lateStream.video === video) lateStream.fn(addon, streams);
         })
       )
       .then(finish, finish);
     // Nada tocável: volta com a lista aberta para escolher na mão e diz o porquê.
     pick.then((st) => {
       if (st || !alive) return;
-      showStreams(video, true);
+      // Usa as fontes que já chegaram (per, por addon) em vez de buscar tudo de novo.
+      showStreams(video, true, { srcs: srcs, per: per });
       const torrentsOnly = all.length && all.every((x) => server.needsServer(x) && !server.viaDebrid(x));
       const why = !all.length
         ? t('Nenhuma fonte encontrada para este título.')
@@ -473,14 +521,15 @@ function DetailsView(type, id, opts) {
     return mbps > si.debridBudget() ? mbps : 0;
   }
 
-  function showStreams(video, focusFirst) {
+  // prefetch: { srcs, per } vindo do Smart Choice; sem ele, busca os addons aqui.
+  function showStreams(video, focusFirst, prefetch) {
     panel.style.display = '';
     mode = 'streams';
     streamsVideo = video;
     clear(panel);
     const headText = (name) => 'T' + video.season + 'E' + video.episode + ' · ' + (name || '');
     const head = isSeries() ? headText(video.namePt || video.name || video.title) : t('Fontes');
-    const filterBtn = h('div.btn.small', { focusable: true, text: t('Todos ▾'), onSelect: () => filterMenu() });
+    const filterBtn = h('div.btn.small', { focusable: true, onSelect: () => filterMenu() });
     const headEl = h('h2', { text: head });
     panel.appendChild(h('div.panel-head', { 'data-group': '' }, [headEl, filterBtn]));
     if (isSeries() && !video.namePt)
@@ -519,7 +568,10 @@ function DetailsView(type, id, opts) {
       barFill.style.width = Math.round(((srcs.length - pendingCount) / srcs.length) * 100) + '%';
       loadBar.classList.toggle('done', pendingCount <= 0);
       const g = groups.find((x) => x.addon.transportUrl === filter);
-      filterBtn.textContent = (g ? g.addon.manifest.name : filter === 'dub' ? t('Dublados') : t('Todos')) + ' ▾';
+      // Rótulo (texto puro: o nome do addon não vira HTML) e a seta em SVG.
+      const label = g ? g.addon.manifest.name : filter === 'dub' ? t('Dublados') : t('Todos');
+      clear(filterBtn).appendChild(document.createTextNode(label));
+      filterBtn.appendChild(h('span', { html: CARET_HTML, style: { marginLeft: '8px', verticalAlign: 'middle' } }));
     }
 
     function firstVisibleItem() {
@@ -558,51 +610,59 @@ function DetailsView(type, id, opts) {
       });
     }
 
+    // Recebe as fontes de um addon (desta busca ou, com Smart Choice, da que já andava).
+    function receive(addon, streams) {
+      const g = groups.find((x) => x.addon === addon);
+      // Tela trocada ou fechada, ou addon já recebido (a mesma resposta pode vir pelos dois caminhos): ignora.
+      if (!alive || mode !== 'streams' || streamsVideo !== video || !g || g.done) return;
+      pendingCount--;
+      g.done = true;
+      g.count = streams.length;
+      // Dentro do addon, na ordem do Smart Choice (em cache, dublado, cabe na banda...).
+      g.streams = si.rank(streams, runtimeMinutes(), si.pickOptions(meta, isSeries()));
+      g.debrid = streams.some((s) => si.parse(s).debrid || si.parse(s).cached);
+      // Addon que trouxe fontes de debrid (os mais rápidos) sobe para o topo da lista, mesmo
+      // quando o nome dele não diz que é debrid (ex.: Torrentio configurado com Real-Debrid).
+      if (g.debrid) {
+        const at = groups.indexOf(g);
+        const firstPlain = groups.filter((x, i) => i < at && !x.debrid)[0];
+        if (firstPlain) {
+          groups.splice(at, 1);
+          groups.splice(groups.indexOf(firstPlain), 0, g);
+          list.insertBefore(g.el, firstPlain.el);
+        }
+      }
+      g.streams.forEach((s) => g.el.appendChild(streamItem(s, video, serverOk, all)));
+      // "all" segue a ordem da tela (addon de maior prioridade primeiro), não a de chegada:
+      // é nela que o Smart Choice e o player procuram a próxima fonte.
+      all.length = 0;
+      groups.forEach((x) => x.streams.forEach((s) => all.push(s)));
+      // Mantém o foco na primeira fonte (a de maior prioridade) enquanto o usuário não mexer.
+      if (focusFirst && (!autoFocused || nav.current() === autoFocused)) {
+        const first = firstVisibleItem();
+        if (first) {
+          autoFocused = first;
+          nav.focus(first);
+        }
+      }
+      if (pendingCount <= 0) {
+        if (loadingLine.parentNode) list.removeChild(loadingLine);
+        if (!all.length) list.appendChild(h('div.loading-line', { text: t('Nenhuma fonte encontrada.') }));
+      }
+      status();
+    }
+
     status();
+    // Smart Choice: as fontes que já chegaram entram direto, sem buscar de novo; as lentas chegam por lateStream.
+    lateStream = prefetch ? { video: video, fn: receive } : null;
     (serverOk ? Promise.resolve() : server.check().then((r) => (serverOk = r.ok)))
       .then(() => {
         status();
-        return addons.fetchStreams(meta.type, video.id, (addon, streams) => {
-          if (!alive || streamsVideo !== video) return;
-          pendingCount--;
-          const g = groups.find((x) => x.addon === addon);
-          if (g) {
-            g.done = true;
-            g.count = streams.length;
-            // Dentro do addon, na ordem do Smart Choice (em cache, dublado, cabe na banda...).
-            g.streams = si.rank(streams, runtimeMinutes(), si.pickOptions(meta, isSeries()));
-            g.debrid = streams.some((s) => si.parse(s).debrid || si.parse(s).cached);
-            // Addon que trouxe fontes de debrid (os mais rápidos) sobe para o topo da lista, mesmo
-            // quando o nome dele não diz que é debrid (ex.: Torrentio configurado com Real-Debrid).
-            if (g.debrid) {
-              const at = groups.indexOf(g);
-              const firstPlain = groups.filter((x, i) => i < at && !x.debrid)[0];
-              if (firstPlain) {
-                groups.splice(at, 1);
-                groups.splice(groups.indexOf(firstPlain), 0, g);
-                list.insertBefore(g.el, firstPlain.el);
-              }
-            }
-            g.streams.forEach((s) => g.el.appendChild(streamItem(s, video, serverOk, all)));
-            // "all" segue a ordem da tela (addon de maior prioridade primeiro), não a de chegada:
-            // é nela que o Smart Choice e o player procuram a próxima fonte.
-            all.length = 0;
-            groups.forEach((x) => x.streams.forEach((s) => all.push(s)));
-          }
-          // Mantém o foco na primeira fonte (a de maior prioridade) enquanto o usuário não mexer.
-          if (focusFirst && (!autoFocused || nav.current() === autoFocused)) {
-            const first = firstVisibleItem();
-            if (first) {
-              autoFocused = first;
-              nav.focus(first);
-            }
-          }
-          if (pendingCount <= 0) {
-            if (loadingLine.parentNode) list.removeChild(loadingLine);
-            if (!all.length) list.appendChild(h('div.loading-line', { text: t('Nenhuma fonte encontrada.') }));
-          }
-          status();
-        });
+        if (prefetch) {
+          prefetch.per.forEach((streams, i) => streams && receive(prefetch.srcs[i], streams));
+          return null;
+        }
+        return addons.fetchStreams(meta.type, video.id, receive);
       })
       .catch(() => {});
   }
@@ -760,6 +820,7 @@ function DetailsView(type, id, opts) {
     },
     destroy: () => {
       alive = false;
+      lateStream = null; // resultados que chegarem depois não são mais renderizados
     },
   };
   return view;

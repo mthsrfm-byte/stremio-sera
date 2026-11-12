@@ -259,6 +259,7 @@ export function NsfwView() {
   let pending = [];
   let active = 0;
   let personalSlot = null;
+  let onSearchScroll = null; // busca ativa: confere, ao rolar, se a lista gay já entrou na tela
 
   function scopes() {
     const list = sites();
@@ -377,6 +378,7 @@ export function NsfwView() {
   function renderBody() {
     pending = [];
     clear(body);
+    onSearchScroll = null;
     if (scope === 'search') return renderSearch();
     const all = sites();
     const site = all.filter((s) => s.id === scope)[0];
@@ -565,6 +567,7 @@ export function NsfwView() {
     function run(q) {
       const query = (q || '').trim();
       clear(results);
+      onSearchScroll = null;
       if (query.length < 2) return results.appendChild(h('div.hint', { text: t('Digite pelo menos 2 letras e aperte Buscar.') }));
       const my = ++token;
       const queries = nsfwSearch.expandQueries(query);
@@ -577,6 +580,11 @@ export function NsfwView() {
       ];
       const slots = {};
       const jobs = [];
+      let cursor = 0;
+      let running = 0;
+      let found = 0;
+      let allHint = false;
+      const PARALLEL = 2;
 
       sections.forEach((sec) => {
         const block = h('div.nsfw-search-section');
@@ -584,23 +592,34 @@ export function NsfwView() {
         const host = h('div.rows');
         block.appendChild(host);
         results.appendChild(block);
-        slots[sec.id] = { host: host, found: 0 };
-        cats.forEach((entry) => jobs.push({ sec: sec, entry: entry }));
+        slots[sec.id] = { host: host, block: block, found: 0, queued: false };
       });
 
-      let left = jobs.length;
-      let found = 0;
-      let cursor = 0;
-      let running = 0;
-      const PARALLEL = 2;
+      // Cada lista só busca quando entra na tela: a hétero logo; a gay ao aparecer (ou ao rolar até ela).
+      function queue(sec) {
+        const slot = slots[sec.id];
+        if (slot.queued || my !== token) return;
+        slot.queued = true;
+        cats.forEach((entry) => jobs.push({ sec: sec, entry: entry }));
+        pump();
+      }
+      function checkGay() {
+        if (my !== token || slots.gay.queued) return;
+        if (slots.gay.block.getBoundingClientRect().top < window.innerHeight) queue(sections[1]);
+      }
 
       function finish() {
-        if (my !== token) return;
+        if (my !== token || running || cursor < jobs.length) return;
         sections.forEach((s) => {
           const slot = slots[s.id];
-          if (!slot.found) slot.host.appendChild(h('div.hint', { text: t('Nada nesta lista para "{q}".', { q: query }) }));
+          if (!slot.queued || slot.found || slot.hinted) return;
+          slot.hinted = true;
+          slot.host.appendChild(h('div.hint', { text: t('Nada nesta lista para "{q}".', { q: query }) }));
         });
-        if (!found) results.appendChild(h('div.hint', { text: t('Nada encontrado para "{q}".', { q: query }) }));
+        if (!found && !allHint && slots.straight.queued && slots.gay.queued) {
+          allHint = true;
+          results.appendChild(h('div.hint', { text: t('Nada encontrado para "{q}".', { q: query }) }));
+        }
       }
 
       function pump() {
@@ -633,14 +652,17 @@ export function NsfwView() {
             })
             .then(() => {
               running--;
-              left--;
               if (my !== token) return;
-              if (left <= 0) finish();
-              else pump();
+              pump();
+              checkGay(); // a lista de cima mudou de tamanho: a gay pode ter entrado na tela
+              finish();
             });
         }
       }
-      pump();
+
+      queue(sections[0]);
+      checkGay();
+      onSearchScroll = checkGay;
     }
     nav.focus(input);
   }
@@ -707,6 +729,32 @@ export function NsfwView() {
     return false;
   }
 
+  // Carrega os addons. Em falha mostra o erro com "Tentar de novo" (antes ficava em "Carregando" para sempre).
+  function loadAddons(force) {
+    return addons
+      .load(force)
+      .then(() => {
+        ready = true;
+        render();
+        onRail(); // a aba abre com o site atual em foco
+      })
+      .catch(() => {
+        clear(body);
+        const retry = h('div.btn.primary', {
+          focusable: true,
+          text: t('Tentar de novo'),
+          onSelect: () => {
+            clear(body);
+            body.appendChild(h('div.hint', { text: t('Carregando addons...') }));
+            loadAddons(true);
+          },
+        });
+        body.appendChild(h('div.hint', { text: t('Não foi possível carregar os sites agora.') }));
+        body.appendChild(retry);
+        if (el.offsetParent !== null) nav.focus(retry);
+      });
+  }
+
   // Voltar não sai da aba sem querer: do conteúdo vai para os sites; dos sites, pergunta.
   function onBack() {
     const cur = nav.current();
@@ -733,13 +781,12 @@ export function NsfwView() {
         }
         return loadNearby();
       }
-      addons.load().then(() => {
-        ready = true;
-        render();
-        onRail(); // a aba abre com o site atual em foco
-      });
+      loadAddons(false);
     },
-    onScroll: () => loadNearby(),
+    onScroll: () => {
+      loadNearby();
+      if (onSearchScroll) onSearchScroll();
+    },
     onHide: () => stopPreview(),
     destroy: () => {
       stopPreview();
@@ -806,21 +853,17 @@ function catalogRow(entry, parent, discovery) {
     if (entry.discoveryLite) {
       return retrying(() => fetchPage(start || 0)).then((metas) => seededShuffle(unseen(metas || []), seedKey));
     }
-    // Creampie e fileiras fortes: duas páginas a partir do offset (sem scrape extra só para medir).
-    return retrying(() => fetchPage(start || 0)).then((first) => {
+    // Creampie e fileiras fortes: duas páginas a partir do offset, pedidas juntas (a 2ª não espera a 1ª).
+    return Promise.all([retrying(() => fetchPage(start || 0)), fetchPage(start + page).catch(() => [])]).then(([first, second]) => {
       if (!first.length) return first;
-      return fetchPage(start + first.length)
-        .catch(() => [])
-        .then((second) => {
-          const ids = {};
-          const both = [];
-          first.concat(second || []).forEach((m) => {
-            if (!m || !m.id || ids[m.id]) return;
-            ids[m.id] = true;
-            both.push(m);
-          });
-          return seededShuffle(unseen(both), seedKey);
-        });
+      const ids = {};
+      const both = [];
+      first.concat(second || []).forEach((m) => {
+        if (!m || !m.id || ids[m.id]) return;
+        ids[m.id] = true;
+        both.push(m);
+      });
+      return seededShuffle(unseen(both), seedKey);
     });
   };
   const load = () =>
@@ -871,6 +914,8 @@ function GridView(entry, extra, group, at) {
   let switchTimer = null;
 
   // Busca uma página do catálogo; no filtro, junta páginas até ter o bastante (ou o catálogo acabar).
+  // FILL_MIN: ~2 linhas da grade. A grade só mostra linhas cheias, então com menos a tela ficaria parada.
+  const FILL_MIN = 12;
   function fetcher() {
     let skip = 0;
     const keep = FILTER_KEEP[mode];
@@ -882,7 +927,7 @@ function GridView(entry, extra, group, at) {
         addons.fetchCatalog(e, Object.assign({ skip: skip || undefined }, x)).then((metas) => {
           skip += metas.length;
           metas.forEach((m) => keep(m) && got.push(m));
-          if (!metas.length || got.length >= 20 || tries >= 5) return got;
+          if (!metas.length || got.length >= FILL_MIN || tries >= 5) return got;
           return step(tries + 1);
         });
       return step(0);
