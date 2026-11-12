@@ -14,7 +14,7 @@ export function platformBack() {
   window.close();
 }
 
-// IP da TV, para varrer a rede atrás do servidor do Stremio e montar o QR do controle.
+// IP da TV, para varrer a rede atrás do servidor do Stremio.
 export function getTvIp() {
   const a = android();
   if (a) {

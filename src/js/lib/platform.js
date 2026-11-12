@@ -9,7 +9,7 @@ export function android() {
   return (IS_FIRETV && window.SeraflixAndroid) || null;
 }
 
-// O serviço do Seraflix na TV (TizenBrew): controle no celular, addons NSFW, atualização pelo
+// O serviço do Seraflix na TV (TizenBrew): addons NSFW, diagnósticos, atualização pelo
 // TizenBrew. Só existe na Samsung; no navegador e no Fire TV não.
 export const HAS_TV_SERVICE = !IS_WEB && !IS_FIRETV;
 

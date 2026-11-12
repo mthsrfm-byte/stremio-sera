@@ -8,7 +8,7 @@ Stremio novo: é um **remix**. Peguei projetos abertos que já existiam, juntei,
 mexendo até ficar com a minha cara, pensando em três coisas:
 
 - **Usabilidade de sofá.** Tudo no controle remoto da Samsung, sem ponteiro, com atalhos nas teclas
-  coloridas, no play/pause e no avançar/voltar. Dá até para usar o celular como controle.
+  coloridas, no play/pause e no avançar/voltar.
 - **Organização.** Início, Recomendado e Streamings separados, fileiras que fazem sentido
   (em alta, chegou nos streamings, aclamados, true crime…), fontes de vídeo arrumadas com as
   diretas (debrid) primeiro e etiquetas de 4K, HDR e Dolby Vision.
@@ -109,7 +109,6 @@ Diferenças em relação à TV Samsung:
 - **Agenda desligada.** Liga colando o link iCal em Ajustes.
 - **Controle:** setas, OK e Voltar como na Samsung; ⏯, ⏪ e ⏩ no player; **☰ (Menu)** favorita
   o título em foco, como a tecla amarela.
-- **Não tem** o controle pelo celular (ele depende do serviço do TizenBrew).
 
 Para gerar o APK localmente: `npm run build:firetv && ANDROID_HOME=... android/build.sh`
 (precisa do Android SDK com `build-tools;35.0.0` e `platforms;android-34`). O APK só instala por cima
@@ -123,31 +122,17 @@ novo, é preciso desinstalar o anterior.
 
 *Daqui para baixo é a parte técnica, para quem quer mexer no código.*
 
-## Phone remote
+## TizenBrew service
 
 The Seraflix module ships a TizenBrew service (`remote/tv-service.js`, `serviceFile` in
-`package.json`). It starts when Seraflix opens and serves a phone remote at
-`http://TV-IP:8090` (same Wi-Fi). The service forwards keys and text to the TV's own remote-control
-WebSocket on `127.0.0.1:8002`, so the phone needs no certificate and it works on iPhone. The first
-time, the TV asks to allow "Seraflix Controle"; the token is saved in
-`/home/owner/share/seraflixRemote.json`. On its first run the service also adds Seraflix to
-TizenBrew's `autoLaunchServiceList`, so from then on just opening TizenBrew (or the TV prelaunching
-it) starts the remote, without opening Seraflix.
+`package.json`). It starts when Seraflix opens, and at TV boot once it is in TizenBrew's
+`autoLaunchServiceList` (the service adds itself there on its first run). It serves the XVideos and
+Pornhub addons on port `8092`, with the video passing through the TV, and two diagnostics used by
+**Ajustes → Testar torrent na TV**: `GET /api/info` (Node.js version, memory, CPUs) and
+`GET /api/torrent-test`.
 
-The remote also has **Mandar para a TV** (search icon): it searches the public Stremio catalog
-(Cinemeta) on the phone and sends the pick to the TV (`POST /api/open`). Seraflix polls
-`/api/pending` every few seconds and opens that title (movies open straight on the sources list).
-
-`GET /api/info` reports the TV's Node.js version, memory and CPUs, to judge whether a torrent
-engine could run on the TV itself.
-
-On the TV, **Ajustes → Controle no celular → Abrir o controle no celular** shows a QR code with that
-address (the service reports the TV's IP at `/api/ip`). `https://mthsrfm-byte.github.io/stremio-sera/controle/`
-(the `remote/` folder on GitHub Pages) asks for the TV's IP and opens `http://TV-IP:8090`.
-
-The page is locked with a 6-digit PIN (only its SHA-256 is in the code). After the right PIN the
-device stays unlocked (cookie renewed on every visit + localStorage). To lock every device again,
-change `AUTH_VERSION` in `remote/index.html`.
+There is no phone remote: the service does not listen on 8090 anymore. When it starts, it asks any
+older version still on 8090 (and 8092) to quit with `POST /api/quit`, and checks that 8090 is free.
 
 ## Recomendado tab
 
@@ -237,7 +222,6 @@ senha. O workflow **Publicar site no GitHub Pages** (`.github/workflows/pages.ym
 push na main:
 
 - `/`: o Seraflix para navegador (`npm run build:web`, saída em `site/app/`).
-- `/controle/`: o controle pelo celular (pasta `remote/`).
 
 Para ativar, crie o segredo **`WEB_PASSWORD`** (Settings → Secrets and variables → Actions). Sem ele o
 build web para de propósito, para o app não ficar aberto. Só o hash salgado da senha vai para o site.
@@ -247,8 +231,7 @@ Limites da versão web:
 
 - **Não é privada de verdade.** O GitHub Pages só restringe o acesso a sites com GitHub Enterprise
   Cloud. Aqui a senha só barra quem chega na página; o código do app continua público no repositório.
-- Trechos que só existem na TV ficam escondidos: atualização pelo TizenBrew, controle pelo celular e
-  o "Sair" do Voltar.
+- Trechos que só existem na TV ficam escondidos: atualização pelo TizenBrew e o "Sair" do Voltar.
 - Torrents e fluxos HLS do stremio-service precisam de um player com suporte a HLS (o Chrome não toca
   HLS nativo). Fontes diretas (debrid, MP4/MKV) funcionam.
 - O layout é o da TV (1920×1080). Funciona com mouse e teclado no computador; no celular fica pequeno.

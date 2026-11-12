@@ -9,7 +9,6 @@ import { IS_WEB, IS_FIRETV, HAS_TV_SERVICE, android } from '../lib/platform.js';
 import * as playlog from '../lib/playlog.js';
 import * as substyle from '../lib/substyle.js';
 import * as update from '../api/update.js';
-import * as phoneRemote from '../api/phoneRemote.js';
 import * as stremio from '../api/stremio.js';
 import * as server from '../api/server.js';
 import * as addons from '../api/addons.js';
@@ -124,31 +123,6 @@ export function SettingsView() {
   function inputRow(title, sub, input, onSelect) {
     const label = [].concat(title, sub ? h('small', { text: sub }) : null);
     return h('div.set-row', { focusable: true, onSelect: onSelect || (() => nav.select(input)) }, [h('div.label', null, label), input]);
-  }
-
-  // QR code do controle pelo celular, grande no meio da tela.
-  function showPhoneRemote() {
-    toast(t('Gerando o QR code...'));
-    phoneRemote
-      .remoteUrl()
-      .then((url) => {
-        const box = h('div.modal-box.center.qr-box', null, [
-          h('h3', { text: t('Controle no celular') }),
-          h('p.modal-text', { text: t('Aponte a câmera do celular (na mesma Wi-Fi) para o código. O controle abre direto, sem digitar nada.') }),
-          h('img.qr-big', { src: phoneRemote.qrDataUrl(url, 10), alt: url }),
-          h('p.qr-url', { text: url }),
-          h('div.modal-actions', null, [h('div.btn.primary', { focusable: true, 'data-autofocus': '', text: t('Fechar'), onSelect: () => close() })]),
-        ]);
-        const modal = h('div.modal', null, box);
-        document.getElementById('app').appendChild(modal);
-        const layer = nav.pushLayer(modal, { onBack: () => close() });
-        nav.focusFirst(modal);
-        function close() {
-          nav.popLayer(layer);
-          if (modal.parentNode) modal.parentNode.removeChild(modal);
-        }
-      })
-      .catch(() => toast(t('Não consegui descobrir o IP da TV. Veja em Configurações → Geral → Rede.'), 6000));
   }
 
   // Diagnóstico de rede: testa cada servidor que o app usa e mostra os últimos erros.
@@ -341,7 +315,7 @@ export function SettingsView() {
   // Teste do serviço da TV (remote/tv-service.js): cada item com ✓/✗ e um veredito no fim.
   function torrentTest() {
     toast(t('Testando a TV... leva até 40 segundos'), 6000);
-    getJSON('http://127.0.0.1:8090/api/torrent-test', { timeout: 45000, quiet: true })
+    getJSON('http://127.0.0.1:8092/api/torrent-test', { timeout: 45000, quiet: true })
       .then((r) => {
         const yes = (ok) => (ok ? '✓ ' : '✗ ');
         const nodeMajor = parseInt(String(r.node || 'v0').slice(1), 10) || 0;
@@ -747,7 +721,7 @@ export function SettingsView() {
     body.appendChild(
       inputRow(
         t('Link da agenda (iCal)'),
-        t('Google Agenda › Configurações › sua agenda › "Endereço secreto no formato iCal". Dá para colar pelo controle no celular. Vários links: separe com espaço.') +
+        t('Google Agenda › Configurações › sua agenda › "Endereço secreto no formato iCal". Vários links: separe com espaço.') +
           (calendar.BUILTIN ? ' · ' + t('já vem embutido, só preencha para usar outro') : ''),
         calInput
       )
@@ -781,14 +755,6 @@ export function SettingsView() {
       });
     };
     body.appendChild(inputRow(t('Adicionar addon por URL'), stremio.isLoggedIn() ? t('Instala na sua conta Stremio') : t('Fica só nesta TV'), addInput));
-  }
-
-  // ---- Controle pelo celular (só na TV: o serviço do Seraflix roda nela) ----
-  function secControle() {
-    if (HAS_TV_SERVICE) {
-      body.appendChild(h('div.set-section', { text: t('Controle no celular') }));
-      body.appendChild(row(t('Abrir o controle no celular'), t('Mostra um QR code: é só apontar a câmera'), '', () => showPhoneRemote()));
-    }
   }
 
   function secSobre(s) {
@@ -865,7 +831,6 @@ export function SettingsView() {
       secPlayer(s);
       secAgenda();
       secAddons();
-      secControle();
       const subs = [
         entry('legendas', t('Legendas'), t('Idioma, aparência da legenda e áudio preferido'), t(subLangLabel(s))),
         entry('conta', t('Conta'), t('Conta Stremio e chaves de serviços (TMDB, MDBList, Real-Debrid)'), stremio.isLoggedIn() ? t('conectada') : t('sem conta')),

@@ -1,200 +1,28 @@
 'use strict';
 // Serviço do Seraflix que roda DENTRO da TV (serviceFile do TizenBrew; liga quando o Seraflix abre).
-// Serve o controle remoto em http://IP-DA-TV:8090 e repassa as teclas para o controle remoto
-// de rede da própria TV (wss://127.0.0.1:8002). Assim o celular fala só HTTP simples com a TV:
-// sem certificado, sem aviso de segurança, funciona no iPhone.
+// Serve os addons do Seraflix (XVideos e Pornhub, com o vídeo passando pela TV) na porta 8092, e os
+// diagnósticos de Ajustes (/api/info e /api/torrent-test). Não há mais controle pelo celular: este
+// serviço não escuta a porta 8090; só pede para a versão antiga que ainda a usa sair.
 // Só usa módulos nativos do Node e ES5, porque a versão do Node muda de TV para TV.
 var http = require('http');
 var https = require('https');
-var tls = require('tls');
-var crypto = require('crypto');
 var fs = require('fs');
 var os = require('os');
 var urlLib = require('url');
 
-var PORT = 8090;
+var OLD_PORT = 8090; // controle remoto das versões antigas (até a 14): só para pedir que saiam
 var ADDON_PORT = 8092; // addons XVideos/Pornhub e vídeo (porta nova a cada mudança que versões antigas não sabem largar)
-var SERVICE_VERSION = 14; // 14: busca NSFW com orientação gay/hétero (extra orientation)
-var PAGE_BASE = 'https://cdn.jsdelivr.net/gh/mthsrfm-byte/stremio-sera/remote/';
-var APP_NAME = 'Seraflix Controle';
-var TOKEN_FILE = '/home/owner/share/seraflixRemote.json';
-var PAGE_TTL = 5 * 60 * 1000;
+var SERVICE_VERSION = 15; // 15: sem o controle pelo celular (8090 saiu; /api/info e /api/torrent-test foram para a 8092)
 var TIZENBREW_CONFIG = '/home/owner/share/tizenbrewConfig.json';
 var MODULE_NAME = 'mthsrfm-byte/stremio-sera'; // como o TizenBrew chama o módulo na lista de serviços
 
-function buf(x, enc) { return Buffer.from && Buffer.from !== Uint8Array.from ? Buffer.from(x, enc) : new Buffer(x, enc); }
 function bufAlloc(n) { return Buffer.alloc ? Buffer.alloc(n) : new Buffer(n).fill(0); }
 
-// ---------- Token da TV (a TV pede "Permitir?" só na primeira vez) ----------
-function readToken() {
-  try { return JSON.parse(fs.readFileSync(TOKEN_FILE, 'utf8')).token || ''; } catch (e) { return ''; }
-}
-function saveToken(token) {
-  try { fs.writeFileSync(TOKEN_FILE, JSON.stringify({ token: token })); } catch (e) {}
-}
-
-// ---------- Cliente WebSocket mínimo para o controle remoto da TV ----------
-var tv = { socket: null, state: 'off', queue: [], retry: null };
-var quitting = false; // outra versão do serviço assumiu
-
-function tvConnect() {
-  if (tv.socket) return;
-  clearTimeout(tv.retry);
-  var token = readToken();
-  var path = '/api/v2/channels/samsung.remote.control?name=' + encodeURIComponent(buf(APP_NAME).toString('base64')) +
-    (token ? '&token=' + encodeURIComponent(token) : '');
-  var key = crypto.randomBytes(16).toString('base64');
-  var s = tls.connect({ host: '127.0.0.1', port: 8002, rejectUnauthorized: false, servername: 'localhost' });
-  tv.socket = s;
-  tv.state = token ? 'connecting' : 'waiting';
-  var handshake = true;
-  var pending = bufAlloc(0);
-
-  s.on('secureConnect', function () {
-    s.write('GET ' + path + ' HTTP/1.1\r\nHost: 127.0.0.1:8002\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n' +
-      'Sec-WebSocket-Key: ' + key + '\r\nSec-WebSocket-Version: 13\r\n\r\n');
-  });
-  s.on('data', function (chunk) {
-    pending = Buffer.concat([pending, chunk]);
-    if (handshake) {
-      var end = pending.indexOf('\r\n\r\n');
-      if (end < 0) return;
-      var head = pending.slice(0, end).toString();
-      pending = pending.slice(end + 4);
-      if (head.indexOf(' 101') < 0) return s.destroy();
-      handshake = false;
-    }
-    // Frames do servidor (sem máscara)
-    while (pending.length >= 2) {
-      var op = pending[0] & 0x0f;
-      var len = pending[1] & 0x7f;
-      var off = 2;
-      if (len === 126) { if (pending.length < 4) return; len = pending.readUInt16BE(2); off = 4; }
-      else if (len === 127) { if (pending.length < 10) return; len = pending.readUInt32BE(6); off = 10; }
-      if (pending.length < off + len) return;
-      var payload = pending.slice(off, off + len);
-      pending = pending.slice(off + len);
-      if (op === 1) onTvMessage(payload.toString());
-      else if (op === 9) sendFrame(0x0a, payload);
-      else if (op === 8) s.destroy();
-    }
-  });
-  function done() {
-    if (tv.socket !== s) return;
-    tv.socket = null;
-    if (tv.state === 'on' || tv.state === 'connecting') tv.state = 'off';
-    if (quitting) return;
-    tv.retry = setTimeout(tvConnect, tv.state === 'refused' ? 15000 : 3000);
-  }
-  s.on('error', done);
-  s.on('close', done);
-}
-
-function onTvMessage(text) {
-  var msg = {};
-  try { msg = JSON.parse(text); } catch (e) { return; }
-  if (msg.event === 'ms.channel.connect') {
-    if (msg.data && msg.data.token) saveToken(msg.data.token);
-    tv.state = 'on';
-    var q = tv.queue; tv.queue = [];
-    q.forEach(tvSend);
-  } else if (msg.event === 'ms.channel.unauthorized') {
-    saveToken('');
-    tv.state = 'refused';
-    tv.queue = [];
-  }
-}
-
-function sendFrame(op, data) {
-  if (!tv.socket) return;
-  var payload = typeof data === 'string' ? buf(data) : data;
-  var len = payload.length;
-  var head = len < 126 ? bufAlloc(2) : bufAlloc(4);
-  head[0] = 0x80 | op;
-  if (len < 126) head[1] = 0x80 | len;
-  else { head[1] = 0x80 | 126; head.writeUInt16BE(len, 2); }
-  var mask = crypto.randomBytes(4);
-  var masked = bufAlloc(len);
-  for (var i = 0; i < len; i++) masked[i] = payload[i] ^ mask[i % 4];
-  tv.socket.write(Buffer.concat([head, mask, masked]));
-}
-
-function tvSend(params) {
-  if (tv.state !== 'on') {
-    if (tv.queue.length < 20) tv.queue.push(params);
-    tvConnect();
-    return;
-  }
-  sendFrame(1, JSON.stringify({ method: 'ms.remote.control', params: params }));
-}
-
-// IP da TV na rede de casa (o primeiro IPv4 que não é o localhost).
-function lanIp() {
-  var ifaces = os.networkInterfaces();
-  for (var name in ifaces) {
-    for (var i = 0; i < ifaces[name].length; i++) {
-      var a = ifaces[name][i];
-      if ((a.family === 'IPv4' || a.family === 4) && !a.internal) return a.address;
-    }
-  }
-  return '';
-}
-
-// ---------- "Mandar para a TV" ----------
-// O celular escolhe um filme/série (POST /api/open) e o app do Seraflix, que pergunta aqui a cada
-// poucos segundos (GET /api/pending), abre a tela dele. O pedido vale por 2 minutos.
-var pendingOpen = null;
-var lastPoll = 0; // última vez que o app perguntou: diz se o Seraflix está aberto
-var OPEN_TTL = 2 * 60 * 1000;
-
-function takePending() {
-  if (!pendingOpen || Date.now() - pendingOpen.at > OPEN_TTL) { pendingOpen = null; return null; }
-  var p = pendingOpen;
-  pendingOpen = null;
-  return p;
-}
-
-// ---------- Página do controle (vem do GitHub via jsDelivr, com cache curto) ----------
-var pageCache = {};
-var TYPES = { html: 'text/html; charset=utf-8', svg: 'image/svg+xml', png: 'image/png', webmanifest: 'application/manifest+json', js: 'application/javascript' };
-
-function servePage(file, res) {
-  var hit = pageCache[file];
-  if (hit && Date.now() - hit.at < PAGE_TTL) return send(hit);
-  https.get(PAGE_BASE + file, function (r) {
-    if (r.statusCode !== 200) { r.resume(); return hit ? send(hit) : fail(); }
-    var parts = [];
-    r.on('data', function (c) { parts.push(c); });
-    r.on('end', function () {
-      pageCache[file] = { at: Date.now(), body: Buffer.concat(parts) };
-      send(pageCache[file]);
-    });
-  }).on('error', function () { return hit ? send(hit) : fail(); });
-
-  function send(entry) {
-    var ext = file.split('.').pop();
-    res.writeHead(200, { 'Content-Type': TYPES[ext] || 'application/octet-stream', 'Cache-Control': 'no-cache' });
-    res.end(entry.body);
-  }
-  function fail() {
-    res.writeHead(502, { 'Content-Type': 'text/plain; charset=utf-8' });
-    res.end('Não consegui baixar o controle. A TV está com internet?');
-  }
-}
-
-function readBody(req, cb) {
-  var data = '';
-  req.on('data', function (c) { data += c; if (data.length > 10000) req.destroy(); });
-  req.on('end', function () { try { cb(JSON.parse(data || '{}')); } catch (e) { cb({}); } });
-}
-
 function json(res, code, obj) {
-  // CORS liberado: o app do Seraflix (em 127.0.0.1:8081) lê o /api/ip para montar o QR code.
+  // CORS liberado: o app do Seraflix (WebView da TV) chama estas rotas em 127.0.0.1.
   res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Private-Network': 'true' });
   res.end(JSON.stringify(obj));
 }
-
-var FILES = ['index.html', 'icon.svg', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png', 'manifest.webmanifest'];
 
 // ---------- Addons "Seraflix Tube": XVideos e Pornhub servidos daqui da TV ----------
 // Os links de vídeo desses sites saem assinados para o IP de quem pediu a página. Pedindo daqui,
@@ -282,9 +110,18 @@ function cookieHeader(host) {
   return Object.keys(all).map(function (k) { return k + '=' + all[k]; }).join('; ');
 }
 
+// Corpo máximo de uma resposta de texto (HTML, iCal, JSON): acima disso para, sem encher a memória da TV.
+var MAX_BODY = 3 * 1024 * 1024;
+
 function fetchText(url, cb, hops) {
   var done = false;
-  function end(err, text) { if (!done) { done = true; cb(err, text); } }
+  var deadline = null;
+  function end(err, text) {
+    if (done) return;
+    done = true;
+    clearTimeout(deadline);
+    cb(err, text);
+  }
   // Node 4 (o da TV) não aceita https.get(url, opções, cb): as opções vão num objeto só.
   var opts = urlLib.parse(url);
   opts.headers = { 'User-Agent': UA, 'Accept-Language': 'en-US,en;q=0.8', Cookie: cookieHeader(opts.hostname) };
@@ -294,6 +131,8 @@ function fetchText(url, cb, hops) {
   } catch (e) {
     return end(e);
   }
+  // Tempo total: o timeout de inatividade (abaixo) não corta quem manda os bytes devagar.
+  deadline = setTimeout(function () { req.abort(); end(new Error('tempo esgotado')); }, 30000);
   function onResponse(r) {
     keepCookies(opts.hostname, r.headers['set-cookie']);
     if (r.statusCode >= 300 && r.statusCode < 400 && r.headers.location && (hops || 0) < 4) {
@@ -303,13 +142,23 @@ function fetchText(url, cb, hops) {
     }
     if (r.statusCode !== 200) { r.resume(); return end(new Error('HTTP ' + r.statusCode)); }
     var chunks = [];
-    r.on('data', function (c) { chunks.push(c); });
+    var size = 0;
+    r.on('data', function (c) {
+      size += c.length;
+      if (size > MAX_BODY) {
+        r.destroy();
+        return end(new Error('resposta grande demais'));
+      }
+      chunks.push(c);
+    });
     r.on('end', function () { end(null, Buffer.concat(chunks).toString('utf8')); });
+    r.on('error', function (e) { end(e); });
   }
   req.on('error', function (e) {
     if (isCertError(e) && !extraCaHosts[opts.hostname]) {
       extraCaHosts[opts.hostname] = true;
       done = true; // o novo pedido responde pelo cb
+      clearTimeout(deadline);
       return fetchText(url, cb, hops);
     }
     end(e);
@@ -1077,18 +926,39 @@ function testDisk() {
   return res;
 }
 
-// Uma versão mais nova deste serviço quer as portas: sai e deixa ela assumir.
+// Uma versão mais nova deste serviço quer a porta: sai e deixa ela assumir.
 function quit(res) {
   json(res, 200, { ok: true });
-  quitting = true;
-  clearTimeout(tv.retry);
   setTimeout(function () {
-    try { server.close(); } catch (e) {}
     try { addonServer.close(); } catch (e) {}
-    if (tv.socket) tv.socket.destroy();
   }, 100);
 }
 
+// Pede para quem estiver nessa porta sair (uma versão antiga do serviço, que atende /api/quit).
+function askQuit(port) {
+  var q = http.request({ host: '127.0.0.1', port: port, path: '/api/quit', method: 'POST' }, function (r) { r.resume(); });
+  q.on('error', function () {});
+  q.setTimeout(3000, function () { q.abort(); });
+  q.end();
+}
+
+// Versões antigas (até a 14) ainda abrem a 8090 com o controle remoto, e só saem quando alguém pede.
+// Esta versão não usa mais a 8090: ao ligar, pede que a antiga saia e confere se a porta fechou
+// (a antiga leva uns instantes). Conexão recusada = porta livre, e então para.
+var oldChecks = 0;
+function retireOld() {
+  askQuit(OLD_PORT);
+  setTimeout(checkOld, 1500);
+}
+function checkOld() {
+  if (oldChecks++ >= 10) return;
+  var c = http.get({ host: '127.0.0.1', port: OLD_PORT, path: '/api/version' }, function (r) {
+    r.resume();
+    retireOld(); // ainda respondeu: pede de novo
+  });
+  c.on('error', function () {}); // recusada: a porta ficou livre
+  c.setTimeout(3000, function () { c.abort(); });
+}
 // Erro solto num retorno assíncrono derrubaria o processo inteiro do TizenBrew (e com ele este
 // serviço e o vídeo que passa por aqui). Fica anotado no /api/pxlog e o serviço segue de pé.
 // Um handler só por processo, mesmo com versões novas assumindo: ele anota na versão da vez.
@@ -1111,37 +981,28 @@ function guarded(handler) {
   };
 }
 
-var server = http.createServer(guarded(function (req, res) {
+// Coloca o Seraflix na lista de serviços que o TizenBrew liga sozinho ao abrir. Assim os addons
+// (aba NSFW) já respondem só de ligar o TizenBrew, sem abrir o Seraflix. Só mexe no arquivo se ele
+// existir e for JSON válido.
+function enableAutoLaunch() {
+  try {
+    var config = JSON.parse(fs.readFileSync(TIZENBREW_CONFIG, 'utf8'));
+    var list = Array.isArray(config.autoLaunchServiceList) ? config.autoLaunchServiceList : [];
+    if (list.indexOf(MODULE_NAME) >= 0) return;
+    config.autoLaunchServiceList = list.concat([MODULE_NAME]);
+    fs.writeFileSync(TIZENBREW_CONFIG, JSON.stringify(config, null, 4));
+  } catch (e) {}
+}
+
+var addonServer = http.createServer(guarded(function (req, res) {
   var url = req.url.split('?')[0];
-  // Pré-verificação de CORS / acesso à rede local (navegadores mais novos perguntam antes).
-  if (req.method === 'OPTIONS') {
-    res.writeHead(204, {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST',
-      'Access-Control-Allow-Headers': 'Content-Type',
-      'Access-Control-Allow-Private-Network': 'true',
-      'Access-Control-Max-Age': '600'
-    });
-    return res.end();
-  }
-  if (url === '/api/ip') return json(res, 200, { ip: lanIp() });
+  if (url.indexOf('/px/') === 0) return proxyRoute(req, res, urlLib.parse(req.url, true).query);
   if (url === '/api/version') return json(res, 200, { version: SERVICE_VERSION });
-  // Uma versão mais nova deste serviço quer a porta: sai e deixa ela assumir.
   if (url === '/api/quit' && req.method === 'POST') return quit(res);
-  if (url === '/api/pending') {
-    lastPoll = Date.now();
-    return json(res, 200, { open: takePending() });
-  }
-  if (url === '/api/open' && req.method === 'POST') {
-    return readBody(req, function (b) {
-      var type = String(b.type || '');
-      var id = String(b.id || '');
-      if (!/^(movie|series)$/.test(type) || !/^[\w:.-]{1,80}$/.test(id)) return json(res, 400, { error: 'pedido inválido' });
-      pendingOpen = { type: type, id: id, name: String(b.name || '').slice(0, 120), play: !!b.play, at: Date.now() };
-      json(res, 200, { ok: true, appOpen: Date.now() - lastPoll < 10000 });
-    });
-  }
-  // Diagnóstico: o que a TV tem para rodar coisas mais pesadas (ex.: torrent sem o PC).
+  if (url === '/api/pxlog') return json(res, 200, pxLog);
+  if (url === '/api/tubelog') return json(res, 200, tubeLog);
+  if (url === '/api/cal') return calendarRoute(res, urlLib.parse(req.url, true).query);
+  // Diagnósticos (Ajustes → Sobre → teste da TV): o que a TV tem para rodar coisas mais pesadas.
   if (url === '/api/info') {
     return json(res, 200, {
       node: process.version,
@@ -1153,70 +1014,7 @@ var server = http.createServer(guarded(function (req, res) {
       uptimeMin: Math.round(os.uptime() / 60)
     });
   }
-  if (addonRoute(url, res)) return;
-  if (url === '/api/torrent-test') {
-    return torrentTest(function (r) { json(res, 200, r); });
-  }
-  if (url === '/api/status') {
-    if (tv.state !== 'on') tvConnect();
-    return json(res, 200, { tv: tv.state });
-  }
-  if (url === '/api/key' && req.method === 'POST') {
-    return readBody(req, function (b) {
-      if (!/^KEY_[A-Z0-9_]+$/.test(b.key || '')) return json(res, 400, { error: 'tecla inválida' });
-      tvSend({ Cmd: 'Click', DataOfCmd: b.key, Option: 'false', TypeOfRemote: 'SendRemoteKey' });
-      json(res, 200, { tv: tv.state });
-    });
-  }
-  if (url === '/api/text' && req.method === 'POST') {
-    return readBody(req, function (b) {
-      var text = String(b.text || '').slice(0, 500);
-      if (!text) return json(res, 400, { error: 'texto vazio' });
-      tvSend({ Cmd: buf(text).toString('base64'), DataOfCmd: 'base64', TypeOfRemote: 'SendInputString' });
-      tvSend({ TypeOfRemote: 'SendInputEnd' });
-      json(res, 200, { tv: tv.state });
-    });
-  }
-  var file = url === '/' ? 'index.html' : url.slice(1);
-  if (FILES.indexOf(file) >= 0) return servePage(file, res);
-  res.writeHead(404, { 'Content-Type': 'text/plain' });
-  res.end('404');
-}));
-
-// Coloca o Seraflix na lista de serviços que o TizenBrew liga sozinho ao abrir. Assim o controle
-// funciona só de abrir o TizenBrew (ou quando a TV pré-carrega o TizenBrew ao ligar), sem entrar
-// no Seraflix. Só mexe no arquivo se ele existir e for JSON válido.
-function enableAutoLaunch() {
-  try {
-    var config = JSON.parse(fs.readFileSync(TIZENBREW_CONFIG, 'utf8'));
-    var list = Array.isArray(config.autoLaunchServiceList) ? config.autoLaunchServiceList : [];
-    if (list.indexOf(MODULE_NAME) >= 0) return;
-    config.autoLaunchServiceList = list.concat([MODULE_NAME]);
-    fs.writeFileSync(TIZENBREW_CONFIG, JSON.stringify(config, null, 4));
-  } catch (e) {}
-}
-
-// Porta ocupada: costuma ser uma versão antiga deste serviço que o TizenBrew deixou rodando (ele só
-// some quando a TV reinicia). Pede para ela sair (versões novas atendem /api/quit) e tenta de novo.
-// Enquanto isso os addons ficam também na porta 8091, que a versão antiga não usa: o app procura nas duas.
-var listenTries = 0;
-server.on('error', function (e) {
-  if (e && e.code === 'EADDRINUSE' && listenTries++ < 10) {
-    var q = http.request({ host: '127.0.0.1', port: PORT, path: '/api/quit', method: 'POST' }, function (r) { r.resume(); });
-    q.on('error', function () {});
-    q.end();
-    setTimeout(function () { server.listen(PORT, '0.0.0.0'); }, 1500);
-  }
-});
-server.listen(PORT, '0.0.0.0');
-var addonServer = http.createServer(guarded(function (req, res) {
-  var url = req.url.split('?')[0];
-  if (url.indexOf('/px/') === 0) return proxyRoute(req, res, urlLib.parse(req.url, true).query);
-  if (url === '/api/version') return json(res, 200, { version: SERVICE_VERSION });
-  if (url === '/api/quit' && req.method === 'POST') return quit(res);
-  if (url === '/api/pxlog') return json(res, 200, pxLog);
-  if (url === '/api/tubelog') return json(res, 200, tubeLog);
-  if (url === '/api/cal') return calendarRoute(res, urlLib.parse(req.url, true).query);
+  if (url === '/api/torrent-test') return torrentTest(function (r) { json(res, 200, r); });
   if (addonRoute(url, res)) return;
   res.writeHead(404, { 'Content-Type': 'text/plain' });
   res.end('404');
@@ -1225,12 +1023,10 @@ var addonTries = 0;
 addonServer.on('error', function (e) {
   // Outra versão deste serviço está na porta: pede para ela sair e tenta de novo.
   if (e && e.code === 'EADDRINUSE' && addonTries++ < 10) {
-    var q = http.request({ host: '127.0.0.1', port: ADDON_PORT, path: '/api/quit', method: 'POST' }, function (r) { r.resume(); });
-    q.on('error', function () {});
-    q.end();
+    askQuit(ADDON_PORT);
     setTimeout(function () { addonServer.listen(ADDON_PORT, '0.0.0.0'); }, 1500);
   }
 });
 addonServer.listen(ADDON_PORT, '0.0.0.0');
-tvConnect();
+retireOld();
 enableAutoLaunch();

@@ -18,9 +18,7 @@ import { SettingsView } from './views/settings.js';
 import { maybeShowWizard } from './views/wizard.js';
 import { toast } from './ui.js';
 import * as update from './api/update.js';
-import * as sendToTv from './api/sendToTv.js';
 import * as calendar from './api/calendar.js';
-import { openDetails } from './views/details.js';
 import * as profiles from './views/profiles.js';
 import { applyTheme } from './lib/theme.js';
 import { openLogin } from './views/login.js';
@@ -114,8 +112,6 @@ function start() {
   Promise.all([addons.load().catch(() => null), introDone]).then(() => {
     router.goTab('home');
     intro.finish(); // a abertura some em fade por cima da tela inicial já pronta
-    // Pedidos do controle no celular ("Mandar para a TV").
-    if (HAS_TV_SERVICE) sendToTv.start(openFromPhone);
     calendar.start(); // agenda do Google (se tiver link em Ajustes)
     screensaver.install(); // lançamentos passando na tela depois de uns minutos parado
     if (profiles.isNewProfilePendingLogin() && !stremio.isLoggedIn()) {
@@ -139,18 +135,6 @@ function start() {
       }, 8000);
     }
   });
-}
-
-// Abre o filme/série escolhido no celular. Se um vídeo estiver tocando, fecha o player antes
-// pelo mesmo caminho do Voltar (salva o ponto onde parou); senão ele continuaria tocando por baixo.
-function openFromPhone(req) {
-  const cur = router.currentView();
-  if (cur && cur.el && cur.el.classList.contains('player')) {
-    if (cur.onBack) cur.onBack();
-    else router.pop();
-  }
-  toast(t('Pedido do celular: {name}', { name: req.name || t('abrindo...') }));
-  openDetails(req.type, req.id, req.play && req.type === 'movie' ? { autoStreams: true } : {});
 }
 
 // Fontes do app baixadas antes de qualquer coisa aparecer: sem isso a abertura e os títulos
