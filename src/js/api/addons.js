@@ -1,5 +1,5 @@
 // Protocolo de addons do Stremio: catálogos, metadados, streams e legendas via HTTP/JSON.
-import { cachedJSON, getJSON } from '../lib/http.js';
+import { cachedJSON, catalogSlot, getJSON } from '../lib/http.js';
 import * as stremio from './stremio.js';
 import * as store from '../lib/store.js';
 import { log } from '../lib/log.js';
@@ -417,9 +417,11 @@ export function catalogTitle(entry) {
 
 export function fetchCatalog(entry, extra) {
   // Timeout menor: addon lento não segura a fila de fileiras.
-  return cachedJSON(url(entry.addon, 'catalog', entry.catalog.type, entry.catalog.id, extra), 15 * 60000, { timeout: 12000 }).then(
-    (r) => (r && r.metas) || []
-  );
+  // Busca: TTL curto e passa pela fila global (evita dezenas de scrapes juntos na TV).
+  const u = url(entry.addon, 'catalog', entry.catalog.type, entry.catalog.id, extra);
+  const isSearch = !!(extra && extra.search);
+  const ttl = isSearch ? 3 * 60000 : 15 * 60000;
+  return catalogSlot(() => cachedJSON(u, ttl, { timeout: 12000 })).then((r) => (r && r.metas) || []);
 }
 
 export function fetchMeta(type, id) {

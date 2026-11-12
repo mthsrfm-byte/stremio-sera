@@ -384,6 +384,27 @@ function buildRow(def, index, ctx) {
   return { row: row, load: load };
 }
 
+// No máximo 2 fileiras ao mesmo tempo (como no Início): várias de uma vez engasgam a TV.
+function loadRowsCapped(built, onFirst) {
+  let i = 0;
+  let active = 0;
+  const pump = () => {
+    while (active < 2 && i < built.length) {
+      const b = built[i++];
+      active++;
+      const p = Promise.resolve()
+        .then(() => b.load())
+        .catch(() => {});
+      if (i === 1 && onFirst) p.then(onFirst);
+      p.then(() => {
+        active--;
+        pump();
+      });
+    }
+  };
+  pump();
+}
+
 // Aba curada genérica. cfg: { tabId, crumb, defs }
 function CuratedView(cfg) {
   const el = h('div.view.reco');
@@ -408,13 +429,11 @@ function CuratedView(cfg) {
     rail.set(0);
     const built = cfg.defs.map((def, i) => buildRow(def, i, ctx));
     built.forEach((b) => rows.appendChild(b.row));
-    // Primeira fileira já com destaque no primeiro título.
-    built[0].load().then(() => {
+    loadRowsCapped(built, () => {
       // Primeiro item focável da primeira fileira (o cartão, ou o "Tentar de novo" se ela falhou).
       const first = rows.firstChild && rows.firstChild.querySelector('[data-focus]');
       if (first && nav.current() && nav.current().closest('.topbar')) nav.focus(first);
     });
-    built.slice(1).forEach((b) => b.load());
   }
 
   // Trailer só com a aba à vista e o app na frente.
@@ -505,13 +524,12 @@ export function StreamingsView() {
     const built = p.rows.map((def, i) => buildRow(def, i, ctx));
     built.forEach((b) => rows.appendChild(b.row));
     firstItemOf = p;
-    built[0].load().then(() => {
+    loadRowsCapped(built, () => {
       // Prévia no destaque: o primeiro título da home do serviço (sem tirar o foco dos logos).
       const first = rows.querySelector('.card');
       if (current === p && first && first.__focus && !nav.current().closest('.reco-rows')) first.__focus(first);
       if (enterRows && current === p) focusFirstCard();
     });
-    built.slice(1).forEach((b) => b.load());
   }
 
   function focusFirstCard() {

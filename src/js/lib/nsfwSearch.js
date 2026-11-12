@@ -128,7 +128,8 @@ function uniq(list) {
   const seen = {};
   const out = [];
   list.forEach((x) => {
-    const k = String(x || '')
+    // Sem acento: "asiáticas" e "asiaticas" contam como o mesmo termo.
+    const k = stripAccents(String(x || ''))
       .trim()
       .toLowerCase();
     if (!k || seen[k]) return;
@@ -159,13 +160,16 @@ function mapWords(query, dict) {
   return parts.join(' ');
 }
 
-// Termos a pedir nos sites: o original e as versões PT/EN quando forem diferentes.
+// Termos a pedir nos sites: o original primeiro e no máximo uma variante PT↔EN.
 export function expandQueries(q) {
   const raw = String(q || '').trim();
   if (!raw) return [];
   const en = mapWords(raw, PT_EN);
   const pt = mapWords(raw, EN_PT);
-  return uniq([raw, en, pt].filter(Boolean));
+  const all = uniq([raw, en, pt].filter(Boolean));
+  // No máximo 2: original + a outra língua. O resto só gastava scrape na TV.
+  if (all.length <= 2) return all;
+  return [all[0], all[1]];
 }
 
 export function isTubeAddon(addon) {
