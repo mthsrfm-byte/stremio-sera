@@ -72,10 +72,14 @@ export function getText(url, opts) {
   return request('GET', url, null, Object.assign({ raw: true }, opts));
 }
 
-// Cache em memória com validade (LRU), para catálogos e metadados.
-const cache = new Map();
-const CACHE_MAX = 80;
+// Cache em memória com validade (LRU), para catálogos e metadados. Um LRU por categoria (opts.cat):
+// uma resposta grande (catálogo) não expulsa os metadados nem as notas.
+const CACHE_MAX = { meta: 30, catalogo: 20, notas: 20, outros: 20 };
+const memCaches = {};
+// opts.fetch: busca alternativa com a mesma assinatura de getJSON (ex.: pelo proxy do PC).
 export function cachedJSON(url, ttlMs, opts) {
+  const cat = (opts && opts.cat) || 'outros';
+  const cache = memCaches[cat] || (memCaches[cat] = new Map());
   const hit = cache.get(url);
   const now = Date.now();
   if (hit && now - hit.t < (ttlMs || 600000)) {
@@ -84,14 +88,18 @@ export function cachedJSON(url, ttlMs, opts) {
     cache.set(url, hit);
     return hit.p;
   }
-  const p = getJSON(url, opts).catch((e) => {
-    cache.delete(url);
+  const entry = { t: now, p: null };
+  const fetcher = (opts && opts.fetch) || getJSON;
+  entry.p = fetcher(url, opts).catch((e) => {
+    if (cache.get(url) === entry) cache.delete(url);
     throw e;
   });
-  cache.set(url, { t: now, p: p });
-  // Pouca RAM na TV: guarda só as últimas respostas.
-  if (cache.size > CACHE_MAX) cache.delete(cache.keys().next().value);
-  return p;
+  // Regravar uma chave expirada põe ela no fim (o Map manteria a posição antiga).
+  cache.delete(url);
+  cache.set(url, entry);
+  // Pouca RAM na TV: guarda só as últimas respostas de cada categoria.
+  if (cache.size > (CACHE_MAX[cat] || 20)) cache.delete(cache.keys().next().value);
+  return entry.p;
 }
 
 // Fila global de pedidos de catálogo: a TV e o serviço dos tubes engasgam com muitos

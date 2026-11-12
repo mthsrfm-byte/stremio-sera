@@ -37,12 +37,19 @@ function parseAnimeId(videoId) {
   return m ? { source: m[1] === 'mal' ? 'myanimelist' : m[1], id: m[2], episode: m[3] ? parseInt(m[3], 10) : 1 } : null;
 }
 
+// Cache das buscas no arm. Falha não fica guardada: a próxima vez tenta de novo.
 const malCache = {};
 function malFromAnime(a) {
   if (a.source === 'myanimelist') return Promise.resolve(parseInt(a.id, 10));
   const key = a.source + ':' + a.id;
   if (!malCache[key])
-    malCache[key] = getJSON(ARM + 'ids?source=' + a.source + '&id=' + a.id, { quiet: true }).then((r) => (r && r.myanimelist) || null);
+    malCache[key] = getJSON(ARM + 'ids?source=' + a.source + '&id=' + a.id, { quiet: true }).then(
+      (r) => (r && r.myanimelist) || null,
+      (e) => {
+        delete malCache[key];
+        throw e;
+      }
+    );
   return malCache[key];
 }
 
@@ -58,7 +65,10 @@ function malFromImdb(imdb, season) {
           (arr.length === 1 ? arr[0] : null);
         return hit ? hit.myanimelist : null;
       })
-      .catch(() => null);
+      .catch(() => {
+        delete malCache[key];
+        return null;
+      });
   return malCache[key];
 }
 

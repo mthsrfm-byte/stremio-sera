@@ -3,8 +3,16 @@
 // histórico (o que assistiu e onde parou) e as preferências pessoais. O que é da TV (servidor do
 // PC, chaves de API, rolagem) também fica compartilhado entre os perfis.
 import { current } from './i18n.js';
+import { log } from './log.js';
 
 const PREFIX = 'kai.';
+
+// Sobe a cada mudança de ajustes ou de perfil: quem guarda um cálculo feito a partir deles (ex.:
+// addons adultos) confere o número para saber se ainda vale.
+let epochNum = 0;
+export function epoch() {
+  return epochNum;
+}
 
 function rawGet(key, fallback) {
   try {
@@ -15,12 +23,59 @@ function rawGet(key, fallback) {
   }
 }
 
-function rawSet(key, value) {
+function isQuotaError(e) {
+  return !!e && (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED' || e.code === 22 || e.code === 1014);
+}
+
+// Cota cheia: tira o que é mais antigo para caber. Histórico de cada perfil fica só com os mais
+// recentes, e as ids adultas vistas com as últimas. Devolve se liberou alguma coisa.
+const KEEP_WATCH = 100;
+const KEEP_NSFW_IDS = 300;
+function pruneOld() {
+  let freed = false;
+  const keys = [];
+  try {
+    for (let i = 0; i < window.localStorage.length; i++) keys.push(window.localStorage.key(i));
+  } catch (e) {
+    return false;
+  }
+  keys.forEach((k) => {
+    if (!k || k.indexOf(PREFIX) !== 0) return;
+    // Chave de perfil: "p.<id>.<nome>" (o id não tem ponto).
+    const name = k.slice(PREFIX.length).split('.').pop();
+    if (name !== 'watch' && name !== 'nsfwIds') return;
+    try {
+      const raw = window.localStorage.getItem(k);
+      const v = JSON.parse(raw);
+      let next = null;
+      if (name === 'nsfwIds' && Array.isArray(v) && v.length > KEEP_NSFW_IDS) next = v.slice(v.length - KEEP_NSFW_IDS);
+      if (name === 'watch' && v && typeof v === 'object') {
+        const ids = Object.keys(v);
+        if (ids.length > KEEP_WATCH) {
+          const at = (id) => String((v[id] && v[id].state && v[id].state.lastWatched) || '');
+          next = {};
+          ids.sort((a, b) => (at(a) < at(b) ? 1 : at(a) > at(b) ? -1 : 0)).slice(0, KEEP_WATCH).forEach((id) => (next[id] = v[id]));
+        }
+      }
+      if (next) {
+        window.localStorage.setItem(k, JSON.stringify(next));
+        freed = true;
+      }
+    } catch (e) {
+      /* chave ilegível: deixa como está */
+    }
+  });
+  return freed;
+}
+
+function rawSet(key, value, retry) {
   try {
     if (value === undefined || value === null) window.localStorage.removeItem(PREFIX + key);
     else window.localStorage.setItem(PREFIX + key, JSON.stringify(value));
   } catch (e) {
-    /* armazenamento cheio ou bloqueado */
+    // Cota cheia: libera o histórico antigo e tenta uma vez.
+    if (!retry && isQuotaError(e) && pruneOld()) return rawSet(key, value, true);
+    log.warn('Armazenamento: não gravou ' + key, e && e.message);
   }
 }
 
@@ -89,7 +144,8 @@ function ensureProfiles() {
 }
 
 // Da conta (iguais para todos os perfis): login, addons e a biblioteca da conta.
-const ACCOUNT_KEYS = ['auth', 'addons', 'library'];
+// libPending: alterações da biblioteca ainda não enviadas ao servidor (ver api/stremio.js).
+const ACCOUNT_KEYS = ['auth', 'addons', 'library', 'libPending'];
 
 // Migração para a conta única: antes cada perfil tinha a sua. Fica a do primeiro perfil (na ordem
 // em que foram criados) que tinha conta, e esse perfil vira o "dono": ele lê e grava o histórico
@@ -166,6 +222,7 @@ let activeMem;
 
 function saveProfiles(list) {
   listMem = list;
+  epochNum++;
   rawSet('profiles', list);
 }
 
@@ -188,6 +245,7 @@ export function activeProfile() {
 
 export function setActiveProfile(id) {
   activeMem = id;
+  epochNum++;
   rawSet('activeProfile', id);
 }
 
@@ -231,6 +289,7 @@ export function removeProfile(id) {
 
 // Grava um dado de um perfil específico (um salvamento atrasado não pode cair no perfil errado).
 export function setFor(profileId, key, value) {
+  if (key === 'settings') epochNum++;
   rawSet(profileKey(profileId, key), value);
 }
 
@@ -248,6 +307,7 @@ export function set(key, value) {
     profiles();
     return rawSet('account.' + key, value);
   }
+  if (key === 'settings') epochNum++;
   rawSet(profileKey(activeProfile().id, key), value);
 }
 
@@ -292,6 +352,7 @@ export function settings() {
 }
 
 export function saveSettings(patch) {
+  epochNum++;
   const dev = rawGet('device', {});
   const prof = get('settings', {});
   Object.keys(patch).forEach((k) => ((DEVICE_KEYS.indexOf(k) >= 0 ? dev : prof)[k] = patch[k]));

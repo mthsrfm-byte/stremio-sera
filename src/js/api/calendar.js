@@ -204,23 +204,39 @@ function duration(v) {
   return ((+m[2] || 0) * 7 * 86400 + (+m[3] || 0) * 86400 + (+m[4] || 0) * 3600 + (+m[5] || 0) * 60 + (+m[6] || 0)) * 1000;
 }
 
+// Ocorrência que cai na janela [from, to): quem acaba antes de a janela começar fica de fora.
+function inWindow(s, len, from, to) {
+  if (s >= to) return false;
+  return s.getTime() + Math.max(len, 0) > from.getTime() || (len === 0 && s >= from);
+}
+
 export function parse(text, color) {
   const lines = unfold(text);
+  const from = dayStart(new Date());
+  const to = addDays(from, 2);
   let calName = '';
-  const raw = [];
+  const raw = []; // { e, len }: só o que pode cair na janela (e as séries, que são expandidas)
+  // Ocorrências trocadas uma a uma (RECURRENCE-ID) saem da série e entram como evento próprio.
+  const moved = {};
   let cur = null;
+  // Evento: já guarda só o que serve. Evento único fora da janela nem vira item (o resto do arquivo,
+  // como o VTIMEZONE, nem é lido). Ocorrência trocada (moved) é guardada mesmo quando descartada.
+  const add = (e) => {
+    if (e.uid && e.recurrenceId) (moved[e.uid] = moved[e.uid] || []).push(e.recurrenceId.date.getTime());
+    if (!e.start || e.status === 'CANCELLED') return;
+    const len = e.end ? e.end.date - e.start.date : e.duration || (e.start.allDay ? 86400000 : 0);
+    const repeats = !!e.rrule && !e.recurrenceId;
+    if (!repeats && !inWindow(e.start.date, len, from, to)) return;
+    raw.push({ e: e, len: len });
+  };
   lines.forEach((line) => {
     if (line === 'BEGIN:VEVENT') cur = { exdates: [] };
     else if (line === 'END:VEVENT') {
-      if (cur) raw.push(cur);
+      if (cur) add(cur);
       cur = null;
-    } else {
+    } else if (cur) {
       const p = prop(line);
       if (!p) return;
-      if (!cur) {
-        if (p.name === 'X-WR-CALNAME') calName = unescape(p.value);
-        return;
-      }
       if (p.name === 'SUMMARY') cur.title = unescape(p.value);
       else if (p.name === 'LOCATION') cur.location = unescape(p.value);
       else if (p.name === 'UID') cur.uid = p.value;
@@ -238,26 +254,20 @@ export function parse(text, color) {
           const d = icsDate({ value: v, params: p.params });
           if (d) cur.exdates.push(d.date.getTime());
         });
+    } else if (/^X-WR-CALNAME[:;]/i.test(line)) {
+      const p = prop(line);
+      if (p) calName = unescape(p.value);
     }
   });
 
-  const from = dayStart(new Date());
-  const to = addDays(from, 2);
-  // Ocorrências trocadas uma a uma (RECURRENCE-ID) saem da série e entram como evento próprio.
-  const moved = {};
-  raw.forEach((e) => {
-    if (e.uid && e.recurrenceId) (moved[e.uid] = moved[e.uid] || []).push(e.recurrenceId.date.getTime());
-  });
   const out = [];
-  raw.forEach((e) => {
-    if (!e.start || e.status === 'CANCELLED') return;
-    const len = e.end ? e.end.date - e.start.date : e.duration || (e.start.allDay ? 86400000 : 0);
+  raw.forEach(({ e, len }) => {
     const skip = e.exdates.concat((!e.recurrenceId && e.uid && moved[e.uid]) || []);
     const starts = e.rrule && !e.recurrenceId ? expand(e.start.date, e.rrule, from, to, len) : [e.start.date];
     starts.forEach((s) => {
       if (skip.indexOf(s.getTime()) >= 0) return;
+      if (!inWindow(s, len, from, to)) return;
       const end = new Date(s.getTime() + Math.max(len, 0));
-      if (s >= to || (end <= from && !(len === 0 && s >= from))) return;
       out.push({
         title: e.title || '(sem título)',
         location: e.location || '',

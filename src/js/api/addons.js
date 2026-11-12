@@ -27,6 +27,8 @@ export function onChange(fn) {
 
 function changed(list) {
   addons = list;
+  adultMem = null; // prefixos e addons adultos dependem da lista
+  streamJobs.clear();
   listeners.forEach((fn) => {
     try {
       fn();
@@ -308,9 +310,8 @@ export function adultAddons() {
     const i = ADULT_FIRST.indexOf(a.manifest && a.manifest.id);
     return i < 0 ? ADULT_FIRST.length : i;
   };
-  return (addons || [])
-    .filter(isAdult)
-    .map((a, i) => ({ a: a, i: i }))
+  return adultState()
+    .adults.map((a, i) => ({ a: a, i: i }))
     .sort((x, y) => rank(x.a) - rank(y.a) || x.i - y.i)
     .map((x) => x.a);
 }
@@ -321,15 +322,29 @@ export function nsfwEnabled() {
   return HAS_TV_SERVICE && store.settings().nsfwTab !== false;
 }
 
-// Prefixos de id dos addons adultos ("tt" do IMDb fica de fora: é de filme comum).
+// Addons adultos e prefixos de id deles, calculados uma vez: isAdultId() roda por item de cada
+// fileira, e refazer isso (ajustes lidos, regex por addon) pesava na TV. Refaz só quando muda a
+// lista de addons (changed), os ajustes ou o perfil (store.epoch).
+let adultMem = null;
+function adultState() {
+  const ep = store.epoch();
+  if (!adultMem || adultMem.ep !== ep || adultMem.src !== addons) {
+    const adults = (addons || []).filter(isAdult);
+    // Prefixos dos adultos ("tt" do IMDb fica de fora: é de filme comum).
+    const prefixes = TUBE_PREFIXES.slice();
+    adults.forEach((a) => {
+      const m = a.manifest;
+      const lists = [m.idPrefixes || []].concat((m.resources || []).map((r) => (typeof r === 'object' && r.idPrefixes) || []));
+      lists.forEach((l) => l.forEach((p) => p && p !== 'tt' && prefixes.indexOf(p) < 0 && prefixes.push(p)));
+    });
+    adultMem = { ep: ep, src: addons, adults: adults, prefixes: prefixes };
+  }
+  return adultMem;
+}
+
+// Prefixos de id dos addons adultos (com os do serviço da TV).
 function adultPrefixes() {
-  const out = TUBE_PREFIXES.slice();
-  adultAddons().forEach((a) => {
-    const m = a.manifest;
-    const lists = [m.idPrefixes || []].concat((m.resources || []).map((r) => (typeof r === 'object' && r.idPrefixes) || []));
-    lists.forEach((l) => l.forEach((p) => p && p !== 'tt' && out.indexOf(p) < 0 && out.push(p)));
-  });
-  return out;
+  return adultState().prefixes;
 }
 
 // Ids abertos pela aba NSFW: cobre addon adulto sem idPrefixes (o id não diz de onde veio).
@@ -421,52 +436,114 @@ export function fetchCatalog(entry, extra) {
   const u = url(entry.addon, 'catalog', entry.catalog.type, entry.catalog.id, extra);
   const isSearch = !!(extra && extra.search);
   const ttl = isSearch ? 3 * 60000 : 15 * 60000;
-  return catalogSlot(() => cachedJSON(u, ttl, { timeout: 12000 })).then((r) => (r && r.metas) || []);
+  return catalogSlot(() => cachedJSON(u, ttl, { timeout: 12000, cat: 'catalogo' })).then((r) => (r && r.metas) || []);
 }
 
+// Meta de um addon. Falha de rede tenta de novo uma vez; tempo esgotado e erro HTTP não se repetem.
+function metaFrom(a, type, id) {
+  const u = url(a, 'meta', type, id);
+  const opts = { timeout: 8000, cat: 'meta' };
+  return cachedJSON(u, 30 * 60000, opts).catch((e) => {
+    if (!e || e.timeout || e.status >= 400) return Promise.reject(e);
+    return new Promise((ok) => setTimeout(ok, 1200)).then(() => cachedJSON(u, 30 * 60000, opts));
+  });
+}
+
+// Consulta todos os addons ao mesmo tempo. Vale o primeiro na ordem de instalação que tiver meta:
+// não espera os de menor prioridade quando um de cima já respondeu.
 export function fetchMeta(type, id) {
   const sources = withResource('meta', type, id);
   if (!sources.length) return Promise.reject(new Error(t('Nenhum addon fornece detalhes para {id}', { id: id })));
-  // Tenta na ordem de instalação; o primeiro que responder com meta vence.
-  let i = 0;
-  let lastErr = null;
-  const next = () => {
+  return new Promise((resolve, reject) => {
+    const got = []; // resultado de cada addon, pela posição na ordem de prioridade
+    let next = 0; // primeiro da ordem ainda sem decisão
+    let lastErr = null;
     // Mostra o motivo real (falha de rede, tempo esgotado...) em vez de um genérico.
-    if (i >= sources.length) throw lastErr || new Error(t('Detalhes não encontrados'));
-    const a = sources[i++];
-    const u = url(a, 'meta', type, id);
-    // Falha de rede: tenta o mesmo addon mais uma vez antes de passar para o próximo.
-    return cachedJSON(u, 30 * 60000)
-      .catch((e) => (e && e.status >= 400 ? Promise.reject(e) : new Promise((ok) => setTimeout(ok, 1200)).then(() => cachedJSON(u, 30 * 60000))))
-      .then((r) => {
-        if (r && r.meta) return r.meta;
-        return next();
-      })
-      .catch((e) => {
-        if (!lastErr || (e && e.status === 0)) lastErr = e;
-        return next();
-      });
-  };
-  return next();
+    const decide = () => {
+      while (next < sources.length && got[next]) {
+        const g = got[next];
+        if (g.meta) return resolve(g.meta);
+        if (g.err && (!lastErr || g.err.status === 0)) lastErr = g.err;
+        next++;
+      }
+      if (next >= sources.length) reject(lastErr || new Error(t('Detalhes não encontrados')));
+    };
+    sources.forEach((a, k) => {
+      metaFrom(a, type, id).then(
+        (r) => {
+          got[k] = r && r.meta ? { meta: r.meta } : { none: true };
+          decide();
+        },
+        (e) => {
+          got[k] = { err: e };
+          decide();
+        }
+      );
+    });
+  });
 }
 
-// Streams de todos os addons em paralelo; onAddon é chamado à medida que chegam.
+// Buscas de streams em voo ou recentes, por tipo|id: quem pede o mesmo título de novo (ex.: detalhes
+// e player) reaproveita a busca em vez de refazer as chamadas. Guarda 60 s, e só se algum addon respondeu.
+const streamJobs = new Map();
+const STREAMS_KEEP_MS = 60000;
+
+function emitStream(job, a, streams, err) {
+  job.got.push({ a: a, streams: streams, err: err });
+  if (!err) job.ok++;
+  job.subs.forEach((fn) => {
+    try {
+      fn(a, streams, err);
+    } catch (e) {
+      log.warn('Fontes: erro na tela', e.message);
+    }
+  });
+}
+
+// Streams de todos os addons em paralelo; onAddon é chamado à medida que chegam (também para quem
+// pede a mesma busca enquanto ela corre ou logo depois: recebe o que já chegou).
 export function fetchStreams(type, id, onAddon) {
+  const key = type + '|' + id;
+  const hit = streamJobs.get(key);
+  if (hit) {
+    if (onAddon) {
+      if (hit.pending) hit.subs.push(onAddon);
+      const seen = hit.got.slice();
+      Promise.resolve().then(() => seen.forEach((g) => onAddon(g.a, g.streams, g.err)));
+    }
+    return hit.p;
+  }
   const sources = withResource('stream', type, id);
-  return Promise.all(
+  const job = { pending: true, got: [], subs: onAddon ? [onAddon] : [], ok: 0 };
+  const forget = (ms) => {
+    const drop = () => {
+      if (streamJobs.get(key) === job) streamJobs.delete(key);
+    };
+    if (ms) setTimeout(drop, ms);
+    else drop();
+  };
+  job.p = Promise.all(
     sources.map((a) =>
       getJSON(url(a, 'stream', type, id), { timeout: 30000 })
         .then((r) => {
           const streams = ((r && r.streams) || []).map((s) => Object.assign({ addon: a.manifest.name || a.manifest.id }, s));
-          if (onAddon) onAddon(a, streams);
+          emitStream(job, a, streams);
           return streams;
         })
         .catch((e) => {
-          if (onAddon) onAddon(a, [], e);
+          emitStream(job, a, [], e);
           return [];
         })
     )
-  ).then((all) => all.reduce((acc, x) => acc.concat(x), []));
+  ).then((all) => {
+    job.pending = false;
+    job.subs = [];
+    // Nenhum addon respondeu: não guarda, a próxima vez refaz a busca.
+    forget(job.ok ? STREAMS_KEEP_MS : 0);
+    return all.reduce((acc, x) => acc.concat(x), []);
+  });
+  streamJobs.set(key, job);
+  return job.p;
 }
 
 // onAddon(lista) é chamado a cada addon que responde, para não esperar o mais lento.
