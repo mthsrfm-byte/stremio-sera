@@ -1,6 +1,6 @@
 {
   "version": "1.2.0",
-  "commit": "b29925d345368cc9f074aeb0640f99d6aea5d1bd",
-  "date": "2026-11-12T05:37:17+00:00",
-  "message": "Build da dist/ para a TV"
+  "commit": "d533a65be4bd0bc54dd012678f9c80226efa0753",
+  "date": "2026-11-12T03:25:45-03:00",
+  "message": "Merge pull request #70 from mthsrfm-byte/cursor/perf-nsfw-fixes-8487"
 }

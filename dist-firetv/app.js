@@ -6895,9 +6895,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO = "mthsrfm-byte/stremio-sera";
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "b29925d345368cc9f074aeb0640f99d6aea5d1bd",
-    date: "2026-11-12T05:37:17+00:00",
-    message: "Build da dist/ para a TV"
+    commit: "d533a65be4bd0bc54dd012678f9c80226efa0753",
+    date: "2026-11-12T03:25:45-03:00",
+    message: "Merge pull request #70 from mthsrfm-byte/cursor/perf-nsfw-fixes-8487"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -9461,8 +9461,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return m ? m[0] : null;
   }
   var BUILTIN_KEYS = {
-    tmdbKey: true ? "" : "",
-    mdblistKey: true ? "" : ""
+    tmdbKey: true ? "9c57ed7ea044b2f01eea2fcc2e954c2e" : "",
+    mdblistKey: true ? "t9e4f1z29b3c36i1j25rul1wx" : ""
   };
   function keyOf(name) {
     return (settings()[name] || "").trim() || BUILTIN_KEYS[name];
