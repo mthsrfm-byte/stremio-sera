@@ -1,4 +1,5 @@
-// Ajustes: conta, servidor do PC, Hero Banner, tema, legendas, addons e depuração.
+// Ajustes: a lista principal mostra o mais usado; Legendas, Conta e Sobre abrem subtelas.
+// Conta, servidor do PC, Hero Banner, tema, addons e depuração.
 import { h, clear } from '../lib/dom.js';
 import * as nav from '../lib/nav.js';
 import * as store from '../lib/store.js';
@@ -20,7 +21,7 @@ import * as intro from '../lib/intro.js';
 import * as screensaver from '../lib/screensaver.js';
 import * as debrid from '../api/debrid.js';
 import { getJSON, recentErrors } from '../lib/http.js';
-import { topbar, toast, menu, confirmDialog, refreshProfileChips, refreshTabs, timeHM } from '../ui.js';
+import { topbar, toast, menu, confirmDialog, refreshProfileChips, refreshTabs, timeHM, openModal } from '../ui.js';
 import * as router from '../router.js';
 import { openLogin } from './login.js';
 import { avatar, avatarStyle, switchProfile, createProfile, canAddProfile, chooseColor } from './profiles.js';
@@ -47,6 +48,41 @@ const RECOMMENDED = [
   { id: 'org.stremio.opensubtitlesv3', name: 'OpenSubtitles v3', url: 'https://opensubtitles-v3.strem.io/manifest.json', desc: 'Legendas em português para quase tudo' },
 ];
 
+// Títulos das subtelas (a chave é o id que openSection recebe).
+const SECTION_TITLE = { legendas: 'Legendas', conta: 'Conta', sobre: 'Sobre' };
+
+function subLangLabel(s) {
+  return (SUB_LANGS.find((x) => JSON.stringify(x.value) === JSON.stringify(s.subtitleLangs)) || { label: (s.subtitleLangs || []).join(', ') }).label;
+}
+
+function audioLangLabel(s) {
+  return (AUDIO_LANGS.find((x) => JSON.stringify(x.value) === JSON.stringify(s.audioLangs)) || AUDIO_LANGS[0]).label;
+}
+
+// Efeitos reduzidos: sem valor salvo, vale o que o aparelho já está usando.
+function lowfxOn(s) {
+  return s.lowfx === undefined ? document.body.classList.contains('lowfx') : !!s.lowfx;
+}
+
+// Rejeita com { timeout: true } se fn() não responder em ms (a conexão segue; só deixa de esperar).
+function withLimit(fn, ms) {
+  return new Promise((ok, fail) => {
+    const timer = setTimeout(() => fail({ timeout: true }), ms);
+    Promise.resolve()
+      .then(fn)
+      .then(
+        (v) => {
+          clearTimeout(timer);
+          ok(v);
+        },
+        (e) => {
+          clearTimeout(timer);
+          fail(e);
+        }
+      );
+  });
+}
+
 export function SettingsView() {
   const el = h('div.view');
   const scroller = h('div.scroll-y', { 'data-scroll-y': '' });
@@ -55,6 +91,13 @@ export function SettingsView() {
   scroller.appendChild(bar);
   scroller.appendChild(body);
   el.appendChild(scroller);
+
+  // Subtela aberta: '' é a lista principal; senão 'legendas', 'conta' ou 'sobre'.
+  let section = '';
+  // Onde o foco cai no próximo desenho: id de uma entrada, 'first' ou null (fica no mesmo item).
+  let focusTo = null;
+  // Texto de andamento da linha "Procurar na rede" (muda sem redesenhar a tela a cada sonda).
+  let scanText = null;
 
   let device = '';
   deviceInfo()
@@ -68,6 +111,19 @@ export function SettingsView() {
       h('div.label', null, [label, sub ? h('small', { text: sub }) : null]),
       extra || h('div.value', { text: value || '' }),
     ]);
+  }
+
+  // Entrada que abre uma subtela; o id vira data-entry para o foco voltar a ela no Voltar.
+  function entry(id, label, sub, value) {
+    const r = row(label, sub, value, () => openSection(id));
+    r.setAttribute('data-entry', id);
+    return r;
+  }
+
+  // Linha com campo de texto (o OK do controle vai para o campo). title: texto ou lista de nós.
+  function inputRow(title, sub, input, onSelect) {
+    const label = [].concat(title, sub ? h('small', { text: sub }) : null);
+    return h('div.set-row', { focusable: true, onSelect: onSelect || (() => nav.select(input)) }, [h('div.label', null, label), input]);
   }
 
   // QR code do controle pelo celular, grande no meio da tela.
@@ -96,22 +152,22 @@ export function SettingsView() {
   }
 
   // Diagnóstico de rede: testa cada servidor que o app usa e mostra os últimos erros.
+  // Tudo ao mesmo tempo (5 s no máximo por teste); cada linha muda ao terminar. Fechar o modal
+  // faz as respostas que chegarem depois serem ignoradas.
   function showNetworkCheck() {
+    const LIMIT = 5000;
     const list = h('div.diag-list');
-    const box = h('div.modal-box.center.diag-box', null, [
-      h('h3', { text: t('Teste de conexão') }),
-      h('p.modal-text', { text: t(IS_WEB ? 'Relógio deste aparelho: {now}' : 'Relógio da TV: {now}', { now: new Date().toLocaleString('pt-BR') }) }),
-      list,
-      h('div.modal-actions', null, [h('div.btn.primary', { focusable: true, 'data-autofocus': '', text: t('Fechar'), onSelect: () => close() })]),
-    ]);
-    const modal = h('div.modal', null, box);
-    document.getElementById('app').appendChild(modal);
-    const layer = nav.pushLayer(modal, { onBack: () => close() });
-    nav.focusFirst(modal);
-    function close() {
-      nav.popLayer(layer);
-      if (modal.parentNode) modal.parentNode.removeChild(modal);
-    }
+    let alive = true;
+    const modal = openModal({
+      title: t('Teste de conexão'),
+      boxCls: 'modal-box center diag-box',
+      content: [
+        h('p.modal-text', { text: t(IS_WEB ? 'Relógio deste aparelho: {now}' : 'Relógio da TV: {now}', { now: new Date().toLocaleString('pt-BR') }) }),
+        list,
+        h('div.modal-actions', null, [h('div.btn.primary', { focusable: true, 'data-autofocus': '', text: t('Fechar'), onSelect: () => modal.close() })]),
+      ],
+      onClose: () => (alive = false),
+    });
     function line(name) {
       const res = h('span.diag-res', { text: t('testando...') });
       list.appendChild(h('div.diag-line', null, [h('span.diag-name', { text: name }), res]));
@@ -120,12 +176,14 @@ export function SettingsView() {
     function test(name, run) {
       const res = line(name);
       const t0 = Date.now();
-      return run().then(
+      return withLimit(run, LIMIT).then(
         () => {
+          if (!alive) return;
           res.textContent = '✓ ' + (Date.now() - t0) + ' ms';
           res.className = 'diag-res ok';
         },
         (e) => {
+          if (!alive) return;
           res.textContent = '✗ ' + (e.timeout ? t('tempo esgotado') : e.status ? 'HTTP ' + e.status : t('falha de rede')) + ' (' + (Date.now() - t0) + ' ms)';
           res.className = 'diag-res bad';
         }
@@ -141,37 +199,38 @@ export function SettingsView() {
     const tests = [
       [t('TMDB (fileiras e busca de títulos)'), () => extras.tmdbPing()],
       [t('Imagens do TMDB (pôsteres)'), () => image('https://image.tmdb.org/t/p/w92/rK1KljqmbvO9HQa1PBFLILWah72.png')],
-      [t('Cinemeta (detalhes dos títulos)'), () => getJSON('https://v3-cinemeta.strem.io/manifest.json', { timeout: 10000, quiet: true })],
+      [t('Cinemeta (detalhes dos títulos)'), () => getJSON('https://v3-cinemeta.strem.io/manifest.json', { timeout: LIMIT, quiet: true })],
     ];
     if (debrid.available()) tests.push([t('Real-Debrid (torrents sem o PC)'), () => debrid.ping()]);
     addons.list().forEach((a) => {
       if (!/^https?:/.test(a.transportUrl || '') || /cinemeta/.test(a.transportUrl)) return;
-      tests.push([t('Addon: {name}', { name: a.manifest.name || a.manifest.id }), () => getJSON(a.transportUrl, { timeout: 10000, quiet: true })]);
+      tests.push([t('Addon: {name}', { name: a.manifest.name || a.manifest.id }), () => getJSON(a.transportUrl, { timeout: LIMIT, quiet: true })]);
     });
-    // Um por vez: assim o tempo de cada um é o dele mesmo.
-    tests
-      .reduce((p, x) => p.then(() => test(x[0], x[1])), Promise.resolve())
-      .then(() => {
-        const errs = recentErrors();
-        list.appendChild(h('div.diag-head', { text: errs.length ? t('Últimos erros do app') : t('Nenhum erro de rede registrado desde que o app abriu.') }));
-        errs.slice(0, 8).forEach((e) => {
-          const ago = Math.round((Date.now() - e.at) / 60000);
-          list.appendChild(h('div.diag-err', { text: e.msg + ' · ' + e.ms + ' ms · ' + t('há {n} min', { n: ago }) + ' · ' + e.url.slice(0, 70) }));
-        });
-        // Pornhub/XVideos: o que os sites responderam para o serviço da TV (lista vazia, bloqueio...).
-        if (!HAS_TV_SERVICE) return;
-        getJSON('http://127.0.0.1:8092/api/tubelog', { timeout: 3000, quiet: true })
-          .then((log) => {
-            const items = (Array.isArray(log) ? log : []).slice(-8).reverse();
-            if (!items.length) return;
-            list.appendChild(h('div.diag-head', { text: t('Pornhub e XVideos (pedidos do serviço da TV)') }));
-            items.forEach((x) => {
-              const ago = Math.round((Date.now() - x.at) / 60000);
-              list.appendChild(h('div.diag-err', { cls: /^ok/.test(x.result) ? 'ok' : '', text: (x.tube === 'ph' ? 'Pornhub' : 'XVideos') + ' · ' + x.what + ' · ' + x.result + ' · ' + t('há {n} min', { n: ago }) }));
-            });
-          })
-          .catch(() => list.appendChild(h('div.diag-err', { text: t('O serviço da TV (Pornhub/XVideos) não respondeu.') })));
+    Promise.all(tests.map((x) => test(x[0], x[1]))).then(() => {
+      if (!alive) return;
+      const errs = recentErrors();
+      list.appendChild(h('div.diag-head', { text: errs.length ? t('Últimos erros do app') : t('Nenhum erro de rede registrado desde que o app abriu.') }));
+      errs.slice(0, 8).forEach((e) => {
+        const ago = Math.round((Date.now() - e.at) / 60000);
+        list.appendChild(h('div.diag-err', { text: e.msg + ' · ' + e.ms + ' ms · ' + t('há {n} min', { n: ago }) + ' · ' + e.url.slice(0, 70) }));
       });
+      // Pornhub/XVideos: o que os sites responderam para o serviço da TV (lista vazia, bloqueio...).
+      if (!HAS_TV_SERVICE) return;
+      getJSON('http://127.0.0.1:8092/api/tubelog', { timeout: 3000, quiet: true })
+        .then((log) => {
+          if (!alive) return;
+          const items = (Array.isArray(log) ? log : []).slice(-8).reverse();
+          if (!items.length) return;
+          list.appendChild(h('div.diag-head', { text: t('Pornhub e XVideos (pedidos do serviço da TV)') }));
+          items.forEach((x) => {
+            const ago = Math.round((Date.now() - x.at) / 60000);
+            list.appendChild(h('div.diag-err', { cls: /^ok/.test(x.result) ? 'ok' : '', text: (x.tube === 'ph' ? 'Pornhub' : 'XVideos') + ' · ' + x.what + ' · ' + x.result + ' · ' + t('há {n} min', { n: ago }) }));
+          });
+        })
+        .catch(() => {
+          if (alive) list.appendChild(h('div.diag-err', { text: t('O serviço da TV (Pornhub/XVideos) não respondeu.') }));
+        });
+    });
   }
 
   let updateStatus = '';
@@ -250,12 +309,7 @@ export function SettingsView() {
       pinInput.value = '';
       toast(t('PIN da aba NSFW trocado'));
     };
-    body.appendChild(
-      h('div.set-row', { focusable: true, onSelect: guarded(() => nav.select(pinInput)) }, [
-        h('div.label', null, [t('PIN da aba NSFW'), h('small', { text: t('Pedido ao entrar na aba; vale até o app fechar ou ir para segundo plano') })]),
-        pinInput,
-      ])
-    );
+    body.appendChild(inputRow(t('PIN da aba NSFW'), t('Pedido ao entrar na aba; vale até o app fechar ou ir para segundo plano'), pinInput, guarded(() => nav.select(pinInput))));
     body.appendChild(
       row(t('Addons adultos'), t('Detectados sozinhos; marque ou desmarque à mão'), adult.length ? t('{n} addon(s)', { n: adult.length }) : t('nenhum'), guarded(() =>
         menu(
@@ -313,36 +367,60 @@ export function SettingsView() {
     return h('div.toggle', { cls: on ? 'on' : '' }, h('i'));
   }
 
-  function render() {
-    const s = store.settings();
-    const keep = nav.current();
-    const keepIndex = keep ? Array.prototype.indexOf.call(body.querySelectorAll('.set-row'), keep) : -1;
-    clear(body);
+  // Procurar na rede: uma busca por vez; o texto da linha mostra o andamento.
+  function scanNetwork() {
+    if (server.isScanning()) return toast(t('Já estou procurando o servidor...'));
+    toast(t('Procurando servidor na rede...'), 20000);
+    setScanText(t('Procurando o servidor na rede...'));
+    server
+      .scan((n, total) => setScanText(t('Procurando o servidor na rede...') + ' ' + Math.round((n / total) * 100) + '%'))
+      .then((ip) => {
+        setScanText(t('Varre a rede local atrás do servidor'));
+        if (!ip) return toast(t('Nenhum servidor encontrado. Ele está aberto no PC?'));
+        store.saveSettings({ serverUrl: ip });
+        return server.check().then(() => {
+          toast(t('Servidor encontrado em {ip}', { ip: ip }));
+          render();
+        });
+      })
+      .catch((e) => {
+        setScanText(t('Varre a rede local atrás do servidor'));
+        toast(t('Falha na busca: {msg}', { msg: e.message }));
+      });
+  }
 
-    // ---- Atualizações (direto do GitHub, sem fechar o app; na web o site já é atualizado sozinho) ----
-    if (!IS_WEB) {
-      body.appendChild(h('div.set-section', { text: t('Atualizações') }));
-      // Fire TV: o app Android baixa a versão nova sozinho ao abrir; aqui dá para forçar agora.
-      if (IS_FIRETV) body.appendChild(row(t('Procurar atualização'), t('O app se atualiza sozinho ao abrir; aqui busca agora no GitHub ({repo})', { repo: update.REPO }), '', () => {
-        const a = android();
-        if (!a) return toast(t('Só no app do Fire TV'));
-        toast(t('Procurando atualização...'), 15000);
-        a.checkUpdate();
-      }));
-      else body.appendChild(row(t('Procurar atualização'), updateStatus || t('Busca a versão mais nova no GitHub ({repo})', { repo: update.REPO }), '', () => checkForUpdate()));
-      const b = update.BUILD;
-      body.appendChild(
-        row(
-          t('Versão instalada'),
-          b.date ? t('Publicada em {date}', { date: update.formatDate(b.date) }) + (b.message ? ' · ' + b.message : '') : t('Build local'),
-          'v' + update.VERSION + (b.commit ? ' · ' + update.shortCommit(b.commit) : ''),
-          null
-        )
-      );
-    }
-    if (device && !IS_WEB) body.appendChild(row(t(IS_FIRETV ? 'Aparelho' : 'TV'), '', device, null));
+  function setScanText(txt) {
+    if (scanText) scanText.textContent = txt;
+  }
 
-    // ---- Perfil (a conta Stremio é de todos; cada perfil tem o seu histórico e preferências) ----
+  // Liga/desliga uma opção de lista (menu) e redesenha. choose(título, sub, lista, chave, valor, rótulo)
+  function choose(title, sub, list, key, value, label) {
+    body.appendChild(
+      row(title, sub, t(String(label)), () =>
+        menu(title, list.map((x) => ({ label: t(String(x.label)), value: x.id, checked: x.id === value })), {
+          onPick: (v) => {
+            const patch = {};
+            patch[key] = v;
+            store.saveSettings(patch);
+            render();
+          },
+        })
+      )
+    );
+  }
+
+  // Abre uma subtela ('' volta à lista). from: a entrada que foi aberta, para o foco voltar a ela.
+  function openSection(id, from) {
+    section = id;
+    focusTo = id ? 'first' : from;
+    if (id) scroller.scrollTop = 0;
+    render();
+  }
+
+  // ---- Seções (cada uma desenha no corpo da tela atual) ----
+
+  function secPerfil() {
+    // A conta Stremio é de todos; cada perfil tem o seu histórico e preferências.
     const prof = store.activeProfile();
     const allProfiles = store.profiles();
     body.appendChild(h('div.set-section', { text: t('Perfil') }));
@@ -359,12 +437,7 @@ export function SettingsView() {
       toast(t('Nome do perfil salvo'));
       render();
     };
-    body.appendChild(
-      h('div.set-row', { focusable: true, onSelect: () => nav.select(nameInput) }, [
-        h('div.label', null, [avatar(prof, 'small'), ' ' + t('Nome do perfil'), h('small', { text: t('Aparece em "Quem está assistindo?"') })]),
-        nameInput,
-      ])
-    );
+    body.appendChild(inputRow([avatar(prof, 'small'), ' ' + t('Nome do perfil')], t('Aparece em "Quem está assistindo?"'), nameInput));
     body.appendChild(
       row(t('Cor do perfil'), prof.colorPicked ? '' : t('Sorteada ao criar o perfil'), '', () =>
         chooseColor(prof, () => {
@@ -392,7 +465,7 @@ export function SettingsView() {
         row(t('Perguntar "Quem está assistindo?" ao abrir'), '', '', () => {
           store.saveSettings({ askProfile: !store.settings().askProfile });
           render();
-        }, toggle(s.askProfile))
+        }, toggle(store.settings().askProfile))
       );
       body.appendChild(
         row(t('Apagar este perfil'), t('Remove deste aparelho o histórico e as preferências do perfil (a conta Stremio continua)'), '', () =>
@@ -403,7 +476,9 @@ export function SettingsView() {
         )
       );
     }
+  }
 
+  function secConta(s) {
     body.appendChild(h('div.set-section', { text: t('Conta Stremio') }));
     if (stremio.isLoggedIn()) {
       const u = stremio.user();
@@ -442,6 +517,36 @@ export function SettingsView() {
       );
     }
 
+    // Chaves de serviços (opcionais): cada uma com o campo e um aviso.
+    body.appendChild(h('div.set-section', { text: t('Metadados extras (opcional)') }));
+    const keyRow = (title, sub, key, placeholder) => {
+      const builtin = !!extras.BUILTIN_KEYS[key];
+      if (builtin) sub += ' · ' + t('já vem embutida, só preencha para usar outra');
+      const input = h('input.input', { type: 'text', value: s[key] || '', placeholder: builtin ? t('Embutida no app') : placeholder });
+      input.__submit = (v) => {
+        const patch = {};
+        patch[key] = v.trim();
+        store.saveSettings(patch);
+        toast(v.trim() ? t('Chave salva') : t('Chave removida'));
+        render();
+      };
+      body.appendChild(inputRow(title, sub, input));
+    };
+    keyRow(t('Chave TMDB'), t('Sinopses e títulos em PT-BR, logos e elenco com fotos (grátis em themoviedb.org)'), 'tmdbKey', 'API key (v3)');
+    keyRow(t('Chave MDBList'), t('Notas do Rotten Tomatoes, Metacritic, Trakt e Letterboxd (grátis em mdblist.com)'), 'mdblistKey', 'API key');
+    {
+      // Real-Debrid: a chave costuma vir sozinha da URL do Torrentio da conta; aqui é só para outra.
+      const found = !s.rdKey && debrid.available();
+      keyRow(
+        t('Chave do Real-Debrid'),
+        (found ? t('Achei a da sua conta (pelos addons)') : t('Para tocar torrents sem o PC, inclusive os da área NSFW')) + ' · real-debrid.com/apitoken',
+        'rdKey',
+        found ? t('Já encontrada nos addons') : 'API token'
+      );
+    }
+  }
+
+  function secServidor(s) {
     body.appendChild(h('div.set-section', { text: t('Servidor de streaming (PC)') }));
     const st = server.lastStatus();
     const stText = !s.serverUrl ? t('não configurado') : st.ok && st.url === server.baseUrl() ? t('conectado ✓') : t('sem resposta');
@@ -453,30 +558,15 @@ export function SettingsView() {
         render();
       });
     };
-    if (!IS_WEB) body.appendChild(
-      h('div.set-row', { focusable: true, onSelect: () => nav.select(urlInput) }, [
-        h('div.label', null, [t('Endereço do PC'), h('small', { text: t('Rode o stremio-service no PC (porta 11470). Status: {s}', { s: stText }) })]),
-        urlInput,
-      ])
-    );
-    if (!IS_WEB) body.appendChild(
-      row(t('Procurar na rede'), t('Varre a rede local atrás do servidor'), '', () => {
-        toast(t('Procurando servidor na rede...'), 20000);
-        server
-          .scan()
-          .then((ip) => {
-            if (!ip) return toast(t('Nenhum servidor encontrado. Ele está aberto no PC?'));
-            store.saveSettings({ serverUrl: ip });
-            return server.check().then(() => {
-              toast(t('Servidor encontrado em {ip}', { ip: ip }));
-              render();
-            });
-          })
-          .catch((e) => toast(t('Falha na busca: {msg}', { msg: e.message })));
-      })
-    );
+    if (!IS_WEB) body.appendChild(inputRow(t('Endereço do PC'), t('Rode o stremio-service no PC (porta 11470). Status: {s}', { s: stText }), urlInput));
+    if (!IS_WEB) {
+      const scanEl = row(t('Procurar na rede'), server.isScanning() ? t('Procurando o servidor na rede...') : t('Varre a rede local atrás do servidor'), '', () => scanNetwork());
+      if (server.isScanning()) scanEl.style.opacity = '0.6';
+      scanText = scanEl.querySelector('small');
+      body.appendChild(scanEl);
+    }
     body.appendChild(
-      row(t('Testar conexão'), '', '', () =>
+      row(t('Testar servidor'), '', '', () =>
         server.check().then((r) => {
           toast(r.ok ? t('Servidor OK') + (r.version ? ' (v' + r.version + ')' : '') : t('Sem resposta de {url}', { url: server.baseUrl() || '-' }));
           render();
@@ -484,7 +574,9 @@ export function SettingsView() {
       )
     );
     if (HAS_TV_SERVICE) body.appendChild(row(t('Testar torrent na TV (sem o PC)'), t('Mede se a própria TV aguenta baixar torrent: Node, memória, rede e disco'), '', () => torrentTest()));
+  }
 
+  function secAparencia(s) {
     body.appendChild(h('div.set-section', { text: t('Aparência (Kai)') }));
     const heroName = t((hero.SOURCES.find((x) => x.id === s.heroSource) || hero.SOURCES[0]).name);
     body.appendChild(
@@ -517,6 +609,14 @@ export function SettingsView() {
         render();
       }, toggle(s.smoothScroll))
     );
+    body.appendChild(
+      row(t('Efeitos reduzidos'), t('Menos efeitos visuais e animações; ajuda em TVs mais fracas'), '', () => {
+        const on = !lowfxOn(store.settings());
+        store.saveSettings({ lowfx: on });
+        document.body.classList.toggle('lowfx', on);
+        render();
+      }, toggle(lowfxOn(s)))
+    );
     const ssMin = screensaver.minutes();
     body.appendChild(
       row(t('Protetor de tela'), t(IS_WEB ? 'Os lançamentos passando na tela quando você fica sem mexer' : 'Os lançamentos passando na tela quando o controle fica parado'), ssMin ? t('{n} min', { n: ssMin }) : t('Desligado'), () =>
@@ -544,7 +644,9 @@ export function SettingsView() {
         render();
       }, toggle(s.introSound !== false))
     );
+  }
 
+  function secReproducao(s) {
     body.appendChild(h('div.set-section', { text: t('Reprodução') }));
     body.appendChild(
       row(t('Smart Choice'), IS_FIRETV ? t('Ao escolher um episódio, já abre a melhor fonte: Real-Debrid dublado primeiro; senão a que toca liso no Fire TV (1080p, sem 4K pesado)') : t('Ao escolher um episódio, já abre a melhor fonte: original + dublado, boa qualidade e bem semeada'), '', () => {
@@ -552,9 +654,12 @@ export function SettingsView() {
         render();
       }, toggle(s.smartChoice !== false))
     );
+  }
 
+  function secLegendas(s) {
     body.appendChild(h('div.set-section', { text: t('Legendas e áudio') }));
-    const subName = (SUB_LANGS.find((x) => JSON.stringify(x.value) === JSON.stringify(s.subtitleLangs)) || { label: (s.subtitleLangs || []).join(', ') }).label;
+    // Idioma e áudio são listas de códigos (arrays): a opção atual é marcada pelo rótulo.
+    const subName = subLangLabel(s);
     body.appendChild(
       row(t('Idioma da legenda'), t('Escolhida sozinha ao abrir o vídeo'), t(subName), () =>
         menu(t('Idioma da legenda'), SUB_LANGS.map((x) => ({ label: t(x.label), value: x.value, checked: x.label === subName })), {
@@ -571,7 +676,7 @@ export function SettingsView() {
         render();
       }, toggle(s.subtitlesAuto))
     );
-    const audName = (AUDIO_LANGS.find((x) => JSON.stringify(x.value) === JSON.stringify(s.audioLangs)) || AUDIO_LANGS[0]).label;
+    const audName = audioLangLabel(s);
     body.appendChild(
       row(t('Áudio preferido'), t('Precisa do servidor do PC para ler as faixas'), t(audName), () =>
         menu(t('Áudio preferido'), AUDIO_LANGS.map((x) => ({ label: t(x.label), value: x.value, checked: x.label === audName })), {
@@ -589,19 +694,6 @@ export function SettingsView() {
     substyle.apply(preview, s);
     body.appendChild(h('div.sub-preview', null, preview));
     const lb = substyle.labels(s);
-    const choose = (title, sub, list, key, value, label) =>
-      body.appendChild(
-        row(title, sub, t(String(label)), () =>
-          menu(title, list.map((x) => ({ label: t(String(x.label)), value: x.id, checked: x.id === value })), {
-            onPick: (v) => {
-              const patch = {};
-              patch[key] = v;
-              store.saveSettings(patch);
-              render();
-            },
-          })
-        )
-      );
     choose(t('Fonte'), t('Vale para legendas de addons (OpenSubtitles etc.)'), substyle.FONTS, 'subtitleFont', s.subtitleFont, lb.font);
     choose(t('Estilo'), t('Contorno, sombra ou caixa de fundo'), substyle.STYLES, 'subtitleStyle', s.subtitleStyle, lb.style);
     choose(t('Cor do texto'), '', substyle.COLORS, 'subtitleColor', s.subtitleColor, lb.color);
@@ -623,8 +715,9 @@ export function SettingsView() {
     body.appendChild(
       h('div.hint', { style: { padding: '6px 4px 0' }, text: t('Legendas embutidas no arquivo são desenhadas pela própria TV: só cor, tamanho, posição e caixa se aplicam a elas.') })
     );
+  }
 
-    // ---- Player ----
+  function secPlayer(s) {
     body.appendChild(h('div.set-section', { text: t('Player') }));
     choose(
       t('Pular abertura e encerramento'),
@@ -638,65 +731,30 @@ export function SettingsView() {
       s.skipMode,
       { prompt: t('Mostrar botão'), auto: t('Automático'), off: t('Desligado') }[s.skipMode] || t('Mostrar botão')
     );
+  }
 
-    // ---- Metadados (opcional, como no Kai) ----
-    body.appendChild(h('div.set-section', { text: t('Metadados extras (opcional)') }));
-    const keyRow = (title, sub, key, placeholder) => {
-      const builtin = !!extras.BUILTIN_KEYS[key];
-      if (builtin) sub += ' · ' + t('já vem embutida, só preencha para usar outra');
-      const input = h('input.input', { type: 'text', value: s[key] || '', placeholder: builtin ? t('Embutida no app') : placeholder });
-      input.__submit = (v) => {
-        const patch = {};
-        patch[key] = v.trim();
-        store.saveSettings(patch);
-        toast(v.trim() ? t('Chave salva') : t('Chave removida'));
-        render();
-      };
-      body.appendChild(
-        h('div.set-row', { focusable: true, onSelect: () => nav.select(input) }, [
-          h('div.label', null, [title, h('small', { text: sub })]),
-          input,
-        ])
-      );
+  function secAgenda() {
+    if (IS_WEB) return;
+    body.appendChild(h('div.set-section', { text: t('Google Agenda') }));
+    const s = store.settings();
+    const calInput = h('input.input', { type: 'text', value: s.calendarUrl || '', placeholder: calendar.BUILTIN ? t('Embutido no app') : 'https://calendar.google.com/calendar/ical/…/basic.ics' });
+    calInput.__submit = (v) => {
+      store.saveSettings({ calendarUrl: v.trim() });
+      calendar.start();
+      toast(v.trim() ? t('Agenda ligada') : t('Agenda desligada'));
+      render();
     };
-    keyRow(t('Chave TMDB'), t('Sinopses e títulos em PT-BR, logos e elenco com fotos (grátis em themoviedb.org)'), 'tmdbKey', 'API key (v3)');
-    keyRow(t('Chave MDBList'), t('Notas do Rotten Tomatoes, Metacritic, Trakt e Letterboxd (grátis em mdblist.com)'), 'mdblistKey', 'API key');
-    {
-      // Real-Debrid: a chave costuma vir sozinha da URL do Torrentio da conta; aqui é só para outra.
-      const found = !s.rdKey && debrid.available();
-      keyRow(
-        t('Chave do Real-Debrid'),
-        (found ? t('Achei a da sua conta (pelos addons)') : t('Para tocar torrents sem o PC, inclusive os da área NSFW')) + ' · real-debrid.com/apitoken',
-        'rdKey',
-        found ? t('Já encontrada nos addons') : 'API token'
-      );
-    }
+    body.appendChild(
+      inputRow(
+        t('Link da agenda (iCal)'),
+        t('Google Agenda › Configurações › sua agenda › "Endereço secreto no formato iCal". Dá para colar pelo controle no celular. Vários links: separe com espaço.') +
+          (calendar.BUILTIN ? ' · ' + t('já vem embutido, só preencha para usar outro') : ''),
+        calInput
+      )
+    );
+  }
 
-    // ---- Agenda ----
-    if (!IS_WEB) {
-      body.appendChild(h('div.set-section', { text: t('Google Agenda') }));
-      const calInput = h('input.input', { type: 'text', value: s.calendarUrl || '', placeholder: calendar.BUILTIN ? t('Embutido no app') : 'https://calendar.google.com/calendar/ical/…/basic.ics' });
-      calInput.__submit = (v) => {
-        store.saveSettings({ calendarUrl: v.trim() });
-        calendar.start();
-        toast(v.trim() ? t('Agenda ligada') : t('Agenda desligada'));
-        render();
-      };
-      body.appendChild(
-        h('div.set-row', { focusable: true, onSelect: () => nav.select(calInput) }, [
-          h('div.label', null, [
-            t('Link da agenda (iCal)'),
-            h('small', {
-              text:
-                t('Google Agenda › Configurações › sua agenda › "Endereço secreto no formato iCal". Dá para colar pelo controle no celular. Vários links: separe com espaço.') +
-                (calendar.BUILTIN ? ' · ' + t('já vem embutido, só preencha para usar outro') : ''),
-            }),
-          ]),
-          calInput,
-        ])
-      );
-    }
-
+  function secAddons() {
     body.appendChild(h('div.set-section', { text: t('Addons') }));
     const list = addons.list();
     body.appendChild(
@@ -722,22 +780,42 @@ export function SettingsView() {
         render();
       });
     };
-    body.appendChild(
-      h('div.set-row', { focusable: true, onSelect: () => nav.select(addInput) }, [
-        h('div.label', null, [t('Adicionar addon por URL'), h('small', { text: stremio.isLoggedIn() ? t('Instala na sua conta Stremio') : t('Fica só nesta TV') })]),
-        addInput,
-      ])
-    );
+    body.appendChild(inputRow(t('Adicionar addon por URL'), stremio.isLoggedIn() ? t('Instala na sua conta Stremio') : t('Fica só nesta TV'), addInput));
+  }
 
-    // ---- Controle pelo celular (só na TV: o serviço do Seraflix roda nela) ----
+  // ---- Controle pelo celular (só na TV: o serviço do Seraflix roda nela) ----
+  function secControle() {
     if (HAS_TV_SERVICE) {
       body.appendChild(h('div.set-section', { text: t('Controle no celular') }));
       body.appendChild(row(t('Abrir o controle no celular'), t('Mostra um QR code: é só apontar a câmera'), '', () => showPhoneRemote()));
     }
+  }
 
+  function secSobre(s) {
+    if (!IS_WEB) {
+      body.appendChild(h('div.set-section', { text: t('Atualizações') }));
+      // Fire TV: o app Android baixa a versão nova sozinho ao abrir; aqui dá para forçar agora.
+      if (IS_FIRETV) body.appendChild(row(t('Procurar atualização'), t('O app se atualiza sozinho ao abrir; aqui busca agora no GitHub ({repo})', { repo: update.REPO }), '', () => {
+        const a = android();
+        if (!a) return toast(t('Só no app do Fire TV'));
+        toast(t('Procurando atualização...'), 15000);
+        a.checkUpdate();
+      }));
+      else body.appendChild(row(t('Procurar atualização'), updateStatus || t('Busca a versão mais nova no GitHub ({repo})', { repo: update.REPO }), '', () => checkForUpdate()));
+      const b = update.BUILD;
+      body.appendChild(
+        row(
+          t('Versão instalada'),
+          b.date ? t('Publicada em {date}', { date: update.formatDate(b.date) }) + (b.message ? ' · ' + b.message : '') : t('Build local'),
+          'v' + update.VERSION + (b.commit ? ' · ' + update.shortCommit(b.commit) : ''),
+          null
+        )
+      );
+    }
+    if (device && !IS_WEB) body.appendChild(row(t(IS_FIRETV ? 'Aparelho' : 'TV'), '', device, null));
 
     body.appendChild(h('div.set-section', { text: t('Sobre e depuração') }));
-    body.appendChild(row(t('Testar conexão'), t(IS_WEB ? 'Coisas não carregam? Veja qual servidor este aparelho não alcança' : 'Coisas não carregam? Veja qual servidor a TV não alcança'), '', () => showNetworkCheck()));
+    body.appendChild(row(t('Testar serviços e addons'), t(IS_WEB ? 'Coisas não carregam? Veja qual servidor este aparelho não alcança' : 'Coisas não carregam? Veja qual servidor a TV não alcança'), '', () => showNetworkCheck()));
     body.appendChild(row(t('Último trailer'), t('Resultado do trailer na aba Recomendado'), reco.getTrailerReport() || t('nenhum ainda'), null));
     const plays = playlog.list();
     const lastPlay = plays[0];
@@ -755,22 +833,61 @@ export function SettingsView() {
         )
       )
     );
-    const logInput = h('input.input', { type: 'text', value: s.devlogUrl || '', placeholder: 'http://IP-DO-PC:8099/log' });
-    logInput.__submit = (v) => {
+    if (!IS_WEB) body.appendChild(inputRow(t('Log remoto'), t('npm run logs no PC'), logInput()));
+  }
+
+  // Campo do log remoto: manda os logs para o PC (npm run logs).
+  function logInput() {
+    const s = store.settings();
+    const input = h('input.input', { type: 'text', value: s.devlogUrl || '', placeholder: 'http://IP-DO-PC:8099/log' });
+    input.__submit = (v) => {
       store.saveSettings({ devlogUrl: v.trim() });
       log.setRemote(v.trim());
       log.info(t('Log remoto ligado'));
       toast(v.trim() ? t('Enviando logs para o PC') : t('Log remoto desligado'));
     };
-    if (!IS_WEB) body.appendChild(
-      h('div.set-row', { focusable: true, onSelect: () => nav.select(logInput) }, [
-        h('div.label', null, [t('Log remoto'), h('small', { text: t('npm run logs no PC') })]),
-        logInput,
-      ])
-    );
+    return input;
+  }
 
+  function render() {
+    const s = store.settings();
+    const keep = nav.current();
+    const keepIndex = keep ? Array.prototype.indexOf.call(body.querySelectorAll('.set-row'), keep) : -1;
+    clear(body);
+    scanText = null;
+
+    if (section === '') {
+      // Lista principal: o mais usado; o resto fica nas subtelas (entradas no fim).
+      secPerfil();
+      secServidor(s);
+      secAparencia(s);
+      secReproducao(s);
+      secPlayer(s);
+      secAgenda();
+      secAddons();
+      secControle();
+      const subs = [
+        entry('legendas', t('Legendas'), t('Idioma, aparência da legenda e áudio preferido'), t(subLangLabel(s))),
+        entry('conta', t('Conta'), t('Conta Stremio e chaves de serviços (TMDB, MDBList, Real-Debrid)'), stremio.isLoggedIn() ? t('conectada') : t('sem conta')),
+        entry('sobre', t('Sobre'), t('Atualizações, aparelho, testes de conexão e de reprodução'), IS_WEB ? '' : 'v' + update.VERSION),
+      ];
+      subs.forEach((r) => body.appendChild(r));
+    } else {
+      body.appendChild(h('div.set-section', { text: t(SECTION_TITLE[section]) }));
+      if (section === 'legendas') secLegendas(s);
+      else if (section === 'conta') secConta(s);
+      else if (section === 'sobre') secSobre(s);
+    }
+
+    // Foco: a entrada de origem (ao voltar), o primeiro item (ao abrir) ou o mesmo item de antes.
     const rows = body.querySelectorAll('.set-row');
-    if (keepIndex >= 0 && rows[keepIndex]) nav.focus(rows[keepIndex]);
+    if (focusTo === 'first') {
+      if (rows[0]) nav.focus(rows[0]);
+    } else if (focusTo) {
+      const target = body.querySelector('[data-entry="' + focusTo + '"]');
+      if (target) nav.focus(target);
+    } else if (keepIndex >= 0 && rows[keepIndex]) nav.focus(rows[keepIndex]);
+    focusTo = null;
   }
 
   render();
@@ -779,6 +896,13 @@ export function SettingsView() {
     el: el,
     onShow: () => {
       server.check().then(() => render());
+    },
+    // Voltar numa subtela leva à lista, com o foco na entrada que foi aberta. Na lista, segue o padrão.
+    onBack: () => {
+      if (!section) return false;
+      const from = section;
+      openSection('', from);
+      return true;
     },
     destroy: () => bar.__destroy && bar.__destroy(),
   };

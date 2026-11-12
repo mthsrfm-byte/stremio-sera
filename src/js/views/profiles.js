@@ -7,7 +7,7 @@ import * as nav from '../lib/nav.js';
 import * as store from '../lib/store.js';
 import * as stremio from '../api/stremio.js';
 import { t } from '../lib/i18n.js';
-import { menu, confirmDialog, toast } from '../ui.js';
+import { menu, confirmDialog, toast, openModal } from '../ui.js';
 
 const SESSION_PICKED = 'kai.profilePicked';
 const SESSION_NEW = 'kai.newProfile';
@@ -132,6 +132,7 @@ export function switchProfile(id) {
 export function askProfileName(title, initial, okLabel, onOk, onCancel) {
   const err = h('div.modal-text.err-text');
   const input = h('input.input', { type: 'text', value: initial || '', placeholder: t('Ex.: Ana, Pedro, Sala'), maxlength: '20', focusable: true, 'data-autofocus': '' });
+  let accepted = false; // o nome foi confirmado: fechar agora não é cancelar
   const submit = () => {
     const name = String(input.value || '').trim();
     if (!name) {
@@ -145,27 +146,27 @@ export function askProfileName(title, initial, okLabel, onOk, onCancel) {
       nav.focus(input);
       return;
     }
-    close();
+    accepted = true;
+    modal.close();
     onOk(name);
   };
   input.__submit = submit;
-  const box = h('div.modal-box.center', null, [
-    h('h3', { text: title }),
-    h('div.modal-text', null, input),
-    err,
-    h('div.modal-actions', { 'data-group': '' }, [
-      h('div.btn.primary', { focusable: true, text: okLabel || t('Continuar'), onSelect: submit }),
-      h('div.btn', { focusable: true, text: t('Cancelar'), onSelect: () => (close(), onCancel && onCancel()) }),
-    ]),
-  ]);
-  const modal = h('div.modal', null, box);
-  document.getElementById('app').appendChild(modal);
-  const layer = nav.pushLayer(modal, { onBack: () => (close(), onCancel && onCancel()) });
-  nav.focusFirst(modal);
-  function close() {
-    nav.popLayer(layer);
-    if (modal.parentNode) modal.parentNode.removeChild(modal);
-  }
+  // Voltar, Cancelar e fechar sem confirmar caem no onCancel.
+  const modal = openModal({
+    title: title,
+    boxCls: 'modal-box center',
+    content: [
+      h('div.modal-text', null, input),
+      err,
+      h('div.modal-actions', { 'data-group': '' }, [
+        h('div.btn.primary', { focusable: true, text: okLabel || t('Continuar'), onSelect: submit }),
+        h('div.btn', { focusable: true, text: t('Cancelar'), onSelect: () => modal.close() }),
+      ]),
+    ],
+    onClose: () => {
+      if (!accepted && onCancel) onCancel();
+    },
+  });
 }
 
 // Novo perfil: primeiro o nome (não existe nome padrão), depois o app troca para ele. A conta é a

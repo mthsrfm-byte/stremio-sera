@@ -8,6 +8,7 @@ import * as store from '../lib/store.js';
 import { t } from '../lib/i18n.js';
 import { IS_WEB } from '../lib/platform.js';
 import * as router from '../router.js';
+import { openModal } from '../ui.js';
 
 export const DEFAULT_PIN = '7789';
 const LOCK_SVG = '<svg viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/><circle cx="12" cy="15.5" r="1.3"/></svg>';
@@ -88,18 +89,10 @@ export function askPin(title, onDone) {
   const dots = h('div.pin-dots');
   const msg = h('div.pin-msg');
   const pad = h('div.pin-pad', { 'data-group': '' });
-  const box = h('div.pin-box', null, [
-    h('div.pin-lock', { html: LOCK_SVG }),
-    h('h2.pin-title', { text: title }),
-    h('div.pin-sub', { text: t('Digite a senha para continuar') }),
-    dots,
-    pad,
-    msg,
-    h('div.pin-hint', { text: t(IS_WEB ? 'Os números do teclado também funcionam' : 'Os números do controle também funcionam') }),
-  ]);
-  const modal = h('div.modal.pin-screen', null, box);
   const want = pin();
   let entered = []; // cada toque: lista de dígitos possíveis
+  let right = false; // PIN certo: fechar agora não conta como "Voltar"
+  let box = null;
 
   function renderDots() {
     clear(dots);
@@ -137,7 +130,8 @@ export function askPin(title, onDone) {
     entered = [];
     if (ok) {
       failures = 0;
-      close();
+      right = true;
+      m.close();
       onDone(true);
       return;
     }
@@ -156,19 +150,21 @@ export function askPin(title, onDone) {
     nav.focusFirst(pad);
   }
 
-  function close() {
-    nav.popLayer(layer);
-    if (modal.parentNode) modal.parentNode.removeChild(modal);
-  }
-
   renderDots();
   renderPad();
-  document.getElementById('app').appendChild(modal);
-  const layer = nav.pushLayer(modal, {
-    onBack: () => {
-      close();
-      onDone(false);
-    },
+  // Fechou sem acertar (Voltar): avisa quem pediu o PIN.
+  const m = openModal({
+    cls: 'pin-screen',
+    boxCls: 'pin-box',
+    content: [
+      h('div.pin-lock', { html: LOCK_SVG }),
+      h('h2.pin-title', { text: title }),
+      h('div.pin-sub', { text: t('Digite a senha para continuar') }),
+      dots,
+      pad,
+      msg,
+      h('div.pin-hint', { text: t(IS_WEB ? 'Os números do teclado também funcionam' : 'Os números do controle também funcionam') }),
+    ],
     onKey: (e) => {
       // Teclas 0-9 do controle (e do teclado/numpad no PC).
       const c = e.keyCode;
@@ -183,6 +179,9 @@ export function askPin(title, onDone) {
       }
       return false;
     },
+    onClose: () => {
+      if (!right) onDone(false);
+    },
   });
-  nav.focusFirst(pad);
+  box = m.el.querySelector('.pin-box');
 }

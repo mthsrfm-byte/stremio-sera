@@ -99,6 +99,28 @@ export function confirmDialog(text, okLabel, onOk, opts) {
   }
 }
 
+// Modal genérico: título (opcional), conteúdo (elemento ou lista) e fecha com o Voltar ou close().
+// opts: { title, content, onClose, onKey, cls (classes do modal), boxCls (classes da caixa, padrão modal-box) }
+// onClose roda uma única vez, em qualquer fechamento. Devolve { el, close }.
+export function openModal(opts) {
+  const o = opts || {};
+  const kids = [o.title ? h('h3', { text: o.title }) : null].concat(o.content || []);
+  const box = h('div', { cls: o.boxCls || 'modal-box' }, kids);
+  const modal = h('div.modal', { cls: o.cls || '' }, box);
+  document.getElementById('app').appendChild(modal);
+  let closed = false;
+  function close() {
+    if (closed) return;
+    closed = true;
+    nav.popLayer(layer);
+    if (modal.parentNode) modal.parentNode.removeChild(modal);
+    if (o.onClose) o.onClose();
+  }
+  const layer = nav.pushLayer(modal, { onBack: () => close(), onKey: o.onKey });
+  nav.focusFirst(modal);
+  return { el: modal, close: close };
+}
+
 // Ícones da barra (traço em currentColor, desenhados à mão: a fonte da TV não tem símbolos).
 const ICONS = {
   home: '<svg viewBox="0 0 24 24"><path d="M3.5 10.5 12 3.5l8.5 7"/><path d="M5.5 9v11h4.5v-6h4v6h4.5V9"/></svg>',
