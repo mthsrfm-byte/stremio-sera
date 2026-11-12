@@ -73,9 +73,9 @@ const TUBES = ['xv', 'ph'];
 const TUBE_PREFIXES = ['xv:', 'ph:'];
 const TUBE_PORT = 8092;
 const SERVICE_MIN = 12;
-// Versão mais nova do serviço (15: sem o controle pelo celular). Com uma mais velha os vídeos
-// tocam do mesmo jeito; o app só pede ao TizenBrew a nova e troca os addons quando ela responder.
-const SERVICE_WANT = 15;
+// Versão mais nova do serviço (16). Com uma mais velha os vídeos tocam do mesmo jeito; o app só pede
+// ao TizenBrew a nova e troca os addons quando ela responder (ver awaitUpgrade e attachTubes).
+const SERVICE_WANT = 16;
 let upgradeTimer = null;
 function awaitUpgrade(tries) {
   clearTimeout(upgradeTimer);
@@ -432,13 +432,16 @@ export function catalogTitle(entry) {
   return name + ' · ' + typeName;
 }
 
-export function fetchCatalog(entry, extra) {
+// extra: os extras do catálogo (skip, search, genre, sort...) entram na URL todos do mesmo jeito.
+// opts.foreground: pedido da tela à vista, passa na frente da fila de catálogo (padrão: fundo).
+export function fetchCatalog(entry, extra, opts) {
   // Timeout menor: addon lento não segura a fila de fileiras.
   // Busca: TTL curto e passa pela fila global (evita dezenas de scrapes juntos na TV).
   const u = url(entry.addon, 'catalog', entry.catalog.type, entry.catalog.id, extra);
   const isSearch = !!(extra && extra.search);
   const ttl = isSearch ? 3 * 60000 : 15 * 60000;
-  return catalogSlot(() => cachedJSON(u, ttl, { timeout: 12000, cat: 'catalogo' })).then((r) => (r && r.metas) || []);
+  const slot = { foreground: !!(opts && opts.foreground) };
+  return catalogSlot(() => cachedJSON(u, ttl, { timeout: 12000, cat: 'catalogo' }), slot).then((r) => (r && r.metas) || []);
 }
 
 // Meta de um addon. Falha de rede tenta de novo uma vez; tempo esgotado e erro HTTP não se repetem.

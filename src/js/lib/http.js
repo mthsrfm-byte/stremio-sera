@@ -74,7 +74,8 @@ export function getText(url, opts) {
 
 // Cache em memória com validade (LRU), para catálogos e metadados. Um LRU por categoria (opts.cat):
 // uma resposta grande (catálogo) não expulsa os metadados nem as notas.
-const CACHE_MAX = { meta: 30, catalogo: 20, notas: 20, outros: 20 };
+// Catálogo: a aba NSFW usa ~8–12 URLs por site, além de grades e buscas; 60 evita refazer o scrape ao voltar.
+const CACHE_MAX = { meta: 30, catalogo: 60, notas: 20, outros: 20 };
 const memCaches = {};
 // opts.fetch: busca alternativa com a mesma assinatura de getJSON (ex.: pelo proxy do PC).
 export function cachedJSON(url, ttlMs, opts) {
@@ -104,11 +105,13 @@ export function cachedJSON(url, ttlMs, opts) {
 
 // Fila global de pedidos de catálogo: a TV e o serviço dos tubes engasgam com muitos
 // scrapes ao mesmo tempo (busca NSFW + fileiras de descoberta).
+// opts.foreground: pedido da tela que está à vista; passa na frente dos de fundo que esperam.
 const CAT_LIMIT = 2;
 let catActive = 0;
-const catWait = [];
+const catWait = []; // fundo
+const catWaitFg = []; // à vista
 
-export function catalogSlot(fn) {
+export function catalogSlot(fn, opts) {
   return new Promise((resolve, reject) => {
     const run = () => {
       catActive++;
@@ -117,10 +120,11 @@ export function catalogSlot(fn) {
         .then(resolve, reject)
         .then(() => {
           catActive--;
-          if (catWait.length) catWait.shift()();
+          const next = catWaitFg.shift() || catWait.shift();
+          if (next) next();
         });
     };
     if (catActive < CAT_LIMIT) run();
-    else catWait.push(run);
+    else (opts && opts.foreground ? catWaitFg : catWait).push(run);
   });
 }

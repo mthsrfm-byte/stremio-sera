@@ -1,5 +1,5 @@
 // Detalhes: informações à esquerda; à direita, episódios (séries) ou fontes (streams).
-import { h, clear, loadVisibleImages } from '../lib/dom.js';
+import { h, clear, append, loadVisibleImages } from '../lib/dom.js';
 import * as nav from '../lib/nav.js';
 import * as addons from '../api/addons.js';
 import * as stremio from '../api/stremio.js';
@@ -112,56 +112,112 @@ function DetailsView(type, id, opts) {
     return vids.filter((v) => v.season !== 0 && !isUpcoming(v))[0] || vids[0];
   }
 
+  // A ficha é montada uma vez (botões e foco ficam no lugar); quando a meta completa chega,
+  // só os textos são trocados (paintInfo).
+  let sheet = null; // elementos da ficha
+  let waitingFull = false; // mostra a meta do catálogo; a completa ainda não chegou
   function renderInfo() {
     clear(info);
     const logo = h('img.details-logo', { alt: '' });
-    const title = h('div.details-title', { text: meta.name });
+    const title = h('div.details-title');
     title.style.display = 'none';
     logo.onerror = () => {
       logo.style.display = 'none';
       title.style.display = '';
     };
-    logo.src = meta.logo || hero.logo(meta.id);
-    const parts = [];
-    if (meta.releaseInfo || meta.year) parts.push(meta.releaseInfo || meta.year);
-    if (meta.runtime) parts.push(meta.runtime);
-    if (isSeries()) {
-      const seasons = uniqueSeasons().filter((s) => s !== 0);
-      if (seasons.length) parts.push(t(seasons.length > 1 ? '{n} temporadas' : '{n} temporada', { n: seasons.length }));
-    }
-    const metaLine = h('div.details-meta', { text: parts.join('  ·  ') });
+    const metaLine = h('div.details-meta');
     const ratingsEl = h('div.ratings');
     renderRatings(ratingsEl, { imdb: meta.imdbRating ? String(meta.imdbRating) : null, critic: null, audience: null }, true);
-    const genres = h(
-      'div.details-genres',
-      null,
-      (meta.genres || meta.genre || []).slice(0, 5).map((g) => h('span', { text: genreName(g) }))
-    );
-    const desc = h('div.details-desc', { text: meta.description || '' });
-    const cast = (meta.cast || []).slice(0, 5);
-    const director = (meta.director || []).slice(0, 2);
+    const genres = h('div.details-genres');
+    const desc = h('div.details-desc');
     // Texto vindo do addon entra como texto, nunca como HTML (um addon malicioso não injeta código).
-    const castLine = h('div.details-cast', null, [
-      director.length ? h('b', { text: t('Direção: ') }) : null,
-      director.length ? director.join(', ') + '   ' : null,
-      cast.length ? h('b', { text: t('Elenco: ') }) : null,
-      cast.length ? cast.join(', ') : null,
-    ]);
+    const castLine = h('div.details-cast');
 
     watchBtn = h('div.btn.primary', { focusable: true, 'data-autofocus': '', onSelect: onWatch });
     libBtn = h('div.btn', { focusable: true, onSelect: toggleLibrary });
-    updateButtons();
+    sheet = { logo: logo, title: title, metaLine: metaLine, ratingsEl: ratingsEl, genres: genres, desc: desc, castLine: castLine, stats: null };
     info.appendChild(logo);
     info.appendChild(title);
     info.appendChild(metaLine);
     info.appendChild(ratingsEl);
-    if (isAdult() && meta.stats) info.appendChild(adultStats(meta.stats));
     info.appendChild(genres);
     info.appendChild(desc);
     // Botões antes do elenco: o foco começa no Assistir e o elenco fica logo abaixo, para explorar.
     info.appendChild(h('div.details-buttons', { 'data-group': '' }, [watchBtn, libBtn]));
     info.appendChild(castLine);
-    loadExtras({ logo: logo, title: title, desc: desc, castLine: castLine, ratingsEl: ratingsEl });
+    paintInfo();
+  }
+
+  // Textos da ficha com a meta atual (estatísticas adultas entram antes dos gêneros).
+  function paintInfo() {
+    const s = sheet;
+    const logoSrc = meta.logo || hero.logo(meta.id);
+    if (s.logo.__src !== logoSrc) {
+      s.logo.__src = logoSrc;
+      s.logo.style.display = '';
+      s.title.style.display = 'none';
+      s.logo.src = logoSrc;
+    }
+    s.title.textContent = meta.name || '';
+    const parts = [];
+    if (meta.releaseInfo || meta.year) parts.push(meta.releaseInfo || meta.year);
+    if (meta.runtime) parts.push(meta.runtime);
+    if (isSeries()) {
+      const seasons = uniqueSeasons().filter((n) => n !== 0);
+      if (seasons.length) parts.push(t(seasons.length > 1 ? '{n} temporadas' : '{n} temporada', { n: seasons.length }));
+    }
+    s.metaLine.textContent = parts.join('  ·  ');
+    clear(s.genres);
+    (meta.genres || meta.genre || []).slice(0, 5).forEach((g) => s.genres.appendChild(h('span', { text: genreName(g) })));
+    s.desc.textContent = meta.description || '';
+    if (s.stats) {
+      if (s.stats.parentNode) s.stats.parentNode.removeChild(s.stats);
+      s.stats = null;
+    }
+    if (isAdult() && meta.stats) {
+      s.stats = adultStats(meta.stats);
+      info.insertBefore(s.stats, s.genres);
+    }
+    const cast = (meta.cast || []).slice(0, 5);
+    const director = (meta.director || []).slice(0, 2);
+    clear(s.castLine);
+    append(s.castLine, [
+      director.length ? h('b', { text: t('Direção: ') }) : null,
+      director.length ? director.join(', ') + '   ' : null,
+      cast.length ? h('b', { text: t('Elenco: ') }) : null,
+      cast.length ? cast.join(', ') : null,
+    ]);
+    updateButtons();
+  }
+
+  // Fundo: troca o endereço mesmo que a imagem anterior (a do catálogo) já esteja carregada.
+  function paintBg() {
+    const src = meta.background || hero.background(meta.id);
+    if (bg.getAttribute('data-lazy') === src) return;
+    bg.setAttribute('data-lazy', src);
+    bg.__on = false;
+    bg.style.display = '';
+    loadVisibleImages(el);
+  }
+
+  // A meta completa chegou depois da ficha do catálogo: os textos mudam no lugar (foco e botões ficam).
+  function takeFull(full) {
+    if (!alive) return;
+    const merged = Object.assign({}, meta);
+    Object.keys(full || {}).forEach((k) => {
+      if (full[k] !== undefined && full[k] !== null && full[k] !== '') merged[k] = full[k];
+    });
+    const wasSeries = isSeries();
+    meta = merged;
+    if (!meta.type) meta.type = type;
+    paintBg();
+    paintInfo();
+    loadExtras(sheet);
+    // Virou série e a tela ainda não mostra nada: lista os episódios.
+    if (!wasSeries && isSeries() && mode === 'none') {
+      panel.style.display = '';
+      showEpisodes(opts.videoId);
+    }
   }
 
   // IMDb com o logo; Rotten Tomatoes num só selo: crítica à esquerda do tomate, público à direita.
@@ -727,46 +783,68 @@ function DetailsView(type, id, opts) {
     return ('0' + d.getDate()).slice(-2) + '/' + ('0' + (d.getMonth() + 1)).slice(-2) + '/' + d.getFullYear();
   }
 
-  addons
-    .load()
-    .then(() =>
-      addons.fetchMeta(type, id).catch((e) => {
-        // Sem addon de detalhes (comum nos adultos): usa o item do catálogo e segue para as fontes.
-        if (opts.fallbackMeta) return Object.assign({ type: type }, opts.fallbackMeta, { id: id });
-        throw e;
-      })
-    )
-    .then((m) => {
-      if (!alive) return;
-      meta = m;
-      if (!meta.type) meta.type = type;
-      bg.onerror = () => (bg.style.display = 'none');
-      // Fundo como imagem sob demanda: é liberado quando o player abre por cima.
-      bg.setAttribute('data-lazy', meta.background || hero.background(meta.id));
-      loadVisibleImages(el);
-      renderInfo();
-      if (isSeries()) {
-        if (opts.videoId) {
-          const v = sortedVideos(meta).find((x) => x.id === opts.videoId);
-          if (v) season = v.season || 0;
-          if (v && opts.autoStreams) {
-            watch(v);
-            return;
-          }
-        }
-        showEpisodes(opts.videoId);
-        if (opts.autoStreams) {
-          const v = nextUpVideo();
-          if (v) watch(v);
+  // Ficha pronta com a meta: textos, fundo e, conforme o caso, episódios, fontes ou o player.
+  function enter(m) {
+    meta = m;
+    if (!meta.type) meta.type = type;
+    bg.onerror = () => (bg.style.display = 'none');
+    // Fundo como imagem sob demanda: é liberado quando o player abre por cima.
+    bg.setAttribute('data-lazy', meta.background || hero.background(meta.id));
+    loadVisibleImages(el);
+    renderInfo();
+    if (!waitingFull) loadExtras(sheet);
+    branch();
+    if (!opts.autoStreams) nav.focus(watchBtn);
+  }
+
+  function branch() {
+    if (isSeries()) {
+      if (opts.videoId) {
+        const v = sortedVideos(meta).find((x) => x.id === opts.videoId);
+        if (v) season = v.season || 0;
+        if (v && opts.autoStreams) {
+          watch(v);
           return;
         }
-      } else {
-        // Smart Choice: sem lista de fontes à vista (nem ao voltar do player); trocar é no player.
-        if (smartOn()) panel.style.display = 'none';
-        if (opts.autoStreams) watch({ id: movieVideoId(), title: meta.name });
-        else if (!smartOn()) showStreams({ id: movieVideoId(), title: meta.name }, false);
       }
-      if (!opts.autoStreams) nav.focus(watchBtn);
+      showEpisodes(opts.videoId);
+      if (opts.autoStreams) {
+        const v = nextUpVideo();
+        if (v) watch(v);
+      }
+    } else {
+      // Smart Choice: sem lista de fontes à vista (nem ao voltar do player); trocar é no player.
+      if (smartOn()) panel.style.display = 'none';
+      if (opts.autoStreams) watch({ id: movieVideoId(), title: meta.name });
+      else if (!smartOn()) showStreams({ id: movieVideoId(), title: meta.name }, false);
+    }
+  }
+
+  // Item do catálogo (aba NSFW, sem addon de detalhes): já serve para a ficha e para buscar as fontes.
+  const fallbackItem = opts.fallbackMeta ? Object.assign({ type: type }, opts.fallbackMeta, { id: id }) : null;
+
+  addons
+    .load()
+    .then(() => {
+      if (!alive) return;
+      if (!fallbackItem) return addons.fetchMeta(type, id).then(enter);
+      // Mostra na hora com o item do catálogo; a meta completa chega junto e troca só os textos.
+      waitingFull = true;
+      enter(fallbackItem);
+      addons
+        .fetchMeta(type, id)
+        .then(
+          (full) => {
+            waitingFull = false;
+            takeFull(full);
+          },
+          () => {
+            // Sem meta completa: fica com o que veio do catálogo; as notas saem dele.
+            waitingFull = false;
+            if (alive) loadExtras(sheet);
+          }
+        )
+        .catch((e) => log.warn('Detalhes: meta completa', e && e.message));
     })
     .catch((e) => {
       if (!alive) return;

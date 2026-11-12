@@ -93,6 +93,24 @@ export function askPin(title, onDone) {
   let entered = []; // cada toque: lista de dígitos possíveis
   let right = false; // PIN certo: fechar agora não conta como "Voltar"
   let box = null;
+  let lockTimer = null; // contagem do bloqueio (some ao fechar)
+
+  // Bloqueado: a contagem muda a cada segundo e as teclas não valem até acabar.
+  function tickLock() {
+    if (Date.now() >= lockedUntil) {
+      clearInterval(lockTimer);
+      lockTimer = null;
+      msg.textContent = '';
+      return;
+    }
+    msg.textContent = t('Muitas tentativas. Espere {s}s.', { s: Math.ceil((lockedUntil - Date.now()) / 1000) });
+  }
+  function startLock() {
+    clearInterval(lockTimer);
+    lockTimer = null;
+    tickLock();
+    if (Date.now() < lockedUntil) lockTimer = setInterval(tickLock, 1000);
+  }
 
   function renderDots() {
     clear(dots);
@@ -113,15 +131,13 @@ export function askPin(title, onDone) {
   }
 
   function erase() {
+    if (Date.now() < lockedUntil) return; // bloqueado: apagar também não vale
     entered.pop();
     renderDots();
   }
 
   function press(options) {
-    if (Date.now() < lockedUntil) {
-      msg.textContent = t('Muitas tentativas. Espere {s}s.', { s: Math.ceil((lockedUntil - Date.now()) / 1000) });
-      return;
-    }
+    if (Date.now() < lockedUntil) return; // bloqueado: teclas ignoradas (a contagem já aparece)
     msg.textContent = '';
     entered.push(options);
     renderDots();
@@ -139,7 +155,7 @@ export function askPin(title, onDone) {
     if (failures >= MAX_TRIES) {
       failures = 0;
       lockedUntil = Date.now() + LOCK_MS;
-      msg.textContent = t('Muitas tentativas. Espere {s}s.', { s: LOCK_MS / 1000 });
+      startLock();
     } else msg.textContent = t('PIN incorreto');
     box.classList.remove('shake');
     void box.offsetWidth;
@@ -180,8 +196,12 @@ export function askPin(title, onDone) {
       return false;
     },
     onClose: () => {
+      clearInterval(lockTimer); // fechou: nada de contagem rodando
+      lockTimer = null;
       if (!right) onDone(false);
     },
   });
   box = m.el.querySelector('.pin-box');
+  // Abriu de novo durante o bloqueio: mostra a contagem que sobrou.
+  if (Date.now() < lockedUntil) startLock();
 }
