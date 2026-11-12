@@ -1,9 +1,10 @@
 // Aba NSFW: tudo que vem dos addons adultos, separado do resto do app.
 // Organização por site: no topo, um bloco por site (Pornhub, XVideos e os outros addons; as
 // instalações divididas do mesmo addon, como "TPB 4K Porn (1/2)" e "(2/2)", viram um site só) e a
-// Busca. Dentro do site: Continuar assistindo e Favoritos daquele site, Creampie hétero, gay e
-// lançamentos (em alta agora, misturados a cada abertura), as categorias em cartões e as demais
-// fileiras. A categoria abre numa grade com a lista de categorias ao lado.
+// Busca (XVideos, Pornhub, TPB 4K e outros adultos; PT/EN; listas hétero e gay). Dentro do site:
+// Continuar assistindo e Favoritos, Creampie hétero/gay, lançamentos e temas da sessão (misturados
+// a cada abertura), categorias em cartões e as demais fileiras. A categoria abre numa grade com a
+// lista de categorias ao lado.
 import { h, clear, loadVisibleImages } from '../lib/dom.js';
 import * as nav from '../lib/nav.js';
 import { KEY } from '../lib/nav.js';
@@ -17,6 +18,7 @@ import { t } from '../lib/i18n.js';
 import * as tr from '../lib/translate.js';
 import * as store from '../lib/store.js';
 import * as nsfwSaved from '../lib/nsfwSaved.js';
+import * as nsfwSearch from '../lib/nsfwSearch.js';
 import { sharpThumb } from '../lib/img.js';
 
 const ROW_LIMIT = 20;
@@ -393,13 +395,24 @@ export function NsfwView() {
       })
     );
     // Site sem catálogo de creampie (ex.: TPB): usa a busca dele, se tiver.
-    if (!entries.some((e) => catalogOrder(e) < 3)) {
-      const searchable = [];
-      site.addons.forEach((a) => addons.adultCatalogs(a).forEach((e) => addons.supportsSearch(e.catalog) && searchable.push(e)));
-      if (searchable.length) {
-        entries.unshift(Object.assign({}, searchable[0], { extra: { search: 'gay creampie' }, title: t('Creampie gay'), order: 1 }));
-        entries.unshift(Object.assign({}, searchable[0], { extra: { search: 'creampie' }, title: t('Creampie hétero'), order: 0 }));
-      }
+    const searchable = [];
+    site.addons.forEach((a) => addons.adultCatalogs(a).forEach((e) => addons.supportsSearch(e.catalog) && searchable.push(e)));
+    if (!entries.some((e) => catalogOrder(e) < 3) && searchable.length) {
+      entries.unshift(Object.assign({}, searchable[0], { extra: { search: 'gay creampie' }, title: t('Creampie gay'), order: 1 }));
+      entries.unshift(Object.assign({}, searchable[0], { extra: { search: 'creampie' }, title: t('Creampie hétero'), order: 0 }));
+    }
+    // Temas extras desta sessão (mudam a cada abertura): mais variedade além do Creampie.
+    if (searchable.length) {
+      nsfwSearch.sessionThemes(SESSION_SEED).forEach((theme) => {
+        entries.push(
+          Object.assign({}, searchable[0], {
+            extra: nsfwSearch.searchExtra(searchable[0], theme.search, theme.orientation),
+            title: t(theme.title),
+            order: theme.order,
+            discovery: true,
+          })
+        );
+      });
     }
     const orderOf = (e) => (e.order !== undefined ? e.order : catalogOrder(e));
     const ordered = entries.map((e, i) => ({ e: e, i: i })).sort((a, b) => orderOf(a.e) - orderOf(b.e) || a.i - b.i);
@@ -410,7 +423,7 @@ export function NsfwView() {
         catsDone = true;
         categoryRows(site);
       }
-      pending.push(Object.assign(catalogRow(x.e, body, orderOf(x.e) < 3), { state: 'idle' }));
+      pending.push(Object.assign(catalogRow(x.e, body, orderOf(x.e) < 3 || x.e.discovery), { state: 'idle' }));
     });
     if (!catsDone) categoryRows(site);
     loadVisibleImages(el);
@@ -481,39 +494,119 @@ export function NsfwView() {
   }
 
   // Busca só nos catálogos adultos (a aba Buscar do app não mostra nada daqui).
+  // Em todos os sites com busca (XVideos, Pornhub, TPB 4K Porn…), em português e inglês,
+  // com duas listas: resultados hétero e resultados gay.
   function renderSearch() {
-    const input = h('input.input', { type: 'text', placeholder: t('Buscar em todos os sites...'), focusable: true });
+    const input = h('input.input', {
+      type: 'text',
+      placeholder: t('Buscar em português ou inglês...'),
+      focusable: true,
+    });
     const go = h('div.btn.primary.search-go', { focusable: true, text: t('Buscar'), onSelect: () => run(input.value) });
     const results = h('div.rows');
     input.__submit = (q) => run(q);
     body.appendChild(h('div.search-box', { 'data-group': '' }, [input, go]));
+    body.appendChild(
+      h('div.hint', { text: t('Resultados do XVideos, Pornhub e dos seus addons adultos (ex.: TPB 4K), em listas hétero e gay.') })
+    );
     body.appendChild(results);
     let token = 0;
+
+    function searchCats() {
+      const cats = [];
+      const seen = {};
+      addons.adultAddons().forEach((a) =>
+        addons.adultCatalogs(a).forEach((e) => {
+          if (!addons.supportsSearch(e.catalog)) return;
+          // Uma busca por instalação/site: evita repetir o mesmo catálogo do mesmo addon.
+          const key = (a.manifest.id || a.transportUrl) + '|' + (e.catalog.id || e.catalog.name || '');
+          if (seen[key]) return;
+          seen[key] = true;
+          cats.push(e);
+        })
+      );
+      return cats;
+    }
+
+    // Junta páginas/variantes PT-EN do mesmo site, sem repetir vídeo.
+    function fetchMerged(entry, orientation, queries) {
+      const ids = {};
+      const out = [];
+      let chain = Promise.resolve();
+      queries.forEach((q) => {
+        chain = chain
+          .then(() => addons.fetchCatalog(entry, nsfwSearch.searchExtra(entry, q, orientation)))
+          .then((metas) => {
+            (metas || []).forEach((m) => {
+              if (!m || !m.id || ids[m.id]) return;
+              ids[m.id] = true;
+              out.push(m);
+            });
+          })
+          .catch(() => {});
+      });
+      return chain.then(() => out);
+    }
+
     function run(q) {
       const query = (q || '').trim();
       clear(results);
       if (query.length < 2) return results.appendChild(h('div.hint', { text: t('Digite pelo menos 2 letras e aperte Buscar.') }));
       const my = ++token;
-      const cats = [];
-      addons.adultAddons().forEach((a) => addons.adultCatalogs(a).forEach((e) => addons.supportsSearch(e.catalog) && cats.push(e)));
-      let left = cats.length;
+      const queries = nsfwSearch.expandQueries(query);
+      const cats = searchCats();
+      if (!cats.length) return results.appendChild(h('div.hint', { text: t('Nenhum site com busca disponível agora.') }));
+
+      const sections = [
+        { id: 'straight', title: t('Resultados hétero'), orientation: 'straight' },
+        { id: 'gay', title: t('Resultados gay'), orientation: 'gay' },
+      ];
+      let left = sections.length * cats.length;
       let found = 0;
-      cats.forEach((entry) => {
-        const track = h('div.row-track', { 'data-scroll-x': '', 'data-group': '', 'data-trap': '' });
-        const row = h('div.row', { 'data-anchor': '30' }, [h('div.row-title', null, [siteName(entry.addon), h('small', { text: catName(entry) })]), track]);
-        addons
-          .fetchCatalog(entry, { search: query })
-          .then((metas) => {
-            if (my !== token || !metas.length) return;
-            found++;
-            metas.slice(0, 30).forEach((m) => track.appendChild(itemCard(m, entry)));
-            results.appendChild(row);
-            loadVisibleImages(row);
-          })
-          .catch(() => {})
-          .then(() => {
-            if (--left === 0 && my === token && !found) results.appendChild(h('div.hint', { text: t('Nada encontrado para "{q}".', { q: query }) }));
-          });
+      const slots = {};
+
+      sections.forEach((sec) => {
+        const block = h('div.nsfw-search-section');
+        block.appendChild(h('div.row-title', null, [sec.title, h('small', { text: t('em todos os sites') })]));
+        const host = h('div.rows');
+        block.appendChild(host);
+        results.appendChild(block);
+        slots[sec.id] = { host: host, found: 0 };
+
+        cats.forEach((entry) => {
+          const track = h('div.row-track', { 'data-scroll-x': '', 'data-group': '', 'data-trap': '' }, skeletonCards(6, true));
+          const row = h('div.row', { 'data-anchor': '30' }, [
+            h('div.row-title', null, [siteName(entry.addon), h('small', { text: t('busca') })]),
+            track,
+          ]);
+          host.appendChild(row);
+          fetchMerged(entry, sec.orientation, queries)
+            .then((metas) => {
+              if (my !== token) return;
+              clear(track);
+              if (!metas.length) {
+                if (row.parentNode) row.parentNode.removeChild(row);
+                return;
+              }
+              found++;
+              slots[sec.id].found++;
+              metas.slice(0, 30).forEach((m) => track.appendChild(itemCard(m, entry)));
+              loadVisibleImages(row);
+            })
+            .catch(() => {
+              if (my !== token) return;
+              if (row.parentNode) row.parentNode.removeChild(row);
+            })
+            .then(() => {
+              if (my !== token) return;
+              if (--left > 0) return;
+              sections.forEach((s) => {
+                const slot = slots[s.id];
+                if (!slot.found) slot.host.appendChild(h('div.hint', { text: t('Nada nesta lista para "{q}".', { q: query }) }));
+              });
+              if (!found) results.appendChild(h('div.hint', { text: t('Nada encontrado para "{q}".', { q: query }) }));
+            });
+        });
       });
     }
     nav.focus(input);
@@ -653,7 +746,8 @@ function catName(entry) {
   return entry.title || tr.genre(entry.catalog.name || entry.catalog.id);
 }
 
-// discovery: fileira de descoberta (Creampie) — duas páginas, misturadas e sem o que já foi aberto.
+// discovery: fileira de descoberta — várias páginas a partir de um offset sorteado na sessão,
+// misturadas e sem o que já foi aberto, para não repetir sempre os mesmos vídeos.
 function catalogRow(entry, parent, discovery) {
   const row = h('div.row', { 'data-anchor': '30' });
   const sub = entry.extra && entry.extra.search ? t('busca no {site}', { site: siteName(entry.addon) }) : ROW_SUB[entry.catalog.id] ? t(ROW_SUB[entry.catalog.id]) : siteName(entry.addon);
@@ -662,17 +756,34 @@ function catalogRow(entry, parent, discovery) {
   row.appendChild(track);
   parent.appendChild(row);
   const out = { row: row };
+  const fetchPage = (skip) => addons.fetchCatalog(entry, Object.assign(skip ? { skip: skip } : {}, entry.extra || {})).catch(() => []);
   const fetchRow = () =>
-    retrying(() => addons.fetchCatalog(entry, entry.extra)).then((first) => {
+    retrying(() => fetchPage(0)).then((first) => {
       if (!discovery || !first.length) return first;
-      return addons
-        .fetchCatalog(entry, Object.assign({ skip: first.length }, entry.extra))
-        .catch(() => [])
-        .then((second) => {
-          const ids = {};
-          const both = first.concat(second).filter((m) => !ids[m.id] && (ids[m.id] = true));
-          return seededShuffle(unseen(both), SESSION_SEED + entry.catalog.id.length);
-        });
+      const page = first.length;
+      // Começa numa página sorteada (0–4) e pega 3 páginas a partir daí.
+      const start = ((SESSION_SEED + String(entry.catalog.id || entry.title || '').length * 17) % 5) * page;
+      const pages = [start, start + page, start + page * 2];
+      return Promise.all(pages.map((skip) => (skip === 0 ? Promise.resolve(first) : fetchPage(skip)))).then((lists) => {
+        const ids = {};
+        const both = [];
+        lists.forEach((list) =>
+          (list || []).forEach((m) => {
+            if (!m || !m.id || ids[m.id]) return;
+            ids[m.id] = true;
+            both.push(m);
+          })
+        );
+        // Se o offset caiu longe e veio pouco, completa com o começo do catálogo.
+        if (both.length < 8 && start > 0) {
+          first.forEach((m) => {
+            if (!m || !m.id || ids[m.id]) return;
+            ids[m.id] = true;
+            both.push(m);
+          });
+        }
+        return seededShuffle(unseen(both), SESSION_SEED + String(entry.catalog.id || '').length + (entry.title || '').length);
+      });
     });
   const load = () =>
     fetchRow()

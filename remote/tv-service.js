@@ -14,7 +14,7 @@ var urlLib = require('url');
 
 var PORT = 8090;
 var ADDON_PORT = 8092; // addons XVideos/Pornhub e vídeo (porta nova a cada mudança que versões antigas não sabem largar)
-var SERVICE_VERSION = 13;
+var SERVICE_VERSION = 14; // 14: busca NSFW com orientação gay/hétero (extra orientation)
 var PAGE_BASE = 'https://cdn.jsdelivr.net/gh/mthsrfm-byte/stremio-sera/remote/';
 var APP_NAME = 'Seraflix Controle';
 var TOKEN_FILE = '/home/owner/share/seraflixRemote.json';
@@ -609,7 +609,11 @@ var TUBES = {
     PAGE: 20,
     listUrl: function (cat, page, extra) {
       var p = page ? '&p=' + page : '';
-      if (cat === 'xv-search') return 'https://www.xvideos.com/?k=' + encodeURIComponent(extra.search || '') + p;
+      // orientation=gay|straight: a busca da aba NSFW pede as duas listas (bissexual).
+      var gay = extra.orientation === 'gay' || extra.gay === '1' || extra.gay === 'true';
+      if (cat === 'xv-search') {
+        return 'https://www.xvideos.com/?k=' + encodeURIComponent(extra.search || '') + (gay ? '&typef=gay' : '') + p;
+      }
       if (cat === 'xv-cp') return 'https://www.xvideos.com/?k=creampie&sort=views&datef=week' + p;
       if (cat === 'xv-cpgay') return 'https://www.xvideos.com/?k=creampie&typef=gay&sort=views&datef=month' + p;
       if (cat === 'xv-cpnew') return 'https://www.xvideos.com/?k=creampie&sort=uploaddate' + p;
@@ -681,11 +685,15 @@ var TUBES = {
     PAGE: 24, // o Pornhub manda 27 a 32 por página: corta em 24 (ver o PAGE do XVideos)
     listUrl: function (cat, page, extra) {
       var p = '&page=' + ((page || 0) + 1);
+      var gay = extra.orientation === 'gay' || extra.gay === '1' || extra.gay === 'true';
       // Creampie: os mais vistos da semana (hétero) e do mês (gay, que tem menos vídeos novos).
       if (cat === 'ph-cp') return 'https://www.pornhub.com/video/search?search=creampie&o=mv&t=w' + p;
       if (cat === 'ph-cpgay') return 'https://www.pornhub.com/gay/video/search?search=creampie&o=mv&t=m' + p;
       if (cat === 'ph-cpnew') return 'https://www.pornhub.com/video?c=15&o=cm' + p;
-      if (cat === 'ph-search') return 'https://www.pornhub.com/video/search?search=' + encodeURIComponent(extra.search || '') + p;
+      // Busca: /gay/video/search para a lista gay; senão a busca hétero padrão.
+      if (cat === 'ph-search') {
+        return 'https://www.pornhub.com/' + (gay ? 'gay/' : '') + 'video/search?search=' + encodeURIComponent(extra.search || '') + p;
+      }
       if (cat === 'ph-cat' || cat === 'ph-gaycat') {
         var c = termOf(cat === 'ph-cat' ? PH_CATS : PH_GAY_CATS, extra.genre);
         if (!c) return '';
