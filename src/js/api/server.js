@@ -44,34 +44,67 @@ export function lastStatus() {
   return status;
 }
 
-// Procura o servidor na mesma sub-rede da TV (x.x.x.1–254), em lotes.
+// Busca na rede (x.x.x.1–254): uma por vez. Quem pedir de novo enquanto ela roda recebe a mesma
+// busca e o progresso dela.
+const SCAN_CONCURRENCY = 24;
+let scanning = null; // Promise da busca em andamento
+let scanListeners = [];
+
+export function isScanning() {
+  return !!scanning;
+}
+
+// Procura o servidor na mesma sub-rede da TV. onProgress(feitos, total) a cada sonda.
+// Resolve com o IP achado ou null.
 export function scan(onProgress) {
-  return getTvIp().then((ip) => {
-    const prefix = ip.split('.').slice(0, 3).join('.') + '.';
-    const hosts = [];
-    for (let i = 1; i < 255; i++) if (prefix + i !== ip) hosts.push(prefix + i);
-    let found = null;
-    let done = 0;
-    const batch = 24;
-    const runBatch = (start) => {
-      if (found || start >= hosts.length) return Promise.resolve(found);
-      const slice = hosts.slice(start, start + batch);
-      return Promise.all(
-        slice.map((h) =>
-          getJSON('http://' + h + ':11470/settings', { timeout: 1500, quiet: true })
-            .then(() => {
-              if (!found) found = h;
-            })
-            .catch(() => {})
-            .then(() => {
-              done++;
-              if (onProgress) onProgress(done, hosts.length);
-            })
-        )
-      ).then(() => runBatch(start + batch));
-    };
-    return runBatch(0);
-  });
+  if (scanning) {
+    if (onProgress) scanListeners.push(onProgress);
+    return scanning;
+  }
+  scanListeners = onProgress ? [onProgress] : [];
+  const progress = (done, total) => scanListeners.forEach((f) => f(done, total));
+  scanning = getTvIp()
+    .then((ip) => probeHosts(ip, progress))
+    .then(
+      (found) => {
+        scanning = null;
+        return found;
+      },
+      (e) => {
+        scanning = null;
+        throw e;
+      }
+    );
+  return scanning;
+}
+
+// Sonda os hosts com SCAN_CONCURRENCY conexões: cada uma pega o próximo host ao terminar a anterior.
+function probeHosts(ip, onProgress) {
+  const prefix = ip.split('.').slice(0, 3).join('.') + '.';
+  const hosts = [];
+  for (let i = 1; i < 255; i++) if (prefix + i !== ip) hosts.push(prefix + i);
+  let found = null;
+  let done = 0;
+  let next = 0;
+  const worker = () => {
+    if (found || next >= hosts.length) return Promise.resolve();
+    const host = hosts[next++];
+    return getJSON('http://' + host + ':11470/settings', { timeout: 1500, quiet: true })
+      .then(
+        () => {
+          if (!found) found = host;
+        },
+        () => {}
+      )
+      .then(() => {
+        done++;
+        onProgress(done, hosts.length);
+      })
+      .then(() => worker());
+  };
+  const workers = [];
+  for (let i = 0; i < SCAN_CONCURRENCY; i++) workers.push(worker());
+  return Promise.all(workers).then(() => found);
 }
 
 function parseMagnet(uri) {

@@ -35,9 +35,22 @@ const loaded = {};
 
 export const OPTIONS = [0, 2, 5, 10, 20]; // minutos (0 = desligado)
 
+// Valor atual dos Ajustes (Ajustes marca a opção com ele).
 export function minutes() {
   const v = store.settings().screensaver;
   return typeof v === 'number' ? v : 5;
+}
+
+// arm() roda a cada tecla e movimento do ponteiro: o valor fica em variável, relido no máximo a cada 30 s.
+const MINUTES_TTL = 30000;
+let mins = null;
+let minsAt = 0;
+function cachedMinutes() {
+  if (mins === null || Date.now() - minsAt > MINUTES_TTL) {
+    mins = minutes();
+    minsAt = Date.now();
+  }
+  return mins;
 }
 
 export function install() {
@@ -77,7 +90,7 @@ export function install() {
 
 export function arm() {
   clearTimeout(idleTimer);
-  const m = minutes();
+  const m = cachedMinutes();
   if (m > 0) idleTimer = setTimeout(maybeStart, m * 60000);
 }
 
@@ -96,6 +109,8 @@ function isMain(v) {
 }
 
 function maybeStart() {
+  // Desligado depois que o timer foi armado (valor em cache antigo): não entra.
+  if (minutes() <= 0) return;
   if (busy()) return arm();
   start();
 }

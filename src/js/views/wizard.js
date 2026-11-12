@@ -106,28 +106,36 @@ function WizardView() {
         : t('Para tocar torrents, deixe o stremio-service aberto num PC da rede. Links de debrid funcionam sem ele.'),
     });
     card.appendChild(status);
-    card.appendChild(
-      h('div.actions', { 'data-group': '' }, [
-        btn(t('Procurar na rede'), true, () => {
-          status.textContent = t('Procurando o servidor na rede...');
-          server
-            .scan((done, total) => (status.textContent = t('Procurando o servidor na rede...') + ' ' + Math.round((done / total) * 100) + '%'))
-            .then((ip) => {
-              if (!ip) {
-                status.textContent = t('Nenhum servidor encontrado. Você pode configurar depois em Ajustes.');
-                return;
-              }
-              store.saveSettings({ serverUrl: ip });
-              return server.check().then(() => {
-                status.textContent = t('Servidor encontrado em {ip}', { ip: ip }) + '!';
-                toast(t('Servidor do PC conectado'));
-              });
-            })
-            .catch(() => (status.textContent = t('Não foi possível procurar. Configure depois em Ajustes.')));
-        }),
-        btn(server.isAvailable() ? t('Continuar') : t('Pular'), false, next),
-      ])
-    );
+    // Enquanto procura, o botão mostra "Procurando..." (meio apagado) e não responde a outro toque.
+    const scanBtn = btn(t('Procurar na rede'), true, () => {
+      if (server.isScanning()) return;
+      scanBtn.textContent = t('Procurando...');
+      scanBtn.style.opacity = '0.6';
+      const restore = () => {
+        scanBtn.textContent = t('Procurar na rede');
+        scanBtn.style.opacity = '';
+      };
+      status.textContent = t('Procurando o servidor na rede...');
+      server
+        .scan((n, total) => (status.textContent = t('Procurando o servidor na rede...') + ' ' + Math.round((n / total) * 100) + '%'))
+        .then((ip) => {
+          restore();
+          if (!ip) {
+            status.textContent = t('Nenhum servidor encontrado. Você pode configurar depois em Ajustes.');
+            return;
+          }
+          store.saveSettings({ serverUrl: ip });
+          return server.check().then(() => {
+            status.textContent = t('Servidor encontrado em {ip}', { ip: ip }) + '!';
+            toast(t('Servidor do PC conectado'));
+          });
+        })
+        .catch(() => {
+          restore();
+          status.textContent = t('Não foi possível procurar. Configure depois em Ajustes.');
+        });
+    });
+    card.appendChild(h('div.actions', { 'data-group': '' }, [scanBtn, btn(server.isAvailable() ? t('Continuar') : t('Pular'), false, next)]));
   }
 
   function stepSubs() {
@@ -159,10 +167,11 @@ function WizardView() {
   return {
     el: el,
     onBack: () => {
+      // Voltar no primeiro passo não conclui o assistente: fica nele (Pular/Continuar seguem o fluxo).
       if (step > 0) {
         step--;
         render();
-      } else finish();
+      }
       return true;
     },
   };

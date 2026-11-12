@@ -1,1947 +1,328 @@
 // Player: <video> nativo da TV (decodificação por hardware), legendas próprias, faixas via Luna.
-import { h, clear } from '../lib/dom.js';
-import * as nav from '../lib/nav.js';
-import { KEY } from '../lib/nav.js';
+
+import { h } from '../lib/dom.js';
 import * as subs from '../lib/subs.js';
-import * as subpick from '../lib/subpick.js';
 import * as substyle from '../lib/substyle.js';
 import * as store from '../lib/store.js';
-import { log } from '../lib/log.js';
-import { getText, getJSON } from '../lib/http.js';
 import * as si from '../lib/streaminfo.js';
-import * as hlsplay from '../lib/hlsplay.js';
 import * as playlog from '../lib/playlog.js';
-import * as calendar from '../api/calendar.js';
-import * as server from '../api/server.js';
 import * as addons from '../api/addons.js';
-import * as stremio from '../api/stremio.js';
-import * as skip from '../api/skip.js';
-import * as hero from '../api/hero.js';
-import { menu, toast, fmtTime, timeHM, choiceDialog, eventTime, isFavorite, toggleFavorite } from '../ui.js';
+import { isFavorite, toggleFavorite } from '../ui.js';
 import * as router from '../router.js';
-import { sortedVideos, openDetails } from './details.js';
 import { t } from '../lib/i18n.js';
 import { IS_WEB } from '../lib/platform.js';
 import { systemScreenSaver } from '../lib/tv.js';
 import { ico } from '../lib/icons.js';
+import { createControls } from './player/controls.js';
+import { createOverlays } from './player/overlays.js';
+import { createSubtitles } from './player/subtitles.js';
+import { createEngine } from './player/engine.js';
+import { createRecovery } from './player/recovery.js';
 
-const HIDE_MS = 5000;
-const SLOW_MS = 40000; // sem começar a tocar depois disso: oferece outro provedor
-const SLOW_COUNTDOWN = 5;
-const DEBRID_SLOW_MS = 15000;
-const DEBRID_SMOOTH_MS = 10 * 60000; // tocou isso sem travar: a TV aguenta essa taxa
-const DEBRID_STALLS = 2; // travadas em 3 min que fazem trocar por um arquivo mais leve
-const SAVE_MS = 15000;
-const LANG_NAMES = {
-  por: 'Português (Portugal)', pob: 'Português (BR)', pt: 'Português', 'pt-br': 'Português (BR)', eng: 'Inglês', en: 'Inglês',
-  spa: 'Espanhol', es: 'Espanhol', jpn: 'Japonês', ja: 'Japonês', fre: 'Francês', fra: 'Francês', fr: 'Francês',
-  ger: 'Alemão', deu: 'Alemão', de: 'Alemão', ita: 'Italiano', it: 'Italiano', kor: 'Coreano', ko: 'Coreano',
-  chi: 'Chinês', zho: 'Chinês', rus: 'Russo', ara: 'Árabe', hin: 'Hindi', und: 'Indefinido',
-};
-
-function langName(code) {
-  if (!code) return t('Desconhecido');
-  const name = LANG_NAMES[String(code).toLowerCase()];
-  return name ? t(name) : code;
-}
-
-// Ajuste de sincronia lembrado por vídeo (e pela legenda em que foi feito): ao continuar depois,
-// a mesma legenda já volta no tempo certo.
-const SYNC_KEY = 'subSync';
-function savedSync(videoId) {
-  return (store.get(SYNC_KEY, {}) || {})[videoId] || null;
-}
-function saveSync(videoId, subId, off) {
-  const all = store.get(SYNC_KEY, {}) || {};
-  if (!off || !subId) delete all[videoId];
-  else all[videoId] = { sub: subId, off: off, at: Date.now() };
-  const ids = Object.keys(all);
-  if (ids.length > 150) {
-    ids.sort((a, b) => all[a].at - all[b].at);
-    ids.slice(0, ids.length - 150).forEach((k) => delete all[k]);
-  }
-  store.set(SYNC_KEY, all);
-}
-
-// +1,5 s / −0,3 s / 0,0 s
-function fmtOff(v) {
-  const r = Math.round(v * 10) / 10;
-  return (r > 0 ? '+' : r < 0 ? '−' : '') + Math.abs(r).toFixed(1).replace('.', ',') + ' s';
-}
-
-function isPt(lang) {
-  return /^(pob|por|pt|pt-br|pt-pt|ptbr)$/i.test(lang || '');
-}
-
-// Eventos da agenda que já avisaram (não repete o aviso ao trocar de vídeo).
-const calendarSeen = {};
+const SAVE_MS = 60000; // progresso salvo a cada 1 min (também na pausa, na troca de fonte e ao sair)
 
 export function openPlayer(opts) {
   router.push(PlayerView(opts));
 }
 
 function PlayerView(opts) {
-  const meta = opts.meta;
-  const minutes = si.minutesOf(meta, opts.isSeries);
+  const st = {};
+  st.opts = opts;
+  st.meta = st.opts.meta;
+  st.minutes = si.minutesOf(st.meta, st.opts.isSeries);
   // Anime? E o que já tocou nesta série (mesmo pacote de episódios, mesma dublagem)?
-  const pickOpts = () => si.pickOptions(meta, opts.isSeries);
-  let video = opts.video;
-  let stream = opts.stream;
-  const settings = store.settings();
+  st.pickOpts = () => si.pickOptions(st.meta, st.opts.isSeries);
+  st.video = st.opts.video;
+  st.stream = st.opts.stream;
+  st.settings = store.settings();
 
-  const videoEl = h('video', { preload: 'auto' });
+  st.videoEl = h('video', { preload: 'auto' });
   // No navegador, clicar no vídeo pausa e toca (como nos players da web).
-  if (IS_WEB) videoEl.addEventListener('click', () => togglePlay());
-  const subsEl = h('div.subs');
-  const titleEl = h('div.p-title');
-  const clockEl = h('div.p-clock');
-  const posEl = h('div.pos');
-  const bufEl = h('div.buf');
-  const knobEl = h('div.knob');
-  const seekLabel = h('div.seek-label');
-  const previewImg = h('div.seek-preview-img');
-  const preview = h('div.seek-preview', null, previewImg);
-  const bar = h('div.p-bar', { focusable: true, onSelect: () => togglePlay() }, [bufEl, posEl, knobEl, preview, seekLabel]);
-  const curTimeEl = h('span');
-  const durEl = h('span');
-  const playBtn = h('div.btn', { focusable: true, onSelect: () => togglePlay() });
-  const audioBtn = h('div.btn', { focusable: true, html: ico('audio') + t('Áudio'), onSelect: () => audioMenu() });
-  const subsBtn = h('div.btn', { focusable: true, html: ico('subs') + t('Legendas'), onSelect: () => subsMenu() });
-  const srcBtn = h('div.btn', { focusable: true, html: ico('sources') + t('Fontes'), onSelect: () => sourcesMenu() });
-  const nextBtn = h('div.btn', { focusable: true, html: ico('next') + t('Próximo'), onSelect: () => playNext() });
+  if (IS_WEB) st.videoEl.addEventListener('click', () => st.api.togglePlay());
+  st.subsEl = h('div.subs');
+  st.titleEl = h('div.p-title');
+  st.clockEl = h('div.p-clock');
+  st.posEl = h('div.pos');
+  st.bufEl = h('div.buf');
+  st.knobEl = h('div.knob');
+  st.seekLabel = h('div.seek-label');
+  st.previewImg = h('div.seek-preview-img');
+  st.preview = h('div.seek-preview', null, st.previewImg);
+  st.bar = h('div.p-bar', { focusable: true, onSelect: () => st.api.togglePlay() }, [st.bufEl, st.posEl, st.knobEl, st.preview, st.seekLabel]);
+  st.curTimeEl = h('span');
+  st.durEl = h('span');
+  st.playBtn = h('div.btn', { focusable: true, onSelect: () => st.api.togglePlay() });
+  const audioBtn = h('div.btn', { focusable: true, html: ico('audio') + t('Áudio'), onSelect: () => st.api.audioMenu() });
+  const subsBtn = h('div.btn', { focusable: true, html: ico('subs') + t('Legendas'), onSelect: () => st.api.subsMenu() });
+  const srcBtn = h('div.btn', { focusable: true, html: ico('sources') + t('Fontes'), onSelect: () => st.api.sourcesMenu() });
+  st.nextBtn = h('div.btn', { focusable: true, html: ico('next') + t('Próximo'), onSelect: () => st.api.playNext() });
   // Favoritar sem sair do vídeo (filmes e séries: biblioteca da conta; adultos: só nesta TV).
-  const favItem = { id: meta.id, type: meta.type, name: meta.name, poster: meta.poster, posterShape: meta.posterShape };
+  const favItem = { id: st.meta.id, type: st.meta.type, name: st.meta.name, poster: st.meta.poster, posterShape: st.meta.posterShape };
   const favBtn = h('div.btn', { focusable: true, onSelect: () => toggleFavorite(favItem).then(paintFav) });
   function paintFav() {
     const on = isFavorite(favItem);
     favBtn.innerHTML = on ? ico('heartOn', 'fav') + t('Favoritado') : ico('heart') + t('Favoritar');
   }
   paintFav();
-  if (meta.id === 'dev') favBtn.style.display = 'none';
+  if (st.meta.id === 'dev') favBtn.style.display = 'none';
   // Retomou sozinho (Smart Choice): atalho para começar do zero, visível nos primeiros minutos.
-  const restartBtn = h('div.btn', { focusable: true, html: ico('restart') + t('Do início'), onSelect: () => restart() });
-  restartBtn.style.display = opts.startTime > 30000 ? '' : 'none';
-  const buttons = h('div.p-buttons', { 'data-group': '' }, [playBtn, restartBtn, audioBtn, subsBtn, srcBtn, favBtn, nextBtn]);
-  const spinner = h('div.p-center', null, h('div.spinner'));
-  const msgEl = h('div.p-msg');
+  st.restartBtn = h('div.btn', { focusable: true, html: ico('restart') + t('Do início'), onSelect: () => st.api.restart() });
+  st.restartBtn.style.display = st.opts.startTime > 30000 ? '' : 'none';
+  const buttons = h('div.p-buttons', { 'data-group': '' }, [st.playBtn, st.restartBtn, audioBtn, subsBtn, srcBtn, favBtn, st.nextBtn]);
+  st.spinner = h('div.p-center', null, h('div.spinner'));
+  st.msgEl = h('div.p-msg');
   // Pular abertura/recapitulação e "Próximo episódio": pílula escura translúcida com o ícone, o texto
   // e o tempo que falta do trecho enchendo o fundo; no foco ela acende em branco (como nos streamings).
-  const skipFill = h('i.sk-fill');
-  const skipIco = h('span.sk-ico');
-  const skipLabel = h('b');
-  const skipSub = h('small');
-  const skipBtn = h('div.btn.skip-btn', { focusable: true, onSelect: () => doSkip() }, [skipFill, skipIco, h('span.sk-text', null, [skipLabel, skipSub])]);
-  const skipBox = h('div.p-skip', null, skipBtn);
-  const overlay = h('div.p-overlay', null, [
-    h('div.p-top', null, [titleEl, clockEl]),
-    h('div.p-bottom', null, [bar, h('div.p-times', null, [curTimeEl, h('div.spacer'), durEl]), buttons]),
+  st.skipFill = h('i.sk-fill');
+  st.skipIco = h('span.sk-ico');
+  st.skipLabel = h('b');
+  st.skipSub = h('small');
+  st.skipBtn = h('div.btn.skip-btn', { focusable: true, onSelect: () => st.api.doSkip() }, [st.skipFill, st.skipIco, h('span.sk-text', null, [st.skipLabel, st.skipSub])]);
+  st.skipBox = h('div.p-skip', null, st.skipBtn);
+  st.overlay = h('div.p-overlay', null, [
+    h('div.p-top', null, [st.titleEl, st.clockEl]),
+    h('div.p-bottom', null, [st.bar, h('div.p-times', null, [st.curTimeEl, h('div.spacer'), st.durEl]), buttons]),
   ]);
   // Abertura: arte do título, logo e o que está acontecendo, até o vídeo começar a tocar.
-  const introBg = h('div.pi-bg');
-  const introLogo = h('img.pi-logo', { alt: '' });
-  const introTitle = h('div.pi-title', { text: meta.name || '' });
-  const introSub = h('div.pi-sub');
-  const introStatus = h('div.pi-main');
-  const introCaption = h('div.pi-caption');
+  st.introBg = h('div.pi-bg');
+  st.introLogo = h('img.pi-logo', { alt: '' });
+  st.introTitle = h('div.pi-title', { text: st.meta.name || '' });
+  st.introSub = h('div.pi-sub');
+  st.introStatus = h('div.pi-main');
+  st.introCaption = h('div.pi-caption');
   // Tudo no canto esquerdo: título (destaque) em cima, e o carregamento (secundário) logo abaixo.
-  const intro = h('div.p-intro', null, [
-    introBg,
+  st.intro = h('div.p-intro', null, [
+    st.introBg,
     h('div.pi-shade'),
     h('div.pi-info', null, [
-      introLogo,
-      introTitle,
-      introSub,
-      h('div.pi-status-row', null, [h('div.pi-ring'), h('div.pi-texts', null, [introStatus, introCaption])]),
+      st.introLogo,
+      st.introTitle,
+      st.introSub,
+      h('div.pi-status-row', null, [h('div.pi-ring'), h('div.pi-texts', null, [st.introStatus, st.introCaption])]),
     ]),
   ]);
-  const el = h('div.view.player.intro-on', null, [videoEl, subsEl, overlay, skipBox, spinner, msgEl, intro]);
+  st.el = h('div.view.player.intro-on', null, [st.videoEl, st.subsEl, st.overlay, st.skipBox, st.spinner, st.msgEl, st.intro]);
 
-  const renderer = subs.Renderer(subsEl);
-  substyle.apply(subsEl, settings);
+  st.renderer = subs.Renderer(st.subsEl);
+  substyle.apply(st.subsEl, st.settings);
 
-  let alive = true;
-  let controlsOn = false;
-  let hideTimer = null;
+  st.alive = true;
+  st.controlsOn = false;
+  st.hideTimer = null;
   let ticker = null;
   let saveTimer = null;
   let watchTimer = null;
   let statusTimer = null;
-  let mediaUrl = '';
-  let viaServer = false;
+  st.mediaUrl = '';
+  st.viaServer = false;
   let lastTick = 0;
-  let watchedDelta = 0;
-  let pendingStart = opts.startTime || 0;
-  let seekTarget = null;
-  let seekCommitTimer = null;
-  let seekRepeats = 0;
-  let embedded = null; // { audio: [], subs: [] } do servidor
-  let addonSubs = null;
-  let fileInfo = null;
-  let currentSub = { kind: 'off' };
-  let currentAudio = null;
-  let triedTranscode = false;
-  let slowTimer = null;
-  let slowModal = null;
-  let syncUi = false; // painel de sincronia da legenda aberto: pausar não mostra os controles
-  const tried = opts.stream ? [opts.stream] : [];
+  st.watchedDelta = 0;
+  st.pendingStart = st.opts.startTime || 0;
+  st.seekTarget = null;
+  st.seekWasPlaying = false; // estava tocando quando o seek começou (só então retoma no fim)
+  st.seekCommitTimer = null;
+  st.embedded = null; // { audio: [], subs: [] } do servidor
+  st.addonSubs = null;
+  st.currentSub = { kind: 'off' };
+  st.triedTranscode = false;
+  st.slowTimer = null;
+  st.syncUi = false; // painel de sincronia da legenda aberto: pausar não mostra os controles
+  st.tried = st.opts.stream ? [st.opts.stream] : [];
 
-  const seriesInfo = () => (opts.isSeries ? { season: video.season, episode: video.episode } : null);
+  st.seriesInfo = () => (st.opts.isSeries ? { season: st.video.season, episode: st.video.episode } : null);
   // Para o registro de plays (Ajustes → Sobre e depuração): o que é e de qual fonte.
-  const logTitle = () => (meta.name || '') + (opts.isSeries ? ' T' + video.season + 'E' + video.episode : '');
-  const logSource = () => {
-    if (!stream) return '';
-    const info = si.parse(stream);
+  st.logTitle = () => (st.meta.name || '') + (st.opts.isSeries ? ' T' + st.video.season + 'E' + st.video.episode : '');
+  st.logSource = () => {
+    if (!st.stream) return '';
+    const info = si.parse(st.stream);
     return [info.addon, si.summary(info), info.cached ? t('em cache') : '', info.file].filter(Boolean).join(' · ');
   };
 
-  // Logo do título no canto (o nome escrito fica de reserva quando não tem logo, ex.: vídeos adultos).
-  function setTitle() {
-    clear(titleEl);
-    const name = h('span.p-name', { text: meta.name || '' });
-    titleEl.appendChild(name);
-    const logoUrl = meta.logo || (/^tt\d+/.test(meta.id) ? hero.logo(meta.id) : '');
-    if (logoUrl) {
-      const img = h('img.p-logo', { alt: '' });
-      img.onload = () => {
-        img.classList.add('ready');
-        name.style.display = 'none';
-      };
-      img.onerror = () => img.parentNode && img.parentNode.removeChild(img);
-      img.src = logoUrl;
-      titleEl.insertBefore(img, name);
-    }
-    if (opts.isSeries) titleEl.appendChild(h('small', { text: 'T' + video.season + ' E' + video.episode + ' · ' + (video.namePt || video.name || video.title || '') }));
-    nextBtn.style.display = opts.isSeries && nextVideo() ? '' : 'none';
-  }
-
-  function nextVideo() {
-    const vids = sortedVideos(meta);
-    const i = vids.findIndex((v) => v.id === video.id);
-    return i >= 0 && i + 1 < vids.length ? vids[i + 1] : null;
-  }
-
-  // ---------- Carregamento ----------
-  function start() {
-    setTitle();
-    if (!stream) return waitForPick();
-    armSlow();
-    showSpinner(true);
-    message('');
-    embedded = null;
-    tracksPromise = null;
-    addonSubs = null;
-    renderer.clear();
-    currentSub = { kind: 'off' };
-    segments = [];
-    segmentsLoaded = false;
-    hideSkip();
-    server
-      .toPlayable(stream, seriesInfo(), (msg) => alive && message(msg))
-      .then((res) => {
-        message('');
-        if (!alive) return;
-        mediaUrl = res.url;
-        viaServer = res.viaServer;
-        log.info('Tocando', mediaUrl);
-        // Só src + autoplay, como o player oficial do Stremio para TV: load()/play() extras
-        // faziam a TV abrir o stream duas vezes.
-        hasPlayed = false;
-        setSource(mediaUrl);
-        freeBackgroundMemory();
-        loadSubtitles();
-        // Faixas embutidas só quando o usuário abre o menu: o ffprobe do servidor lê o arquivo
-        // e, num torrent, rouba prioridade do trecho que está tocando.
-      })
-      .catch((e) => fail(e.message));
-  }
-
   // Põe a URL no <video>: HLS (.m3u8) pelo hls.js, o resto direto. O resto continua só src +
   // autoplay, como o player oficial do Stremio para TV.
-  let hlsCtl = null;
-  let sourceUrl = '';
-  let sourceToken = 0;
-  function setSource(url) {
-    dropSource();
-    const token = ++sourceToken;
-    sourceUrl = url;
-    videoEl.autoplay = true;
-    if (!hlsplay.isHls(url)) {
-      videoEl.src = url;
-      return;
-    }
-    hlsplay
-      .attach(videoEl, url, (why) => {
-        if (alive && token === sourceToken) playbackError(null, why);
-      })
-      .then((ctl) => {
-        if (!alive || token !== sourceToken) return ctl && ctl.destroy();
-        if (ctl) hlsCtl = ctl;
-        else videoEl.src = url; // sem hls.js aqui: tenta o <video> mesmo
-      });
-  }
-  function dropSource() {
-    sourceToken++;
-    if (hlsCtl) hlsCtl.destroy();
-    hlsCtl = null;
-  }
+  st.hlsCtl = null;
+  st.sourceUrl = '';
+  st.sourceToken = 0;
+  st.calTimer = null;
 
-  // ---------- Aviso da agenda ----------
-  // Evento começando em até 5 min: cartão no canto com o X já focado (OK ou Voltar fecha) que some
-  // sozinho em 15 s. Enquanto ele está na tela, outra tecla só fecha o aviso.
-  const NOTICE_MS = 15000;
-  let calTimer = null;
-  let calNotice = null;
-  function checkCalendar() {
-    if (!alive || calNotice) return;
-    const e = calendar.startingWithin(5 * 60000).filter((x) => !calendarSeen[x.title + '|' + x.start.getTime()])[0];
-    if (!e) return;
-    calendarSeen[e.title + '|' + e.start.getTime()] = true;
-    const min = Math.max(1, Math.round((e.start.getTime() - Date.now()) / 60000));
-    const fill = h('i');
-    const closeBtn = h('div.cal-close', { focusable: true, title: t('Fechar aviso'), html: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12"/><path d="M18 6 6 18"/></svg>', onSelect: () => closeNotice() });
-    const box = h('div.cal-notice', null, [
-      h('div.cal-notice-top', null, [
-        h('span.cal-notice-ico', { html: '<svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17"/><path d="M8 3v4"/><path d="M16 3v4"/></svg>' }),
-        h('span.cal-notice-when', { text: t('Começa em {n} min', { n: min }) }),
-        closeBtn,
-      ]),
-      h('div.cal-notice-title', { text: e.title }),
-      h('div.cal-notice-sub', null, [h('i', { style: { background: e.color } }), [eventTime(e, true), e.location].filter(Boolean).join(' · ')]),
-      h('div.cal-notice-hint', { text: t(IS_WEB ? 'Enter fecha · some sozinho em 15 s' : 'OK fecha · some sozinho em 15 s') }),
-      h('div.cal-notice-bar', null, fill),
-    ]);
-    el.appendChild(box);
-    const layer = nav.pushLayer(box, {
-      onBack: () => closeNotice(),
-      onKey: (ev) => {
-        if (ev.keyCode === KEY.ENTER || ev.keyCode === KEY.BACK || ev.keyCode === KEY.ESC || ev.keyCode === KEY.BACKSPACE) return false;
-        closeNotice();
-        return true;
-      },
-    });
-    nav.focus(closeBtn);
-    const timer = setTimeout(() => closeNotice(), NOTICE_MS);
-    setTimeout(() => (fill.style.width = '0%'), 50); // a barra esvazia até o aviso sumir
-    calNotice = { box: box, layer: layer, timer: timer };
-  }
-  function closeNotice() {
-    if (!calNotice) return;
-    clearTimeout(calNotice.timer);
-    nav.popLayer(calNotice.layer);
-    if (calNotice.box.parentNode) calNotice.box.parentNode.removeChild(calNotice.box);
-    calNotice = null;
-  }
-
-  function restart() {
-    restartBtn.style.display = 'none';
-    try {
-      videoEl.currentTime = 0;
-    } catch (e) {
-      pendingStart = 0;
-    }
-    if (nav.current() === restartBtn) nav.focus(playBtn);
-  }
-
-  // Smart Choice: o player abre na hora e a fonte chega depois (os addons ainda estão respondendo).
-  function waitForPick() {
-    showSpinner(true);
-    (opts.pick || Promise.resolve(null)).then((s) => {
-      if (!alive || stream) return;
-      if (!s) {
-        toast(t('Nenhuma fonte tocável encontrada. Escolha na lista.'), 4000);
-        router.pop();
-        return;
-      }
-      stream = s;
-      tried.push(s);
-      const info = si.parse(s);
-      introStatus.textContent = t('Preparando o vídeo');
-      introCaption.innerHTML = '<b>✦</b>' + t('Smart Choice') + ' · ' + escapeHtml(si.summary(info) || info.addon);
-      start();
-    });
-  }
-
-  let tracksPromise = null;
-  function loadEmbeddedTracks() {
-    if (!server.isAvailable()) return Promise.resolve(null);
-    if (!tracksPromise) {
-      const forUrl = mediaUrl;
-      tracksPromise = server
-        .tracks(mediaUrl)
-        .then((tracks) => {
-          if (!alive || !tracks || forUrl !== mediaUrl) return null;
-          embedded = tracks;
-          log.info('Faixas embutidas', JSON.stringify(tracks));
-          return tracks;
-        })
-        .catch(() => {
-          tracksPromise = null;
-          return null;
-        });
-    }
-    return tracksPromise;
-  }
-
-  // Pede as legendas já com hash/tamanho/nome do arquivo, para os addons devolverem as casadas.
-  // A escolha automática espera todos os addons (ou 6s), para não ficar com a primeira que chegar.
-  let subsSettled = false;
-  function loadSubtitles() {
-    const forVideo = video;
-    const forUrl = mediaUrl;
-    addonSubs = null;
-    subsSettled = false;
-    // Torrent pelo PC: o hash lê o fim do arquivo e faria o servidor baixar essa parte antes do
-    // começo. Espera o vídeo começar (ou 60s) para não atrasar o play.
-    // Debrid: o hash abre mais duas conexões no arquivo, que disputam banda com o começo do vídeo.
-    const ready = (viaServer || isDebrid()) && !hasPlayed ? untilPlaying(60000) : Promise.resolve();
-    ready
-      .then(() => subpick.videoInfo(stream, mediaUrl, server))
-      .then((info) => {
-        if (!alive || forVideo !== video || forUrl !== mediaUrl) return;
-        fileInfo = info;
-        const settle = () => {
-          if (!alive || forVideo !== video || subsSettled) return;
-          subsSettled = true;
-          if (!addonSubs) addonSubs = [];
-          autoPick();
-        };
-        setTimeout(settle, 6000);
-        addons
-          .fetchSubtitles(meta.type, video.id, subpick.extra(info), (list) => {
-            if (!alive || forVideo !== video) return;
-            addonSubs = (addonSubs || []).concat(list);
-          })
-          .then(settle, settle);
-      });
-  }
-
-  function untilPlaying(maxMs) {
-    return new Promise((ok) => {
-      const done = () => {
-        videoEl.removeEventListener('playing', done);
-        clearTimeout(timer);
-        ok();
-      };
-      const timer = setTimeout(done, maxMs);
-      videoEl.addEventListener('playing', done);
-    });
-  }
+  st.tracksPromise = null;
 
   // Seleção automática no estilo do Smart Track Selector do Kai (versão leve).
   // Legenda: prefere a dos addons (arquivo pequeno à parte, não mexe no vídeo). Faixas embutidas
   // só são lidas se o usuário pediu um áudio preferido, e só depois de o vídeo estar rodando.
-  let autoDone = { sub: false, audio: false };
-  function autoPick() {
-    const prefSubs = (settings.subtitleLangs || []).map((x) => x.toLowerCase());
-    const prefAudio = (settings.audioLangs || []).map((x) => x.toLowerCase());
-    if (!autoDone.audio && prefAudio.length && embedded && embedded.audio.length > 1) {
-      autoDone.audio = true;
-      const already = embedded.audio[0] && prefAudio.indexOf(String(embedded.audio[0].lang).toLowerCase()) >= 0;
-      if (!already) {
-        const idx = embedded.audio.findIndex((tr) => prefAudio.indexOf(String(tr.lang).toLowerCase()) >= 0);
-        if (idx > 0) selectEmbeddedAudio(idx);
-      }
-    }
-    if (autoDone.sub || !settings.subtitlesAuto || !prefSubs.length || !subsSettled) return;
-    autoDone.sub = true;
-    const ranked = subpick.rank(addonSubs, prefSubs, fileInfo || {}, seriesInfo()).slice(0, 8);
-    // A legenda que já foi sincronizada neste vídeo vai na frente.
-    const saved = savedSync(video.id);
-    const savedAt = saved ? ranked.findIndex((x) => (x.id || x.url) === saved.sub) : -1;
-    if (savedAt > 0) ranked.unshift(ranked.splice(savedAt, 1)[0]);
-    if (ranked.length) whenDuration(() => tryAutoSub(ranked, 0, mediaUrl));
-  }
-
-  // A duração do vídeo é o que permite conferir a legenda; espera os metadados (até 15s).
-  function whenDuration(fn) {
-    if (isFinite(videoEl.duration) && videoEl.duration > 0) return fn();
-    let done = false;
-    const go = () => {
-      if (done) return;
-      done = true;
-      videoEl.removeEventListener('loadedmetadata', go);
-      if (alive) fn();
-    };
-    videoEl.addEventListener('loadedmetadata', go);
-    setTimeout(go, 15000);
-  }
-
-  // Testa as candidatas em ordem e liga a primeira que passa na conferência. Legenda de Portugal
-  // rotulada como BR fica de reserva enquanto houver outra candidata.
-  function tryAutoSub(ranked, i, forUrl, ptBackup) {
-    if (!alive || forUrl !== mediaUrl || currentSub.kind !== 'off') return; // usuário já escolheu algo
-    if (i >= ranked.length) {
-      if (ptBackup) {
-        useAddonCues(ptBackup.sub, ptBackup.cues);
-        toast(t('Só achei legenda em português de Portugal.'), 4000);
-        return;
-      }
-      // Nenhuma passou: volta ao padrão do app (a primeira no idioma preferido) e avisa que dá para trocar.
-      log.warn('Nenhuma legenda passou na conferência; usando a padrão');
-      selectAddonSub(ranked[0], true);
-      toast(t('Legenda pode não bater com este arquivo. Troque no menu de legendas.'), 5000);
-      return;
-    }
-    const s = ranked[i];
-    loadAddonCues(s)
-      .then((cues) => {
-        if (!alive || forUrl !== mediaUrl || currentSub.kind !== 'off') return;
-        const check = subpick.plausible(cues, videoEl.duration);
-        if (!check.ok) {
-          log.info('Legenda recusada', s.addon, s.lang, check.why);
-          return tryAutoSub(ranked, i + 1, forUrl, ptBackup);
-        }
-        if (wantsBr() && subVariant[s.id || s.url] === 'pt') {
-          log.info('Legenda de Portugal; procurando uma do Brasil', s.addon, s.lang);
-          return tryAutoSub(ranked, i + 1, forUrl, ptBackup || { sub: s, cues: cues });
-        }
-        useAddonCues(s, cues);
-      })
-      .catch(() => tryAutoSub(ranked, i + 1, forUrl, ptBackup));
-  }
-
-  // Baixa a legenda, corrige a velocidade (25 x 23,976 fps) e descobre se é PT do Brasil ou de Portugal.
-  const subVariant = {};
-  function loadAddonCues(s) {
-    return subs.load(s.url, server.subtitlesProxy(s.url)).then((cues) => {
-      const fix = subpick.fixFps(cues, videoEl.duration);
-      if (fix) {
-        log.info('Legenda em outra velocidade; reescalada', fix.factor.toFixed(4));
-        cues = fix.cues;
-      }
-      if (isPt(s.lang)) subVariant[s.id || s.url] = subpick.ptVariant(cues);
-      return cues;
-    });
-  }
-
-  function useAddonCues(s, cues) {
-    currentSub = { kind: 'addon', id: s.id || s.url };
-    renderer.set(cues);
-    applySavedOffset();
-  }
-
-  function wantsBr() {
-    const p = (settings.subtitleLangs || []).map((x) => x.toLowerCase());
-    const idx = (l) => (p.indexOf(l) < 0 ? 99 : p.indexOf(l));
-    const br = Math.min(idx('pob'), idx('pt-br'));
-    return br < 99 && br < idx('por');
-  }
-
-  function subLabel(s) {
-    const v = subVariant[s.id || s.url];
-    if (v === 'pt') return t('Português (Portugal)');
-    if (v === 'br') return t('Português (BR)');
-    return langName(s.lang);
-  }
-
-  function subKey() {
-    if (currentSub.kind === 'addon') return currentSub.id;
-    if (currentSub.kind === 'embedded') return 'emb' + currentSub.index;
-    return '';
-  }
-
-  function applySavedOffset() {
-    const saved = savedSync(video.id);
-    renderer.setOffset(saved && saved.sub === subKey() ? saved.off : 0);
-    renderer.update(videoEl.currentTime);
-  }
-
-  // Áudio preferido configurado: lê as faixas uma vez, 20s depois de o vídeo começar.
-  function scheduleAudioPick() {
-    if (!(settings.audioLangs || []).length || !server.isAvailable()) return;
-    setTimeout(() => {
-      if (alive && hasPlayed) loadEmbeddedTracks().then(() => autoPick());
-    }, 20000);
-  }
+  st.autoDone = { sub: false, audio: false };
 
   // ---------- Eventos do vídeo ----------
-  videoEl.addEventListener('loadedmetadata', () => {
-    if (pendingStart > 0) {
+  st.videoEl.addEventListener('loadedmetadata', () => {
+    if (st.pendingStart > 0) {
       try {
-        videoEl.currentTime = pendingStart / 1000;
-        autoResume = true;
+        st.videoEl.currentTime = st.pendingStart / 1000;
+        st.autoResume = true;
       } catch (e) {
         /* ignore */
       }
-      pendingStart = 0;
+      st.pendingStart = 0;
     }
-    updateTimes();
-    loadSegments();
+    if (st.controlsOn) st.api.updateTimes(); // com o OSD oculto, showControls() pinta tudo ao abrir
+    st.api.loadSegments();
   });
-  videoEl.addEventListener('playing', () => {
-    hideIntro();
-    clearTimeout(slowTimer);
-    closeSlow();
-    debridResumed();
+  st.videoEl.addEventListener('playing', () => {
+    st.api.hideIntro();
+    clearTimeout(st.slowTimer);
+    st.api.closeSlow();
+    st.api.debridResumed();
     systemScreenSaver(false);
-    if (!hasPlayed) {
-      scheduleAudioPick();
+    if (!st.hasPlayed) {
+      st.api.scheduleAudioPick();
       // Abriu: é esta a fonte que o Smart Choice tenta primeiro ao continuar depois.
-      if (meta.id !== 'dev') si.rememberStream(video.id, stream);
-      addons.rememberTubeKind(stream); // Pornhub/XVideos: a próxima abre direto na variante que tocou
-      if (opts.isSeries && meta.id !== 'dev') si.rememberSeries(meta.id, stream);
-      playlog.add(logTitle(), logSource(), 'ok', failedNotes.join('\n'));
+      if (st.meta.id !== 'dev') si.rememberStream(st.video.id, st.stream);
+      addons.rememberTubeKind(st.stream); // Pornhub/XVideos: a próxima abre direto na variante que tocou
+      if (st.opts.isSeries && st.meta.id !== 'dev') si.rememberSeries(st.meta.id, st.stream);
+      playlog.add(st.logTitle(), st.logSource(), 'ok', st.failedNotes.join('\n'));
     }
-    hasPlayed = true;
-    showSpinner(false);
-    message('');
-    updatePlayBtn();
-    scheduleHide();
+    st.hasPlayed = true;
+    st.api.showSpinner(false);
+    st.api.message('');
+    st.api.updatePlayBtn();
+    st.api.scheduleHide();
   });
-  videoEl.addEventListener('pause', () => {
-    clearTimeout(smoothTimer); // pausado não conta como "tocou liso"
+  st.videoEl.addEventListener('pause', () => {
+    if (st.seekTarget !== null) st.seekWasPlaying = false; // pausou durante o seek: não retoma sozinho
+    clearTimeout(st.smoothTimer); // pausado não conta como "tocou liso"
     systemScreenSaver(true);
-    updatePlayBtn();
-    if (!syncUi) showControls();
-    saveProgress();
+    st.api.updatePlayBtn();
+    if (!st.syncUi) st.api.showControls();
+    st.api.saveProgress();
   });
-  videoEl.addEventListener('waiting', () => {
-    showSpinner(true);
-    debridWaiting();
+  st.videoEl.addEventListener('waiting', () => {
+    st.api.showSpinner(true);
+    st.api.debridWaiting();
   });
-  videoEl.addEventListener('canplay', () => showSpinner(false));
-  videoEl.addEventListener('timeupdate', () => {
-    if (restartBtn.style.display !== 'none' && videoEl.currentTime * 1000 > (opts.startTime || 0) + 300000) restartBtn.style.display = 'none';
+  st.videoEl.addEventListener('canplay', () => st.api.showSpinner(false));
+  st.videoEl.addEventListener('timeupdate', () => {
+    if (st.restartBtn.style.display !== 'none' && st.videoEl.currentTime * 1000 > (st.opts.startTime || 0) + 300000) st.restartBtn.style.display = 'none';
     const now = Date.now();
-    if (!videoEl.paused && lastTick) {
+    if (!st.videoEl.paused && lastTick) {
       const d = now - lastTick;
-      if (d > 0 && d < 3000) watchedDelta += d;
+      if (d > 0 && d < 3000) st.watchedDelta += d;
     }
     lastTick = now;
-    renderer.update(videoEl.currentTime);
-    if (controlsOn) updateTimes();
+    // Legenda e barra são atualizadas pelo ticker (250 ms), não aqui, para não fazer em dobro.
   });
-  videoEl.addEventListener('ended', () => {
-    saveProgress();
-    if (opts.isSeries && nextVideo()) playNext();
+  st.videoEl.addEventListener('ended', () => {
+    st.api.saveProgress();
+    if (st.opts.isSeries && st.api.nextVideo()) st.api.playNext();
     else router.pop();
   });
-  videoEl.addEventListener('error', () => {
-    const err = videoEl.error;
+  st.videoEl.addEventListener('error', () => {
+    const err = st.videoEl.error;
     // Sem src (fonte sendo trocada ou o hls.js soltando o <video>) não é erro do vídeo.
-    if (!sourceUrl || !videoEl.getAttribute('src')) return;
-    playbackError(err && err.code);
+    if (!st.sourceUrl || !st.videoEl.getAttribute('src')) return;
+    st.api.playbackError(err && err.code);
   });
-
-  // Erro do <video> (código 1–4) ou do hls.js (why: o que ele disse). Um aviso por fonte.
-  let errorToken = -1;
-  function playbackError(code, why) {
-    log.warn('Erro de vídeo', code || why, mediaUrl);
-    if (!alive || errorToken === sourceToken) return;
-    errorToken = sourceToken;
-    const failed = stream;
-    errorDetails(code, why).then((details) => {
-      if (!alive || failed !== stream) return;
-      const next = autoFallback();
-      if (next) {
-        failedNotes.push(details);
-        const what = addons.isTubeStream(next) ? String(next.name || '').split('\n').join(' ') : si.summary(si.parse(next)) || si.parse(next).addon;
-        toast(si.parse(failed).dv ? t('Dolby Vision não abre na TV. Tentando: {what}', { what: what }) : t('Tentando: {what}', { what: what }), 4000);
-        switchTo(next);
-        return;
-      }
-      if (failedNotes.length) details = failedNotes.concat(details).join('\n');
-      if (!triedTranscode && server.isAvailable()) {
-        fail(t('A TV não conseguiu tocar este arquivo diretamente.'), true, details);
-      } else fail(t('A TV não conseguiu tocar este arquivo (formato ou codec não suportado).'), false, details);
-    });
-  }
 
   // Fonte que não abre: tenta outra sozinho antes de mostrar o erro (que então lista o que aconteceu
   // com cada tentativa). XVideos/Pornhub: a próxima opção do mesmo addon (direto, pelo serviço, outra
   // qualidade). Filmes e séries: até 2 outras fontes, sem Dolby Vision e na mesma resolução se der.
-  const failedNotes = [];
-  let autoTries = 0;
-  function autoFallback() {
-    const rest = (opts.streams || []).filter((x) => tried.indexOf(x) < 0);
-    if (addons.isTubeStream(stream)) return addons.orderTube(rest.filter((x) => x.addon === stream.addon))[0] || null;
-    if (autoTries >= 2) return null;
-    const res = si.parse(stream).res;
-    const ok = server.isAvailable();
-    const cands = rest.filter((x) => !si.parse(x).dv && si.canPlay(x, ok));
-    const pick = si.smartPick(cands.filter((x) => si.parse(x).res === res), ok, minutes, pickOpts()) || si.smartPick(cands, ok, minutes, pickOpts());
-    if (!pick) return null;
-    autoTries++;
-    return pick.stream;
-  }
-
-  // Linha de diagnóstico do aviso de erro: código do player, de onde veio o link e, se o vídeo
-  // passou pelo serviço da TV, o que o site respondeu para ele. Uma foto da tela já diz onde quebrou.
-  const MEDIA_ERR = { 1: 'cancelado', 2: 'rede', 3: 'decodificação', 4: 'formato/endereço não suportado' };
-  function errorDetails(code, why) {
-    let host = '';
-    let target = '';
-    try {
-      const px = /^http:\/\/127\.0\.0\.1:\d+\/px\/[^?]*\?u=([^&]+)/.exec(mediaUrl);
-      target = px ? decodeURIComponent(px[1]) : mediaUrl;
-      host = (target.match(/^https?:\/\/([^/]+)/) || [])[1] || '';
-    } catch (e) {
-      /* ignore */
-    }
-    const parts = [why || t('erro {c}', { c: (code || '?') + (MEDIA_ERR[code] ? ' (' + MEDIA_ERR[code] + ')' : '') })];
-    // HLS que caiu no <video> porque o hls.js não carregou: o motivo de verdade é esse.
-    if (!why && hlsplay.isHls(sourceUrl) && !hlsCtl && hlsplay.unavailable) parts[0] += ' · ' + hlsplay.unavailable;
-    parts.push((stream && stream.name ? String(stream.name).split('\n').join(' ') + ' · ' : '') + (host || '?') + (target !== mediaUrl ? ' ' + t('via TV') : ''));
-    if (target === mediaUrl) return Promise.resolve(parts.join(' · '));
-    return getJSON(mediaUrl.replace(/\/px\/.*$/, '/api/pxlog'), { timeout: 3000, quiet: true })
-      .then((list) => {
-        const last = (Array.isArray(list) ? list : []).slice(-3);
-        if (last.length) parts.push(t('site respondeu') + ' ' + last.map((x) => x.status + (x.error ? ' ' + x.error : '') + ' (' + x.file + ')').join(', '));
-        return parts.join(' · ');
-      })
-      .catch(() => parts.concat(t('serviço da TV não respondeu')).join(' · '));
-  }
+  st.failedNotes = [];
 
   // ---------- Pular abertura / recapitulação / encerramento ----------
-  let segments = [];
-  let segmentsLoaded = false;
-  let activeSeg = null;
-  const doneSegs = {};
-
-  function loadSegments() {
-    if (segmentsLoaded || store.settings().skipMode === 'off') return;
-    segmentsLoaded = true;
-    const forVideo = video;
-    skip
-      .getSegments(meta, video, videoEl.duration)
-      .then((list) => {
-        if (alive && forVideo === video) segments = list;
-      })
-      .catch(() => {});
-  }
-
-  function segLabel(seg) {
-    if (seg.type === 'intro') return t('Pular abertura');
-    if (seg.type === 'recap') return t('Pular recapitulação');
-    return opts.isSeries && nextVideo() ? t('Próximo episódio') : t('Pular encerramento');
-  }
-
-  function segKey(seg) {
-    return video.id + ':' + seg.type + ':' + seg.start;
-  }
-
-  function checkSkip() {
-    if (!segments.length || seekTarget !== null) return;
-    const pos = videoEl.currentTime;
-    const seg = segments.find((x) => pos >= x.start && pos < x.end - 0.5) || null;
-    if (seg !== activeSeg) {
-      activeSeg = seg;
-      if (!seg || doneSegs[segKey(seg)]) {
-        hideSkip();
-        if (seg) activeSeg = null;
-        return;
-      }
-      if (store.settings().skipMode === 'auto') {
-        doSkip();
-        return;
-      }
-      const nv = seg.type === 'outro' && opts.isSeries ? nextVideo() : null;
-      skipIco.innerHTML = ico(nv ? 'next' : 'skip');
-      skipLabel.textContent = segLabel(seg);
-      skipSub.textContent = nv ? 'T' + nv.season + 'E' + nv.episode + (nv.namePt || nv.name ? ' · ' + (nv.namePt || nv.name) : '') : '';
-      skipBtn.classList.toggle('two-line', !!nv);
-      skipBox.classList.add('show');
-      if (controlsOn) nav.focus(skipBtn, { noScroll: true });
-    }
-    if (activeSeg) skipFill.style.width = Math.max(0, Math.min(100, ((pos - activeSeg.start) / (activeSeg.end - activeSeg.start)) * 100)) + '%';
-  }
-
-  function hideSkip() {
-    skipBox.classList.remove('show');
-    if (nav.current() === skipBtn) nav.focus(bar, { noScroll: true });
-  }
-
-  function dismissSkip() {
-    if (activeSeg) doneSegs[segKey(activeSeg)] = true;
-    activeSeg = null;
-    hideSkip();
-  }
-
-  function doSkip() {
-    const seg = activeSeg;
-    if (!seg) return;
-    doneSegs[segKey(seg)] = true;
-    activeSeg = null;
-    hideSkip();
-    if (seg.type === 'outro' && opts.isSeries && nextVideo()) {
-      playNext();
-      return;
-    }
-    const d = videoEl.duration;
-    try {
-      videoEl.currentTime = Math.min(seg.end, isFinite(d) ? d - 1 : seg.end);
-    } catch (e) {
-      /* ignore */
-    }
-    if (store.settings().skipMode === 'auto') toast(seg.type === 'intro' ? t('Abertura pulada') : seg.type === 'recap' ? t('Recapitulação pulada') : t('Encerramento pulado'));
-  }
-
-  // ---------- Diagnóstico e recuperação de travamentos ----------
-  function bufferedInfo() {
-    try {
-      const b = videoEl.buffered;
-      const out = [];
-      for (let i = 0; i < b.length; i++) out.push(b.start(i).toFixed(0) + '-' + b.end(i).toFixed(0));
-      return out.join(',');
-    } catch (e) {
-      return '?';
-    }
-  }
-
-  function diag(ev) {
-    log.info(
-      'video',
-      ev,
-      't=' + videoEl.currentTime.toFixed(1),
-      'dur=' + (isFinite(videoEl.duration) ? videoEl.duration.toFixed(0) : '?'),
-      'ready=' + videoEl.readyState,
-      'net=' + videoEl.networkState,
-      'buf=' + bufferedInfo()
-    );
-  }
+  st.segments = [];
+  st.segmentsLoaded = false;
+  st.activeSeg = null;
   ['waiting', 'stalled', 'suspend', 'abort', 'emptied', 'seeking', 'seeked', 'ended', 'loadeddata'].forEach((ev) =>
-    videoEl.addEventListener(ev, () => diag(ev))
+    st.videoEl.addEventListener(ev, () => st.api.diag(ev))
   );
-
-  // O player da TV às vezes para de pedir dados no meio de arquivos longos via HTTP
-  // e fica "carregando" para sempre. Se o tempo não anda por 15s sem pausa, reabre o stream no mesmo ponto.
-  let lastT = -1;
-  let hasPlayed = false; // só vigia depois que o vídeo começou (o torrent pode demorar a iniciar)
-  let gaveUp = false;
-  let autoResume = false;
-  videoEl.addEventListener('seeked', () => {
-    if (autoResume) {
-      autoResume = false;
-      const p = videoEl.play();
+  st.hasPlayed = false; // só vigia depois que o vídeo começou (o torrent pode demorar a iniciar)
+  st.autoResume = false;
+  st.videoEl.addEventListener('seeked', () => {
+    if (st.autoResume) {
+      st.autoResume = false;
+      const p = st.videoEl.play();
       if (p && p.catch) p.catch(() => {});
     }
   });
-
-  function stuckMenu(pos) {
-    showSpinner(false);
-    menu(
-      t('O vídeo parou de carregar'),
-      [
-        { label: t('Tentar de novo'), sub: t('Reabre o vídeo em {time}', { time: fmtTime(pos) }), value: 'retry', checked: true },
-        { label: t('Escolher outra fonte'), value: 'src' },
-        { label: t('Voltar'), value: 'back' },
-      ],
-      {
-        center: true,
-        onPick: (v) => {
-          if (v === 'retry') {
-            gaveUp = false;
-            recoveries = 0;
-            reopenAt(pos);
-          } else if (v === 'src') sourcesMenu();
-          else router.pop();
-        },
-      }
-    );
-  }
-
-  // Memória: pede para a tela inicial soltar as fileiras enquanto o vídeo toca.
-  function freeBackgroundMemory() {
-    const home = router.tabView('home');
-    if (home && home.freeMemory) home.freeMemory();
-  }
-  // Segundos de vídeo já carregados à frente da posição.
-  function bufferedAhead(pos) {
-    try {
-      const b = videoEl.buffered;
-      for (let i = 0; i < b.length; i++) if (b.start(i) <= pos + 0.1 && b.end(i) >= pos) return b.end(i) - pos;
-    } catch (e) {
-      /* ignore */
-    }
-    return 0;
-  }
-
-  // No navegador a conexão com o PC/debrid oscila mais que na TV: espera mais antes de reabrir.
-  const STUCK_MS = IS_WEB ? 25000 : 15000;
-  let stuckSince = 0;
-  let stuckAhead = 0;
-  let nudged = false;
-  let recoveries = 0;
-  let lastRecoveryAt = 0;
-  function watchdog() {
-    if (!alive || gaveUp || !hasPlayed || !mediaUrl || videoEl.paused || seekTarget !== null || videoEl.ended) {
-      stuckSince = 0;
-      return;
-    }
-    const pos = videoEl.currentTime;
-    if (Math.abs(pos - lastT) > 0.05) {
-      lastT = pos;
-      stuckSince = 0;
-      nudged = false;
-      if (Date.now() - lastRecoveryAt > 120000) recoveries = 0;
-      return;
-    }
-    const ahead = bufferedAhead(pos);
-    if (!stuckSince) {
-      stuckSince = Date.now();
-      stuckAhead = ahead;
-      return;
-    }
-    // Ainda esperando dado e ele está chegando: é só a rede lenta enchendo o buffer. Reabrir aqui
-    // jogava fora o que já tinha vindo e recomeçava do zero (o loop "toca uns segundos e trava").
-    if (videoEl.readyState < 3 && ahead > stuckAhead + 1) {
-      stuckSince = Date.now();
-      stuckAhead = ahead;
-      return;
-    }
-    const stuckFor = Date.now() - stuckSince;
-    // Tem vídeo carregado à frente e mesmo assim parou: buraco no buffer. Um passinho à frente
-    // destrava sem reabrir a conexão.
-    if (!nudged && ahead > 1 && stuckFor > 4000) {
-      nudged = true;
-      diag('travado-empurrao');
-      try {
-        videoEl.currentTime = pos + 0.2;
-      } catch (e) {
-        /* ignore */
-      }
-      return;
-    }
-    if (stuckFor > STUCK_MS) {
-      stuckSince = 0;
-      if (recoveries >= 3) {
-        diag('travado-desisti');
-        gaveUp = true; // para de vigiar até o usuário escolher (antes reabria o aviso sem parar)
-        stuckMenu(pos);
-        return;
-      }
-      recoveries++;
-      lastRecoveryAt = Date.now();
-      if (isDebrid() && recoveries >= 2) {
-        // Reabrir não resolveu duas vezes: provavelmente banda. Tenta um arquivo mais leve.
-        const lighter = lighterDebrid(si.fileMbps(si.parse(stream), minutes));
-        si.learnDebrid(si.fileMbps(si.parse(stream), minutes), false);
-        if (lighter && downgrades < 2) {
-          downgrades++;
-          toast(t('Conexão não aguentou este arquivo. Indo para um mais leve: {what}', { what: si.summary(si.parse(lighter)) || si.parse(lighter).addon }), 5000);
-          switchTo(lighter);
-          return;
-        }
-      }
-      diag('travado-recuperando#' + recoveries);
-      reopenAt(pos);
-    }
-  }
-
-  function reopenAt(pos) {
-    showSpinner(true);
-    toast(t('Reconectando ao vídeo...'));
-    pendingStart = Math.max(0, pos - 1) * 1000;
-    const src = sourceUrl || mediaUrl;
-    try {
-      videoEl.pause();
-      dropSource();
-      videoEl.removeAttribute('src');
-      videoEl.load();
-    } catch (e) {
-      /* ignore */
-    }
-    // Reabre do zero: o ponto certo é aplicado no loadedmetadata e o play vem depois do seek.
-    setTimeout(() => {
-      if (!alive) return;
-      hasPlayed = false;
-      setSource(src);
-    }, 300);
-  }
-
-  // Erro: um painel só, com o motivo legível (sem endereço técnico no meio) e as saídas em botões.
-  function fail(text, offerTranscode, details) {
-    hideIntro();
-    clearTimeout(slowTimer);
-    closeSlow();
-    showSpinner(false);
-    clear(msgEl);
-    const reason = String(text || '').replace(/[.!\s]+$/, '').replace(/https?:\/\/\S+/g, (u) => (/:11470\b/.test(u) ? t('o servidor do PC') : t('o servidor')));
-    playlog.add(logTitle(), logSource(), 'erro', reason + (details ? '\n' + details : ''));
-    const torrent = stream && server.needsServer(stream);
-    const tip = torrent && !server.isAvailable() && server.viaDebrid(stream)
-      ? t('O Real-Debrid não tem esse arquivo pronto. Tente outra fonte.')
-      : torrent
-      ? t('Esse torrent pode estar sem seeders ou o PC está lento para começar. Tente outra fonte.')
-      : t('Tente outra fonte (de preferência MP4/MKV com H.264 ou HEVC e áudio AAC/AC3).');
-    const buttons = [{ label: ico('sources') + t('Escolher outra fonte'), primary: true, onSelect: () => sourcesMenu() }];
-    if (offerTranscode) buttons.push({ label: t('Converter no PC'), onSelect: () => transcode() });
-    buttons.push({ label: t('Voltar'), onSelect: () => router.pop() });
-    choiceDialog(t('Problema na reprodução'), reason.charAt(0).toUpperCase() + reason.slice(1) + '. ' + tip + (details ? '\n\n' + t('Detalhes') + ': ' + details : ''), buttons);
-  }
-
-  function transcode() {
-    triedTranscode = true;
-    const base = server.baseUrl();
-    const id = Math.random().toString(36).slice(2) + Date.now().toString(36);
-    const q = ['mediaURL=' + encodeURIComponent(mediaUrl)];
-    ['h264', 'h265', 'hevc'].forEach((c) => q.push('videoCodecs=' + c));
-    ['aac', 'mp3', 'ac3', 'eac3'].forEach((c) => q.push('audioCodecs=' + c));
-    q.push('maxAudioChannels=6');
-    const url = base + 'hlsv2/' + id + '/master.m3u8?' + q.join('&');
-    pendingStart = videoEl.currentTime * 1000 || pendingStart;
-    showSpinner(true);
-    message('');
-    log.info('Transcodificando', url);
-    setSource(url);
-  }
-
-  // ---------- Controles ----------
-  function togglePlay() {
-    if (videoEl.paused) videoEl.play();
-    else videoEl.pause();
-    showControls();
-  }
-
-  function updatePlayBtn() {
-    playBtn.innerHTML = videoEl.paused ? ico('play') + t('Tocar') : ico('pause') + t('Pausar');
-  }
-
-  function updateTimes() {
-    const d = videoEl.duration;
-    const pos = seekTarget !== null ? seekTarget : videoEl.currentTime;
-    const pct = d > 0 && isFinite(d) ? Math.min(100, (pos / d) * 100) : 0;
-    posEl.style.width = pct + '%';
-    knobEl.style.left = pct + '%';
-    seekLabel.style.left = pct + '%';
-    curTimeEl.textContent = fmtTime(pos);
-    durEl.textContent = isFinite(d) ? fmtTime(d) : '--:--';
-    try {
-      const b = videoEl.buffered;
-      for (let i = 0; i < b.length; i++) {
-        if (b.start(i) <= videoEl.currentTime + 1 && b.end(i) >= videoEl.currentTime) {
-          bufEl.style.width = (d > 0 ? Math.min(100, (b.end(i) / d) * 100) : 0) + '%';
-        }
-      }
-    } catch (e) {
-      /* ignore */
-    }
-    // Relógio + horário de término (player-clock-eta do Kai).
-    const now = new Date();
-    clear(clockEl);
-    clockEl.appendChild(document.createTextNode(timeHM(now)));
-    if (d > 0 && isFinite(d)) {
-      const end = new Date(now.getTime() + Math.max(0, d - videoEl.currentTime) * 1000);
-      clockEl.appendChild(h('small', { text: t('Termina às {time}', { time: timeHM(end) }) }));
-    }
-  }
-
-  function showControls(focusEl) {
-    if (!controlsOn) {
-      controlsOn = true;
-      el.classList.add('controls-on');
-      updateTimes();
-      updatePlayBtn();
-      // Com um painel por cima (sincronia, menus), o foco fica lá.
-      const mine = nav.topLayer() && nav.topLayer().root === el;
-      if (mine && (!nav.current() || !overlay.contains(nav.current()))) nav.focus(focusEl || bar);
-    } else if (focusEl) nav.focus(focusEl);
-    scheduleHide();
-  }
-
-  function hideControls() {
-    controlsOn = false;
-    el.classList.remove('controls-on');
-    clearTimeout(hideTimer);
-  }
-
-  function scheduleHide() {
-    clearTimeout(hideTimer);
-    hideTimer = setTimeout(() => {
-      if (!videoEl.paused && seekTarget === null && nav.topLayer() && nav.topLayer().root === el) hideControls();
-    }, HIDE_MS);
-  }
-
-  let introOn = true;
-  function setupIntro() {
-    requestAnimationFrame(() => requestAnimationFrame(() => introOn && intro.classList.add('in')));
-    const art = meta.background || hero.background(meta.id);
-    if (art) {
-      const pre = new Image();
-      pre.onload = () => introOn && (introBg.style.backgroundImage = 'url("' + art + '")') && introBg.classList.add('show');
-      pre.src = art;
-    }
-    introTitle.style.display = 'none';
-    introLogo.onerror = () => {
-      introLogo.style.display = 'none';
-      introTitle.style.display = '';
-    };
-    introLogo.src = meta.logo || hero.logo(meta.id);
-    introSub.textContent = opts.isSeries ? 'T' + video.season + ' E' + video.episode + ' · ' + (video.namePt || video.name || video.title || '') : '';
-    introStatus.textContent = stream ? t('Preparando o vídeo') : t('Escolhendo a melhor fonte');
-    introCaption.innerHTML = stream ? '' : '<b>✦</b>' + t('Smart Choice ativado');
-  }
-
-  function hideIntro() {
-    if (!introOn) return;
-    introOn = false;
-    intro.classList.remove('in');
-    // Controles e círculo voltam junto com o fim do fade.
-    setTimeout(() => el.classList.remove('intro-on'), 600);
-    // Depois do fade, solta a arte (1920x1080 pesa na memória da TV).
-    setTimeout(() => {
-      introBg.style.backgroundImage = '';
-      intro.style.display = 'none';
-    }, 900);
-  }
-
-  function showSpinner(on) {
-    spinner.style.display = on ? '' : 'none';
-  }
-
-  function message(text) {
-    msgEl.textContent = introOn ? '' : text;
-    if (introOn && text) introStatus.textContent = text;
-  }
-
-  // Busca acumulada: segurar a seta acelera (10s → 30s → 60s).
-  function seekBy(dir) {
-    const d = videoEl.duration;
-    if (!(d > 0) || !isFinite(d)) return;
-    if (seekTarget === null) {
-      seekTarget = videoEl.currentTime;
-      seekRepeats = 0;
-    }
-    seekRepeats++;
-    const step = seekRepeats > 15 ? 60 : seekRepeats > 5 ? 30 : 10;
-    seekTarget = Math.max(0, Math.min(d - 2, seekTarget + dir * step));
-    bar.classList.add('seeking');
-    seekLabel.textContent = fmtTime(seekTarget);
-    showControls(bar);
-    updateTimes();
-    const withPreview = showPreview(seekTarget, d);
-    clearTimeout(seekCommitTimer);
-    // Com prévia, espera um pouco mais antes de pular: dá tempo de ver o quadro (o do PC demora mais).
-    seekCommitTimer = setTimeout(commitSeek, withPreview === 'pc' ? 1800 : withPreview ? 1400 : 700);
-  }
-
-  // Prévia ao avançar/voltar: o quadro daquele ponto, das miniaturas da linha do tempo que o
-  // addon manda junto com a fonte (stream.thumbs; hoje XVideos e Pornhub). Cada folha é uma
-  // imagem em grade; o quadro é recortado com background-position, sem decodificar vídeo.
-  const PREVIEW_W = 320;
-  const PREVIEW_H = 180;
-  const sheetCache = {};
-  function showPreview(time, duration) {
-    const th = stream && stream.thumbs;
-    if (!th || !th.urls || !th.urls.length || !(th.every > 0) || !(th.cols > 0) || !(th.rows > 0)) return pcPreview(time, duration);
-    preview.classList.remove('pc');
-    const per = th.cols * th.rows;
-    let i = Math.floor(time / th.every);
-    let sheet = Math.floor(i / per);
-    if (sheet >= th.urls.length) {
-      sheet = th.urls.length - 1;
-      i = sheet * per + per - 1;
-    }
-    const cell = i % per;
-    const url = th.urls[sheet];
-    // Folhas vizinhas já vão baixando (avançar segurando a seta passa por várias).
-    [sheet - 1, sheet, sheet + 1].forEach((n) => {
-      const u = th.urls[n];
-      if (!u || sheetCache[u]) return;
-      const img = new Image();
-      img.src = u;
-      sheetCache[u] = img;
-    });
-    previewImg.style.backgroundImage = 'url("' + url.replace(/"/g, '%22') + '")';
-    previewImg.style.backgroundSize = th.cols * PREVIEW_W + 'px ' + th.rows * PREVIEW_H + 'px';
-    previewImg.style.backgroundPosition = -(cell % th.cols) * PREVIEW_W + 'px ' + -Math.floor(cell / th.cols) * PREVIEW_H + 'px';
-    // Acompanha o ponto na barra sem sair das bordas.
-    const w = bar.offsetWidth || 1;
-    const x = Math.max(PREVIEW_W / 2, Math.min(w - PREVIEW_W / 2, (time / duration) * w));
-    preview.style.left = x + 'px';
-    preview.classList.add('on');
-    return true;
-  }
+  st.sheetCache = {};
+  st.sheetOrder = []; // ordem em que as folhas entraram: a mais antiga sai (máximo 3 na memória da TV)
 
   // Fontes sem miniaturas do site (filmes, séries, TPB...): o servidor do PC tira o quadro com o
   // ffmpeg (thumb.jpg do stremio-service), pedido só quando a posição para de mudar. Leva 1–3 s,
   // então o quadro anterior fica na tela até o novo chegar. Sem o PC, não tem prévia.
-  let pcTimer = null;
-  let pcWanted = '';
-  function pcPreview(time, duration) {
-    const src = mediaUrl;
-    if (!server.isAvailable() || !/^https?:/.test(src) || !(duration > 0)) {
-      preview.classList.remove('on');
-      return false;
-    }
-    const w = bar.offsetWidth || 1;
-    preview.style.left = Math.max(PREVIEW_W / 2, Math.min(w - PREVIEW_W / 2, (time / duration) * w)) + 'px';
-    preview.classList.add('on');
-    preview.classList.add('pc');
-    if (!pcWanted) previewImg.style.backgroundImage = '';
-    clearTimeout(pcTimer);
-    pcTimer = setTimeout(() => {
-      // O stremio-service decodifica o "from" duas vezes: vai codificado duas vezes.
-      const url = server.baseUrl() + 'thumb.jpg?from=' + encodeURIComponent(encodeURIComponent(src)) + '&at=' + Math.round(time);
-      pcWanted = url;
-      preview.classList.add('loading');
-      const img = new Image();
-      img.onload = () => {
-        if (pcWanted !== url) return;
-        previewImg.style.backgroundImage = 'url("' + url + '")';
-        preview.classList.remove('loading');
-      };
-      img.onerror = () => pcWanted === url && preview.classList.remove('loading');
-      img.src = url;
-    }, 300);
-    return 'pc';
-  }
-
-  function commitSeek() {
-    if (seekTarget === null) return;
-    try {
-      videoEl.currentTime = seekTarget;
-    } catch (e) {
-      /* ignore */
-    }
-    seekTarget = null;
-    bar.classList.remove('seeking');
-    preview.classList.remove('on');
-    clearTimeout(pcTimer);
-    pcWanted = '';
-    if (videoEl.paused) videoEl.play();
-    scheduleHide();
-  }
-
-  function cancelSeek() {
-    clearTimeout(seekCommitTimer);
-    seekTarget = null;
-    bar.classList.remove('seeking');
-    preview.classList.remove('on');
-    clearTimeout(pcTimer);
-    pcWanted = '';
-    updateTimes();
-  }
-
-  // ---------- Faixas ----------
-  function selectEmbeddedAudio(index) {
-    const native = videoEl.audioTracks;
-    if (native && native.length > index) {
-      for (let i = 0; i < native.length; i++) native[i].enabled = i === index;
-      currentAudio = index;
-      return;
-    }
-    toast(t('Troca de áudio indisponível agora.'));
-  }
-
-  // Legenda embutida: se o arquivo já está 100% no PC, o servidor extrai a faixa (WebVTT, blocos
-  // de 10s) e o app desenha no estilo Kai, sem os códigos ASS crus ({\an8}) do player da TV.
-  // Com o torrent ainda baixando, não extrai: o ffmpeg leria o arquivo e roubaria a prioridade do download.
-  function selectEmbeddedSub(index) {
-    renderer.clear();
-    server.streamProgress(mediaUrl).then((p) => {
-      if (!alive) return;
-      if (p !== null && p >= 0.999) extractedSub(index);
-      else nativeEmbeddedSub(index);
-    });
-  }
-
-  function extractedSub(index) {
-    const cs = { kind: 'embedded', index: index, extracted: true, sid: 'kai' + Math.random().toString(36).slice(2), segs: {}, cues: [], busy: false };
-    currentSub = cs;
-    applySavedOffset();
-    ensureSegments();
-  }
-
-  function ensureSegments() {
-    const cs = currentSub;
-    if (!cs.extracted || cs.busy || !alive) return;
-    const n = Math.floor(videoEl.currentTime / 10) + 1;
-    const k = !cs.segs[n] ? n : !cs.segs[n + 1] ? n + 1 : 0;
-    if (!k) return;
-    cs.segs[k] = 'loading';
-    cs.busy = true; // um bloco por vez
-    const url = server.baseUrl() + 'hlsv2/' + cs.sid + '/subtitle' + cs.index + '/segment' + k + '.vtt?mediaURL=' + encodeURIComponent(mediaUrl);
-    getText(url, { timeout: 30000, quiet: true })
-      .then((txt) => {
-        if (currentSub !== cs) return;
-        const seen = {};
-        cs.cues.forEach((c) => (seen[c.start + '|' + c.text] = true));
-        subs.parse(txt).forEach((c) => {
-          if (!seen[c.start + '|' + c.text]) cs.cues.push(c);
-        });
-        cs.cues.sort((a, b) => a.start - b.start);
-        renderer.set(cs.cues);
-        renderer.update(videoEl.currentTime);
-      })
-      .catch(() => delete cs.segs[k])
-      .then(() => (cs.busy = false));
-  }
-
-  // Sem o arquivo inteiro no PC não dá para extrair a faixa; o player HTML5 da TV não mostra
-  // legenda embutida sozinho (falta o player nativo da Samsung, AVPlay).
-  function nativeEmbeddedSub() {
-    toast(t('Essa legenda embutida só aparece com o arquivo inteiro baixado no PC. Tente uma legenda dos addons.'), 5000);
-  }
-
-  function selectAddonSub(s, silent) {
-    currentSub = { kind: 'addon', id: s.id || s.url };
-    loadAddonCues(s)
-      .then((cues) => {
-        if (!alive || currentSub.id !== (s.id || s.url)) return;
-        useAddonCues(s, cues);
-        if (!silent) toast(t('Legenda: {lang}', { lang: subLabel(s) }));
-      })
-      .catch(() => toast(t('Não foi possível baixar a legenda.')));
-  }
-
-  // Menus de faixas: lê as faixas embutidas só agora, quando o usuário pede.
-  function withTracks(open) {
-    if (embedded || !server.isAvailable()) return open();
-    toast(t('Lendo as faixas do arquivo...'), 2500);
-    loadEmbeddedTracks().then(() => alive && open());
-  }
-
-  function audioMenu() {
-    withTracks(openAudioMenu);
-  }
-
-  function openAudioMenu() {
-    const native = videoEl.audioTracks;
-    let list = [];
-    if (native && native.length) {
-      for (let i = 0; i < native.length; i++) {
-        list.push({ label: langName(native[i].language) + (native[i].label ? ' · ' + native[i].label : ''), value: i, checked: native[i].enabled });
-      }
-    } else if (embedded && embedded.audio.length) {
-      list = embedded.audio.map((tr, i) => ({
-        label: langName(tr.lang) + (tr.label ? ' · ' + tr.label : ''),
-        sub: [tr.codec, tr.channels ? t('{n} canais', { n: tr.channels }) : ''].filter(Boolean).join(' · '),
-        value: i,
-        checked: currentAudio === null ? i === 0 : currentAudio === i,
-      }));
-    }
-    menu(t('Áudio'), list, {
-      empty: server.isAvailable() ? t('Só uma faixa de áudio.') : t('Para listar as faixas, conecte o servidor do PC em Ajustes.'),
-      onPick: (i) => selectEmbeddedAudio(i),
-    });
-  }
-
-  function subsMenu() {
-    withTracks(openSubsMenu);
-  }
-
-  function openSubsMenu() {
-    const opts2 = [];
-    if (renderer.active()) {
-      const off = renderer.offset();
-      opts2.push({ label: t('Sincronizar legenda'), sub: off ? t('Ajuste atual: {n}', { n: fmtOff(off) }) : t('Automático ou manual'), value: { kind: 'sync' } });
-    }
-    opts2.push({ label: t('Desligada'), value: { kind: 'off' }, checked: currentSub.kind === 'off' });
-    if (embedded && embedded.subs.length) {
-      embedded.subs.forEach((tr, i) =>
-        /PGS|VOBSUB|DVD/i.test(tr.codec || '') ? null : opts2.push({
-          label: langName(tr.lang) + (tr.label ? ' · ' + tr.label : ''),
-          sub: t('Embutida no arquivo') + (tr.codec ? ' · ' + tr.codec : ''),
-          value: { kind: 'embedded', index: i },
-          checked: currentSub.kind === 'embedded' && currentSub.index === i,
-        })
-      );
-    }
-    const pref = (settings.subtitleLangs || []).map((x) => x.toLowerCase());
-    // Melhores candidatas primeiro (mesma ordem da escolha automática); o resto vem depois.
-    const best = subpick.rank(addonSubs, pref, fileInfo || {}, seriesInfo());
-    const sorted = best.concat((addonSubs || []).filter((s) => best.indexOf(s) < 0));
-    sorted.slice(0, 60).forEach((s) =>
-      opts2.push({
-        label: subLabel(s),
-        sub: s.addon || 'Addon',
-        value: { kind: 'addon', sub: s },
-        checked: currentSub.kind === 'addon' && currentSub.id === (s.id || s.url),
-      })
-    );
-    opts2.push({ label: t('Tamanho: {n}%', { n: store.settings().subtitleSize || 100 }), value: { kind: 'size' } });
-    menu(t('Legendas'), opts2, {
-      empty: addonSubs === null ? t('Carregando legendas...') : t('Nenhuma legenda.'),
-      onPick: (v) => {
-        if (v.kind === 'off' || v.kind === 'embedded' || v.kind === 'addon') autoDone.sub = true;
-        if (v.kind === 'off') {
-          renderer.clear();
-          currentSub = { kind: 'off' };
-        } else if (v.kind === 'embedded') selectEmbeddedSub(v.index);
-        else if (v.kind === 'addon') selectAddonSub(v.sub);
-        else if (v.kind === 'sync') syncMenu();
-        else if (v.kind === 'size') sizeMenu();
-      },
-    });
-  }
-
-  // ---------- Sincronia da legenda ----------
-  function syncMenu() {
-    const off = renderer.offset();
-    const list = [
-      { label: t('Automático'), sub: t('Pause quando alguém começa a falar e escolha a fala'), value: 'auto' },
-      { label: t('Manual'), sub: t('Ajuste fino com as setas do controle'), value: 'manual' },
-    ];
-    if (off) list.push({ label: t('Zerar ajuste'), sub: t('Agora: {n}', { n: fmtOff(off) }), value: 'zero' });
-    menu(t('Sincronizar legenda'), list, {
-      onPick: (v) => {
-        if (v === 'auto') autoSync();
-        else if (v === 'manual') manualSync();
-        else {
-          setSync(0);
-          toast(t('Legenda de volta ao tempo original.'));
-        }
-      },
-    });
-  }
-
-  function setSync(v) {
-    v = Math.round(v * 10) / 10;
-    renderer.setOffset(v);
-    renderer.update(videoEl.currentTime);
-    if (meta.id !== 'dev') saveSync(video.id, subKey(), v);
-  }
-
-  function syncHint(v) {
-    const r = Math.round(v * 10) / 10;
-    const n = Math.abs(r).toFixed(1).replace('.', ',');
-    if (!r) return t('No tempo original do arquivo');
-    return r > 0 ? t('A legenda aparece {n} s depois', { n: n }) : t('A legenda aparece {n} s antes', { n: n });
-  }
-
-  // Manual: painel no alto da tela (a legenda continua visível embaixo) e as setas mexem ao vivo.
-  function manualSync() {
-    hideControls();
-    const before = renderer.offset();
-    let cur = before;
-    const val = h('div.ss-val');
-    const hint = h('div.ss-hint');
-    const knob = h('div.ss-knob');
-    // Setas desenhadas: a fonte da TV não tem os símbolos.
-    const arrow = (d) => '<svg viewBox="0 0 24 24"><path d="' + d + '"/></svg>';
-    const LR = arrow('M15 5l-7 7 7 7') + arrow('M9 5l7 7-7 7');
-    const UD = arrow('M5 15l7-7 7 7') + arrow('M5 9l7 7 7-7');
-    const keyHint = (k, label) => h('span.ss-key', null, [h('b', { html: k }), label]);
-    const box = h('div.sub-sync', null, [
-      h('div.ss-title', { text: t('Sincronizar legenda') }),
-      val,
-      hint,
-      h('div.ss-track', null, [h('div.ss-mid'), knob, h('span.ss-end.l', { text: t('antes') }), h('span.ss-end.r', { text: t('depois') })]),
-      h('div.ss-keys', null, [keyHint(LR, '0,5 s'), keyHint(UD, '0,1 s'), keyHint(IS_WEB ? 'Enter' : 'OK', t('salvar')), keyHint(IS_WEB ? 'Esc' : t('Voltar'), t('desfazer'))]),
-    ]);
-    function draw() {
-      val.textContent = fmtOff(cur);
-      val.className = 'ss-val' + (cur > 0.05 ? ' later' : cur < -0.05 ? ' sooner' : '');
-      hint.textContent = syncHint(cur);
-      knob.style.left = 50 + Math.max(-10, Math.min(10, cur)) * 5 + '%';
-      renderer.setOffset(cur);
-      renderer.update(videoEl.currentTime);
-    }
-    function close(save) {
-      syncUi = false;
-      nav.popLayer(layer);
-      if (box.parentNode) box.parentNode.removeChild(box);
-      if (save) {
-        setSync(cur);
-        toast(t('Legenda ajustada: {n}', { n: fmtOff(cur) }));
-      } else {
-        renderer.setOffset(before);
-        renderer.update(videoEl.currentTime);
-      }
-    }
-    el.appendChild(box);
-    syncUi = true;
-    const layer = nav.pushLayer(box, {
-      onBack: () => close(false),
-      onKey: (ev) => {
-        const k = ev.keyCode;
-        if (k === KEY.BACK || k === KEY.ESC || k === KEY.BACKSPACE) return false;
-        if (k === KEY.LEFT) cur -= 0.5;
-        else if (k === KEY.RIGHT) cur += 0.5;
-        else if (k === KEY.UP) cur += 0.1;
-        else if (k === KEY.DOWN) cur -= 0.1;
-        else if (k === KEY.ENTER) {
-          close(true);
-          return true;
-        } else if (k === KEY.PLAYPAUSE || k === KEY.PLAY || k === KEY.PAUSE) {
-          if (k === KEY.PAUSE) videoEl.pause();
-          else if (k === KEY.PLAY) videoEl.play();
-          else togglePlay();
-          hideControls();
-          return true;
-        } else return true;
-        cur = Math.max(-60, Math.min(60, Math.round(cur * 10) / 10));
-        draw();
-        return true;
-      },
-    });
-    draw();
-  }
-
-  // Automático: com o vídeo parado no instante em que alguém começa a falar, mostra as falas
-  // da legenda por perto e o usuário aponta qual é. Ajuste = agora − início daquela fala.
-  function autoSync() {
-    const all = renderer.cues();
-    if (!all.length) return toast(t('Escolha uma legenda primeiro.'));
-    syncUi = true;
-    videoEl.pause();
-    hideControls();
-    const now = videoEl.currentTime;
-    const at = now - renderer.offset(); // "agora" no relógio da legenda
-    const dist = (c) => Math.abs(c.start - at);
-    let near = all.filter((c) => c.start >= at - 90 && c.start <= at + 90);
-    if (near.length < 6) near = all.slice().sort((a, b) => dist(a) - dist(b)).slice(0, 12);
-    if (near.length > 40) near = near.slice().sort((a, b) => dist(a) - dist(b)).slice(0, 40);
-    near.sort((a, b) => a.start - b.start);
-    let closest = 0;
-    near.forEach((c, i) => {
-      if (dist(c) < dist(near[closest])) closest = i;
-    });
-    const rel = (d) => {
-      if (Math.abs(d) < 0.3) return t('na legenda: agora');
-      const n = Math.abs(d) < 10 ? Math.abs(d).toFixed(1).replace('.', ',') : String(Math.round(Math.abs(d)));
-      return d > 0 ? t('na legenda: daqui a {n} s', { n: n }) : t('na legenda: há {n} s', { n: n });
-    };
-    const list = h('div.modal-list.sync-list', { 'data-scroll-y': '', 'data-pad-y': '120' });
-    const items = near.map((c) =>
-      h('div.opt.sync-opt', { focusable: true, onSelect: () => pick(c) }, [
-        h('span.so-text', { html: c.text.replace(/\n/g, '<br>') }),
-        h('small', { text: rel(c.start - at) }),
-      ])
-    );
-    items.forEach((it) => list.appendChild(it));
-    const box = h('div.modal-box.sync-box', null, [
-      h('h3', { text: t('Qual fala começa agora?') }),
-      h('p.modal-text', { text: t('Pausado em {time}. Escolha a fala que começa exatamente neste momento.', { time: fmtTime(now) }) }),
-      list,
-    ]);
-    const modal = h('div.modal.sync-modal', null, box);
-    document.getElementById('app').appendChild(modal);
-    const layer = nav.pushLayer(modal, { onBack: () => close() });
-    nav.focus(items[closest]);
-    function close() {
-      syncUi = false;
-      nav.popLayer(layer);
-      if (modal.parentNode) modal.parentNode.removeChild(modal);
-    }
-    function pick(c) {
-      close();
-      setSync(now - c.start);
-      toast(t('Legenda sincronizada ({n})', { n: fmtOff(renderer.offset()) }), 4000);
-      videoEl.play();
-    }
-  }
-
-  function sizeMenu() {
-    const vals = [70, 85, 100, 115, 130, 150];
-    const cur = store.settings().subtitleSize || 100;
-    menu(
-      t('Tamanho da legenda'),
-      vals.map((v) => ({ label: v + '%', value: v, checked: v === cur })),
-      {
-        onPick: (v) => {
-          const next = store.saveSettings({ subtitleSize: v });
-          substyle.apply(subsEl, next);
-        },
-      }
-    );
-  }
-
-  // Fontes na ordem do Smart Choice: Real-Debrid/debrid em cache primeiro (os mais rápidos), dentro
-  // deles os dublados e os que cabem na banda da TV; depois torrents bem semeados; as que não abrem
-  // aqui (torrent sem o PC) vão para o fim. Cada linha: o arquivo e só o que decide a escolha.
-  function sourcesMenu() {
-    const ok = server.isAvailable();
-    const all = opts.streams || [];
-    const ranked = si.rank(all, minutes, pickOpts());
-    const playable = ranked.filter((s) => si.canPlay(s, ok));
-    const blocked = ranked.filter((s) => !si.canPlay(s, ok));
-    const tube = all.some((s) => addons.isTubeStream(s));
-    const order = tube ? all : playable.concat(blocked);
-    const list = order.map((s) => {
-      const info = si.parse(s);
-      const debrid = info.cached ? '⚡ ' + (info.rd ? 'Real-Debrid' : t('Debrid')) : info.debrid ? t('Debrid (baixando)') : '';
-      const parts = [debrid || info.addon, si.summary(info), si.sizeText(info.sizeMb)];
-      if (!info.cached && server.needsServer(s)) parts.push(ok ? t('torrent pelo PC') : server.viaDebrid(s) ? t('torrent pelo Real-Debrid') : t('precisa do PC'));
-      const name = tube ? String(s.name || '').replace(/\n/g, ' · ') : info.file || ((s.title || s.description || '') + '').split('\n')[0] || info.addon;
-      return {
-        label: name,
-        sub: (tube ? String(s.title || '') : parts.filter(Boolean).join(' · ')).replace(/\n/g, ' · '),
-        value: all.indexOf(s),
-        checked: s === stream,
-      };
-    });
-    menu(t('Fontes'), list, {
-      onPick: (i) => {
-        const s = all[i];
-        if (!s || s === stream) return;
-        if (server.needsServer(s) && !server.isAvailable() && !server.viaDebrid(s)) return toast(t('Essa fonte precisa do servidor do PC.'));
-        switchTo(s);
-      },
-    });
-  }
-
-  // Troca de fonte no mesmo ponto do vídeo.
-  // ---------- Debrid: banda e arquivo mais leve ----------
-  // Só para fontes de debrid (o torrent tem a própria lógica pelo PC). Uma travada é o vídeo parar
-  // para carregar no meio (não depois de pular). Duas em 3 min: a TV não aguenta a taxa do arquivo;
-  // o app aprende a banda e troca sozinho por outro debrid mais leve, no mesmo ponto.
-  function isDebrid() {
-    const i = stream ? si.parse(stream) : null;
-    return !!(i && (i.debrid || i.cached));
-  }
-  let lastSeekAt = 0;
-  let waitStart = 0;
-  let stalls = [];
-  let smoothTimer = null;
-  let downgrades = 0;
-  videoEl.addEventListener('seeking', () => (lastSeekAt = Date.now()));
-  function debridWaiting() {
-    if (!hasPlayed || !isDebrid() || seekTarget !== null || Date.now() - lastSeekAt < 4000) return;
-    waitStart = Date.now();
-    clearTimeout(smoothTimer);
-  }
-  function debridResumed() {
-    if (!isDebrid()) return;
-    if (waitStart) {
-      const waited = Date.now() - waitStart;
-      waitStart = 0;
-      if (waited > 1500) debridStall(waited);
-    }
-    clearTimeout(smoothTimer);
-    const forStream = stream;
-    smoothTimer = setTimeout(() => {
-      if (!alive || stream !== forStream || stalls.length) return;
-      const mbps = si.fileMbps(si.parse(stream), minutes);
-      const b = si.learnDebrid(mbps, true);
-      log.info('Debrid liso', mbps + ' Mbps', 'banda ' + b);
-    }, DEBRID_SMOOTH_MS);
-  }
-  function debridStall(waited) {
-    const now = Date.now();
-    stalls = stalls.filter((x) => now - x < 180000).concat(now);
-    diag('debrid-travou ' + waited + 'ms #' + stalls.length);
-    if (stalls.length < DEBRID_STALLS) return;
-    stalls = [];
-    const mbps = si.fileMbps(si.parse(stream), minutes);
-    const budget = si.learnDebrid(mbps, false);
-    log.warn('Debrid travando', mbps + ' Mbps', 'banda agora ' + budget);
-    if (downgrades >= 2) return;
-    const lighter = lighterDebrid(mbps);
-    if (!lighter) return;
-    downgrades++;
-    const info = si.parse(lighter);
-    toast(t('Conexão não aguentou este arquivo. Indo para um mais leve: {what}', { what: si.summary(info) || info.addon }), 5000);
-    switchTo(lighter);
-  }
-  // Outro debrid em cache, mais leve que o atual e dentro da banda; mesmo áudio dublado se der.
-  function lighterDebrid(mbps) {
-    const cur = si.parse(stream);
-    const budget = si.debridBudget();
-    const cands = (opts.streams || []).filter((x) => {
-      if (tried.indexOf(x) >= 0) return false;
-      const i = si.parse(x);
-      const m = si.fileMbps(i, minutes);
-      return i.cached && !i.dv && si.canPlay(x, server.isAvailable()) && (!mbps || (m && m < mbps)) && (!m || m <= budget);
-    });
-    const dub = cands.filter((x) => si.parse(x).dub === cur.dub);
-    const pick = si.smartPick(dub.length ? dub : cands, server.isAvailable(), minutes, pickOpts());
-    return pick ? pick.stream : null;
-  }
-
-  function switchTo(s) {
-    saveProgress();
-    clearTimeout(smoothTimer);
-    waitStart = 0;
-    stalls = [];
-    if (videoEl.currentTime > 1) pendingStart = videoEl.currentTime * 1000;
-    stream = s;
-    slowExtensions = 0;
-    if (tried.indexOf(s) < 0) tried.push(s);
-    triedTranscode = false;
-    autoDone = { sub: false, audio: false };
-    start();
-  }
-
-  // ---------- Demorando para carregar: oferece outro provedor ----------
-  function armSlow() {
-    clearTimeout(slowTimer);
-    closeSlow();
-    // Debrid em cache abre em segundos: se não abriu em 15s, o problema é o arquivo/link.
-    slowTimer = setTimeout(() => {
-      if (alive && !hasPlayed) checkSlow();
-    }, isDebrid() ? DEBRID_SLOW_MS : SLOW_MS);
-  }
+  st.pcTimer = null;
+  st.lastSeekAt = 0;
+  st.waitStart = 0;
+  st.stalls = [];
+  st.smoothTimer = null;
+  st.downgrades = 0;
+  st.videoEl.addEventListener('seeking', () => (st.lastSeekAt = Date.now()));
 
   // Torrent que ainda está baixando (o progresso anda) ganha mais tempo, até 3 vezes:
   // começar um torrent pelo PC pode passar de 40s, e trocar ali só recomeçaria do zero.
-  let slowExtensions = 0;
-  function checkSlow() {
-    if (!viaServer || slowExtensions >= 3) return slowPrompt();
-    server.streamProgress(mediaUrl).then((p1) => {
-      setTimeout(() => {
-        server.streamProgress(mediaUrl).then((p2) => {
-          if (!alive || hasPlayed) return;
-          if (p1 !== null && p2 !== null && p2 > p1) {
-            slowExtensions++;
-            message(t('Ainda baixando pelo PC ({pct}% do arquivo)...', { pct: Math.round(p2 * 100) }));
-            clearTimeout(slowTimer);
-            slowTimer = setTimeout(() => alive && !hasPlayed && checkSlow(), 20000);
-          } else slowPrompt();
-        });
-      }, 4000);
-    });
-  }
-
-  function closeSlow() {
-    if (!slowModal) return;
-    clearInterval(slowModal.timer);
-    nav.popLayer(slowModal.layer);
-    if (slowModal.el.parentNode) slowModal.el.parentNode.removeChild(slowModal.el);
-    slowModal = null;
-  }
-
-  function slowPrompt() {
-    closeSlow();
-    let left = SLOW_COUNTDOWN;
-    const goBtn = h('div.btn.primary', { focusable: true, onSelect: () => (closeSlow(), tryAnother()) });
-    const waitBtn = h('div.btn', { focusable: true, text: t('Esperar mais'), onSelect: () => armSlow() });
-    const label = () => (goBtn.textContent = t('Tentar outro ({n}s)', { n: left }));
-    label();
-    const box = h('div.modal-box.center.slow-box', null, [
-      h('h3', { text: t('Está demorando… tentar outro provedor?') }),
-      h('p.modal-text', { text: t('Se você não escolher nada, tento outra fonte sozinho.') }),
-      h('div.modal-actions', { 'data-group': '' }, [goBtn, waitBtn]),
-    ]);
-    const modal = h('div.modal', null, box);
-    el.appendChild(modal);
-    const layer = nav.pushLayer(modal, { onBack: () => armSlow() });
-    nav.focus(goBtn);
-    const timer = setInterval(() => {
-      left--;
-      if (left > 0) return label();
-      closeSlow();
-      tryAnother();
-    }, 1000);
-    slowModal = { el: modal, layer: layer, timer: timer };
-  }
-
-  // Antes de trocar, confere a conexão: se a internet (ou o servidor do PC, no torrent) caiu,
-  // trocar de fonte não adianta.
-  function connectionOk() {
-    const net = getJSON(addons.CINEMETA, { timeout: 7000 }).then(
-      () => true,
-      () => false
-    );
-    const srv = server.needsServer(stream) && !server.viaDebrid(stream) ? server.check().then((r) => !!(r && r.ok), () => false) : Promise.resolve(true);
-    return Promise.all([net, srv]).then((r) => ({ internet: r[0], server: r[1] }));
-  }
-
-  function tryAnother() {
-    showSpinner(true);
-    message(t('Testando a conexão...'));
-    connectionOk().then((c) => {
-      if (!alive || hasPlayed) return;
-      if (!c.internet || !c.server) {
-        message('');
-        showSpinner(false);
-        menu(
-          !c.internet ? t('A internet da TV parece fora do ar') : t('O servidor do PC não está respondendo'),
-          [
-            { label: t('Esperar e tentar de novo'), sub: t('Reabre a mesma fonte'), value: 'retry', checked: true },
-            { label: t('Escolher outra fonte'), value: 'src' },
-            { label: t('Voltar'), value: 'back' },
-          ],
-          {
-            center: true,
-            onPick: (v) => {
-              if (v === 'retry') switchTo(stream);
-              else if (v === 'src') sourcesMenu();
-              else router.pop();
-            },
-          }
-        );
-        return;
-      }
-      // Próxima fonte: a melhor (Smart Choice) entre as que ainda não foram tentadas. Na ordem do
-      // Smart Choice, todas as de debrid em cache vêm antes de qualquer torrent.
-      const rest = (opts.streams || []).filter((x) => tried.indexOf(x) < 0);
-      const pick = si.smartPick(rest, server.isAvailable(), minutes, pickOpts());
-      if (!pick) {
-        message('');
-        fail(t('Nenhuma outra fonte disponível para tentar.'));
-        return;
-      }
-      const info = si.parse(pick.stream);
-      toast(t('Tentando: {what}', { what: si.summary(info) || info.addon }), 3500);
-      switchTo(pick.stream);
-    });
-  }
-
-  // Próximo episódio: mantém o mesmo "bingeGroup" (mesma qualidade/fonte) quando possível.
-  function playNext() {
-    const nv = nextVideo();
-    if (!nv) return;
-    saveProgress();
-    const group = stream.behaviorHints && stream.behaviorHints.bingeGroup;
-    showSpinner(true);
-    message(t('Procurando o próximo episódio...'));
-    addons.fetchStreams(meta.type, nv.id).then((list) => {
-      if (!alive) return;
-      const match = group ? list.find((s) => s.behaviorHints && s.behaviorHints.bingeGroup === group) : null;
-      if (match && (!server.needsServer(match) || server.isAvailable() || server.viaDebrid(match))) {
-        video = nv;
-        stream = match;
-        opts.streams = list;
-        pendingStart = 0;
-        triedTranscode = false;
-        autoDone = { sub: false, audio: false };
-        start();
-      } else {
-        router.pop();
-        openDetails(meta.type, meta.id, { videoId: nv.id, autoStreams: true });
-      }
-    });
-  }
-
-  // ---------- Progresso ----------
-  function saveProgress() {
-    const d = videoEl.duration;
-    if (!(d > 0) || !isFinite(d) || !videoEl.currentTime) return;
-    const delta = watchedDelta;
-    watchedDelta = 0;
-    if (meta.id === 'dev') return; // teste de desenvolvimento: não mexe na biblioteca
-    stremio.saveProgress(meta, video.id, videoEl.currentTime * 1000, d * 1000, delta);
-  }
-
-  // ---------- Teclas ----------
-  function onKey(e) {
-    const k = e.keyCode;
-    const cur = nav.current();
-    switch (k) {
-      case KEY.PLAY:
-        videoEl.play();
-        showControls();
-        return true;
-      case KEY.SPACE: // teclado: espaço e K tocam/pausam (como no YouTube)
-      case 75:
-        togglePlay();
-        return true;
-      case 77: // M: silencia
-        videoEl.muted = !videoEl.muted;
-        return true;
-      case KEY.PAUSE:
-        videoEl.pause();
-        return true;
-      case KEY.PLAYPAUSE:
-        togglePlay();
-        return true;
-      case KEY.STOP:
-        close();
-        return true;
-      case KEY.FF:
-        seekBy(1);
-        return true;
-      case KEY.RW:
-        seekBy(-1);
-        return true;
-      case KEY.BACK:
-      case KEY.ESC:
-      case KEY.BACKSPACE:
-        if (seekTarget !== null) cancelSeek();
-        else if (activeSeg && !controlsOn) dismissSkip();
-        else if (controlsOn && !videoEl.paused) hideControls();
-        else close();
-        return true;
-    }
-    if (!controlsOn && activeSeg) {
-      if (k === KEY.ENTER) {
-        doSkip();
-        return true;
-      }
-    }
-    if (!controlsOn) {
-      if (IS_WEB && (k === KEY.UP || k === KEY.DOWN)) {
-        // Teclado: seta para cima/baixo mexe no volume (sem abrir a barra).
-        videoEl.muted = false;
-        videoEl.volume = Math.max(0, Math.min(1, videoEl.volume + (k === KEY.UP ? 0.1 : -0.1)));
-        toast(t('Volume {n}%', { n: Math.round(videoEl.volume * 100) }), 1200);
-        return true;
-      }
-      if (k === KEY.LEFT) seekBy(-1);
-      else if (k === KEY.RIGHT) seekBy(1);
-      else if (k === KEY.ENTER) togglePlay();
-      else if (k === KEY.DOWN) showControls(playBtn);
-      else showControls(bar);
-      return true;
-    }
-    scheduleHide();
-    if (cur === bar) {
-      if (k === KEY.LEFT) {
-        seekBy(-1);
-        return true;
-      }
-      if (k === KEY.RIGHT) {
-        seekBy(1);
-        return true;
-      }
-      if (k === KEY.UP) {
-        hideControls();
-        return true;
-      }
-    }
-    return false;
-  }
-
-  function close() {
-    saveProgress();
-    router.pop();
-  }
+  st.slowExtensions = 0;
+  st.api = Object.assign(
+    {},
+    createControls(st),
+    createOverlays(st),
+    createSubtitles(st),
+    createEngine(st),
+    createRecovery(st)
+  );
 
   return {
-    el: el,
-    onKey: onKey,
+    el: st.el,
+    onKey: st.api.onKey,
     onShow: () => {
       if (!ticker) {
-        setupIntro();
-        start();
+        st.api.setupIntro();
+        st.api.start();
         ticker = setInterval(() => {
-          if (controlsOn) updateTimes();
-          renderer.update(videoEl.currentTime);
-          checkSkip();
-          if (currentSub.extracted) ensureSegments();
+          if (st.controlsOn) st.api.updateTimes();
+          st.renderer.update(st.videoEl.currentTime);
+          st.api.checkSkip();
+          if (st.currentSub.extracted) st.api.ensureSegments();
         }, 250);
         saveTimer = setInterval(() => {
-          if (!videoEl.paused) saveProgress();
+          if (!st.videoEl.paused) st.api.saveProgress();
         }, SAVE_MS);
-        watchTimer = setInterval(watchdog, 2000);
-        calTimer = setInterval(checkCalendar, 20000);
-        setTimeout(checkCalendar, 3000);
+        watchTimer = setInterval(st.api.watchdog, 2000);
+        st.calTimer = setInterval(st.api.checkCalendar, 20000);
+        setTimeout(st.api.checkCalendar, 3000);
         // Build de desenvolvimento: estado do buffer a cada 10s no log remoto.
-        if (__KAI_DEVLOG__) statusTimer = setInterval(() => !videoEl.paused && diag('status'), 10000);
+        if (__KAI_DEVLOG__) statusTimer = setInterval(() => !st.videoEl.paused && st.api.diag('status'), 10000);
       }
-      showControls(bar);
+      st.api.showControls(st.bar);
     },
     onBack: () => {
-      close();
+      st.api.close();
       return true;
     },
     destroy: () => {
-      alive = false;
+      // Sai por qualquer caminho (router.pop direto, erro, fim): salva o ponto antes de soltar o vídeo.
+      st.api.saveProgress();
+      st.alive = false;
       systemScreenSaver(true);
       clearInterval(ticker);
       clearInterval(saveTimer);
       clearInterval(watchTimer);
-      clearInterval(calTimer);
-      closeNotice();
+      clearInterval(st.calTimer);
+      st.api.closeNotice();
       clearInterval(statusTimer);
-      clearTimeout(hideTimer);
-      clearTimeout(seekCommitTimer);
-      clearTimeout(slowTimer);
-      closeSlow();
+      clearTimeout(st.hideTimer);
+      clearTimeout(st.seekCommitTimer);
+      clearTimeout(st.smoothTimer);
+      clearTimeout(st.pcTimer);
+      st.sheetOrder.forEach((u) => delete st.sheetCache[u]);
+      st.sheetOrder.length = 0;
+      clearTimeout(st.slowTimer);
+      st.api.closeSlow();
       try {
-        videoEl.pause();
-        dropSource();
-        videoEl.removeAttribute('src');
-        videoEl.load();
+        st.videoEl.pause();
+        st.api.dropSource();
+        st.videoEl.removeAttribute('src');
+        st.videoEl.load();
       } catch (e) {
         /* ignore */
       }
     },
   };
-}
-
-function escapeHtml(x) {
-  return String(x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 }

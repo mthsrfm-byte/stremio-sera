@@ -1,13 +1,12 @@
 # Publica no GitHub Pages a cada push na main:
-#  - a raiz: o Seraflix para navegador, atrás de senha (segredo WEB_PASSWORD);
-#  - /controle/: o controle pelo celular (pasta remote/).
+#  - a raiz: o Seraflix para navegador, atrás de senha (segredo WEB_PASSWORD).
 # Sem o segredo WEB_PASSWORD o build web para de propósito: o app não sobe aberto na internet.
 name: Publicar site no GitHub Pages
 
 on:
   push:
     branches: [main]
-    paths: ['remote/**', 'src/**', 'tools/**', 'package.json', 'package-lock.json', '.github/workflows/pages.yml']
+    paths: ['src/**', 'tools/**', 'package.json', 'package-lock.json', '.github/workflows/pages.yml']
   workflow_dispatch:
 
 permissions:
@@ -40,11 +39,8 @@ jobs:
           KAI_MDBLIST: ${{ secrets.MDBLIST_API_KEY }}
         run: npm run build:web
 
-      - name: Montar o site (app na raiz, controle em /controle/)
-        run: |
-          mkdir -p _site/controle
-          cp -r site/app/. _site/
-          cp -r remote/. _site/controle/
+      - name: Montar o site
+        run: cp -r site/app/. _site/
 
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

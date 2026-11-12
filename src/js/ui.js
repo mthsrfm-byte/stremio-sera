@@ -7,6 +7,7 @@ import * as store from './lib/store.js';
 import { avatar, switchProfile, createProfile, canAddProfile, editProfile } from './views/profiles.js';
 import { t } from './lib/i18n.js';
 import { IS_WEB } from './lib/platform.js';
+import { ico } from './lib/icons.js';
 import * as addons from './api/addons.js';
 import { requirePin } from './views/pin.js';
 import * as calendar from './api/calendar.js';
@@ -97,6 +98,28 @@ export function confirmDialog(text, okLabel, onOk, opts) {
     nav.popLayer(layer);
     if (modal.parentNode) modal.parentNode.removeChild(modal);
   }
+}
+
+// Modal genérico: título (opcional), conteúdo (elemento ou lista) e fecha com o Voltar ou close().
+// opts: { title, content, onClose, onKey, cls (classes do modal), boxCls (classes da caixa, padrão modal-box) }
+// onClose roda uma única vez, em qualquer fechamento. Devolve { el, close }.
+export function openModal(opts) {
+  const o = opts || {};
+  const kids = [o.title ? h('h3', { text: o.title }) : null].concat(o.content || []);
+  const box = h('div', { cls: o.boxCls || 'modal-box' }, kids);
+  const modal = h('div.modal', { cls: o.cls || '' }, box);
+  document.getElementById('app').appendChild(modal);
+  let closed = false;
+  function close() {
+    if (closed) return;
+    closed = true;
+    nav.popLayer(layer);
+    if (modal.parentNode) modal.parentNode.removeChild(modal);
+    if (o.onClose) o.onClose();
+  }
+  const layer = nav.pushLayer(modal, { onBack: () => close(), onKey: o.onKey });
+  nav.focusFirst(modal);
+  return { el: modal, close: close };
 }
 
 // Ícones da barra (traço em currentColor, desenhados à mão: a fonte da TV não tem símbolos).
@@ -386,17 +409,25 @@ export function isFavorite(item) {
   return addons.isAdultId(id) ? nsfwSaved.has(id) : stremio.isInLibrary(id);
 }
 
+// Aviso de favorito: o toast só leva texto, então o coração em SVG entra antes dele.
+export function heartToast(msg) {
+  toast(msg);
+  const el = document.getElementById('toast');
+  el.insertBefore(h('span', { html: ico('heartOn'), style: { display: 'inline-block', verticalAlign: 'middle', color: '#FF6B8A', marginRight: '10px' } }), el.firstChild);
+}
+
 // Liga/desliga o favorito; devolve uma Promise com o estado novo.
 export function toggleFavorite(item) {
   const id = item.id || item._id;
+  const notify = (on) => (on ? heartToast(t('Favoritado')) : toast(t('Tirado dos favoritos')));
   if (addons.isAdultId(id)) {
     const on = nsfwSaved.toggle(Object.assign({}, item, { id: id }));
-    toast(on ? t('♥ Favoritado') : t('Tirado dos favoritos'));
+    notify(on);
     return Promise.resolve(on);
   }
   const on = !stremio.isInLibrary(id);
   return stremio.setInLibrary(Object.assign({}, item, { id: id }), on).then(() => {
-    toast(on ? t('♥ Favoritado') : t('Tirado dos favoritos'));
+    notify(on);
     return on;
   });
 }
@@ -460,7 +491,8 @@ export function card(item, opts) {
     wrap.classList.add('img-loaded');
     wrap.appendChild(h('div.ph', { text: item.name || '' }));
   }
-  if (o.progress) wrap.appendChild(h('div.progress', null, h('i', { style: { width: Math.round(o.progress * 100) + '%' } })));
+  // progress: 0 a 1 (fração assistida); fora disso é cortado.
+  if (o.progress > 0) wrap.appendChild(h('div.progress', null, h('i', { style: { width: Math.round(Math.min(1, o.progress) * 100) + '%' } })));
   if (o.badge) wrap.appendChild(h('div.badge', { text: o.badge }));
   if (o.corner) wrap.appendChild(h('div.card-corner', { cls: o.corner === '4K' ? 'uhd' : '', text: o.corner }));
   if (o.flag) wrap.appendChild(h('div.card-flag', { text: o.flag }));
@@ -468,7 +500,8 @@ export function card(item, opts) {
   // Coração: cheio quando favoritado; vazio só no cartão em foco (dica da tecla amarela).
   const favItem = o.fav === false ? null : o.favItem || ((item.id || item._id) && item.type ? item : null);
   if (favItem) wrap.appendChild(h('div.card-fav', { html: HEART }));
-  const el = h('div.card', { focusable: true, cls: (o.wide ? 'wide' : o.rank ? 'ranked' : '') + (o.rich ? ' rich' : ''), onSelect: o.onSelect, onFocus: o.onFocus }, [
+  // seen: já assistido (classe "seen", a aparência fica para o CSS).
+  const el = h('div.card', { focusable: true, cls: (o.wide ? 'wide' : o.rank ? 'ranked' : '') + (o.rich ? ' rich' : '') + (o.seen ? ' seen' : ''), onSelect: o.onSelect, onFocus: o.onFocus }, [
     o.rank ? h('div.rank', { text: String(o.rank) }) : null,
     wrap,
     h('div.name', { text: o.title || item.name || '' }),
@@ -510,16 +543,52 @@ export function skeletonCards(n, wide) {
   return list;
 }
 
+// Fileira que ainda carrega, com esqueletos só quando ela está perto da tela. Longe da tela ficam
+// capas vazias sem brilho, do mesmo tamanho (poster + 16 px + 18 px, como o nome do esqueleto).
+// Uma imagem minúscula e invisível pede o esqueleto: loadVisibleImages (rolagem, troca de tela) a liga
+// quando a fileira chega perto, e o load dela troca as capas por esqueletos.
+// Uso: const track = h('div.row-track.pending', ...); lazySkeletons(track, 6, wide).
+const LAZY_GIF = 'data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==';
+export function lazySkeletons(track, n, wide) {
+  const count = n || 8;
+  track.__lazy = { n: count, wide: wide };
+  for (let i = 0; i < count; i++) track.appendChild(lazyPlaceholder(track, wide));
+  // Se a fileira já estiver na tela, acorda agora (senão, a próxima rolagem ou troca de tela acorda).
+  setTimeout(() => {
+    if (track.__lazy) loadVisibleImages(track, 400);
+  }, 0);
+}
+
+function lazyPlaceholder(track, wide) {
+  const pick = h('img', { alt: '', 'data-lazy': LAZY_GIF, style: { position: 'absolute', width: '1px', height: '1px', opacity: '0' } });
+  pick.addEventListener('load', () => wakeLazy(track, pick));
+  return h('div.card', { cls: wide ? 'wide' : '' }, [h('div.poster-wrap'), h('div', { style: { marginTop: '16px', height: '18px' } }), pick]);
+}
+
+function wakeLazy(track, pick) {
+  // Só quando a imagem foi ligada de verdade (não o "apagar" de quem saiu da tela) e a fileira
+  // ainda é a mesma (conteúdo que chegou antes já trocou as capas).
+  if (!track.__lazy || pick.getAttribute('src') !== LAZY_GIF || !track.contains(pick)) return;
+  const cfg = track.__lazy;
+  track.__lazy = null;
+  clear(track);
+  skeletonCards(cfg.n, cfg.wide).forEach((c) => track.appendChild(c));
+}
+
+// Espera entre as tentativas (1,5 s e 4 s).
+const RETRY_MS = [1500, 4000];
+
 // Carrega uma fileira tentando de novo se vier vazia ou com erro: na TV a rede às vezes engasga
 // com várias fileiras pedindo ao mesmo tempo (antes a fileira simplesmente sumia).
-export function retrying(fn) {
-  const delays = [1500, 4000];
-  const later = (n) => new Promise((ok) => setTimeout(ok, delays[n]));
+// opts.errorOnly: repete só em erro; resposta vazia (legítima) não se repete.
+export function retrying(fn, opts) {
+  const errorOnly = !!(opts && opts.errorOnly);
+  const later = (n) => new Promise((ok) => setTimeout(ok, RETRY_MS[n]));
   const attempt = (n) =>
     fn().then(
-      (items) => ((items && items.length) || n >= delays.length ? items || [] : later(n).then(() => attempt(n + 1))),
+      (items) => ((items && items.length) || errorOnly || n >= RETRY_MS.length ? items || [] : later(n).then(() => attempt(n + 1))),
       (err) => {
-        if (n >= delays.length) throw err;
+        if (n >= RETRY_MS.length) throw err;
         return later(n).then(() => attempt(n + 1));
       }
     );
@@ -537,10 +606,24 @@ export function rowRetry(onRetry, onFocus) {
 // Grade do "Ver tudo": centralizada, linhas sempre com o mesmo número de capas (as que sobram
 // esperam a próxima página) e a página seguinte carrega sozinha quando o foco chega na última
 // linha. Pelo botão "Carregar mais", o foco volta ao primeiro título da última linha de antes.
-// opts: { load(page) -> Promise<itens>, key(item), card(item) -> elemento, onEmpty() }
+// opts: { load(page) -> Promise<itens>, key(item), card(item) -> elemento, onEmpty(), skeleton(), autoFocus,
+//   errorState: erro na página vira "Tentar de novo" (repete sozinho só em erro; vazio não repete) e
+//   vazio mostra "Nada por aqui." se não houver onEmpty;
+//   partialRows: mostra já a última linha incompleta (ela completa quando a próxima página chega);
+//   align: 'left' prende a grade à margem esquerda (insetLeft) em vez de centralizar; insetLeft e
+//   insetRight (padrão 96) são as margens laterais usadas para contar as colunas }
 export function pagedGrid(opts) {
   const grid = h('div.grid.paged');
-  const more = h('div.btn.reco-more', { focusable: true, text: t('Carregar mais'), onSelect: () => loadMore(true) });
+  let failed = false; // errorState: a última página falhou (só o botão tenta de novo)
+  let failBox = null; // errorState: erro da primeira página, no lugar das capas
+  const more = h('div.btn.reco-more', {
+    focusable: true,
+    text: t('Carregar mais'),
+    onSelect: () => {
+      failed = false;
+      loadMore(true);
+    },
+  });
   const moreWrap = h('div.reco-more-wrap.paged-more', null, more);
   const el = h('div.paged-wrap', null, [grid, moreWrap]);
   // Enquanto a primeira página não chega: capas vazias no formato certo (opts.skeleton).
@@ -562,7 +645,15 @@ export function pagedGrid(opts) {
     if (cols) return;
     const width = el.clientWidth || window.innerWidth;
     const cw = sample.offsetWidth || 210;
-    cols = Math.max(1, Math.floor((width - 2 * 96 + GAP) / (cw + GAP)));
+    const inL = opts.insetLeft === undefined ? 96 : opts.insetLeft;
+    const inR = opts.insetRight === undefined ? 96 : opts.insetRight;
+    cols = Math.max(1, Math.floor((width - inL - inR + GAP) / (cw + GAP)));
+    if (opts.align === 'left') {
+      grid.style.paddingLeft = inL + 'px';
+      grid.style.paddingRight = inR + 'px';
+      moreWrap.style.paddingLeft = inL + 'px';
+      return;
+    }
     const side = Math.floor((width - (cols * (cw + GAP) - GAP)) / 2);
     grid.style.paddingLeft = side + 'px';
     grid.style.paddingRight = Math.max(0, side - GAP) + 'px'; // o último cartão também tem margem à direita
@@ -589,7 +680,7 @@ export function pagedGrid(opts) {
     if (!pool.length) return;
     if (!cols) layout(add(pool.shift()));
     const total = count + pool.length;
-    const target = ended ? total : Math.floor(total / cols) * cols;
+    const target = ended || opts.partialRows ? total : Math.floor(total / cols) * cols;
     const n = Math.max(0, target - count);
     pool.slice(0, n).forEach(add);
     buffer = pool.slice(n);
@@ -600,15 +691,33 @@ export function pagedGrid(opts) {
   // Onde estava o foco quando a grade começou: se o usuário não saiu dali, a primeira página leva o
   // foco para o primeiro vídeo; se já andou (ex.: pelas categorias), o foco fica onde ele está.
   let focusAtStart = null;
+  // errorState: erro de rede tenta de novo sozinho (1,5 s e 4 s); sem errorState, uma chamada só.
+  function loadPage(p) {
+    if (!opts.errorState) return opts.load(p);
+    const attempt = (n) =>
+      opts.load(p).catch((e) => {
+        if (dead || n >= RETRY_MS.length) throw e;
+        return new Promise((ok) => setTimeout(ok, RETRY_MS[n])).then(() => attempt(n + 1));
+      });
+    return attempt(0);
+  }
+
   function loadMore(byButton) {
     if (busy || ended || dead) return;
+    // Página que falhou: só o botão tenta de novo (foco parado não repete o erro).
+    if (failed && !byButton) return;
     busy = true;
     more.textContent = t('Carregando...');
     const lastRowFirst = count ? grid.children[count - (count % cols || cols)] : null;
     const first = page === 0;
-    opts
-      .load(++page)
+    if (first && failBox) {
+      if (failBox.parentNode) failBox.parentNode.removeChild(failBox);
+      failBox = null;
+      if (opts.skeleton) opts.skeleton().forEach((c) => grid.appendChild(c));
+    }
+    loadPage(++page)
       .then((items) => {
+        failed = false;
         if (dead) return;
         const fresh = (items || []).filter((it) => {
           const k = opts.key(it);
@@ -625,7 +734,10 @@ export function pagedGrid(opts) {
         more.textContent = t('Carregar mais');
         moreWrap.style.display = ended ? 'none' : '';
         loadVisibleImages(el, 400);
-        if (first && !count && opts.onEmpty) opts.onEmpty();
+        if (first && !count) {
+          if (opts.onEmpty) opts.onEmpty();
+          else if (opts.errorState) el.insertBefore(h('div.hint', { text: t('Nada por aqui.') }), grid);
+        }
         const untouched = !nav.current() || nav.current() === focusAtStart || !document.body.contains(nav.current());
         if (first && grid.firstChild && untouched && opts.autoFocus !== false) nav.focus(grid.firstChild);
         else if (byButton && lastRowFirst) nav.focus(lastRowFirst);
@@ -635,6 +747,26 @@ export function pagedGrid(opts) {
       .catch(() => {
         if (dead) return;
         busy = false;
+        if (opts.errorState) {
+          more.textContent = t('Carregar mais');
+          if (first) {
+            // Primeira página falhou: tira os esqueletos e mostra o erro com "Tentar de novo".
+            page = 0;
+            clear(grid);
+            moreWrap.style.display = 'none';
+            failBox = rowRetry(() => loadMore(true));
+            el.insertBefore(failBox, moreWrap);
+            const cur = nav.current();
+            if (!cur || cur === focusAtStart || !document.body.contains(cur)) nav.focus(failBox.lastChild);
+            return;
+          }
+          // Página seguinte falhou: o botão vira "Tentar de novo" (um aviso só, sem repetir sozinho).
+          failed = true;
+          more.textContent = t('Tentar de novo');
+          moreWrap.style.display = '';
+          toast(t('Não foi possível carregar'));
+          return;
+        }
         if (first) {
           page = 0;
           moreWrap.style.display = '';

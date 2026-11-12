@@ -207,10 +207,69 @@ const THEME_G = [
   { title: 'Amador gay em alta', search: 'amateur' },
 ];
 
+// Aleatoriedade das fileiras de descoberta: PRNG de 32 bits (mulberry32). A mesma semente dá a mesma
+// ordem. Math.imul é ES2015 (o Chromium 47 da TV tem); o fallback fica por garantia.
+const imul =
+  Math.imul ||
+  function (a, b) {
+    const ah = (a >>> 16) & 0xffff;
+    const al = a & 0xffff;
+    const bh = (b >>> 16) & 0xffff;
+    const bl = b & 0xffff;
+    return (al * bl + (((ah * bl + al * bh) << 16) >>> 0)) | 0;
+  };
+
+// Semente nova: a cada abertura da aba e a cada "Embaralhar".
+export function newSeed() {
+  return Math.floor(Math.random() * 4294967296) >>> 0;
+}
+
+// Gerador com números entre 0 (inclusive) e 1 (exclusive).
+export function makeRng(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = imul(a ^ (a >>> 15), 1 | a);
+    t = (t + imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// Mistura números (semente da aba, da fileira, da troca) num valor de 32 bits.
+export function mixSeed() {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < arguments.length; i++) {
+    h = imul(h ^ (arguments[i] >>> 0), 0x01000193) >>> 0;
+    h = (h ^ (h >>> 13)) >>> 0;
+  }
+  return h;
+}
+
+// Texto -> número de 32 bits (FNV-1a), para dar uma semente por fileira.
+export function hashStr(s) {
+  const str = String(s || '');
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) h = imul(h ^ str.charCodeAt(i), 0x01000193) >>> 0;
+  return h;
+}
+
+// Embaralhamento Fisher-Yates com o gerador dado (devolve cópia).
+export function shuffleWith(list, rng) {
+  const a = list.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    const tmp = a[i];
+    a[i] = a[j];
+    a[j] = tmp;
+  }
+  return a;
+}
+
+// Os temas desta semente: um hétero e um gay (sorteados, não em sequência).
 export function sessionThemes(seed) {
-  const s = seed || 1;
-  const h = THEME_H[s % THEME_H.length];
-  const g = THEME_G[Math.floor(s / 7) % THEME_G.length];
+  const r = makeRng(seed || 1);
+  const h = THEME_H[Math.floor(r() * THEME_H.length)];
+  const g = THEME_G[Math.floor(r() * THEME_G.length)];
   return [
     { title: h.title, search: h.search, orientation: 'straight', order: 0.5 },
     { title: g.title, search: g.search, orientation: 'gay', order: 1.5 },

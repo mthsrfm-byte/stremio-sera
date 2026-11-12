@@ -1,206 +1,47 @@
 'use strict';
 // Serviço do Seraflix que roda DENTRO da TV (serviceFile do TizenBrew; liga quando o Seraflix abre).
-// Serve o controle remoto em http://IP-DA-TV:8090 e repassa as teclas para o controle remoto
-// de rede da própria TV (wss://127.0.0.1:8002). Assim o celular fala só HTTP simples com a TV:
-// sem certificado, sem aviso de segurança, funciona no iPhone.
+// Serve os addons do Seraflix (XVideos e Pornhub, com o vídeo passando pela TV) na porta 8092 (só em 127.0.0.1), e os
+// diagnósticos de Ajustes (/api/info e /api/torrent-test). Não há mais controle pelo celular: este
+// serviço não escuta a porta 8090; só pede para a versão antiga que ainda a usa sair.
 // Só usa módulos nativos do Node e ES5, porque a versão do Node muda de TV para TV.
 var http = require('http');
 var https = require('https');
-var tls = require('tls');
-var crypto = require('crypto');
 var fs = require('fs');
 var os = require('os');
 var urlLib = require('url');
 
-var PORT = 8090;
+var OLD_PORT = 8090; // controle remoto das versões antigas (até a 14): só para pedir que saiam
 var ADDON_PORT = 8092; // addons XVideos/Pornhub e vídeo (porta nova a cada mudança que versões antigas não sabem largar)
-var SERVICE_VERSION = 14; // 14: busca NSFW com orientação gay/hétero (extra orientation)
-var PAGE_BASE = 'https://cdn.jsdelivr.net/gh/mthsrfm-byte/stremio-sera/remote/';
-var APP_NAME = 'Seraflix Controle';
-var TOKEN_FILE = '/home/owner/share/seraflixRemote.json';
-var PAGE_TTL = 5 * 60 * 1000;
+var SERVICE_VERSION = 16; // 16: catálogo sem corte (skip = n × pageSize), sort, cache e orçamento de tempo; 15: sem o controle pelo celular (8090 saiu; /api/info e /api/torrent-test foram para a 8092)
 var TIZENBREW_CONFIG = '/home/owner/share/tizenbrewConfig.json';
 var MODULE_NAME = 'mthsrfm-byte/stremio-sera'; // como o TizenBrew chama o módulo na lista de serviços
 
-function buf(x, enc) { return Buffer.from && Buffer.from !== Uint8Array.from ? Buffer.from(x, enc) : new Buffer(x, enc); }
 function bufAlloc(n) { return Buffer.alloc ? Buffer.alloc(n) : new Buffer(n).fill(0); }
 
-// ---------- Token da TV (a TV pede "Permitir?" só na primeira vez) ----------
-function readToken() {
-  try { return JSON.parse(fs.readFileSync(TOKEN_FILE, 'utf8')).token || ''; } catch (e) { return ''; }
-}
-function saveToken(token) {
-  try { fs.writeFileSync(TOKEN_FILE, JSON.stringify({ token: token })); } catch (e) {}
-}
-
-// ---------- Cliente WebSocket mínimo para o controle remoto da TV ----------
-var tv = { socket: null, state: 'off', queue: [], retry: null };
-var quitting = false; // outra versão do serviço assumiu
-
-function tvConnect() {
-  if (tv.socket) return;
-  clearTimeout(tv.retry);
-  var token = readToken();
-  var path = '/api/v2/channels/samsung.remote.control?name=' + encodeURIComponent(buf(APP_NAME).toString('base64')) +
-    (token ? '&token=' + encodeURIComponent(token) : '');
-  var key = crypto.randomBytes(16).toString('base64');
-  var s = tls.connect({ host: '127.0.0.1', port: 8002, rejectUnauthorized: false, servername: 'localhost' });
-  tv.socket = s;
-  tv.state = token ? 'connecting' : 'waiting';
-  var handshake = true;
-  var pending = bufAlloc(0);
-
-  s.on('secureConnect', function () {
-    s.write('GET ' + path + ' HTTP/1.1\r\nHost: 127.0.0.1:8002\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n' +
-      'Sec-WebSocket-Key: ' + key + '\r\nSec-WebSocket-Version: 13\r\n\r\n');
-  });
-  s.on('data', function (chunk) {
-    pending = Buffer.concat([pending, chunk]);
-    if (handshake) {
-      var end = pending.indexOf('\r\n\r\n');
-      if (end < 0) return;
-      var head = pending.slice(0, end).toString();
-      pending = pending.slice(end + 4);
-      if (head.indexOf(' 101') < 0) return s.destroy();
-      handshake = false;
-    }
-    // Frames do servidor (sem máscara)
-    while (pending.length >= 2) {
-      var op = pending[0] & 0x0f;
-      var len = pending[1] & 0x7f;
-      var off = 2;
-      if (len === 126) { if (pending.length < 4) return; len = pending.readUInt16BE(2); off = 4; }
-      else if (len === 127) { if (pending.length < 10) return; len = pending.readUInt32BE(6); off = 10; }
-      if (pending.length < off + len) return;
-      var payload = pending.slice(off, off + len);
-      pending = pending.slice(off + len);
-      if (op === 1) onTvMessage(payload.toString());
-      else if (op === 9) sendFrame(0x0a, payload);
-      else if (op === 8) s.destroy();
-    }
-  });
-  function done() {
-    if (tv.socket !== s) return;
-    tv.socket = null;
-    if (tv.state === 'on' || tv.state === 'connecting') tv.state = 'off';
-    if (quitting) return;
-    tv.retry = setTimeout(tvConnect, tv.state === 'refused' ? 15000 : 3000);
-  }
-  s.on('error', done);
-  s.on('close', done);
-}
-
-function onTvMessage(text) {
-  var msg = {};
-  try { msg = JSON.parse(text); } catch (e) { return; }
-  if (msg.event === 'ms.channel.connect') {
-    if (msg.data && msg.data.token) saveToken(msg.data.token);
-    tv.state = 'on';
-    var q = tv.queue; tv.queue = [];
-    q.forEach(tvSend);
-  } else if (msg.event === 'ms.channel.unauthorized') {
-    saveToken('');
-    tv.state = 'refused';
-    tv.queue = [];
-  }
-}
-
-function sendFrame(op, data) {
-  if (!tv.socket) return;
-  var payload = typeof data === 'string' ? buf(data) : data;
-  var len = payload.length;
-  var head = len < 126 ? bufAlloc(2) : bufAlloc(4);
-  head[0] = 0x80 | op;
-  if (len < 126) head[1] = 0x80 | len;
-  else { head[1] = 0x80 | 126; head.writeUInt16BE(len, 2); }
-  var mask = crypto.randomBytes(4);
-  var masked = bufAlloc(len);
-  for (var i = 0; i < len; i++) masked[i] = payload[i] ^ mask[i % 4];
-  tv.socket.write(Buffer.concat([head, mask, masked]));
-}
-
-function tvSend(params) {
-  if (tv.state !== 'on') {
-    if (tv.queue.length < 20) tv.queue.push(params);
-    tvConnect();
-    return;
-  }
-  sendFrame(1, JSON.stringify({ method: 'ms.remote.control', params: params }));
-}
-
-// IP da TV na rede de casa (o primeiro IPv4 que não é o localhost).
-function lanIp() {
-  var ifaces = os.networkInterfaces();
-  for (var name in ifaces) {
-    for (var i = 0; i < ifaces[name].length; i++) {
-      var a = ifaces[name][i];
-      if ((a.family === 'IPv4' || a.family === 4) && !a.internal) return a.address;
-    }
-  }
-  return '';
-}
-
-// ---------- "Mandar para a TV" ----------
-// O celular escolhe um filme/série (POST /api/open) e o app do Seraflix, que pergunta aqui a cada
-// poucos segundos (GET /api/pending), abre a tela dele. O pedido vale por 2 minutos.
-var pendingOpen = null;
-var lastPoll = 0; // última vez que o app perguntou: diz se o Seraflix está aberto
-var OPEN_TTL = 2 * 60 * 1000;
-
-function takePending() {
-  if (!pendingOpen || Date.now() - pendingOpen.at > OPEN_TTL) { pendingOpen = null; return null; }
-  var p = pendingOpen;
-  pendingOpen = null;
-  return p;
-}
-
-// ---------- Página do controle (vem do GitHub via jsDelivr, com cache curto) ----------
-var pageCache = {};
-var TYPES = { html: 'text/html; charset=utf-8', svg: 'image/svg+xml', png: 'image/png', webmanifest: 'application/manifest+json', js: 'application/javascript' };
-
-function servePage(file, res) {
-  var hit = pageCache[file];
-  if (hit && Date.now() - hit.at < PAGE_TTL) return send(hit);
-  https.get(PAGE_BASE + file, function (r) {
-    if (r.statusCode !== 200) { r.resume(); return hit ? send(hit) : fail(); }
-    var parts = [];
-    r.on('data', function (c) { parts.push(c); });
-    r.on('end', function () {
-      pageCache[file] = { at: Date.now(), body: Buffer.concat(parts) };
-      send(pageCache[file]);
-    });
-  }).on('error', function () { return hit ? send(hit) : fail(); });
-
-  function send(entry) {
-    var ext = file.split('.').pop();
-    res.writeHead(200, { 'Content-Type': TYPES[ext] || 'application/octet-stream', 'Cache-Control': 'no-cache' });
-    res.end(entry.body);
-  }
-  function fail() {
-    res.writeHead(502, { 'Content-Type': 'text/plain; charset=utf-8' });
-    res.end('Não consegui baixar o controle. A TV está com internet?');
-  }
-}
-
-function readBody(req, cb) {
-  var data = '';
-  req.on('data', function (c) { data += c; if (data.length > 10000) req.destroy(); });
-  req.on('end', function () { try { cb(JSON.parse(data || '{}')); } catch (e) { cb({}); } });
-}
-
 function json(res, code, obj) {
-  // CORS liberado: o app do Seraflix (em 127.0.0.1:8081) lê o /api/ip para montar o QR code.
+  // CORS liberado: o app do Seraflix (WebView da TV) chama estas rotas em 127.0.0.1.
   res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Private-Network': 'true' });
   res.end(JSON.stringify(obj));
 }
-
-var FILES = ['index.html', 'icon.svg', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png', 'manifest.webmanifest'];
 
 // ---------- Addons "Seraflix Tube": XVideos e Pornhub servidos daqui da TV ----------
 // Os links de vídeo desses sites saem assinados para o IP de quem pediu a página. Pedindo daqui,
 // a TV que toca é a mesma que pediu: funciona sem servidor na internet e sem o PC.
 // Rotas no protocolo de addons do Stremio: /xv/manifest.json, /ph/manifest.json, catalog, meta, stream.
 var UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
+
+// Conexões reaproveitadas (keep-alive), só se o Node desta TV tiver a opção; senão segue como antes.
+var AGENT_HTTP = null;
+var AGENT_HTTPS = null;
+try {
+  if (typeof http.Agent === 'function') AGENT_HTTP = new http.Agent({ keepAlive: true });
+  if (typeof https.Agent === 'function') AGENT_HTTPS = new https.Agent({ keepAlive: true });
+} catch (e) { AGENT_HTTP = null; AGENT_HTTPS = null; }
+function agentFor(opts) {
+  var a = opts.protocol === 'http:' ? AGENT_HTTP : AGENT_HTTPS;
+  if (a) opts.agent = a;
+  return opts;
+}
 
 // Certificados raiz que o Node 4.4.3 do TizenBrew (2016) não conhece: ISRG Root X1 e X2 (Let's
 // Encrypt). A CDN de vídeo do Pornhub (phncdn.com) usa essa cadeia e o Node recusava a conexão.
@@ -248,7 +89,15 @@ var EXTRA_CA = [
   "FfLn\n" +
   "-----END CERTIFICATE-----\n"
 ];
+// Hosts que já precisaram da CA extra, com a hora. A CA vale por CA_TTL e depois sai (não fica presa
+// para sempre: se o certificado do site mudar, a verificação normal volta a valer).
 var extraCaHosts = {};
+var CA_TTL = 5 * 60000;
+function caOn(host) {
+  var t = extraCaHosts[host];
+  return !!t && Date.now() - t < CA_TTL;
+}
+function caSet(host) { extraCaHosts[host] = Date.now(); }
 
 function isCertError(e) {
   return !!e && /UNABLE_TO_GET_ISSUER|UNABLE_TO_VERIFY_LEAF_SIGNATURE|SELF_SIGNED_CERT_IN_CHAIN|CERT_UNTRUSTED|issuer certificate|leaf signature/i.test(String(e.code || '') + ' ' + String(e.message || ''));
@@ -256,7 +105,7 @@ function isCertError(e) {
 
 // Opções do https.get com as raízes extras quando aquele site já precisou delas.
 function withCa(opts) {
-  if (opts.protocol !== 'http:' && extraCaHosts[opts.hostname]) opts.ca = EXTRA_CA;
+  if (opts.protocol !== 'http:' && caOn(opts.hostname)) opts.ca = EXTRA_CA;
   return opts;
 }
 
@@ -282,35 +131,61 @@ function cookieHeader(host) {
   return Object.keys(all).map(function (k) { return k + '=' + all[k]; }).join('; ');
 }
 
-function fetchText(url, cb, hops) {
+// Corpo máximo de uma resposta de texto (HTML, iCal, JSON): acima disso para, sem encher a memória da TV.
+var MAX_BODY = 3 * 1024 * 1024;
+
+// limitMs: tempo total do pedido (padrão 30 s); redirecionamentos gastam do mesmo tempo.
+function fetchText(url, cb, hops, limitMs) {
+  var t0 = Date.now();
   var done = false;
-  function end(err, text) { if (!done) { done = true; cb(err, text); } }
+  var deadline = null;
+  function end(err, text) {
+    if (done) return;
+    done = true;
+    clearTimeout(deadline);
+    cb(err, text);
+  }
   // Node 4 (o da TV) não aceita https.get(url, opções, cb): as opções vão num objeto só.
   var opts = urlLib.parse(url);
   opts.headers = { 'User-Agent': UA, 'Accept-Language': 'en-US,en;q=0.8', Cookie: cookieHeader(opts.hostname) };
   var req;
   try {
-    req = https.get(withCa(opts), onResponse);
+    req = https.get(agentFor(withCa(opts)), onResponse);
   } catch (e) {
     return end(e);
   }
+  // Tempo total: o timeout de inatividade (abaixo) não corta quem manda os bytes devagar.
+  deadline = setTimeout(function () { req.abort(); end(new Error('tempo esgotado')); }, limitMs || 30000);
   function onResponse(r) {
     keepCookies(opts.hostname, r.headers['set-cookie']);
     if (r.statusCode >= 300 && r.statusCode < 400 && r.headers.location && (hops || 0) < 4) {
       r.resume();
-      var next = r.headers.location.indexOf('http') === 0 ? r.headers.location : url.split('/').slice(0, 3).join('/') + r.headers.location;
-      return fetchText(next, end, (hops || 0) + 1);
+      // urlLib.resolve cobre URL completa, //host/caminho e caminho relativo
+      var next = urlLib.resolve(url, r.headers.location);
+      var left = (limitMs || 30000) - (Date.now() - t0);
+      if (left < 500) return end(new Error('tempo esgotado'));
+      return fetchText(next, end, (hops || 0) + 1, left);
     }
     if (r.statusCode !== 200) { r.resume(); return end(new Error('HTTP ' + r.statusCode)); }
     var chunks = [];
-    r.on('data', function (c) { chunks.push(c); });
+    var size = 0;
+    r.on('data', function (c) {
+      size += c.length;
+      if (size > MAX_BODY) {
+        r.destroy();
+        return end(new Error('resposta grande demais'));
+      }
+      chunks.push(c);
+    });
     r.on('end', function () { end(null, Buffer.concat(chunks).toString('utf8')); });
+    r.on('error', function (e) { end(e); });
   }
   req.on('error', function (e) {
-    if (isCertError(e) && !extraCaHosts[opts.hostname]) {
-      extraCaHosts[opts.hostname] = true;
+    if (isCertError(e) && !caOn(opts.hostname)) {
+      caSet(opts.hostname);
       done = true; // o novo pedido responde pelo cb
-      return fetchText(url, cb, hops);
+      clearTimeout(deadline);
+      return fetchText(url, cb, hops, limitMs);
     }
     end(e);
   });
@@ -318,26 +193,110 @@ function fetchText(url, cb, hops) {
 }
 
 // O link responde? (só o status; a playlist HLS é pequena e o corpo é descartado)
-function urlOk(url, cb) {
+function urlOk(url, cb, limitMs) {
   var done = false;
   function end(ok) { if (!done) { done = true; cb(ok); } }
   var opts = urlLib.parse(url);
   opts.headers = { 'User-Agent': UA, Accept: '*/*' };
   var req;
   try {
-    req = https.get(withCa(opts), function (r) { r.resume(); end(r.statusCode === 200); });
+    req = https.get(agentFor(withCa(opts)), function (r) { r.resume(); end(r.statusCode === 200); });
   } catch (e) {
     return end(false);
   }
   req.on('error', function (e) {
-    if (isCertError(e) && !extraCaHosts[opts.hostname] && !done) {
-      extraCaHosts[opts.hostname] = true;
+    if (isCertError(e) && !caOn(opts.hostname) && !done) {
+      caSet(opts.hostname);
       done = true;
-      return urlOk(url, cb);
+      return urlOk(url, cb, limitMs);
     }
     end(false);
   });
-  req.setTimeout(10000, function () { req.abort(); end(false); });
+  req.setTimeout(limitMs || 10000, function () { req.abort(); end(false); });
+}
+
+// ---------- Cache, pedidos em voo e paginação ----------
+// Guarda só o resultado já lido (lista ou página parseada), nunca o HTML. Até CACHE_MAX entradas; sai a
+// mais antiga. Se o site falhar, serve o que tiver de até STALE_MS atrás.
+var CACHE = Object.create(null);
+var CACHE_MAX = 40;
+var STALE_MS = 60 * 60000;
+var LIST_TTL = 10 * 60000; // catálogo e busca
+var PAGE_TTL = 5 * 60000; // página de vídeo (meta e stream) e lista MP4
+var STREAM_BUDGET_MS = 20000; // stream do Pornhub: o que tiver até aqui sai (o app desiste em 30 s)
+var inflight = Object.create(null); // url → callbacks à espera (um pedido só para todos)
+
+function cacheSet(key, value, ttl) {
+  CACHE[key] = { at: Date.now(), ttl: ttl, value: value };
+  var keys = Object.keys(CACHE);
+  if (keys.length <= CACHE_MAX) return;
+  var oldest = keys[0];
+  keys.forEach(function (k) { if (CACHE[k].at < CACHE[oldest].at) oldest = k; });
+  delete CACHE[oldest];
+}
+
+function callAll(list, args) {
+  list.forEach(function (f) { try { f.apply(null, args); } catch (e) {} });
+}
+
+// Lê a URL e devolve cb(erro, valor, veioDoCacheAntigo). o: { ttl, limit (ms), fresh (ignora o cache
+// de leitura), ok(valor) (só entra no cache, e só serve, se for true) }. Pedidos iguais em voo viram um.
+function cachedFetch(url, o, parse, cb) {
+  var hit = CACHE[url];
+  if (!o.fresh && hit && Date.now() - hit.at < hit.ttl) return cb(null, hit.value, false);
+  if (inflight[url]) return inflight[url].push(cb);
+  var waiting = (inflight[url] = [cb]);
+  fetchText(url, function (err, html) {
+    var value = null;
+    if (!err) {
+      try { value = parse(html); } catch (e) { err = e; }
+    }
+    var good = !err && (!o.ok || o.ok(value));
+    if (good) cacheSet(url, value, o.ttl);
+    delete inflight[url];
+    // Falhou ou veio vazio: serve o resultado antigo, se houver (até STALE_MS)
+    var stale = good ? null : CACHE[url];
+    if (stale && Date.now() - stale.at < STALE_MS) return callAll(waiting, [null, stale.value, true]);
+    callAll(waiting, [err || null, value, false]);
+  }, 0, o.limit);
+}
+
+// Paginação. Contrato: skip = n × pageSize ⇒ página n do site. Quem soma os itens recebidos (skip = soma
+// dos itens já vistos, como o grid do app) também cai na página certa: lembra quantos itens veio em cada
+// página de cada catálogo (pageSizes) e, quando o skip é a soma exata de páginas vistas, usa essa página.
+var pageSizes = Object.create(null); // base do catálogo → [itens da página 0, 1, ...]
+var sizeStats = { xv: { sum: 0, n: 0 }, ph: { sum: 0, n: 0 } }; // média de páginas vistas, por site
+function notePage(tube, base, n, count) {
+  if (!(count > 0)) return;
+  if (!pageSizes[base]) {
+    if (Object.keys(pageSizes).length >= 60) pageSizes = Object.create(null);
+    pageSizes[base] = [];
+  }
+  if (pageSizes[base][n] !== undefined) return;
+  pageSizes[base][n] = count;
+  sizeStats[tube].sum += count;
+  sizeStats[tube].n++;
+}
+
+// Número da página do site para este skip (ver o contrato acima).
+function pageFor(tube, base, skip, pageSize) {
+  var s = parseInt(skip, 10) || 0;
+  if (s <= 0) return 0;
+  var sizes = pageSizes[base] || [];
+  var n = 0;
+  var acc = 0;
+  // Soma exata das páginas já vistas (a página 0 começa em 0)
+  for (;;) {
+    if (acc === s) return n;
+    if (sizes[n] === undefined) break;
+    acc += sizes[n];
+    n++;
+  }
+  if (s % pageSize === 0) return s / pageSize;
+  // Sem essa soma na tabela (ex.: serviço reiniciado no meio): estima pelo tamanho médio visto
+  var st = sizeStats[tube];
+  var avg = st && st.n ? st.sum / st.n : pageSize;
+  return Math.round(s / avg);
 }
 
 var ENTITIES = { amp: '&', quot: '"', apos: "'", lt: '<', gt: '>', nbsp: ' ', period: '.', comma: ',', excl: '!', quest: '?', colon: ':', semi: ';', lpar: '(', rpar: ')', num: '#', percnt: '%', plus: '+', equals: '=', sol: '/', hyphen: '-', lowbar: '_', ast: '*', commat: '@', mdash: '—', ndash: '–', hellip: '…', rsquo: '’', lsquo: '‘', ldquo: '“', rdquo: '”', laquo: '«', raquo: '»', trade: '™', copy: '©', reg: '®', deg: '°', times: '×', bull: '•', middot: '·', eacute: 'é', aacute: 'á', iacute: 'í', oacute: 'ó', uacute: 'ú', atilde: 'ã', otilde: 'õ', ccedil: 'ç', ecirc: 'ê', acirc: 'â', ocirc: 'ô', agrave: 'à', ntilde: 'ñ', uuml: 'ü' };
@@ -529,7 +488,16 @@ function attr(chunk, name) {
 
 function ogTag(html, prop) {
   var m = html.match(new RegExp('<meta property="og:' + prop + '" content="([^"]*)"'));
-  return m ? unhtml(m[1]) : '';
+  if (m) return unhtml(m[1]);
+  // Fallback: atributos em outra ordem ou com aspas simples
+  var want = new RegExp('\\bproperty=["\']og:' + prop + '["\']', 'i');
+  var tags = html.match(/<meta\b[^>]*>/gi) || [];
+  for (var i = 0; i < tags.length; i++) {
+    if (!want.test(tags[i])) continue;
+    var c = tags[i].match(/\bcontent="([^"]*)"/i) || tags[i].match(/\bcontent='([^']*)'/i);
+    if (c) return unhtml(c[1]);
+  }
+  return '';
 }
 
 // Logos em SVG embutido (nítidos em qualquer tamanho e sem depender do site no ar).
@@ -577,6 +545,56 @@ function termOf(list, label) {
   return '';
 }
 
+// Ordenação (extra "sort", opcional): só o que o site aceita segundo o que o código já usava.
+// XVideos: new = mais recentes; top-week/top-month = mais vistos (semana/mês); rating = mais bem avaliados.
+// Pornhub: new = mais recentes; hot = em alta; top-week/top-month = mais vistos (semana/mês).
+var XV_SORT = { new: 'sort=uploaddate', 'top-week': 'sort=views&datef=week', 'top-month': 'sort=views&datef=month', rating: 'sort=rating&datef=6month' };
+var PH_SORT = { new: 'o=cm', hot: 'o=ht', 'top-week': 'o=mv&t=w', 'top-month': 'o=mv&t=m' };
+var SORT_XV = { name: 'sort', options: ['new', 'top-week', 'top-month', 'rating'] };
+var SORT_PH = { name: 'sort', options: ['new', 'hot', 'top-week', 'top-month'] };
+// Valor de sort que o site aceita (qualquer outro é ignorado: fica o padrão do catálogo)
+function sortOf(table, value) {
+  return Object.prototype.hasOwnProperty.call(table, value) ? table[value] : '';
+}
+
+// Pornhub: só a lista principal da página (antes dela vêm vídeos promovidos e, depois, recomendados).
+// Usa o primeiro marcador que existir; sem vídeo no recorte, a página inteira (ver parseList).
+function phScope(html) {
+  var at = [html.indexOf('id="videoSearchResult"'), html.indexOf('id="videoCategory"'), html.indexOf('id="mostRecentVideosSection"')]
+    .filter(function (i) { return i >= 0; });
+  if (!at.length) return html;
+  var start = Math.min.apply(null, at);
+  var end = closingUl(html, start);
+  return end > start ? html.slice(start, end) : html.slice(start);
+}
+
+function phItems(html) {
+  var out = [];
+  var seen = Object.create(null);
+  html.split('data-video-vkey="').slice(1).forEach(function (chunk) {
+    var key = chunk.slice(0, chunk.indexOf('"'));
+    if (!/^[\w]+$/.test(key) || seen[key]) return;
+    var img = chunk.match(/<img[^>]*\ssrc="([^"]+)"/);
+    // Sem título: usa o alt da imagem ou o código do vídeo (o item não some da lista)
+    var title = attr(chunk, 'title') || unhtml((chunk.match(/<img[^>]*\salt="([^"]+)"/) || [])[1]) || 'Vídeo ' + key;
+    seen[key] = true;
+    // preview: WebM de 180p do "mediabook" (o link vale por umas horas e só para o IP da TV, que abriu a página).
+    out.push({ id: 'ph:' + key, type: 'movie', name: title, poster: img ? unhtml(img[1]) : '', posterShape: 'landscape', preview: attr(chunk, 'data-mediabook'), stats: phListStats(chunk) });
+  });
+  return out;
+}
+
+// Pornhub: playlists HLS da página, e o link da lista MP4 (o site responde JSON com as qualidades).
+function phHls(html) {
+  return jsonArrayAfter(html, 'mediaDefinitions')
+    .filter(function (d) { return d.format === 'hls' && d.videoUrl && /^\d+$/.test(String(d.quality)); })
+    .sort(function (a, b) { return Number(b.quality) - Number(a.quality); });
+}
+function phMp4Url(html) {
+  var d = jsonArrayAfter(html, 'mediaDefinitions').filter(function (x) { return x.format === 'mp4' && x.videoUrl; })[0];
+  return d ? urlLib.resolve('https://www.pornhub.com/', d.videoUrl) : '';
+}
+
 var TUBES = {
   xv: {
     manifest: {
@@ -592,37 +610,41 @@ var TUBES = {
       catalogs: [
         // Recomendadas primeiro: são as primeiras fileiras da aba NSFW. Creampie: o que está em alta
         // agora (mais vistos da semana/do mês), para a fileira mudar sempre em vez de repetir os
-        // mais vistos de todos os tempos.
-        { type: 'movie', id: 'xv-cp', name: 'Creampie hétero', extra: [{ name: 'skip' }] },
-        { type: 'movie', id: 'xv-cpgay', name: 'Creampie gay', extra: [{ name: 'skip' }] },
-        { type: 'movie', id: 'xv-cpnew', name: 'Creampie: lançamentos', extra: [{ name: 'skip' }] },
+        // mais vistos de todos os tempos. "sort" (opcional) troca a ordem padrão; "Novidades" é por data.
+        { type: 'movie', id: 'xv-cp', name: 'Creampie hétero', extra: [{ name: 'skip' }, SORT_XV] },
+        { type: 'movie', id: 'xv-cpgay', name: 'Creampie gay', extra: [{ name: 'skip' }, SORT_XV] },
+        { type: 'movie', id: 'xv-cpnew', name: 'Creampie: lançamentos', extra: [{ name: 'skip' }, SORT_XV] },
         { type: 'movie', id: 'xv-new', name: 'Novidades', extra: [{ name: 'skip' }] },
-        { type: 'movie', id: 'xv-top', name: 'Em alta no mês', extra: [{ name: 'skip' }] },
-        { type: 'movie', id: 'xv-4k', name: '4K mais bem avaliados', extra: [{ name: 'skip' }] },
-        { type: 'movie', id: 'xv-cat', name: 'Categorias', extra: [{ name: 'genre', isRequired: true, options: optionsOf(XV_CATS) }, { name: 'skip' }] },
-        { type: 'movie', id: 'xv-gaycat', name: 'Categorias gay', extra: [{ name: 'genre', isRequired: true, options: optionsOf(XV_GAY_CATS) }, { name: 'skip' }] },
-        { type: 'movie', id: 'xv-search', name: 'Busca', extra: [{ name: 'search', isRequired: true }, { name: 'skip' }] }
+        { type: 'movie', id: 'xv-top', name: 'Em alta no mês', extra: [{ name: 'skip' }, SORT_XV] },
+        { type: 'movie', id: 'xv-4k', name: '4K mais bem avaliados', extra: [{ name: 'skip' }, SORT_XV] },
+        { type: 'movie', id: 'xv-cat', name: 'Categorias', extra: [{ name: 'genre', isRequired: true, options: optionsOf(XV_CATS) }, { name: 'skip' }, SORT_XV] },
+        { type: 'movie', id: 'xv-gaycat', name: 'Categorias gay', extra: [{ name: 'genre', isRequired: true, options: optionsOf(XV_GAY_CATS) }, { name: 'skip' }, SORT_XV] },
+        { type: 'movie', id: 'xv-search', name: 'Busca', extra: [{ name: 'search', isRequired: true }, { name: 'skip' }, SORT_XV] }
       ]
     },
-    // Itens por página que o app recebe (o site manda ~27; cortando sempre no mesmo número, o "skip"
-    // que o app manda de volta aponta para a página certa, sem repetir nem pular).
+    // Itens por página nominal: skip = n × PAGE ⇒ página n. O site manda ~27 a 32 e todos vão ao app
+    // (sem corte); quem soma os itens recebidos também cai na página certa (ver pageFor).
     PAGE: 20,
     listUrl: function (cat, page, extra) {
       var p = page ? '&p=' + page : '';
       // orientation=gay|straight: a busca da aba NSFW pede as duas listas (bissexual).
       var gay = extra.orientation === 'gay' || extra.gay === '1' || extra.gay === 'true';
-      if (cat === 'xv-search') {
-        return 'https://www.xvideos.com/?k=' + encodeURIComponent(extra.search || '') + (gay ? '&typef=gay' : '') + p;
+      var s = sortOf(XV_SORT, extra.sort); // '' sem sort: fica o padrão de cada catálogo
+      function site(term, typef, dflt) {
+        return 'https://www.xvideos.com/?k=' + encodeURIComponent(term) + (typef ? '&typef=gay' : '') + '&' + (s || dflt) + p;
       }
-      if (cat === 'xv-cp') return 'https://www.xvideos.com/?k=creampie&sort=views&datef=week' + p;
-      if (cat === 'xv-cpgay') return 'https://www.xvideos.com/?k=creampie&typef=gay&sort=views&datef=month' + p;
-      if (cat === 'xv-cpnew') return 'https://www.xvideos.com/?k=creampie&sort=uploaddate' + p;
-      if (cat === 'xv-top') return 'https://www.xvideos.com/?k=hd&sort=views&datef=month' + p;
-      if (cat === 'xv-4k') return 'https://www.xvideos.com/?k=4k&sort=rating&datef=6month' + p;
+      if (cat === 'xv-search') {
+        return 'https://www.xvideos.com/?k=' + encodeURIComponent(extra.search || '') + (gay ? '&typef=gay' : '') + (s ? '&' + s : '') + p;
+      }
+      if (cat === 'xv-cp') return site('creampie', false, 'sort=views&datef=week');
+      if (cat === 'xv-cpgay') return site('creampie', true, 'sort=views&datef=month');
+      if (cat === 'xv-cpnew') return site('creampie', false, 'sort=uploaddate');
+      if (cat === 'xv-top') return site('hd', false, 'sort=views&datef=month');
+      if (cat === 'xv-4k') return site('4k', false, 'sort=rating&datef=6month');
       if (cat === 'xv-cat' || cat === 'xv-gaycat') {
         var term = termOf(cat === 'xv-cat' ? XV_CATS : XV_GAY_CATS, extra.genre);
         if (!term) return '';
-        return 'https://www.xvideos.com/?k=' + encodeURIComponent(term) + (cat === 'xv-gaycat' ? '&typef=gay' : '') + '&sort=views&datef=month' + p;
+        return site(term, cat === 'xv-gaycat', 'sort=views&datef=month');
       }
       // Novidades: a primeira página é a inicial; as seguintes, /new/1, /new/2...
       return page ? 'https://www.xvideos.com/new/' + page : 'https://www.xvideos.com/';
@@ -633,8 +655,10 @@ var TUBES = {
         var href = attr(chunk, 'href');
         if (href.indexOf('/video') !== 0) return;
         var title = (chunk.match(/<p class="title"><a href="[^"]*" title="([^"]*)"/) || [])[1];
+        // Sem o formato usual: qualquer <a> com title, ou o nome do endereço (/videoN/nome-do-video)
+        if (!title) title = (chunk.match(/<a\b[^>]*\btitle="([^"]*)"/) || [])[1];
+        if (!title) title = href.split('/').slice(2).join(' ').replace(/[-_]+/g, ' ').trim() || 'Vídeo sem título';
         var thumb = attr(chunk, 'data-src');
-        if (!title) return;
         // preview: o MP4 curtinho que o site toca ao passar o mouse (o app toca no cartão em foco).
         out.push({ id: 'xv:' + href, type: 'movie', name: unhtml(title), poster: thumb, posterShape: 'landscape', preview: attr(chunk, 'data-pvv'), stats: xvListStats(chunk) });
       });
@@ -643,6 +667,11 @@ var TUBES = {
     pageUrl: function (id) { return 'https://www.xvideos.com' + id.slice(3); },
     parseMeta: function (id, html) {
       return { id: id, type: 'movie', name: ogTag(html, 'title') || 'XVideos', poster: ogTag(html, 'image'), background: ogTag(html, 'image'), posterShape: 'landscape', description: ogTag(html, 'description'), stats: xvPageStats(html) };
+    },
+    // Uma leitura da página do vídeo (cache de 5 min): meta e fontes saem do mesmo HTML.
+    parsePage: function (id, html) {
+      var streams = this.parseStreams(html);
+      return { meta: this.parseMeta(id, html), streams: streams, good: streams.length > 0 };
     },
     parseStreams: function (html) {
       var out = [];
@@ -671,99 +700,103 @@ var TUBES = {
       idPrefixes: ['ph:'],
       behaviorHints: { adult: true },
       catalogs: [
-        { type: 'movie', id: 'ph-cp', name: 'Creampie hétero', extra: [{ name: 'skip' }] },
-        { type: 'movie', id: 'ph-cpgay', name: 'Creampie gay', extra: [{ name: 'skip' }] },
-        { type: 'movie', id: 'ph-cpnew', name: 'Creampie: lançamentos', extra: [{ name: 'skip' }] },
+        { type: 'movie', id: 'ph-cp', name: 'Creampie hétero', extra: [{ name: 'skip' }, SORT_PH] },
+        { type: 'movie', id: 'ph-cpgay', name: 'Creampie gay', extra: [{ name: 'skip' }, SORT_PH] },
+        { type: 'movie', id: 'ph-cpnew', name: 'Creampie: lançamentos', extra: [{ name: 'skip' }, SORT_PH] },
         { type: 'movie', id: 'ph-new', name: 'Novidades', extra: [{ name: 'skip' }] },
-        { type: 'movie', id: 'ph-hot', name: 'Em alta', extra: [{ name: 'skip' }] },
-        { type: 'movie', id: 'ph-top', name: 'Mais vistos do mês', extra: [{ name: 'skip' }] },
-        { type: 'movie', id: 'ph-cat', name: 'Categorias', extra: [{ name: 'genre', isRequired: true, options: optionsOf(PH_CATS) }, { name: 'skip' }] },
-        { type: 'movie', id: 'ph-gaycat', name: 'Categorias gay', extra: [{ name: 'genre', isRequired: true, options: optionsOf(PH_GAY_CATS) }, { name: 'skip' }] },
-        { type: 'movie', id: 'ph-search', name: 'Busca', extra: [{ name: 'search', isRequired: true }, { name: 'skip' }] }
+        { type: 'movie', id: 'ph-hot', name: 'Em alta', extra: [{ name: 'skip' }, SORT_PH] },
+        { type: 'movie', id: 'ph-top', name: 'Mais vistos do mês', extra: [{ name: 'skip' }, SORT_PH] },
+        { type: 'movie', id: 'ph-cat', name: 'Categorias', extra: [{ name: 'genre', isRequired: true, options: optionsOf(PH_CATS) }, { name: 'skip' }, SORT_PH] },
+        { type: 'movie', id: 'ph-gaycat', name: 'Categorias gay', extra: [{ name: 'genre', isRequired: true, options: optionsOf(PH_GAY_CATS) }, { name: 'skip' }, SORT_PH] },
+        { type: 'movie', id: 'ph-search', name: 'Busca', extra: [{ name: 'search', isRequired: true }, { name: 'skip' }, SORT_PH] }
       ]
     },
-    PAGE: 24, // o Pornhub manda 27 a 32 por página: corta em 24 (ver o PAGE do XVideos)
+    // Itens por página nominal (ver o PAGE do XVideos). "Novidades" (o=cm) é por data, sem sort.
+    PAGE: 24,
     listUrl: function (cat, page, extra) {
       var p = '&page=' + ((page || 0) + 1);
       var gay = extra.orientation === 'gay' || extra.gay === '1' || extra.gay === 'true';
+      var s = sortOf(PH_SORT, extra.sort); // '' sem sort: fica o padrão de cada catálogo
       // Creampie: os mais vistos da semana (hétero) e do mês (gay, que tem menos vídeos novos).
-      if (cat === 'ph-cp') return 'https://www.pornhub.com/video/search?search=creampie&o=mv&t=w' + p;
-      if (cat === 'ph-cpgay') return 'https://www.pornhub.com/gay/video/search?search=creampie&o=mv&t=m' + p;
-      if (cat === 'ph-cpnew') return 'https://www.pornhub.com/video?c=15&o=cm' + p;
+      if (cat === 'ph-cp') return 'https://www.pornhub.com/video/search?search=creampie&' + (s || 'o=mv&t=w') + p;
+      if (cat === 'ph-cpgay') return 'https://www.pornhub.com/gay/video/search?search=creampie&' + (s || 'o=mv&t=m') + p;
+      if (cat === 'ph-cpnew') return 'https://www.pornhub.com/video?c=15&' + (s || 'o=cm') + p;
       // Busca: /gay/video/search para a lista gay; senão a busca hétero padrão.
       if (cat === 'ph-search') {
-        return 'https://www.pornhub.com/' + (gay ? 'gay/' : '') + 'video/search?search=' + encodeURIComponent(extra.search || '') + p;
+        return 'https://www.pornhub.com/' + (gay ? 'gay/' : '') + 'video/search?search=' + encodeURIComponent(extra.search || '') + (s ? '&' + s : '') + p;
       }
       if (cat === 'ph-cat' || cat === 'ph-gaycat') {
         var c = termOf(cat === 'ph-cat' ? PH_CATS : PH_GAY_CATS, extra.genre);
         if (!c) return '';
-        return 'https://www.pornhub.com/' + (cat === 'ph-gaycat' ? 'gay/' : '') + 'video?c=' + c + '&o=mv&t=m' + p; // mais vistos do mês: novo e sempre com a página cheia
+        return 'https://www.pornhub.com/' + (cat === 'ph-gaycat' ? 'gay/' : '') + 'video?c=' + c + '&' + (s || 'o=mv&t=m') + p; // mais vistos do mês: novo e sempre com a página cheia
       }
       if (cat === 'ph-new') return 'https://www.pornhub.com/video?o=cm' + p;
-      if (cat === 'ph-top') return 'https://www.pornhub.com/video?o=mv&t=m' + p;
-      return 'https://www.pornhub.com/video?o=ht' + p;
+      if (cat === 'ph-top') return 'https://www.pornhub.com/video?' + (s || 'o=mv&t=m') + p;
+      return 'https://www.pornhub.com/video?' + (s || 'o=ht') + p; // ph-hot (em alta) e o padrão
     },
     parseList: function (html) {
-      var out = [];
-      var seen = {};
-      // Só a lista principal da página (antes dela vêm vídeos promovidos e, depois, recomendados).
-      var start = Math.max(html.indexOf('id="videoSearchResult"'), html.indexOf('id="videoCategory"'), html.indexOf('id="mostRecentVideosSection"'));
-      if (start > 0) {
-        var end = closingUl(html, start);
-        html = html.slice(start, end > 0 ? end : undefined);
-      }
-      html.split('data-video-vkey="').slice(1).forEach(function (chunk) {
-        var key = chunk.slice(0, chunk.indexOf('"'));
-        if (!/^[\w]+$/.test(key) || seen[key]) return;
-        var title = attr(chunk, 'title');
-        var img = chunk.match(/<img[^>]*\ssrc="([^"]+)"/);
-        if (!title) return;
-        seen[key] = true;
-        // preview: WebM de 180p do "mediabook" (o link vale por umas horas e só para o IP da TV, que abriu a página).
-        out.push({ id: 'ph:' + key, type: 'movie', name: title, poster: img ? unhtml(img[1]) : '', posterShape: 'landscape', preview: attr(chunk, 'data-mediabook'), stats: phListStats(chunk) });
-      });
-      return out;
+      // Recorte da lista principal; se o recorte não tiver vídeo (o site mudou o marcador), vale a página inteira
+      var out = phItems(phScope(html));
+      return out.length ? out : phItems(html);
     },
     pageUrl: function (id) { return 'https://www.pornhub.com/view_video.php?viewkey=' + id.slice(3); },
     parseMeta: function (id, html) {
       return { id: id, type: 'movie', name: ogTag(html, 'title') || 'Pornhub', poster: ogTag(html, 'image'), background: ogTag(html, 'image'), posterShape: 'landscape', description: ogTag(html, 'description'), stats: phPageStats(html) };
     },
+    // Uma leitura da página do vídeo (cache de 5 min): meta, playlists HLS, link da lista MP4 e miniaturas.
+    parsePage: function (id, html) {
+      var hls = phHls(html);
+      var gm = '';
+      var thumbs = null;
+      try { gm = phMp4Url(html); } catch (e) {}
+      try { thumbs = phThumbs(html); } catch (e) {}
+      return { meta: this.parseMeta(id, html), hls: hls, gm: gm, thumbs: thumbs, good: hls.length > 0 };
+    },
     // Pornhub: na primeira visita a página às vezes traz links que respondem 410. O serviço confere
-    // a playlist e, se ela não abre, pede a página de novo já com os cookies de sessão. A ordem:
-    // HLS na melhor qualidade (não depende do IP), MP4 (o próprio site, toca sem hls.js, mas vale só
-    // para o IP que abriu a página) e, de reserva, o HLS passando pelo serviço.
+    // a playlist e, se ela não abre, pede a página de novo já com os cookies de sessão (até 3 visitas).
+    // A ordem: HLS na melhor qualidade (não depende do IP), MP4 (o próprio site, toca sem hls.js, mas
+    // vale só para o IP que abriu a página) e, de reserva, o HLS passando pelo serviço. A checagem da
+    // playlist e a lista MP4 correm juntas; o orçamento de STREAM_BUDGET_MS devolve o que já tiver.
     streams: function (id, cb) {
+      var self = this;
       var page = this.pageUrl(id);
-      function hlsOf(html) {
-        return jsonArrayAfter(html, 'mediaDefinitions')
-          .filter(function (d) { return d.format === 'hls' && d.videoUrl && /^\d+$/.test(String(d.quality)); })
-          .sort(function (a, b) { return Number(b.quality) - Number(a.quality); });
+      var t0 = Date.now();
+      var st = { hls: [], mp4: null, thumbs: null };
+      var finished = false;
+      var timer = setTimeout(function () { finish(null); }, STREAM_BUDGET_MS);
+      function left() { return Math.max(1000, STREAM_BUDGET_MS - (Date.now() - t0)); }
+      function finish(err) {
+        if (finished) return;
+        finished = true;
+        clearTimeout(timer);
+        if (err && !st.hls.length && !st.mp4) return cb(err);
+        cb(null, withThumbs(build(st.hls, st.mp4 || []), st.thumbs));
       }
-      function mp4Url(html) {
-        var d = jsonArrayAfter(html, 'mediaDefinitions').filter(function (x) { return x.format === 'mp4' && x.videoUrl; })[0];
-        return d ? urlLib.resolve('https://www.pornhub.com/', d.videoUrl) : '';
-      }
-      // Até 3 visitas: a sessão nova às vezes só vale a partir da segunda ou terceira.
       function load(tries) {
-        fetchText(page, function (err, html) {
-          if (err) return cb(err);
-          var hls;
-          try { hls = hlsOf(html); } catch (e) { return cb(e); }
-          var last = tries >= 2;
-          if (!hls.length) return last ? finish(hls, html) : load(tries + 1);
-          urlOk(hls[0].videoUrl, function (ok) { ok || last ? finish(hls, html) : load(tries + 1); });
-        });
-      }
-      function finish(hls, html) {
-        var gm = '';
-        try { gm = mp4Url(html); } catch (e) {}
-        var thumbs = null;
-        try { thumbs = phThumbs(html); } catch (e) {}
-        if (!gm) return cb(null, withThumbs(build(hls, []), thumbs));
-        fetchText(gm, function (err, text) {
-          var mp4 = [];
-          try { mp4 = err ? [] : JSON.parse(text); } catch (e) {}
-          try { cb(null, withThumbs(build(hls, Array.isArray(mp4) ? mp4 : []), thumbs)); } catch (e) { cb(e); }
+        if (finished) return;
+        var last = tries >= 2;
+        var opts = { ttl: PAGE_TTL, fresh: tries > 0, limit: left(), ok: function (v) { return v.good; } };
+        cachedFetch(page, opts, function (html) { return self.parsePage(id, html); }, function (err, v) {
+          if (finished) return;
+          if (err) return finish(err);
+          st.hls = v.hls;
+          st.thumbs = v.thumbs;
+          var okHls = false;
+          var jobs = 2; // a playlist e a lista MP4
+          function job() { if (--jobs === 0) decide(); }
+          function decide() {
+            if (finished) return;
+            if (okHls || last) return finish(null);
+            load(tries + 1);
+          }
+          if (v.hls.length) urlOk(v.hls[0].videoUrl, function (ok) { okHls = ok; job(); }, left());
+          else job();
+          if (v.gm) {
+            cachedFetch(v.gm, { ttl: PAGE_TTL, limit: left(), ok: Array.isArray }, function (text) { return JSON.parse(text); }, function (e, list) {
+              st.mp4 = e ? [] : list;
+              job();
+            });
+          } else job();
         });
       }
       function build(hls, mp4) {
@@ -780,6 +813,11 @@ var TUBES = {
     }
   }
 };
+
+// Tamanho nominal de página em cada catálogo: o app pede a página n com skip = n × pageSize.
+Object.keys(TUBES).forEach(function (k) {
+  TUBES[k].manifest.catalogs.forEach(function (c) { c.pageSize = TUBES[k].PAGE; });
+});
 
 // /xv/catalog/movie/xv-new/skip=27.json → { tube: 'xv', resource: 'catalog', id: 'xv-new', extra: { skip: '27' } }
 function parseAddonUrl(url) {
@@ -803,6 +841,8 @@ function safe(res, empty, fn) {
 // do vídeo são pedidos com o mesmo IP e cabeçalhos que abriram a página, e as playlists saem com o
 // tipo certo. Só repassa endereços desses sites (o serviço escuta na rede de casa).
 var PX_HOSTS = /(^|\.)(xvideos-cdn\.com|xvideos\.com|phncdn\.com|pornhub\.com)$/i;
+
+var PLAYLIST_MAX = 512 * 1024; // playlist HLS que o serviço lê inteira (para reescrever)
 
 // Últimos pedidos de vídeo (para o aviso de erro do player mostrar o que o site respondeu).
 var pxLog = [];
@@ -850,14 +890,16 @@ function proxyRoute(req, res, query) {
   }
   function go(addr) {
     var opts = urlLib.parse(addr);
-    var site = /phncdn|pornhub/i.test(opts.hostname) ? 'https://www.pornhub.com/' : 'https://www.xvideos.com/';
+    // Cada endereço (inclusive os de redirecionamento) precisa ser de site permitido
+    if (!/^https?:$/.test(opts.protocol || '') || !PX_HOSTS.test(opts.hostname || '')) return fail(400, 'endereço não permitido');
+    var site =/phncdn|pornhub/i.test(opts.hostname) ? 'https://www.pornhub.com/' : 'https://www.xvideos.com/';
     opts.headers = { 'User-Agent': UA, Referer: site, Origin: site.slice(0, -1), Accept: '*/*' };
     // Playlist é reescrita inteira: pedaço dela (Range) não serve.
     if (req.headers.range && !isPlaylist(addr)) opts.headers.Range = req.headers.range;
     var lib = opts.protocol === 'http:' ? http : https;
     var up;
     try {
-      up = lib.get(withCa(opts), function (r) {
+      up = lib.get(agentFor(withCa(opts)), function (r) {
         if (r.statusCode >= 300 && r.statusCode < 400 && r.headers.location && hops++ < 4) {
           r.resume();
           return go(urlLib.resolve(addr, r.headers.location));
@@ -866,7 +908,13 @@ function proxyRoute(req, res, query) {
         pxNote(addr, r.statusCode, '');
         if ((r.statusCode === 200 || r.statusCode === 206) && isPlaylist(addr, type)) {
           var parts = [];
-          r.on('data', function (c) { parts.push(c); });
+          var size = 0;
+          r.on('data', function (c) {
+            size += c.length;
+            // playlist grande demais: para (não enche a memória da TV)
+            if (size > PLAYLIST_MAX) { r.destroy(); return fail(502, 'playlist grande demais'); }
+            parts.push(c);
+          });
           r.on('end', function () {
             if (done) return;
             done = true;
@@ -893,8 +941,8 @@ function proxyRoute(req, res, query) {
       return fail();
     }
     up.on('error', function (e) {
-      if (isCertError(e) && !extraCaHosts[opts.hostname] && !done) {
-        extraCaHosts[opts.hostname] = true;
+      if (isCertError(e) && !caOn(opts.hostname) && !done) {
+        caSet(opts.hostname);
         return go(addr);
       }
       fail(502, e);
@@ -944,29 +992,48 @@ function pageKind(html) {
   return 'página sem vídeos, ' + Math.round(t.length / 1024) + ' KB';
 }
 
+// Catálogo: uma tentativa (até 6 s) e, se falhar ou vier vazio, mais uma depois de uma pausa curta
+// (a 2ª já com os cookies da sessão). No total ~10 s; o app espera 12 s. Sem resultado: lista vazia.
+var CATALOG_BUDGET_MS = 9500;
+function listParser(tube) {
+  return function (html) {
+    var metas = tube.parseList(html);
+    return { metas: metas, kind: metas.length ? '' : pageKind(html) };
+  };
+}
+function catalogRoute(tube, r, res) {
+  var base = tube.listUrl(r.id, 0, r.extra);
+  if (!base) return json(res, 200, { metas: [] });
+  var page = pageFor(r.tube, base, r.extra.skip, tube.PAGE);
+  var listUrl = tube.listUrl(r.id, page, r.extra);
+  var t0 = Date.now();
+  var what = 'catalog ' + r.id + (r.extra.genre ? ' ' + r.extra.genre : '') + (r.extra.sort ? ' ' + r.extra.sort : '') + (page ? ' p' + page : '');
+  function attempt(n) {
+    var left = CATALOG_BUDGET_MS - (Date.now() - t0);
+    var limit = n === 0 ? Math.min(6000, left) : Math.max(1000, left);
+    var opts = { ttl: LIST_TTL, fresh: n > 0, limit: limit, ok: function (v) { return v.metas.length > 0; } };
+    cachedFetch(listUrl, opts, listParser(tube), function (err, got, stale) {
+      try {
+        var metas = got && got.metas ? got.metas : [];
+        if (!metas.length && n === 0 && CATALOG_BUDGET_MS - (Date.now() - t0) > 2000) return setTimeout(function () { attempt(1); }, 700);
+        if (metas.length) notePage(r.tube, base, page, metas.length);
+        var result = err ? String(err.message || err) : metas.length ? (stale ? 'ok (cache) ' : 'ok ') + metas.length : 'vazio (' + ((got && got.kind) || 'sem resposta') + ')';
+        tubeNote(r.tube, what, result);
+        json(res, 200, { metas: metas });
+      } catch (e) {
+        json(res, 200, { metas: [] });
+      }
+    });
+  }
+  attempt(0);
+}
+
 function addonRoute(url, res) {
   var r = parseAddonUrl(url);
   if (!r) return false;
   var tube = TUBES[r.tube];
   if (r.resource === 'manifest') { json(res, 200, tube.manifest); return true; }
-  if (r.resource === 'catalog') {
-    var page = Math.floor((parseInt(r.extra.skip, 10) || 0) / tube.PAGE);
-    var listUrl = tube.listUrl(r.id, page, r.extra);
-    if (!listUrl) { json(res, 200, { metas: [] }); return true; }
-    // Lista vazia na primeira visita costuma ser a página de entrada do site (verificação de idade,
-    // cookies): tenta mais uma vez já com os cookies da sessão antes de desistir.
-    var tries = 0;
-    var load = function () {
-      fetchText(listUrl, safe(res, { metas: [] }, function (err, html) {
-        var metas = err ? [] : tube.parseList(html).slice(0, tube.PAGE);
-        if (!metas.length && tries++ < 1) return setTimeout(load, 600);
-        tubeNote(r.tube, 'catalog ' + r.id + (r.extra.genre ? ' ' + r.extra.genre : '') + (page ? ' p' + page : ''), err ? String(err.message || err) : metas.length ? 'ok ' + metas.length : 'vazio (' + pageKind(html) + ')');
-        json(res, 200, { metas: metas });
-      }));
-    };
-    load();
-    return true;
-  }
+  if (r.resource === 'catalog') { catalogRoute(tube, r, res); return true; }
   var empty = r.resource === 'meta' ? { meta: null } : { streams: [] };
   if (r.resource === 'stream' && tube.streams) {
     tube.streams(r.id, safe(res, empty, function (err, list) {
@@ -975,10 +1042,12 @@ function addonRoute(url, res) {
     }));
     return true;
   }
-  fetchText(tube.pageUrl(r.id), safe(res, empty, function (err, html) {
-    if (err) return json(res, 200, empty);
-    if (r.resource === 'meta') return json(res, 200, { meta: tube.parseMeta(r.id, html) });
-    json(res, 200, { streams: tube.parseStreams(html) });
+  // Meta e fontes do XVideos: a página é lida uma vez (cache de 5 min) e serve os dois pedidos
+  var opts = { ttl: PAGE_TTL, ok: function (v) { return v.good; } };
+  cachedFetch(tube.pageUrl(r.id), opts, function (html) { return tube.parsePage(r.id, html); }, safe(res, empty, function (err, v) {
+    if (err || !v) return json(res, 200, empty);
+    if (r.resource === 'meta') return json(res, 200, { meta: v.meta });
+    json(res, 200, { streams: v.streams });
   }));
   return true;
 }
@@ -1077,18 +1146,39 @@ function testDisk() {
   return res;
 }
 
-// Uma versão mais nova deste serviço quer as portas: sai e deixa ela assumir.
+// Uma versão mais nova deste serviço quer a porta: sai e deixa ela assumir.
 function quit(res) {
   json(res, 200, { ok: true });
-  quitting = true;
-  clearTimeout(tv.retry);
   setTimeout(function () {
-    try { server.close(); } catch (e) {}
     try { addonServer.close(); } catch (e) {}
-    if (tv.socket) tv.socket.destroy();
   }, 100);
 }
 
+// Pede para quem estiver nessa porta sair (uma versão antiga do serviço, que atende /api/quit).
+function askQuit(port) {
+  var q = http.request({ host: '127.0.0.1', port: port, path: '/api/quit', method: 'POST' }, function (r) { r.resume(); });
+  q.on('error', function () {});
+  q.setTimeout(3000, function () { q.abort(); });
+  q.end();
+}
+
+// Versões antigas (até a 14) ainda abrem a 8090 com o controle remoto, e só saem quando alguém pede.
+// Esta versão não usa mais a 8090: ao ligar, pede que a antiga saia e confere se a porta fechou
+// (a antiga leva uns instantes). Conexão recusada = porta livre, e então para.
+var oldChecks = 0;
+function retireOld() {
+  askQuit(OLD_PORT);
+  setTimeout(checkOld, 1500);
+}
+function checkOld() {
+  if (oldChecks++ >= 10) return;
+  var c = http.get({ host: '127.0.0.1', port: OLD_PORT, path: '/api/version' }, function (r) {
+    r.resume();
+    retireOld(); // ainda respondeu: pede de novo
+  });
+  c.on('error', function () {}); // recusada: a porta ficou livre
+  c.setTimeout(3000, function () { c.abort(); });
+}
 // Erro solto num retorno assíncrono derrubaria o processo inteiro do TizenBrew (e com ele este
 // serviço e o vídeo que passa por aqui). Fica anotado no /api/pxlog e o serviço segue de pé.
 // Um handler só por processo, mesmo com versões novas assumindo: ele anota na versão da vez.
@@ -1111,37 +1201,28 @@ function guarded(handler) {
   };
 }
 
-var server = http.createServer(guarded(function (req, res) {
+// Coloca o Seraflix na lista de serviços que o TizenBrew liga sozinho ao abrir. Assim os addons
+// (aba NSFW) já respondem só de ligar o TizenBrew, sem abrir o Seraflix. Só mexe no arquivo se ele
+// existir e for JSON válido.
+function enableAutoLaunch() {
+  try {
+    var config = JSON.parse(fs.readFileSync(TIZENBREW_CONFIG, 'utf8'));
+    var list = Array.isArray(config.autoLaunchServiceList) ? config.autoLaunchServiceList : [];
+    if (list.indexOf(MODULE_NAME) >= 0) return;
+    config.autoLaunchServiceList = list.concat([MODULE_NAME]);
+    fs.writeFileSync(TIZENBREW_CONFIG, JSON.stringify(config, null, 4));
+  } catch (e) {}
+}
+
+var addonServer = http.createServer(guarded(function (req, res) {
   var url = req.url.split('?')[0];
-  // Pré-verificação de CORS / acesso à rede local (navegadores mais novos perguntam antes).
-  if (req.method === 'OPTIONS') {
-    res.writeHead(204, {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST',
-      'Access-Control-Allow-Headers': 'Content-Type',
-      'Access-Control-Allow-Private-Network': 'true',
-      'Access-Control-Max-Age': '600'
-    });
-    return res.end();
-  }
-  if (url === '/api/ip') return json(res, 200, { ip: lanIp() });
+  if (url.indexOf('/px/') === 0) return proxyRoute(req, res, urlLib.parse(req.url, true).query);
   if (url === '/api/version') return json(res, 200, { version: SERVICE_VERSION });
-  // Uma versão mais nova deste serviço quer a porta: sai e deixa ela assumir.
   if (url === '/api/quit' && req.method === 'POST') return quit(res);
-  if (url === '/api/pending') {
-    lastPoll = Date.now();
-    return json(res, 200, { open: takePending() });
-  }
-  if (url === '/api/open' && req.method === 'POST') {
-    return readBody(req, function (b) {
-      var type = String(b.type || '');
-      var id = String(b.id || '');
-      if (!/^(movie|series)$/.test(type) || !/^[\w:.-]{1,80}$/.test(id)) return json(res, 400, { error: 'pedido inválido' });
-      pendingOpen = { type: type, id: id, name: String(b.name || '').slice(0, 120), play: !!b.play, at: Date.now() };
-      json(res, 200, { ok: true, appOpen: Date.now() - lastPoll < 10000 });
-    });
-  }
-  // Diagnóstico: o que a TV tem para rodar coisas mais pesadas (ex.: torrent sem o PC).
+  if (url === '/api/pxlog') return json(res, 200, pxLog);
+  if (url === '/api/tubelog') return json(res, 200, tubeLog);
+  if (url === '/api/cal') return calendarRoute(res, urlLib.parse(req.url, true).query);
+  // Diagnósticos (Ajustes → Sobre → teste da TV): o que a TV tem para rodar coisas mais pesadas.
   if (url === '/api/info') {
     return json(res, 200, {
       node: process.version,
@@ -1153,70 +1234,7 @@ var server = http.createServer(guarded(function (req, res) {
       uptimeMin: Math.round(os.uptime() / 60)
     });
   }
-  if (addonRoute(url, res)) return;
-  if (url === '/api/torrent-test') {
-    return torrentTest(function (r) { json(res, 200, r); });
-  }
-  if (url === '/api/status') {
-    if (tv.state !== 'on') tvConnect();
-    return json(res, 200, { tv: tv.state });
-  }
-  if (url === '/api/key' && req.method === 'POST') {
-    return readBody(req, function (b) {
-      if (!/^KEY_[A-Z0-9_]+$/.test(b.key || '')) return json(res, 400, { error: 'tecla inválida' });
-      tvSend({ Cmd: 'Click', DataOfCmd: b.key, Option: 'false', TypeOfRemote: 'SendRemoteKey' });
-      json(res, 200, { tv: tv.state });
-    });
-  }
-  if (url === '/api/text' && req.method === 'POST') {
-    return readBody(req, function (b) {
-      var text = String(b.text || '').slice(0, 500);
-      if (!text) return json(res, 400, { error: 'texto vazio' });
-      tvSend({ Cmd: buf(text).toString('base64'), DataOfCmd: 'base64', TypeOfRemote: 'SendInputString' });
-      tvSend({ TypeOfRemote: 'SendInputEnd' });
-      json(res, 200, { tv: tv.state });
-    });
-  }
-  var file = url === '/' ? 'index.html' : url.slice(1);
-  if (FILES.indexOf(file) >= 0) return servePage(file, res);
-  res.writeHead(404, { 'Content-Type': 'text/plain' });
-  res.end('404');
-}));
-
-// Coloca o Seraflix na lista de serviços que o TizenBrew liga sozinho ao abrir. Assim o controle
-// funciona só de abrir o TizenBrew (ou quando a TV pré-carrega o TizenBrew ao ligar), sem entrar
-// no Seraflix. Só mexe no arquivo se ele existir e for JSON válido.
-function enableAutoLaunch() {
-  try {
-    var config = JSON.parse(fs.readFileSync(TIZENBREW_CONFIG, 'utf8'));
-    var list = Array.isArray(config.autoLaunchServiceList) ? config.autoLaunchServiceList : [];
-    if (list.indexOf(MODULE_NAME) >= 0) return;
-    config.autoLaunchServiceList = list.concat([MODULE_NAME]);
-    fs.writeFileSync(TIZENBREW_CONFIG, JSON.stringify(config, null, 4));
-  } catch (e) {}
-}
-
-// Porta ocupada: costuma ser uma versão antiga deste serviço que o TizenBrew deixou rodando (ele só
-// some quando a TV reinicia). Pede para ela sair (versões novas atendem /api/quit) e tenta de novo.
-// Enquanto isso os addons ficam também na porta 8091, que a versão antiga não usa: o app procura nas duas.
-var listenTries = 0;
-server.on('error', function (e) {
-  if (e && e.code === 'EADDRINUSE' && listenTries++ < 10) {
-    var q = http.request({ host: '127.0.0.1', port: PORT, path: '/api/quit', method: 'POST' }, function (r) { r.resume(); });
-    q.on('error', function () {});
-    q.end();
-    setTimeout(function () { server.listen(PORT, '0.0.0.0'); }, 1500);
-  }
-});
-server.listen(PORT, '0.0.0.0');
-var addonServer = http.createServer(guarded(function (req, res) {
-  var url = req.url.split('?')[0];
-  if (url.indexOf('/px/') === 0) return proxyRoute(req, res, urlLib.parse(req.url, true).query);
-  if (url === '/api/version') return json(res, 200, { version: SERVICE_VERSION });
-  if (url === '/api/quit' && req.method === 'POST') return quit(res);
-  if (url === '/api/pxlog') return json(res, 200, pxLog);
-  if (url === '/api/tubelog') return json(res, 200, tubeLog);
-  if (url === '/api/cal') return calendarRoute(res, urlLib.parse(req.url, true).query);
+  if (url === '/api/torrent-test') return torrentTest(function (r) { json(res, 200, r); });
   if (addonRoute(url, res)) return;
   res.writeHead(404, { 'Content-Type': 'text/plain' });
   res.end('404');
@@ -1225,12 +1243,10 @@ var addonTries = 0;
 addonServer.on('error', function (e) {
   // Outra versão deste serviço está na porta: pede para ela sair e tenta de novo.
   if (e && e.code === 'EADDRINUSE' && addonTries++ < 10) {
-    var q = http.request({ host: '127.0.0.1', port: ADDON_PORT, path: '/api/quit', method: 'POST' }, function (r) { r.resume(); });
-    q.on('error', function () {});
-    q.end();
-    setTimeout(function () { addonServer.listen(ADDON_PORT, '0.0.0.0'); }, 1500);
+    askQuit(ADDON_PORT);
+    setTimeout(function () { addonServer.listen(ADDON_PORT, '127.0.0.1'); }, 1500);
   }
 });
-addonServer.listen(ADDON_PORT, '0.0.0.0');
-tvConnect();
+addonServer.listen(ADDON_PORT, '127.0.0.1'); // só a própria TV (o app fala em 127.0.0.1)
+retireOld();
 enableAutoLaunch();

@@ -18,9 +18,7 @@ import { SettingsView } from './views/settings.js';
 import { maybeShowWizard } from './views/wizard.js';
 import { toast } from './ui.js';
 import * as update from './api/update.js';
-import * as sendToTv from './api/sendToTv.js';
 import * as calendar from './api/calendar.js';
-import { openDetails } from './views/details.js';
 import * as profiles from './views/profiles.js';
 import { applyTheme } from './lib/theme.js';
 import { openLogin } from './views/login.js';
@@ -33,10 +31,17 @@ import * as webkeys from './lib/webkeys.js';
 // Abertura (logo + som): o app só aparece depois dela, mesmo que carregue antes.
 let introDone = Promise.resolve();
 
+// Efeitos reduzidos (body.lowfx, CSS): o que está em Ajustes; sem escolha, liga na TV e no Fire TV
+// (no build web, desliga).
+function applyLowFx(s) {
+  document.body.classList.toggle('lowfx', typeof s.lowfx === 'boolean' ? s.lowfx : !IS_WEB);
+}
+
 function boot() {
   const s = store.settings();
   initI18n();
   applyTheme(s);
+  applyLowFx(s);
   introDone = intro.play(s.introSound !== false);
   if (s.devlogUrl) log.setRemote(s.devlogUrl);
   log.info('Iniciando', navigator.userAgent);
@@ -92,6 +97,7 @@ function start() {
   stremio.reloadProfile();
   const s = store.settings();
   applyTheme(s);
+  applyLowFx(s); // as configurações podem ser do perfil escolhido agora
   log.info('Perfil', store.activeProfile().name);
 
   // Atualiza a conta em segundo plano; a tela inicial abre com o cache.
@@ -100,11 +106,12 @@ function start() {
     stremio.getLibrary().catch(() => {});
   }
 
-  Promise.all([server.check(), addons.load().catch(() => null), introDone]).then(() => {
+  // O servidor do PC é revalidado em paralelo (check() nunca rejeita: se falhar, o status fica offline
+  // como antes). A tela inicial não espera mais o timeout de 4 s.
+  server.check();
+  Promise.all([addons.load().catch(() => null), introDone]).then(() => {
     router.goTab('home');
     intro.finish(); // a abertura some em fade por cima da tela inicial já pronta
-    // Pedidos do controle no celular ("Mandar para a TV").
-    if (HAS_TV_SERVICE) sendToTv.start(openFromPhone);
     calendar.start(); // agenda do Google (se tiver link em Ajustes)
     screensaver.install(); // lançamentos passando na tela depois de uns minutos parado
     if (profiles.isNewProfilePendingLogin() && !stremio.isLoggedIn()) {
@@ -123,23 +130,11 @@ function start() {
       setTimeout(() => {
         update
           .check()
-          .then((info) => info.isNew && toast(t('Tem Seraflix novo saindo do forno! Ajustes → Procurar atualização'), 7000))
+          .then((info) => info.isNew && toast(t('Tem Seraflix novo saindo do forno! Ajustes > Procurar atualização'), 7000))
           .catch(() => {});
       }, 8000);
     }
   });
-}
-
-// Abre o filme/série escolhido no celular. Se um vídeo estiver tocando, fecha o player antes
-// pelo mesmo caminho do Voltar (salva o ponto onde parou); senão ele continuaria tocando por baixo.
-function openFromPhone(req) {
-  const cur = router.currentView();
-  if (cur && cur.el && cur.el.classList.contains('player')) {
-    if (cur.onBack) cur.onBack();
-    else router.pop();
-  }
-  toast(t('Pedido do celular: {name}', { name: req.name || t('abrindo...') }));
-  openDetails(req.type, req.id, req.play && req.type === 'movie' ? { autoStreams: true } : {});
 }
 
 // Fontes do app baixadas antes de qualquer coisa aparecer: sem isso a abertura e os títulos

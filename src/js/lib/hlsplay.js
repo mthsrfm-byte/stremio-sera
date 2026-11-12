@@ -34,6 +34,14 @@ function loadHls() {
   return loading;
 }
 
+// Começa a baixar o hls.js antes de a URL ficar pronta (idempotente; o erro fica para o attach).
+export function preload() {
+  loadHls().catch(() => {});
+}
+
+// Queda de rede no meio do HLS: quantas vezes religar antes de trocar de fonte.
+const NET_RETRIES = 3;
+
 export function isHls(url) {
   return /\.m3u8$/i.test(String(url || '').split(/[?#]/)[0]);
 }
@@ -61,12 +69,26 @@ export function attach(videoEl, url, onFatal) {
       );
       let mediaRecovered = false;
       let dead = false;
+      let netTries = 0; // religadas seguidas sem fragmento novo
+      let netWait = false;
+      hls.on(Hls.Events.FRAG_LOADED, () => (netTries = 0));
       hls.on(Hls.Events.ERROR, (ev, data) => {
         if (!data || !data.fatal || dead) return;
         // Erro de decodificação: o hls.js sabe se recuperar uma vez sem recomeçar do zero.
         if (data.type === Hls.ErrorTypes.MEDIA_ERROR && !mediaRecovered) {
           mediaRecovered = true;
           hls.recoverMediaError();
+          return;
+        }
+        // Rede oscilou e o hls.js parou de pedir: religa com uma pausa antes de trocar de fonte.
+        if (data.type === Hls.ErrorTypes.NETWORK_ERROR && netTries < NET_RETRIES) {
+          if (netWait) return;
+          netWait = true;
+          netTries++;
+          setTimeout(() => {
+            netWait = false;
+            if (!dead) hls.startLoad();
+          }, 1000 * netTries);
           return;
         }
         dead = true;
@@ -83,6 +105,16 @@ export function attach(videoEl, url, onFatal) {
           } catch (e) {
             /* ignore */
           }
+        },
+        // Faixas de áudio do manifest (grupos de áudio do HLS); vazio quando há uma faixa só.
+        audioTracks() {
+          return (hls.audioTracks || []).map((tr) => ({ lang: tr.lang || '', label: tr.name || '' }));
+        },
+        audioTrack() {
+          return hls.audioTrack;
+        },
+        setAudioTrack(i) {
+          hls.audioTrack = i;
         },
       };
     },

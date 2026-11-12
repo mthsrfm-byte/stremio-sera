@@ -1,11 +1,11 @@
 // Detalhes: informações à esquerda; à direita, episódios (séries) ou fontes (streams).
-import { h, clear, loadVisibleImages } from '../lib/dom.js';
+import { h, clear, append, loadVisibleImages } from '../lib/dom.js';
 import * as nav from '../lib/nav.js';
 import * as addons from '../api/addons.js';
 import * as stremio from '../api/stremio.js';
 import * as server from '../api/server.js';
 import * as hero from '../api/hero.js';
-import { toast, spinnerLine, menu, fmtTime, choiceDialog } from '../ui.js';
+import { toast, spinnerLine, menu, fmtTime, choiceDialog, heartToast } from '../ui.js';
 import * as router from '../router.js';
 import { openPlayer } from './player.js';
 import * as extras from '../api/extras.js';
@@ -54,6 +54,13 @@ function castPhoto(url) {
 const BR_FLAG =
   '<svg class="flag" width="24" height="17" viewBox="0 0 24 17"><rect width="24" height="17" rx="3" fill="#009C3B"/><path d="M12 2.2 21.4 8.5 12 14.8 2.6 8.5z" fill="#FFDF00"/><circle cx="12" cy="8.5" r="3.6" fill="#002776"/></svg>';
 
+// Episódios da temporada entram em lotes (uma temporada inteira de DOM de uma vez pesa na TV).
+const EP_BATCH = 30;
+
+// Seta do filtro de fontes em SVG (a fonte da TV não tem o caractere ▾).
+const CARET_HTML =
+  '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>';
+
 export function openDetails(type, id, opts) {
   router.push(DetailsView(type, id, opts || {}));
 }
@@ -83,6 +90,7 @@ function DetailsView(type, id, opts) {
   let mode = 'none';
   let season = null;
   let streamsVideo = null;
+  let lateStream = null; // Smart Choice: { video, fn } recebe as fontes que chegam depois, se a lista do mesmo episódio estiver aberta
   let alive = true;
   let watchBtn = null;
   let libBtn = null;
@@ -104,56 +112,112 @@ function DetailsView(type, id, opts) {
     return vids.filter((v) => v.season !== 0 && !isUpcoming(v))[0] || vids[0];
   }
 
+  // A ficha é montada uma vez (botões e foco ficam no lugar); quando a meta completa chega,
+  // só os textos são trocados (paintInfo).
+  let sheet = null; // elementos da ficha
+  let waitingFull = false; // mostra a meta do catálogo; a completa ainda não chegou
   function renderInfo() {
     clear(info);
     const logo = h('img.details-logo', { alt: '' });
-    const title = h('div.details-title', { text: meta.name });
+    const title = h('div.details-title');
     title.style.display = 'none';
     logo.onerror = () => {
       logo.style.display = 'none';
       title.style.display = '';
     };
-    logo.src = meta.logo || hero.logo(meta.id);
-    const parts = [];
-    if (meta.releaseInfo || meta.year) parts.push(meta.releaseInfo || meta.year);
-    if (meta.runtime) parts.push(meta.runtime);
-    if (isSeries()) {
-      const seasons = uniqueSeasons().filter((s) => s !== 0);
-      if (seasons.length) parts.push(t(seasons.length > 1 ? '{n} temporadas' : '{n} temporada', { n: seasons.length }));
-    }
-    const metaLine = h('div.details-meta', { text: parts.join('  ·  ') });
+    const metaLine = h('div.details-meta');
     const ratingsEl = h('div.ratings');
     renderRatings(ratingsEl, { imdb: meta.imdbRating ? String(meta.imdbRating) : null, critic: null, audience: null }, true);
-    const genres = h(
-      'div.details-genres',
-      null,
-      (meta.genres || meta.genre || []).slice(0, 5).map((g) => h('span', { text: genreName(g) }))
-    );
-    const desc = h('div.details-desc', { text: meta.description || '' });
-    const cast = (meta.cast || []).slice(0, 5);
-    const director = (meta.director || []).slice(0, 2);
+    const genres = h('div.details-genres');
+    const desc = h('div.details-desc');
     // Texto vindo do addon entra como texto, nunca como HTML (um addon malicioso não injeta código).
-    const castLine = h('div.details-cast', null, [
-      director.length ? h('b', { text: t('Direção: ') }) : null,
-      director.length ? director.join(', ') + '   ' : null,
-      cast.length ? h('b', { text: t('Elenco: ') }) : null,
-      cast.length ? cast.join(', ') : null,
-    ]);
+    const castLine = h('div.details-cast');
 
     watchBtn = h('div.btn.primary', { focusable: true, 'data-autofocus': '', onSelect: onWatch });
     libBtn = h('div.btn', { focusable: true, onSelect: toggleLibrary });
-    updateButtons();
+    sheet = { logo: logo, title: title, metaLine: metaLine, ratingsEl: ratingsEl, genres: genres, desc: desc, castLine: castLine, stats: null };
     info.appendChild(logo);
     info.appendChild(title);
     info.appendChild(metaLine);
     info.appendChild(ratingsEl);
-    if (isAdult() && meta.stats) info.appendChild(adultStats(meta.stats));
     info.appendChild(genres);
     info.appendChild(desc);
     // Botões antes do elenco: o foco começa no Assistir e o elenco fica logo abaixo, para explorar.
     info.appendChild(h('div.details-buttons', { 'data-group': '' }, [watchBtn, libBtn]));
     info.appendChild(castLine);
-    loadExtras({ logo: logo, title: title, desc: desc, castLine: castLine, ratingsEl: ratingsEl });
+    paintInfo();
+  }
+
+  // Textos da ficha com a meta atual (estatísticas adultas entram antes dos gêneros).
+  function paintInfo() {
+    const s = sheet;
+    const logoSrc = meta.logo || hero.logo(meta.id);
+    if (s.logo.__src !== logoSrc) {
+      s.logo.__src = logoSrc;
+      s.logo.style.display = '';
+      s.title.style.display = 'none';
+      s.logo.src = logoSrc;
+    }
+    s.title.textContent = meta.name || '';
+    const parts = [];
+    if (meta.releaseInfo || meta.year) parts.push(meta.releaseInfo || meta.year);
+    if (meta.runtime) parts.push(meta.runtime);
+    if (isSeries()) {
+      const seasons = uniqueSeasons().filter((n) => n !== 0);
+      if (seasons.length) parts.push(t(seasons.length > 1 ? '{n} temporadas' : '{n} temporada', { n: seasons.length }));
+    }
+    s.metaLine.textContent = parts.join('  ·  ');
+    clear(s.genres);
+    (meta.genres || meta.genre || []).slice(0, 5).forEach((g) => s.genres.appendChild(h('span', { text: genreName(g) })));
+    s.desc.textContent = meta.description || '';
+    if (s.stats) {
+      if (s.stats.parentNode) s.stats.parentNode.removeChild(s.stats);
+      s.stats = null;
+    }
+    if (isAdult() && meta.stats) {
+      s.stats = adultStats(meta.stats);
+      info.insertBefore(s.stats, s.genres);
+    }
+    const cast = (meta.cast || []).slice(0, 5);
+    const director = (meta.director || []).slice(0, 2);
+    clear(s.castLine);
+    append(s.castLine, [
+      director.length ? h('b', { text: t('Direção: ') }) : null,
+      director.length ? director.join(', ') + '   ' : null,
+      cast.length ? h('b', { text: t('Elenco: ') }) : null,
+      cast.length ? cast.join(', ') : null,
+    ]);
+    updateButtons();
+  }
+
+  // Fundo: troca o endereço mesmo que a imagem anterior (a do catálogo) já esteja carregada.
+  function paintBg() {
+    const src = meta.background || hero.background(meta.id);
+    if (bg.getAttribute('data-lazy') === src) return;
+    bg.setAttribute('data-lazy', src);
+    bg.__on = false;
+    bg.style.display = '';
+    loadVisibleImages(el);
+  }
+
+  // A meta completa chegou depois da ficha do catálogo: os textos mudam no lugar (foco e botões ficam).
+  function takeFull(full) {
+    if (!alive) return;
+    const merged = Object.assign({}, meta);
+    Object.keys(full || {}).forEach((k) => {
+      if (full[k] !== undefined && full[k] !== null && full[k] !== '') merged[k] = full[k];
+    });
+    const wasSeries = isSeries();
+    meta = merged;
+    if (!meta.type) meta.type = type;
+    paintBg();
+    paintInfo();
+    loadExtras(sheet);
+    // Virou série e a tela ainda não mostra nada: lista os episódios.
+    if (!wasSeries && isSeries() && mode === 'none') {
+      panel.style.display = '';
+      showEpisodes(opts.videoId);
+    }
   }
 
   // IMDb com o logo; Rotten Tomatoes num só selo: crítica à esquerda do tomate, público à direita.
@@ -295,13 +359,15 @@ function DetailsView(type, id, opts) {
     if (isAdult()) {
       const on = nsfwSaved.toggle(meta);
       updateButtons();
-      toast(on ? t('♥ Favoritado') : t('Tirado dos favoritos'));
+      if (on) heartToast(t('Favoritado'));
+      else toast(t('Tirado dos favoritos'));
       return;
     }
     const inLib = stremio.isInLibrary(meta.id);
     stremio.setInLibrary(meta, !inLib).then(() => {
       updateButtons();
-      toast(inLib ? t('Tirado dos favoritos') : t('♥ Favoritado'));
+      if (inLib) toast(t('Tirado dos favoritos'));
+      else heartToast(t('Favoritado'));
     });
   }
 
@@ -344,44 +410,71 @@ function DetailsView(type, id, opts) {
     panel.appendChild(chips);
     const list = h('div.list', { 'data-scroll-y': '', 'data-pad-y': '120', 'data-group': '', 'data-vertical': '' });
     list.style.top = '190px';
+    panel.appendChild(list);
     const li = stremio.libraryItem(meta.id);
-    let focusEl = null;
-    sortedVideos(meta)
-      .filter((v) => (v.season || 0) === season)
-      .forEach((v) => {
-        const thumb = h('div.thumb');
-        if (v.thumbnail) {
-          const im = h('img', { alt: '' });
-          im.setAttribute('data-lazy', smallThumb(v.thumbnail));
-          im.onerror = () => {
-            im.style.display = 'none';
-            thumb.classList.add('img-loaded'); // sem imagem: para o esqueleto
-          };
-          thumb.appendChild(im);
-        } else thumb.classList.add('img-loaded');
-        let sub = t('Episódio {n}', { n: v.episode || '?' });
-        if (v.released) sub += ' · ' + formatDate(v.released);
-        const inProgress = li && li.state && li.state.video_id === v.id && li.state.timeOffset > 0;
-        if (inProgress) sub += ' · ' + t('parou em {time}', { time: fmtTime(li.state.timeOffset / 1000) });
-        const soon = isUpcoming(v);
-        const row = h('div.episode', { focusable: true, cls: soon ? 'upcoming' : '', onSelect: () => (soon ? toast(t('Esse episódio ainda não saiu. Estreia em {date}.', { date: formatDate(v.released) })) : watch(v)) }, [
+    const eps = sortedVideos(meta).filter((v) => (v.season || 0) === season);
+    // Episódio que abre focado (o último que bate, como antes): tem de estar renderizado já.
+    let focusIdx = -1;
+    eps.forEach((v, i) => {
+      const inProgress = li && li.state && li.state.video_id === v.id && li.state.timeOffset > 0;
+      if (v.id === focusVideoId || (!focusVideoId && inProgress)) focusIdx = i;
+    });
+    let shown = 0;
+    // Uma linha de episódio. Perto do fim do lote, o foco já pede o próximo.
+    function episodeRow(v, i) {
+      const thumb = h('div.thumb');
+      if (v.thumbnail) {
+        const im = h('img', { alt: '' });
+        im.setAttribute('data-lazy', smallThumb(v.thumbnail));
+        im.onerror = () => {
+          im.style.display = 'none';
+          thumb.classList.add('img-loaded'); // sem imagem: para o esqueleto
+        };
+        thumb.appendChild(im);
+      } else thumb.classList.add('img-loaded');
+      let sub = t('Episódio {n}', { n: v.episode || '?' });
+      if (v.released) sub += ' · ' + formatDate(v.released);
+      const inProgress = li && li.state && li.state.video_id === v.id && li.state.timeOffset > 0;
+      if (inProgress) sub += ' · ' + t('parou em {time}', { time: fmtTime(li.state.timeOffset / 1000) });
+      const soon = isUpcoming(v);
+      const row = h(
+        'div.episode',
+        {
+          focusable: true,
+          cls: soon ? 'upcoming' : '',
+          onFocus: () => {
+            if (i >= shown - 8) addBatch(shown + EP_BATCH);
+          },
+          onSelect: () => (soon ? toast(t('Esse episódio ainda não saiu. Estreia em {date}.', { date: formatDate(v.released) })) : watch(v)),
+        },
+        [
           thumb,
           h('div.ep-info', null, [
             h('div.ep-title', null, [soon ? h('span.soon-tag', { text: t('Em breve') }) : null, (v.episode ? v.episode + '. ' : '') + (v.name || v.title || t('Episódio'))]),
             h('div.ep-sub', { text: sub }),
             h('div.ep-desc', { text: v.overview || v.description || '' }),
           ]),
-        ]);
-        row.__episode = v.episode;
-        row.__video = v;
-        if (v.id === focusVideoId || (!focusVideoId && inProgress)) focusEl = row;
-        list.appendChild(row);
-      });
-    panel.appendChild(list);
+        ]
+      );
+      row.__episode = v.episode;
+      row.__video = v;
+      return row;
+    }
+    // Renderiza os episódios até "upTo" (sem passar do fim da temporada).
+    function addBatch(upTo) {
+      const end = Math.min(eps.length, upTo);
+      if (end <= shown) return;
+      while (shown < end) {
+        const i = shown++;
+        list.appendChild(episodeRow(eps[i], i));
+      }
+      localizeEpisodes();
+      loadVisibleImages(panel, 300);
+    }
+    addBatch(Math.max(EP_BATCH, focusIdx + 1));
+    const focusEl = focusIdx >= 0 ? list.children[focusIdx] : null;
     // Ao entrar na lista, cai no episódio em andamento (ou no primeiro), não no mais próximo.
     list.__last = focusEl || list.firstChild;
-    localizeEpisodes();
-    loadVisibleImages(panel, 300);
     if (focusEl && focusVideoId) setTimeout(() => nav.focus(focusEl), 0);
   }
 
@@ -446,13 +539,17 @@ function DetailsView(type, id, opts) {
           per.forEach((l) => l && l.forEach((x) => all.push(x)));
           // A fonte da última vez já chegou: não precisa esperar os outros addons.
           if (si.rememberedStream(video.id, all)) finish();
+          // Addon lento que chega depois da lista aberta: entra nela (sem buscar de novo).
+          // (só para o mesmo episódio: a lista aberta pode ser de outro, ex.: Assistir do próximo com a lista ainda aberta)
+          if (lateStream && lateStream.video === video) lateStream.fn(addon, streams);
         })
       )
       .then(finish, finish);
     // Nada tocável: volta com a lista aberta para escolher na mão e diz o porquê.
     pick.then((st) => {
       if (st || !alive) return;
-      showStreams(video, true);
+      // Usa as fontes que já chegaram (per, por addon) em vez de buscar tudo de novo.
+      showStreams(video, true, { srcs: srcs, per: per });
       const torrentsOnly = all.length && all.every((x) => server.needsServer(x) && !server.viaDebrid(x));
       const why = !all.length
         ? t('Nenhuma fonte encontrada para este título.')
@@ -473,14 +570,15 @@ function DetailsView(type, id, opts) {
     return mbps > si.debridBudget() ? mbps : 0;
   }
 
-  function showStreams(video, focusFirst) {
+  // prefetch: { srcs, per } vindo do Smart Choice; sem ele, busca os addons aqui.
+  function showStreams(video, focusFirst, prefetch) {
     panel.style.display = '';
     mode = 'streams';
     streamsVideo = video;
     clear(panel);
     const headText = (name) => 'T' + video.season + 'E' + video.episode + ' · ' + (name || '');
     const head = isSeries() ? headText(video.namePt || video.name || video.title) : t('Fontes');
-    const filterBtn = h('div.btn.small', { focusable: true, text: t('Todos ▾'), onSelect: () => filterMenu() });
+    const filterBtn = h('div.btn.small', { focusable: true, onSelect: () => filterMenu() });
     const headEl = h('h2', { text: head });
     panel.appendChild(h('div.panel-head', { 'data-group': '' }, [headEl, filterBtn]));
     if (isSeries() && !video.namePt)
@@ -519,7 +617,10 @@ function DetailsView(type, id, opts) {
       barFill.style.width = Math.round(((srcs.length - pendingCount) / srcs.length) * 100) + '%';
       loadBar.classList.toggle('done', pendingCount <= 0);
       const g = groups.find((x) => x.addon.transportUrl === filter);
-      filterBtn.textContent = (g ? g.addon.manifest.name : filter === 'dub' ? t('Dublados') : t('Todos')) + ' ▾';
+      // Rótulo (texto puro: o nome do addon não vira HTML) e a seta em SVG.
+      const label = g ? g.addon.manifest.name : filter === 'dub' ? t('Dublados') : t('Todos');
+      clear(filterBtn).appendChild(document.createTextNode(label));
+      filterBtn.appendChild(h('span', { html: CARET_HTML, style: { marginLeft: '8px', verticalAlign: 'middle' } }));
     }
 
     function firstVisibleItem() {
@@ -558,51 +659,59 @@ function DetailsView(type, id, opts) {
       });
     }
 
+    // Recebe as fontes de um addon (desta busca ou, com Smart Choice, da que já andava).
+    function receive(addon, streams) {
+      const g = groups.find((x) => x.addon === addon);
+      // Tela trocada ou fechada, ou addon já recebido (a mesma resposta pode vir pelos dois caminhos): ignora.
+      if (!alive || mode !== 'streams' || streamsVideo !== video || !g || g.done) return;
+      pendingCount--;
+      g.done = true;
+      g.count = streams.length;
+      // Dentro do addon, na ordem do Smart Choice (em cache, dublado, cabe na banda...).
+      g.streams = si.rank(streams, runtimeMinutes(), si.pickOptions(meta, isSeries()));
+      g.debrid = streams.some((s) => si.parse(s).debrid || si.parse(s).cached);
+      // Addon que trouxe fontes de debrid (os mais rápidos) sobe para o topo da lista, mesmo
+      // quando o nome dele não diz que é debrid (ex.: Torrentio configurado com Real-Debrid).
+      if (g.debrid) {
+        const at = groups.indexOf(g);
+        const firstPlain = groups.filter((x, i) => i < at && !x.debrid)[0];
+        if (firstPlain) {
+          groups.splice(at, 1);
+          groups.splice(groups.indexOf(firstPlain), 0, g);
+          list.insertBefore(g.el, firstPlain.el);
+        }
+      }
+      g.streams.forEach((s) => g.el.appendChild(streamItem(s, video, serverOk, all)));
+      // "all" segue a ordem da tela (addon de maior prioridade primeiro), não a de chegada:
+      // é nela que o Smart Choice e o player procuram a próxima fonte.
+      all.length = 0;
+      groups.forEach((x) => x.streams.forEach((s) => all.push(s)));
+      // Mantém o foco na primeira fonte (a de maior prioridade) enquanto o usuário não mexer.
+      if (focusFirst && (!autoFocused || nav.current() === autoFocused)) {
+        const first = firstVisibleItem();
+        if (first) {
+          autoFocused = first;
+          nav.focus(first);
+        }
+      }
+      if (pendingCount <= 0) {
+        if (loadingLine.parentNode) list.removeChild(loadingLine);
+        if (!all.length) list.appendChild(h('div.loading-line', { text: t('Nenhuma fonte encontrada.') }));
+      }
+      status();
+    }
+
     status();
+    // Smart Choice: as fontes que já chegaram entram direto, sem buscar de novo; as lentas chegam por lateStream.
+    lateStream = prefetch ? { video: video, fn: receive } : null;
     (serverOk ? Promise.resolve() : server.check().then((r) => (serverOk = r.ok)))
       .then(() => {
         status();
-        return addons.fetchStreams(meta.type, video.id, (addon, streams) => {
-          if (!alive || streamsVideo !== video) return;
-          pendingCount--;
-          const g = groups.find((x) => x.addon === addon);
-          if (g) {
-            g.done = true;
-            g.count = streams.length;
-            // Dentro do addon, na ordem do Smart Choice (em cache, dublado, cabe na banda...).
-            g.streams = si.rank(streams, runtimeMinutes(), si.pickOptions(meta, isSeries()));
-            g.debrid = streams.some((s) => si.parse(s).debrid || si.parse(s).cached);
-            // Addon que trouxe fontes de debrid (os mais rápidos) sobe para o topo da lista, mesmo
-            // quando o nome dele não diz que é debrid (ex.: Torrentio configurado com Real-Debrid).
-            if (g.debrid) {
-              const at = groups.indexOf(g);
-              const firstPlain = groups.filter((x, i) => i < at && !x.debrid)[0];
-              if (firstPlain) {
-                groups.splice(at, 1);
-                groups.splice(groups.indexOf(firstPlain), 0, g);
-                list.insertBefore(g.el, firstPlain.el);
-              }
-            }
-            g.streams.forEach((s) => g.el.appendChild(streamItem(s, video, serverOk, all)));
-            // "all" segue a ordem da tela (addon de maior prioridade primeiro), não a de chegada:
-            // é nela que o Smart Choice e o player procuram a próxima fonte.
-            all.length = 0;
-            groups.forEach((x) => x.streams.forEach((s) => all.push(s)));
-          }
-          // Mantém o foco na primeira fonte (a de maior prioridade) enquanto o usuário não mexer.
-          if (focusFirst && (!autoFocused || nav.current() === autoFocused)) {
-            const first = firstVisibleItem();
-            if (first) {
-              autoFocused = first;
-              nav.focus(first);
-            }
-          }
-          if (pendingCount <= 0) {
-            if (loadingLine.parentNode) list.removeChild(loadingLine);
-            if (!all.length) list.appendChild(h('div.loading-line', { text: t('Nenhuma fonte encontrada.') }));
-          }
-          status();
-        });
+        if (prefetch) {
+          prefetch.per.forEach((streams, i) => streams && receive(prefetch.srcs[i], streams));
+          return null;
+        }
+        return addons.fetchStreams(meta.type, video.id, receive);
       })
       .catch(() => {});
   }
@@ -674,46 +783,68 @@ function DetailsView(type, id, opts) {
     return ('0' + d.getDate()).slice(-2) + '/' + ('0' + (d.getMonth() + 1)).slice(-2) + '/' + d.getFullYear();
   }
 
-  addons
-    .load()
-    .then(() =>
-      addons.fetchMeta(type, id).catch((e) => {
-        // Sem addon de detalhes (comum nos adultos): usa o item do catálogo e segue para as fontes.
-        if (opts.fallbackMeta) return Object.assign({ type: type }, opts.fallbackMeta, { id: id });
-        throw e;
-      })
-    )
-    .then((m) => {
-      if (!alive) return;
-      meta = m;
-      if (!meta.type) meta.type = type;
-      bg.onerror = () => (bg.style.display = 'none');
-      // Fundo como imagem sob demanda: é liberado quando o player abre por cima.
-      bg.setAttribute('data-lazy', meta.background || hero.background(meta.id));
-      loadVisibleImages(el);
-      renderInfo();
-      if (isSeries()) {
-        if (opts.videoId) {
-          const v = sortedVideos(meta).find((x) => x.id === opts.videoId);
-          if (v) season = v.season || 0;
-          if (v && opts.autoStreams) {
-            watch(v);
-            return;
-          }
-        }
-        showEpisodes(opts.videoId);
-        if (opts.autoStreams) {
-          const v = nextUpVideo();
-          if (v) watch(v);
+  // Ficha pronta com a meta: textos, fundo e, conforme o caso, episódios, fontes ou o player.
+  function enter(m) {
+    meta = m;
+    if (!meta.type) meta.type = type;
+    bg.onerror = () => (bg.style.display = 'none');
+    // Fundo como imagem sob demanda: é liberado quando o player abre por cima.
+    bg.setAttribute('data-lazy', meta.background || hero.background(meta.id));
+    loadVisibleImages(el);
+    renderInfo();
+    if (!waitingFull) loadExtras(sheet);
+    branch();
+    if (!opts.autoStreams) nav.focus(watchBtn);
+  }
+
+  function branch() {
+    if (isSeries()) {
+      if (opts.videoId) {
+        const v = sortedVideos(meta).find((x) => x.id === opts.videoId);
+        if (v) season = v.season || 0;
+        if (v && opts.autoStreams) {
+          watch(v);
           return;
         }
-      } else {
-        // Smart Choice: sem lista de fontes à vista (nem ao voltar do player); trocar é no player.
-        if (smartOn()) panel.style.display = 'none';
-        if (opts.autoStreams) watch({ id: movieVideoId(), title: meta.name });
-        else if (!smartOn()) showStreams({ id: movieVideoId(), title: meta.name }, false);
       }
-      if (!opts.autoStreams) nav.focus(watchBtn);
+      showEpisodes(opts.videoId);
+      if (opts.autoStreams) {
+        const v = nextUpVideo();
+        if (v) watch(v);
+      }
+    } else {
+      // Smart Choice: sem lista de fontes à vista (nem ao voltar do player); trocar é no player.
+      if (smartOn()) panel.style.display = 'none';
+      if (opts.autoStreams) watch({ id: movieVideoId(), title: meta.name });
+      else if (!smartOn()) showStreams({ id: movieVideoId(), title: meta.name }, false);
+    }
+  }
+
+  // Item do catálogo (aba NSFW, sem addon de detalhes): já serve para a ficha e para buscar as fontes.
+  const fallbackItem = opts.fallbackMeta ? Object.assign({ type: type }, opts.fallbackMeta, { id: id }) : null;
+
+  addons
+    .load()
+    .then(() => {
+      if (!alive) return;
+      if (!fallbackItem) return addons.fetchMeta(type, id).then(enter);
+      // Mostra na hora com o item do catálogo; a meta completa chega junto e troca só os textos.
+      waitingFull = true;
+      enter(fallbackItem);
+      addons
+        .fetchMeta(type, id)
+        .then(
+          (full) => {
+            waitingFull = false;
+            takeFull(full);
+          },
+          () => {
+            // Sem meta completa: fica com o que veio do catálogo; as notas saem dele.
+            waitingFull = false;
+            if (alive) loadExtras(sheet);
+          }
+        )
+        .catch((e) => log.warn('Detalhes: meta completa', e && e.message));
     })
     .catch((e) => {
       if (!alive) return;
@@ -760,6 +891,7 @@ function DetailsView(type, id, opts) {
     },
     destroy: () => {
       alive = false;
+      lateStream = null; // resultados que chegarem depois não são mais renderizados
     },
   };
   return view;

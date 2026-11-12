@@ -102,6 +102,7 @@ export function logout() {
   store.set('auth', null);
   store.set('addons', null);
   setLibrary([]);
+  setPending({}); // pendências são da conta que saiu
   if (key) call('logout', { type: 'Logout', authKey: key }).catch(() => {});
 }
 
@@ -141,11 +142,91 @@ export function cachedAddons() {
 // ---- Biblioteca ----
 export function getLibrary() {
   if (!isLoggedIn()) return Promise.resolve(cachedLibrary());
-  return call('datastoreGet', { authKey: auth.authKey, collection: 'libraryItem', ids: [], all: true }).then((items) => {
-    const list = Array.isArray(items) ? items : [];
-    setLibrary(list);
-    return list;
+  // Antes de aceitar a lista do servidor, reenvia o que ficou pendente (se a rede voltou).
+  return sendPending()
+    .then(() => call('datastoreGet', { authKey: auth.authKey, collection: 'libraryItem', ids: [], all: true }))
+    .then((items) => {
+      const list = withPending(Array.isArray(items) ? items : []);
+      setLibrary(list);
+      return list;
+    });
+}
+
+// ---- Pendências ----
+// Itens que mudaram aqui e ainda não chegaram ao servidor (id -> token). Ficam salvos, para a
+// alteração não se perder se a rede cair. Até chegarem, a versão daqui vale mais que a do servidor.
+let pendMem = null;
+function pendingMap() {
+  if (!pendMem) pendMem = store.get('libPending', {}) || {};
+  return pendMem;
+}
+
+function setPending(map) {
+  pendMem = map;
+  store.set('libPending', Object.keys(map).length ? map : null);
+}
+
+// Marca os itens como pendentes; devolve o token desta tentativa.
+function markPending(items) {
+  const tok = Math.random().toString(36).slice(2);
+  const map = Object.assign({}, pendingMap());
+  items.forEach((it) => {
+    map[it._id] = tok;
   });
+  setPending(map);
+  return tok;
+}
+
+// Envia os itens. Dando certo, tira da fila só quem não mudou de novo enquanto ia (o token muda a
+// cada alteração). Falha: fica na fila e só registra no log.
+function sendItems(items, tok) {
+  return call('datastorePut', { authKey: auth.authKey, collection: 'libraryItem', changes: items }).then(
+    () => {
+      const map = Object.assign({}, pendingMap());
+      items.forEach((it) => {
+        if (map[it._id] === tok) delete map[it._id];
+      });
+      setPending(map);
+    },
+    (e) => {
+      log.warn('Falha ao salvar na biblioteca', e.message);
+    }
+  );
+}
+
+// Reenvia o que estava pendente (com os dados atuais da biblioteca daqui).
+function sendPending() {
+  const ids = Object.keys(pendingMap());
+  if (!ids.length || !isLoggedIn()) return Promise.resolve();
+  const lib = accountLibrary();
+  const items = ids.map((id) => lib.find((x) => x._id === id)).filter(Boolean);
+  // Id que não existe mais na biblioteca não tem o que enviar: sai da fila.
+  const map = Object.assign({}, pendingMap());
+  let dropped = false;
+  ids.forEach((id) => {
+    if (!items.some((x) => x._id === id)) {
+      delete map[id];
+      dropped = true;
+    }
+  });
+  if (dropped) setPending(map);
+  if (!items.length) return Promise.resolve();
+  return sendItems(items, markPending(items));
+}
+
+// Lista do servidor, com a versão daqui nos itens pendentes (e nos novos que o servidor ainda não tem).
+function withPending(list) {
+  const map = pendingMap();
+  const ids = Object.keys(map);
+  if (!ids.length) return list;
+  const lib = accountLibrary();
+  const out = list.map((it) => (map[it._id] && lib.find((x) => x._id === it._id)) || it);
+  ids.forEach((id) => {
+    if (list.some((x) => x._id === id)) return;
+    const local = lib.find((x) => x._id === id);
+    if (local) out.push(local);
+  });
+  return out;
 }
 
 // Biblioteca em memória (reler e converter o JSON a cada consulta pesava na TV);
@@ -202,9 +283,21 @@ function saveWatch() {
 function saveWatchNow() {
   watchSaveTimer = null;
   const all = watchMap();
-  const ids = Object.keys(all).sort((a, b) => String(all[b].state.lastWatched || '').localeCompare(String(all[a].state.lastWatched || '')));
-  ids.slice(MAX_WATCH).forEach((id) => delete all[id]);
+  pruneWatch(all);
   store.setFor(watchProfile, 'watch', all);
+}
+
+// Passou do limite: sai o mais antigo. Uma varredura por item que sai (sem reordenar tudo a cada
+// gravação); a data é ISO, então comparar como texto já ordena certo.
+function pruneWatch(all) {
+  const at = (id) => String((all[id].state && all[id].state.lastWatched) || '');
+  const ids = Object.keys(all);
+  while (ids.length > MAX_WATCH) {
+    let old = 0;
+    for (let i = 1; i < ids.length; i++) if (at(ids[i]) < at(ids[old])) old = i;
+    delete all[ids[old]];
+    ids.splice(old, 1);
+  }
 }
 
 export function cachedLibrary() {
@@ -238,12 +331,15 @@ export function putLibraryItems(items, accountToo) {
   let toAccount = items;
   if (!owner()) {
     const watch = watchMap();
+    let touched = false;
     items.forEach((it) => {
       if (it.state && (it.state.timeOffset > 0 || it.state.lastWatched)) {
         watch[it._id] = { state: it.state, name: it.name, type: it.type, poster: it.poster, posterShape: it.posterShape };
+        touched = true;
       }
     });
-    saveWatch();
+    // Só grava o histórico se ele mudou (favoritar sem progresso não mexe nele).
+    if (touched) saveWatch();
     if (!accountToo) return Promise.resolve();
     toAccount = items.map((it) => {
       const acc = accountLibrary().filter((x) => x._id === it._id)[0];
@@ -259,9 +355,8 @@ export function putLibraryItems(items, accountToo) {
   });
   setLibrary(lib);
   if (!isLoggedIn()) return Promise.resolve();
-  return call('datastorePut', { authKey: auth.authKey, collection: 'libraryItem', changes: toAccount }).catch((e) => {
-    log.warn('Falha ao salvar na biblioteca', e.message);
-  });
+  // Fica pendente até o servidor confirmar (se falhar, reenvia depois, em getLibrary).
+  return sendItems(toAccount, markPending(toAccount));
 }
 
 export function libraryItem(id) {
@@ -346,7 +441,9 @@ export function saveProgress(meta, videoId, timeMs, durationMs, deltaWatchedMs) 
 }
 
 export function continueWatching() {
+  // lastWatched é ISO: compara como texto, mais barato que localeCompare na TV.
+  const at = (it) => String(it.state.lastWatched || '');
   return cachedLibrary()
     .filter((it) => it.type !== 'other' && (!it.removed || it.temp) && it.state && it.state.timeOffset > 0)
-    .sort((a, b) => String(b.state.lastWatched || '').localeCompare(String(a.state.lastWatched || '')));
+    .sort((a, b) => (at(a) < at(b) ? 1 : at(a) > at(b) ? -1 : 0));
 }

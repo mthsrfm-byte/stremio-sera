@@ -13,6 +13,15 @@ const PATHS = {
   heart: { d: '<path d="M12 20s-7.5-4.6-7.5-10.1A4.4 4.4 0 0 1 12 7.2a4.4 4.4 0 0 1 7.5 2.7C19.5 15.4 12 20 12 20z"/>' },
   heartOn: { fill: true, d: '<path d="M12 20s-7.5-4.6-7.5-10.1A4.4 4.4 0 0 1 12 7.2a4.4 4.4 0 0 1 7.5 2.7C19.5 15.4 12 20 12 20z"/>' },
   info: { d: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5.5"/><path d="M12 7.6v.1"/>' },
+  check: { d: '<path d="M5 12.5 9.5 17 19 7.5"/>' },
+  x: { d: '<path d="M6.5 6.5l11 11"/><path d="M17.5 6.5l-11 11"/>' },
+  arrowDown: { d: '<path d="M12 5v14"/><path d="m6 13 6 6 6-6"/>' },
+  arrowUp: { d: '<path d="M12 19V5"/><path d="m6 11 6-6 6 6"/>' },
+  // Aba NSFW: embaralhar, dados (outro destaque), trocar/recarregar e olho (visto).
+  shuffle: { d: '<path d="M3 7h3.2c2.3 0 3.7 1.1 4.7 2.8l.9 1.6c1 1.7 2.4 2.8 4.7 2.8H21"/><path d="M3 17h3.2c1.6 0 2.9-.7 3.8-1.9"/><path d="M14.3 9.1c.9-1.2 2.1-1.9 3.7-1.9H21"/><path d="m18 4.5 3 2.5-3 2.5"/><path d="m18 14.5 3 2.5-3 2.5"/>' },
+  dice: { d: '<rect x="3.5" y="3.5" width="17" height="17" rx="4"/><path d="M8 8h.01"/><path d="M12 12h.01"/><path d="M16 16h.01"/><path d="M16 8h.01"/><path d="M8 16h.01"/>' },
+  swap: { d: '<path d="M20 11a8 8 0 0 0-14.4-4.6L4 8.5"/><path d="M4 4v4.5h4.5"/><path d="M4 13a8 8 0 0 0 14.4 4.6L20 15.5"/><path d="M20 20v-4.5h-4.5"/>' },
+  eye: { d: '<path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>' },
 };
 
 export function ico(name, extraCls) {

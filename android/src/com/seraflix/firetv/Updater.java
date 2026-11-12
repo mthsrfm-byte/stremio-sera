@@ -63,7 +63,8 @@ final class Updater {
     }
 
     // Baixa a versão do commit sha. Devolve true se ela passou a ser a atual.
-    boolean install(String sha) {
+    // synchronized: a checagem da abertura e o "Procurar atualização" podem rodar juntos (mesma pasta .tmp).
+    synchronized boolean install(String sha) {
         File tmp = new File(root, sha + ".tmp");
         try {
             deleteTree(tmp);
@@ -129,8 +130,9 @@ final class Updater {
         }
     }
 
-    // Apaga as versões velhas. Só na abertura, antes de a tela carregar (nenhuma está em uso).
-    void prune() {
+    // Apaga as versões velhas, menos a que está em uso (current()). Chamado na abertura, em segundo
+    // plano e antes de qualquer download (synchronized: não corre junto com install).
+    synchronized void prune() {
         File keep = current();
         File[] dirs = root.listFiles();
         if (dirs == null) return;

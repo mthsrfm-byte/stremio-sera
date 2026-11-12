@@ -2,15 +2,15 @@
 // Organização por site: no topo, um bloco por site (Pornhub, XVideos e os outros addons; as
 // instalações divididas do mesmo addon, como "TPB 4K Porn (1/2)" e "(2/2)", viram um site só) e a
 // Busca (XVideos, Pornhub, TPB 4K e outros adultos; PT/EN; listas hétero e gay). Dentro do site:
-// Continuar assistindo e Favoritos, Creampie hétero/gay, lançamentos e temas da sessão (misturados
-// a cada abertura), categorias em cartões e as demais fileiras. A categoria abre numa grade com a
-// lista de categorias ao lado.
-import { h, clear, loadVisibleImages } from '../lib/dom.js';
+// Continuar assistindo, Favoritos e Vistos recentemente, Creampie hétero/gay, lançamentos e temas
+// da sessão (sorteados a cada abertura e em "Embaralhar"), categorias em cartões e as demais
+// fileiras. A categoria abre numa grade com a lista de categorias ao lado.
+import { h, clear, loadVisibleImages, $$ } from '../lib/dom.js';
 import * as nav from '../lib/nav.js';
 import { KEY } from '../lib/nav.js';
 import * as addons from '../api/addons.js';
 import * as stremio from '../api/stremio.js';
-import { topbar, card, skeletonCards, retrying, pagedGrid, statsLine, confirmDialog, seeAllCard } from '../ui.js';
+import { topbar, card, skeletonCards, lazySkeletons, statsLine, confirmDialog, seeAllCard, rowRetry, pagedGrid } from '../ui.js';
 import * as router from '../router.js';
 import { openDetails as openDetailsRaw } from './details.js';
 import { showRetry } from './recommended.js';
@@ -18,11 +18,17 @@ import { t } from '../lib/i18n.js';
 import * as tr from '../lib/translate.js';
 import * as store from '../lib/store.js';
 import * as nsfwSaved from '../lib/nsfwSaved.js';
+import * as nsfwHistory from '../lib/nsfwHistory.js';
 import * as nsfwSearch from '../lib/nsfwSearch.js';
+import { makeRng, mixSeed, hashStr, shuffleWith, newSeed } from '../lib/nsfwSearch.js';
 import { sharpThumb } from '../lib/img.js';
+import { ico } from '../lib/icons.js';
 
 const ROW_LIMIT = 20;
+const PAGE_SLOTS = 8; // a página sorteada de uma fileira de descoberta: 0 a 7
+const HERO_POOL = 60; // vídeos guardados para o destaque ("Outro destaque" sorteia entre eles)
 const ICON_SEARCH = '<svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg>';
+const FG = { foreground: true }; // pedido da tela à vista: passa na frente da fila de catálogo
 
 // Marca dos sites do serviço da TV (cores dos próprios sites).
 const SITE_MARK = {
@@ -84,11 +90,18 @@ function belongsTo(site, all, id) {
   return !all.some((s) => s !== site && sitePrefixes(s).some((p) => id.indexOf(p) === 0));
 }
 
-// Tudo que abre daqui fica marcado como adulto (some do resto do app).
+// Tudo que abre daqui fica marcado como adulto (some do resto do app) e entra nos "Vistos recentemente".
 // Muitos addons adultos não têm "meta": os detalhes usam o próprio item do catálogo.
 function openDetails(type, id, opts, item) {
   addons.markAdult(id);
+  if (item && item.name) nsfwHistory.add(Object.assign({}, item, { id: id, type: type }));
   openDetailsRaw(type, id, Object.assign({ fallbackMeta: item || null }, opts));
+}
+
+// Marca o cartão com o id do vídeo (foco se mantém pelo id ao refazer a aba).
+function tagVid(c, id) {
+  c.setAttribute('data-vid', String(id));
+  return c;
 }
 
 // Cartão do catálogo: capa deitada, qualidade e duração em cima da prévia e, embaixo, os números
@@ -104,6 +117,11 @@ function isUncensored(m) {
 const PREVIEW_DELAY = 700;
 let previewStop = null;
 
+// Com efeitos reduzidos (body.lowfx, ligado por padrão na TV) não há prévia: só a capa.
+function lowfx() {
+  return document.body.classList.contains('lowfx');
+}
+
 function previewOf(m) {
   if (m.preview) return { video: m.preview };
   const img = m.poster || m.background;
@@ -116,10 +134,13 @@ export function stopPreview() {
 
 function startPreview(cardEl, src) {
   stopPreview();
+  if (lowfx()) return;
   const wrap = cardEl.querySelector('.poster-wrap');
   if (!wrap) return;
   let node = null;
   const timer = setTimeout(() => {
+    // Cartão que já saiu da tela não ganha prévia.
+    if (!document.body.contains(cardEl)) return stop();
     const show = () => node.classList.add('ready');
     if (src.video) {
       node = h('video.card-preview', { muted: true, loop: true, autoplay: true, playsinline: true });
@@ -142,25 +163,33 @@ function startPreview(cardEl, src) {
     clearTimeout(timer);
     if (previewStop === stop) previewStop = null;
     if (!node) return;
-    if (node.tagName === 'VIDEO') {
-      node.pause();
-      node.removeAttribute('src');
-      node.load(); // solta o decodificador da TV
-    }
-    if (node.parentNode) node.parentNode.removeChild(node);
+    const n = node;
     node = null;
+    n.onerror = null;
+    n.onload = null;
+    if (n.tagName === 'VIDEO') {
+      n.pause();
+      n.removeAttribute('src');
+      n.load(); // solta o decodificador da TV
+    }
+    if (n.parentNode) n.parentNode.removeChild(n);
   }
   previewStop = stop;
 }
 
+// entry: catálogo de origem (null nas listas pessoais e no histórico).
+// Selos: qualidade em cima à esquerda, coração (foco/favorito) em cima à direita, visto (olho) e
+// "sem censura" embaixo à esquerda, duração embaixo à direita. Assim nada cai no coração.
 function itemCard(m, entry) {
-  const wide = m.posterShape === 'landscape' || (entry && entry.catalog.posterShape === 'landscape');
+  const wide = entry ? m.posterShape === 'landscape' || wideCatalog(entry) : m.posterShape !== 'poster' && m.posterShape !== 'square';
   const st = m.stats || {};
   const extra = !m.stats && m.releaseInfo ? h('div.card-stats', null, h('span.cs-by', { text: String(m.releaseInfo) })) : null;
   const pv = previewOf(m);
+  const seen = addons.wasOpened(m.id);
   const el = card(m, {
     wide: wide,
     rich: true,
+    seen: seen,
     image: wide ? m.poster || m.background : undefined,
     dropWithoutImage: true,
     corner: st.quality,
@@ -169,10 +198,12 @@ function itemCard(m, entry) {
     stats: statsLine(st) || extra,
     onSelect: () => {
       stopPreview();
-      openDetails(m.type || entry.catalog.type, m.id, null, m);
+      openDetails(m.type || (entry && entry.catalog.type), m.id, null, m);
     },
     onFocus: pv ? () => startPreview(el, pv) : undefined,
   });
+  if (seen) el.querySelector('.poster-wrap').appendChild(h('div.card-seen', { html: ico('eye') }));
+  tagVid(el, m.id);
   if (pv) el.__blur = stopPreview;
   return el;
 }
@@ -203,24 +234,167 @@ const ROW_SUB = {
   'ph-new': 'acabaram de sair',
 };
 
-// Fileiras de descoberta (Creampie): duas páginas misturadas a cada abertura do app e sem o que você
-// já abriu, para não ver sempre os mesmos vídeos.
-const SESSION_SEED = Math.floor(Math.random() * 1e9);
-function seededShuffle(list, seed) {
-  const a = list.slice();
-  let x = seed || 1;
-  for (let i = a.length - 1; i > 0; i--) {
-    x = (x * 1103515245 + 12345) & 0x7fffffff;
-    const j = x % (i + 1);
-    const tmp = a[i];
-    a[i] = a[j];
-    a[j] = tmp;
-  }
-  return a;
+// Ordenação sorteada da fileira, em palavras de gente (o subtítulo mostra o que foi sorteado).
+const SORT_LABEL = {
+  new: 'Recentes',
+  'top-week': 'Mais vistos da semana',
+  'top-month': 'Mais vistos do mês',
+  top: 'Os melhores',
+  hot: 'Em alta agora',
+  rating: 'Mais bem avaliados',
+  views: 'Mais vistos',
+};
+
+// Subtítulo da fileira: a ordenação sorteada, senão o critério fixo do catálogo, senão o site.
+function rowSub(entry, plan) {
+  if (plan && plan.sort && SORT_LABEL[plan.sort]) return t(SORT_LABEL[plan.sort]);
+  if (entry.discovery && entry.extra && entry.extra.search) return t('tema da vez');
+  if (entry.extra && entry.extra.search) return t('busca no {site}', { site: siteName(entry.addon) });
+  if (ROW_SUB[entry.catalog.id]) return t(ROW_SUB[entry.catalog.id]);
+  return siteName(entry.addon);
 }
-function unseen(metas) {
-  const fresh = metas.filter((m) => !addons.wasOpened(m.id));
-  return fresh.length >= 6 ? fresh : metas;
+
+// ---------- Descoberta: sorteio das fileiras ----------
+// Opções do extra "sort" do catálogo (só se o addon declarar; sem ele, nada é enviado).
+function sortOptions(entry) {
+  const s = (entry.catalog.extra || []).filter((e) => e && e.name === 'sort')[0];
+  return s && s.options && s.options.length ? s.options : [];
+}
+
+// Tamanho de página do catálogo (manifesto); sem ele, 20. Os tubes do serviço da TV cortam em 24.
+function pageSizeOf(entry) {
+  const n = Number(entry && entry.catalog && entry.catalog.pageSize);
+  if (n > 0) return n;
+  const id = entry && entry.addon && entry.addon.manifest && entry.addon.manifest.id;
+  return id === 'seraflix.pornhub' ? 24 : 20;
+}
+
+// Chave estável da fileira (site, catálogo, título e filtros): a mesma fileira tem o mesmo sorteio.
+function rowKeyOf(entry) {
+  const x = entry.extra || {};
+  return [entry.addon.transportUrl || entry.addon.manifest.id, entry.catalog.id, entry.title || '', x.search || '', x.orientation || '', x.genre || ''].join('|');
+}
+
+// Sort que vale para o catálogo da grade (mantém o da fileira quando o outro catálogo aceita).
+function sortFor(entry, value) {
+  return value && sortOptions(entry).indexOf(value) >= 0 ? { sort: value } : {};
+}
+
+// Vídeos sem repetir (por id), na ordem em que chegaram.
+function mergeUnique(lists) {
+  const ids = {};
+  const out = [];
+  lists.forEach((list) =>
+    (list || []).forEach((m) => {
+      if (!m || !m.id || ids[m.id]) return;
+      ids[m.id] = true;
+      out.push(m);
+    })
+  );
+  return out;
+}
+
+// Não vistos primeiro (embaralhados); os já abertos vão para o fim da fileira.
+function unseenFirst(metas, rng) {
+  const fresh = [];
+  const old = [];
+  metas.forEach((m) => (addons.wasOpened(m.id) ? old : fresh).push(m));
+  return shuffleWith(fresh, rng).concat(shuffleWith(old, rng));
+}
+
+function fetchPage(entry, skip, fg) {
+  return addons.fetchCatalog(entry, Object.assign(skip ? { skip: skip } : {}, entry.extra || {}), fg ? FG : undefined);
+}
+
+// Fileira na tela (ou quase): o pedido passa na frente das fileiras que estão fora da tela.
+function onScreen(row) {
+  const r = row.getBoundingClientRect();
+  return r.top < window.innerHeight && r.bottom > 0;
+}
+
+const wait = (ms) => new Promise((ok) => setTimeout(ok, ms));
+
+// Como ui.retrying(): tenta de novo se vier vazio ou falhar, mas para quando alive() cai (a aba
+// trocou de site ou saiu da tela) e não pede mais nada.
+function fetchAlive(fn, alive) {
+  const delays = [1500, 4000];
+  const attempt = (n) => {
+    if (!alive()) return Promise.resolve([]);
+    return Promise.resolve()
+      .then(fn)
+      .then(
+        (items) => ((items && items.length) || n >= delays.length ? items || [] : wait(delays[n]).then(() => attempt(n + 1))),
+        (err) => {
+          if (n >= delays.length) throw err;
+          return wait(delays[n]).then(() => attempt(n + 1));
+        }
+      );
+  };
+  return attempt(0);
+}
+
+// Fileira de descoberta: a página sorteada (com a seguinte, menos nos temas); se ela vier vazia ou
+// falhar, cai para a primeira página. Ordena os não vistos primeiro.
+function plannedFetch(entry, plan, alive, lite, fg) {
+  const at = (skip) => (alive() ? addons.fetchCatalog(entry, Object.assign(skip ? { skip: skip } : {}, plan.extra), fg ? FG : undefined) : Promise.resolve([]));
+  const pair = (skip) => (lite ? at(skip).then((a) => mergeUnique([a])) : Promise.all([at(skip), at(skip + plan.page).catch(() => [])]).then((l) => mergeUnique(l)));
+  const sorted = plan.skip ? pair(plan.skip).catch(() => []) : Promise.resolve([]);
+  return sorted
+    .then((metas) => (metas.length || !alive() ? metas : fetchAlive(() => pair(0), alive)))
+    .then((metas) => (alive() ? unseenFirst(metas, makeRng(plan.order)) : []));
+}
+
+// Testa se a aba está na tela (display:none quando há detalhes ou o player por cima).
+// Fora de vista não se mexe no DOM: a aba marca "sujo" e refaz ao voltar.
+function shownEl(el) {
+  return el.offsetParent !== null && !el.classList.contains('hidden');
+}
+
+// Id de quem tem o foco, para recolocar o foco depois de refazer o DOM (pelo id, senão pelo vizinho).
+function focusKey(cur) {
+  const row = cur.closest('[data-row]');
+  return {
+    row: row ? row.getAttribute('data-row') : null,
+    vid: cur.getAttribute('data-vid'),
+    action: cur.getAttribute('data-action'),
+    site: cur.getAttribute('data-site'),
+    idx: row ? $$('[data-focus]', row).indexOf(cur) : -1,
+  };
+}
+
+// Elemento de dentro de root com o atributo igual a value.
+function byAttr(root, name, value) {
+  const all = root.querySelectorAll('[' + name + ']');
+  for (let i = 0; i < all.length; i++) if (all[i].getAttribute(name) === value) return all[i];
+  return null;
+}
+
+function restoreFocus(root, key) {
+  let target = null;
+  if (key.row) {
+    const row = byAttr(root, 'data-row', key.row);
+    if (row) {
+      const cards = $$('[data-focus]', row);
+      target =
+        (key.vid && byAttr(row, 'data-vid', key.vid)) ||
+        (key.action && byAttr(row, 'data-action', key.action)) ||
+        (cards.length ? cards[Math.min(Math.max(key.idx, 0), cards.length - 1)] : null);
+    }
+  } else if (key.site) target = byAttr(root, 'data-site', key.site);
+  else if (key.action) target = byAttr(root, 'data-action', key.action);
+  // Só foca o que pode receber foco (o palco esconde os botões enquanto não há destaque).
+  if (!target || !target.hasAttribute('data-focus')) return false;
+  nav.focus(target);
+  return true;
+}
+
+// Refaz o DOM dentro de root mantendo o foco (se ele estava lá). Sem o item, usa o fallback.
+function keepFocus(root, fn, fallback) {
+  const cur = nav.current();
+  const inside = !!cur && root.contains(cur);
+  const key = inside ? focusKey(cur) : null;
+  fn();
+  if (inside && !(key && restoreFocus(root, key)) && fallback) fallback();
 }
 
 // Cor de cada categoria (sempre a mesma para o mesmo nome), em tons que combinam com a área NSFW.
@@ -248,7 +422,11 @@ export function NsfwView() {
   const bar = topbar('nsfw', router.goTab);
   const filters = h('div.provider-rail.site-rail', { 'data-group': '', 'data-trap': '' });
   const body = h('div.rows.nsfw-rows');
+  // Destaque da vez (palco): o vídeo sorteado entre os da primeira fileira de descoberta que chega.
+  const hero = { pool: [], item: null, turn: 0, replace: false, wantFocus: false };
+  const stage = buildStage();
   scroller.appendChild(bar);
+  scroller.appendChild(stage.el);
   scroller.appendChild(filters);
   scroller.appendChild(body);
   el.appendChild(scroller);
@@ -259,6 +437,12 @@ export function NsfwView() {
   let pending = [];
   let active = 0;
   let personalSlot = null;
+  let onSearchScroll = null; // busca ativa: confere, ao rolar, se a lista gay já entrou na tela
+  let token = 0; // troca a cada refazer do corpo e ao sair da aba: o que estiver em voo não toca mais no DOM
+  let stopSearch = null; // para a busca em curso ao sair da aba
+  let dirty = false; // mudou algo com a aba escondida: refaz ao voltar
+  let seed = newSeed(); // semente da aba: muda a cada abertura e a cada "Embaralhar"
+  let overrides = {}; // fileira -> quantas vezes foi trocada nesta semente
 
   function scopes() {
     const list = sites();
@@ -307,15 +491,139 @@ export function NsfwView() {
     return box;
   }
 
+  // ---------- Palco: o destaque da vez ----------
+  // Capa 16:9 à direita, título e dados à esquerda, e três botões. Os elementos são sempre os mesmos
+  // (só mudam o texto e a capa), então trocar o destaque não tira o foco de quem está nele. Sem
+  // destaque, o palco mantém a mesma altura com um aviso, e os botões saem do foco.
+  function buildStage() {
+    const kicker = h('div.stage-kicker');
+    const title = h('h2.stage-title');
+    const meta = h('div.stage-meta');
+    const img = h('img.stage-img', { alt: '' });
+    const play = h('div.btn.primary.stage-play', { 'data-action': 'play', onSelect: playHero }, [h('span.stage-ico', { html: ico('play') }), h('span', { text: t('Assistir') })]);
+    const shuffle = h('div.btn.stage-btn', { 'data-action': 'hero-shuffle', onSelect: reshuffle }, [h('span.stage-ico', { html: ico('shuffle') }), h('span', { text: t('Embaralhar') })]);
+    const next = h('div.btn.stage-btn', { 'data-action': 'hero-next', onSelect: nextHero }, [h('span.stage-ico', { html: ico('dice') }), h('span', { text: t('Outro destaque') })]);
+    const buttons = [play, shuffle, next];
+    const el = h('div.nsfw-stage', null, [
+      h('div.stage-text', null, [kicker, title, meta, h('div.stage-actions', { 'data-group': '' }, buttons)]),
+      h('div.stage-art', null, [img, h('div.stage-scrim')]),
+    ]);
+    kicker.textContent = t('Escolhendo um destaque...');
+    return { el: el, kicker: kicker, title: title, meta: meta, img: img, buttons: buttons };
+  }
+
+  function stageReady(on) {
+    stage.el.classList.toggle('ready', on);
+    stage.buttons.forEach((b) => (on ? b.setAttribute('data-focus', '') : b.removeAttribute('data-focus')));
+  }
+
+  function clearHero() {
+    hero.item = null;
+    stageReady(false);
+    stage.kicker.textContent = t('Escolhendo um destaque...');
+    stage.title.textContent = '';
+    stage.meta.textContent = '';
+    stage.img.__src = null;
+    stage.img.classList.remove('ready');
+  }
+
+  // Capa: a grande (fundo do vídeo) e, se ela não abrir, o pôster. Mesma capa já na tela: nada a fazer.
+  function setStageImage(m) {
+    const img = stage.img;
+    const list = [m.background, m.poster].filter(Boolean);
+    const first = list[0] || '';
+    if (img.__src === first) return;
+    img.__src = first;
+    img.__k = 0;
+    img.classList.remove('ready');
+    if (!first) return;
+    img.onload = () => img.classList.add('ready');
+    img.onerror = () => {
+      img.__k++;
+      if (img.__k < list.length) img.src = list[img.__k];
+      else img.classList.remove('ready');
+    };
+    img.src = first;
+  }
+
+  function showHero(m) {
+    hero.item = m;
+    stageReady(true);
+    stage.kicker.textContent = t('Destaque da vez');
+    stage.title.textContent = m.name || '';
+    const st = m.stats || {};
+    const bits = [st.duration, st.quality, st.channel, st.views ? t('{n} visualizações', { n: st.views }) : null].filter(Boolean);
+    stage.meta.textContent = bits.join('  ·  ');
+    setStageImage(m);
+    // Primeiro destaque com a aba aberta: o foco vai para "Assistir" (se ainda está nos sites ou em lugar nenhum).
+    if (hero.wantFocus && shown()) {
+      const cur = nav.current();
+      if (!cur || filters.contains(cur)) {
+        hero.wantFocus = false;
+        nav.focus(stage.buttons[0]);
+      }
+    }
+  }
+
+  // Sorteio do destaque: prefere o que ainda não foi aberto; a semente muda com o Embaralhar.
+  function pickHero(exclude) {
+    const others = hero.pool.filter((m) => !exclude || m.id !== exclude.id);
+    if (!others.length) return null;
+    const fresh = others.filter((m) => !addons.wasOpened(m.id));
+    const list = fresh.length ? fresh : others;
+    hero.turn++;
+    const rng = makeRng(mixSeed(hashStr('destaque'), seed, hero.turn));
+    return list[Math.floor(rng() * list.length)];
+  }
+
+  // Vídeos das fileiras que chegam entram no sorteio; o primeiro destaque (ou o novo, depois do
+  // Embaralhar) sai na hora, sem esperar as outras fileiras.
+  function heroFeed(metas) {
+    metas.forEach((m) => {
+      if (!m || !m.id || hero.pool.length >= HERO_POOL) return;
+      if (!hero.pool.some((x) => x.id === m.id)) hero.pool.push(m);
+    });
+    if (hero.item && !hero.replace) return;
+    const next = pickHero(hero.replace ? hero.item : null);
+    if (next) {
+      hero.replace = false;
+      showHero(next);
+    }
+  }
+
+  function nextHero() {
+    if (!hero.item) return;
+    const next = pickHero(hero.item);
+    if (next) showHero(next);
+  }
+
+  // Assistir: abre os detalhes e já procura a fonte, como a Continuar assistindo.
+  function playHero() {
+    const m = hero.item;
+    if (!m) return;
+    stopPreview();
+    openDetails(m.type || 'movie', m.id, { autoStreams: true }, m);
+  }
+
+  // Estado (vazio, erro, aviso) com o mesmo padrão visual: ícone, frase curta e, se houver, uma ação.
+  function stateBox(icon, title, sub, action) {
+    return h('div.nsfw-state', null, [
+      icon ? h('div.nsfw-state-ico', { html: ico(icon) }) : null,
+      h('div.nsfw-state-text', null, [h('b', { text: title }), sub ? h('span', { text: sub }) : null]),
+      action || null,
+    ]);
+  }
+
+  // Sites como pílulas (um controle segmentado): o site aberto fica marcado; o Embaralhar agora é do palco.
   function renderFilters() {
     clear(filters);
     const list = scopes();
     if (!list.some((f) => f.id === scope)) scope = list.length ? list[0].id : null;
     list.forEach((f) =>
       filters.appendChild(
-        h('div.provider.site-tile', { focusable: true, cls: f.id === scope ? 'on' : '', title: f.label, onFocus: () => scheduleSwitch(f.id), onSelect: () => pick(f.id, true) }, [
+        h('div.provider.site-tile', { focusable: true, cls: f.id === scope ? 'on' : '', title: f.label + ' · ' + f.sub, 'data-site': f.id, onFocus: () => scheduleSwitch(f.id), onSelect: () => pick(f.id, true) }, [
           siteMark(f),
-          h('div.site-text', null, [h('div.provider-name', { text: f.label }), h('div.site-sub', { text: f.sub })]),
+          h('div.site-text', null, [h('div.provider-name', { text: f.label })]),
         ])
       )
     );
@@ -345,19 +653,35 @@ export function NsfwView() {
     if (filters.children[idx]) nav.focus(filters.children[idx], { noScroll: true });
   }
 
+  function shown() {
+    return shownEl(el);
+  }
+
   // Mesma ideia da tela inicial: só busca o catálogo quando a fileira chega perto, 2 por vez.
   function startLoad(p) {
     p.state = 'loading';
     active++;
-    p.load().then(() => {
-      p.state = 'done';
-      active--;
-      loadNearby();
-    });
+    const mine = token;
+    p.load().then(
+      () => {
+        // Trocou de site ou saiu da aba: esta resposta já não vale (active já foi zerado).
+        if (mine !== token) return;
+        p.state = 'done';
+        active--;
+        loadNearby();
+      },
+      () => {
+        if (mine !== token) return;
+        p.state = 'done';
+        active--;
+        showRetry(p.track, () => p.load());
+        loadNearby();
+      }
+    );
   }
 
   function loadNearby() {
-    if (el.offsetParent === null) return;
+    if (!shown()) return;
     const limit = window.innerHeight * 2.2;
     for (let i = 0; i < pending.length && active < 2; i++) {
       const p = pending[i];
@@ -369,19 +693,186 @@ export function NsfwView() {
       if (p.row.getBoundingClientRect().top > limit) break;
       startLoad(p);
     }
+    checkEmpty();
   }
 
-  // Arquitetura de cada site, de cima para baixo: o que é seu (Continuar assistindo, Favoritos),
-  // as fileiras preferidas (Creampie hétero, gay e lançamentos), as categorias como cartões e as
-  // outras fileiras do site. Sem a barra de atalhos: Voltar leva de qualquer ponto aos sites.
-  function renderBody() {
+  // Aviso do topo quando as fileiras não trouxeram vídeo (vazio, ou erro com "Tentar de novo"). Some
+  // assim que alguma fileira traz vídeo.
+  function dropTopState() {
+    const t = body.querySelector('.nsfw-state.top');
+    if (t) body.removeChild(t);
+  }
+
+  function checkEmpty() {
+    if (!shown() || !pending.length || body.querySelector('.nsfw-state.top')) return;
+    if (personalSlot && personalSlot.children.length) return;
+    // Três fileiras já tentaram (as primeiras da fila) e nenhuma trouxe vídeo.
+    if (pending.some((p) => p.hasCards)) return;
+    if (pending.filter((p) => p.state === 'done').length < Math.min(3, pending.length)) return;
+    const alive = pending.filter((p) => p.row.parentNode);
+    const failed = alive.some((p) => p.failed);
+    const retry = h('div.btn.primary', { focusable: true, text: t('Tentar de novo'), onSelect: () => renderBody() });
+    const box = failed
+      ? stateBox('swap', t('Os sites não responderam agora.'), t('Confira a conexão e tente de novo.'), h('div.nsfw-state-act', null, retry))
+      : stateBox('eye', t('Nada por aqui por enquanto.'), t('Os sites não trouxeram vídeos agora. Tente de novo ou embaralhe.'), h('div.nsfw-state-act', null, retry));
+    box.classList.add('top');
+    body.insertBefore(box, body.firstChild);
+    if (!hero.item) stage.kicker.textContent = t('Sem destaque por enquanto');
+    // Quem tinha o foco numa fileira que sumiu vai para o botão de tentar de novo.
+    const cur = nav.current();
+    if (!cur || !document.body.contains(cur)) nav.focus(retry);
+  }
+
+  // Sorteio de uma fileira: a semente da aba + a chave da fileira + as trocas dela. A mesma combinação
+  // dá o mesmo sorteio, então refazer a aba (ex.: voltar dos detalhes) não reembaralha sozinho.
+  function planRow(entry, key) {
+    const rng = makeRng(mixSeed(hashStr(key), seed, overrides[key] || 0));
+    const pg = pageSizeOf(entry);
+    const opts = sortOptions(entry);
+    const p = Math.floor(rng() * PAGE_SLOTS);
+    const sort = opts.length ? opts[Math.floor(rng() * opts.length)] : null;
+    const extra = Object.assign({}, entry.extra || {});
+    if (sort !== null) extra.sort = sort;
+    return { skip: p * pg, page: pg, sort: sort, extra: extra, order: Math.floor(rng() * 4294967296) >>> 0 };
+  }
+
+  // Fileira de um catálogo. plan: sorteio da fileira de descoberta (com "Trocar estes"); null: fixa.
+  // A fileira nasce já com o "Trocar estes" (o próprio elemento, que segura o foco ao trocar a
+  // fileira) e os esqueletos só perto da tela (lazySkeletons). Ao chegar, os vídeos entram antes dele.
+  function catalogRow(entry, plan, key) {
+    const wide = wideCatalog(entry);
+    const row = h('div.row', { 'data-anchor': '30', 'data-row': key });
+    const track = h('div.row-track.pending', { 'data-scroll-x': '', 'data-group': '', 'data-trap': '' });
+    const swap = plan ? swapCard(key, wide) : null;
+    lazySkeletons(track, 6, wide);
+    if (swap) track.appendChild(swap);
+    row.appendChild(h('div.row-title', null, [catName(entry), h('small', { text: rowSub(entry, plan) })]));
+    row.appendChild(track);
+    const out = { row: row, track: track, key: key, entry: entry, plan: plan, swap: swap, state: 'idle', hasCards: false, failed: false };
+    // Tira só os vídeos (e os esqueletos); o "Trocar estes" fica no lugar, com o foco.
+    const clearCards = () =>
+      Array.prototype.slice.call(track.children).forEach((c) => {
+        if (c !== swap) track.removeChild(c);
+      });
+    out.load = () => {
+      const mine = token;
+      const alive = () => mine === token;
+      const fg = onScreen(row);
+      const got = plan ? plannedFetch(entry, plan, alive, !!entry.discoveryLite, fg) : fetchAlive(() => fetchPage(entry, 0, fg), alive);
+      return got
+        .then((metas) => {
+          if (!alive()) return;
+          if (!metas.length) {
+            const had = !!nav.current() && row.contains(nav.current());
+            if (row.parentNode) row.parentNode.removeChild(row);
+            if (had) refocusElsewhere();
+            return;
+          }
+          clearCards();
+          out.hasCards = true;
+          dropTopState();
+          track.classList.remove('pending');
+          metas.slice(0, ROW_LIMIT).forEach((m) => track.appendChild(itemCard(m, entry)));
+          if (swap) track.appendChild(swap);
+          if (metas.length >= ROW_LIMIT)
+            track.appendChild(
+              seeAllCard({
+                label: catName(entry),
+                wide: wide,
+                onSelect: () => router.push(GridView(entry, plan ? plan.extra : entry.extra || {}, null, undefined, plan ? plan.skip : 0)),
+              })
+            );
+          heroFeed(metas);
+          loadVisibleImages(row);
+        })
+        .catch(() => {
+          if (!alive()) return;
+          out.failed = true;
+          clearCards();
+          track.classList.remove('pending');
+          track.appendChild(
+            rowRetry(() => {
+              // O botão "Tentar de novo" some com a limpeza: o foco vai para o "Trocar estes", se a fileira tem um.
+              const fromRetry = row.contains(nav.current());
+              clearCards();
+              track.classList.add('pending');
+              lazySkeletons(track, 6, wide);
+              if (swap) track.appendChild(swap);
+              if (swap && fromRetry) nav.focus(swap);
+              out.load();
+            })
+          );
+          if (swap) track.appendChild(swap);
+        });
+    };
+    return out;
+  }
+
+  // "Trocar estes": cartão estreito, com a altura da capa da fileira, antes de "Ver tudo".
+  function swapCard(key, wide) {
+    return h('div.card.swap-card', { focusable: true, cls: wide ? 'wide' : '', 'data-action': 'reshuffle-row', onSelect: () => reshuffleRow(key) }, [
+      h('div.poster-wrap', null, h('div.swap-label', null, [h('i', { html: ico('swap') }), h('b', { text: t('Trocar estes') })])),
+      h('div.name', { text: t('Outro sorteio') }),
+    ]);
+  }
+
+  // Troca só uma fileira por outra página/ordenação sorteada; ignora se ela ainda carrega.
+  // O foco fica no próprio "Trocar estes" (é o mesmo critério: o elemento novo entra no lugar do antigo).
+  function reshuffleRow(key) {
+    const i = pending.map((p) => p.key).indexOf(key);
+    if (i < 0 || pending[i].state === 'loading') return;
+    const old = pending[i];
+    if (!old.row.parentNode) return;
+    let plan = null;
+    for (let tries = 0; tries < 6; tries++) {
+      overrides[key] = (overrides[key] || 0) + 1;
+      plan = planRow(old.entry, key);
+      if (!old.plan || plan.skip !== old.plan.skip || plan.sort !== old.plan.sort) break;
+    }
+    const had = old.row.contains(nav.current());
+    const fresh = catalogRow(old.entry, plan, key);
+    old.row.parentNode.replaceChild(fresh.row, old.row);
+    pending[i] = fresh;
+    if (had) nav.focus(fresh.swap);
+    startLoad(fresh);
+  }
+
+  // Foco que sumiu (fileira vazia, por exemplo): vai para o palco, senão para os sites.
+  function refocusElsewhere() {
+    if (hero.item && shown()) nav.focus(stage.buttons[0]);
+    else onRail();
+  }
+
+  // "Embaralhar": nova semente para sites, temas e fileiras de descoberta; o destaque troca quando
+  // a primeira fileira nova chega. Continuar, Favoritos e o histórico ficam como estão. Ignora
+  // toques enquanto alguma fileira carrega.
+  function reshuffle() {
+    if (active > 0 || pending.some((p) => p.state === 'loading')) return;
+    seed = newSeed();
+    overrides = {};
+    renderBody(true);
+  }
+
+  // Arquitetura de cada site, de cima para baixo: o que é seu (Continuar assistindo, Favoritos,
+  // Vistos recentemente), as fileiras preferidas (Creampie hétero, gay e lançamentos), as categorias
+  // como cartões e as outras fileiras do site. Sem a barra de atalhos: Voltar leva de qualquer ponto aos sites.
+  // keep: "Embaralhar" — o destaque atual continua na tela até a primeira fileira nova chegar.
+  function renderBody(keep) {
+    token++; // o que estava em voo (outro site, busca, fileiras) não toca mais no DOM
     pending = [];
+    active = 0;
+    stopSearch = null;
     clear(body);
+    onSearchScroll = null;
+    hero.pool = [];
+    hero.replace = !!keep;
+    if (!keep) clearHero();
+    stage.el.style.display = scope === 'search' ? 'none' : '';
     if (scope === 'search') return renderSearch();
     const all = sites();
     const site = all.filter((s) => s.id === scope)[0];
     if (!site) {
-      body.appendChild(h('div.hint', { text: emptyHint() }));
+      body.appendChild(stateBox('', emptyHint(), '', null));
       return;
     }
     personalSlot = h('div.nsfw-personal');
@@ -401,10 +892,10 @@ export function NsfwView() {
       entries.unshift(Object.assign({}, searchable[0], { extra: { search: 'gay creampie' }, title: t('Creampie gay'), order: 1 }));
       entries.unshift(Object.assign({}, searchable[0], { extra: { search: 'creampie' }, title: t('Creampie hétero'), order: 0 }));
     }
-    // Temas extras desta sessão (mudam a cada abertura): mais variedade além do Creampie.
+    // Temas extras desta semente (mudam a cada abertura e a cada Embaralhar): mais variedade além do Creampie.
     // discoveryLite: uma página só (não vale 2 scrapes por tema na TV).
     if (searchable.length) {
-      nsfwSearch.sessionThemes(SESSION_SEED).forEach((theme) => {
+      nsfwSearch.sessionThemes(seed).forEach((theme) => {
         entries.push(
           Object.assign({}, searchable[0], {
             extra: nsfwSearch.searchExtra(searchable[0], theme.search, theme.orientation),
@@ -425,14 +916,18 @@ export function NsfwView() {
         catsDone = true;
         categoryRows(site);
       }
-      pending.push(Object.assign(catalogRow(x.e, body, orderOf(x.e) < 3 || x.e.discovery), { state: 'idle' }));
+      const disc = orderOf(x.e) < 3 || !!x.e.discovery;
+      const key = rowKeyOf(x.e);
+      const r = catalogRow(x.e, disc ? planRow(x.e, key) : null, key);
+      body.appendChild(r.row);
+      pending.push(r);
     });
     if (!catsDone) categoryRows(site);
     loadVisibleImages(el);
     loadNearby();
   }
 
-  // Favoritos e Continuar assistindo, só com o que é deste site (refeito ao voltar dos detalhes).
+  // Continuar assistindo, Favoritos e Vistos recentemente, só com o que é deste site.
   function renderPersonal(site, all) {
     if (!personalSlot) return;
     clear(personalSlot);
@@ -445,23 +940,30 @@ export function NsfwView() {
     lib.filter((it) => !it.removed && !it.temp && watching.indexOf(it) < 0 && !favs.some((f) => f.id === it._id)).forEach((it) =>
       favs.push({ id: it._id, type: it.type, name: it.name, poster: it.poster, posterShape: it.posterShape })
     );
+    const watchIds = {};
+    watching.forEach((it) => (watchIds[it._id] = true));
+    const hist = nsfwHistory.list().filter((m) => mine(m.id) && !watchIds[m.id]);
     if (watching.length)
       staticRow(
         t('Continuar assistindo'),
         '',
+        'watch',
         watching.slice(0, ROW_LIMIT).map((it) => {
           const s = it.state;
           const left = s.duration ? Math.max(1, Math.round((s.duration - s.timeOffset) / 60000)) : 0;
-          return card(
-            { id: it._id, type: it.type, name: it.name, poster: it.poster },
-            {
-              wide: true,
-              rich: true,
-              image: it.background || it.poster,
-              duration: left ? t('faltam {n} min', { n: left }) : '',
-              progress: s.duration ? s.timeOffset / s.duration : 0,
-              onSelect: () => openDetails(it.type, it._id, { videoId: s.video_id, autoStreams: true }, { name: it.name, poster: it.poster }),
-            }
+          return tagVid(
+            card(
+              { id: it._id, type: it.type, name: it.name, poster: it.poster },
+              {
+                wide: true,
+                rich: true,
+                image: it.background || it.poster,
+                duration: left ? t('faltam {n} min', { n: left }) : '',
+                progress: s.duration ? s.timeOffset / s.duration : 0,
+                onSelect: () => openDetails(it.type, it._id, { videoId: s.video_id, autoStreams: true }, { name: it.name, poster: it.poster }),
+              }
+            ),
+            it._id
           );
         })
       );
@@ -469,16 +971,24 @@ export function NsfwView() {
       staticRow(
         t('Favoritos'),
         t(favs.length === 1 ? '{n} vídeo' : '{n} vídeos', { n: favs.length }),
+        'favs',
         favs.slice(0, 40).map((it) =>
-          card(it, { wide: it.posterShape !== 'poster', rich: true, image: it.posterShape !== 'poster' ? it.poster : undefined, onSelect: () => openDetails(it.type, it.id, null, it) })
+          tagVid(card(it, { wide: it.posterShape !== 'poster', rich: true, image: it.posterShape !== 'poster' ? it.poster : undefined, onSelect: () => openDetails(it.type, it.id, null, it) }), it.id)
         )
+      );
+    if (hist.length)
+      staticRow(
+        t('Vistos recentemente'),
+        t(hist.length === 1 ? '{n} vídeo' : '{n} vídeos', { n: hist.length }),
+        'history',
+        hist.slice(0, 40).map((m) => itemCard(m, null))
       );
     loadVisibleImages(personalSlot);
   }
 
-  function staticRow(title, sub, cards) {
+  function staticRow(title, sub, key, cards) {
     const track = h('div.row-track', { 'data-scroll-x': '', 'data-group': '', 'data-trap': '' }, cards);
-    const row = h('div.row', { 'data-anchor': '30' }, [h('div.row-title', null, [title, sub ? h('small', { text: sub }) : null]), track]);
+    const row = h('div.row', { 'data-anchor': '30', 'data-row': key }, [h('div.row-title', null, [title, sub ? h('small', { text: sub }) : null]), track]);
     personalSlot.appendChild(row);
     return row;
   }
@@ -490,7 +1000,10 @@ export function NsfwView() {
       const tiles = group.cats.map((c, i) => categoryTile(tr.genre(c.g), () => router.push(GridView(c.e, { genre: c.g }, group, i))));
       const track = h('div.row-track.cat-track', { 'data-scroll-x': '', 'data-group': '', 'data-trap': '' }, tiles);
       body.appendChild(
-        h('div.row.nsfw-cats', { 'data-anchor': '30' }, [h('div.row-title', null, [group.title, h('small', { text: t('{n} categorias', { n: group.cats.length }) })]), track])
+        h('div.row.nsfw-cats', { 'data-anchor': '30', 'data-row': 'cats:' + group.title }, [
+          h('div.row-title', null, [group.title, h('small', { text: t('{n} categorias', { n: group.cats.length }) })]),
+          track,
+        ])
       );
     });
   }
@@ -516,7 +1029,25 @@ export function NsfwView() {
       h('div.hint', { text: t('Resultados do XVideos, Pornhub e dos seus addons adultos (ex.: TPB 4K), em listas hétero e gay.') })
     );
     body.appendChild(results);
-    let token = 0;
+    let runNo = 0; // cada busca nova troca a anterior
+    let lastQuery = '';
+    let inflight = []; // fileiras de resultado ainda carregando
+
+    // Ao sair da aba as buscas param: a fileira que ficou pela metade mostra "Tentar de novo".
+    stopSearch = () => {
+      inflight.forEach((j) => {
+        if (j.done) return;
+        j.done = true;
+        clear(j.track);
+        j.track.appendChild(
+          rowRetry(() => {
+            run(lastQuery);
+            nav.focus(input);
+          })
+        );
+      });
+      inflight = [];
+    };
 
     function searchCats() {
       const cats = [];
@@ -543,19 +1074,19 @@ export function NsfwView() {
       return into;
     }
 
-    // Primeiro o termo original; só pede a variante PT/EN se veio pouco resultado.
-    function fetchSmart(entry, orientation, queries) {
+    // Primeiro o termo original; só pede a variante PT/EN se veio pouco resultado (e a busca ainda vale).
+    function fetchSmart(entry, orientation, queries, alive) {
       const ids = {};
       const out = [];
       const primary = queries[0];
       const alt = queries[1];
       return addons
-        .fetchCatalog(entry, nsfwSearch.searchExtra(entry, primary, orientation))
+        .fetchCatalog(entry, nsfwSearch.searchExtra(entry, primary, orientation), FG)
         .then((metas) => {
           mergeMetas(out, metas, ids);
-          if (out.length >= SEARCH_MIN || !alt) return out;
+          if (out.length >= SEARCH_MIN || !alt || !alive()) return out;
           return addons
-            .fetchCatalog(entry, nsfwSearch.searchExtra(entry, alt, orientation))
+            .fetchCatalog(entry, nsfwSearch.searchExtra(entry, alt, orientation), FG)
             .then((more) => mergeMetas(out, more, ids))
             .catch(() => out);
         })
@@ -565,8 +1096,13 @@ export function NsfwView() {
     function run(q) {
       const query = (q || '').trim();
       clear(results);
+      onSearchScroll = null;
       if (query.length < 2) return results.appendChild(h('div.hint', { text: t('Digite pelo menos 2 letras e aperte Buscar.') }));
-      const my = ++token;
+      const mine = ++runNo;
+      const tok = token;
+      const alive = () => mine === runNo && tok === token;
+      lastQuery = query;
+      inflight = [];
       const queries = nsfwSearch.expandQueries(query);
       const cats = searchCats();
       if (!cats.length) return results.appendChild(h('div.hint', { text: t('Nenhum site com busca disponível agora.') }));
@@ -577,6 +1113,11 @@ export function NsfwView() {
       ];
       const slots = {};
       const jobs = [];
+      let cursor = 0;
+      let running = 0;
+      let found = 0;
+      let allHint = false;
+      const PARALLEL = 2;
 
       sections.forEach((sec) => {
         const block = h('div.nsfw-search-section');
@@ -584,39 +1125,54 @@ export function NsfwView() {
         const host = h('div.rows');
         block.appendChild(host);
         results.appendChild(block);
-        slots[sec.id] = { host: host, found: 0 };
-        cats.forEach((entry) => jobs.push({ sec: sec, entry: entry }));
+        slots[sec.id] = { host: host, block: block, found: 0, queued: false };
       });
 
-      let left = jobs.length;
-      let found = 0;
-      let cursor = 0;
-      let running = 0;
-      const PARALLEL = 2;
+      // Cada lista só busca quando entra na tela: a hétero logo; a gay ao aparecer (ou ao rolar até ela).
+      function queue(sec) {
+        const slot = slots[sec.id];
+        if (slot.queued || !alive()) return;
+        slot.queued = true;
+        cats.forEach((entry) => jobs.push({ sec: sec, entry: entry }));
+        pump();
+      }
+      function checkGay() {
+        if (!alive() || slots.gay.queued) return;
+        if (slots.gay.block.getBoundingClientRect().top < window.innerHeight) queue(sections[1]);
+      }
 
       function finish() {
-        if (my !== token) return;
+        if (!alive() || running || cursor < jobs.length) return;
         sections.forEach((s) => {
           const slot = slots[s.id];
-          if (!slot.found) slot.host.appendChild(h('div.hint', { text: t('Nada nesta lista para "{q}".', { q: query }) }));
+          if (!slot.queued || slot.found || slot.hinted) return;
+          slot.hinted = true;
+          slot.host.appendChild(h('div.hint', { text: t('Nada nesta lista para "{q}".', { q: query }) }));
         });
-        if (!found) results.appendChild(h('div.hint', { text: t('Nada encontrado para "{q}".', { q: query }) }));
+        if (!found && !allHint && slots.straight.queued && slots.gay.queued) {
+          allHint = true;
+          results.appendChild(h('div.hint', { text: t('Nada encontrado para "{q}".', { q: query }) }));
+        }
       }
 
       function pump() {
-        if (my !== token) return;
+        if (!alive()) return;
         while (running < PARALLEL && cursor < jobs.length) {
           const job = jobs[cursor++];
           running++;
-          const track = h('div.row-track', { 'data-scroll-x': '', 'data-group': '', 'data-trap': '' }, skeletonCards(6, true));
+          const track = h('div.row-track', { 'data-scroll-x': '', 'data-group': '', 'data-trap': '' });
           const row = h('div.row', { 'data-anchor': '30' }, [
             h('div.row-title', null, [siteName(job.entry.addon), h('small', { text: t('busca') })]),
             track,
           ]);
+          lazySkeletons(track, 6, true);
           slots[job.sec.id].host.appendChild(row);
-          fetchSmart(job.entry, job.sec.orientation, queries)
+          const rec = { track: track, done: false };
+          inflight.push(rec);
+          fetchSmart(job.entry, job.sec.orientation, queries, alive)
             .then((metas) => {
-              if (my !== token) return;
+              rec.done = true;
+              if (!alive()) return;
               clear(track);
               if (!metas.length) {
                 if (row.parentNode) row.parentNode.removeChild(row);
@@ -628,19 +1184,23 @@ export function NsfwView() {
               loadVisibleImages(row);
             })
             .catch(() => {
-              if (my !== token) return;
+              rec.done = true;
+              if (!alive()) return;
               if (row.parentNode) row.parentNode.removeChild(row);
             })
             .then(() => {
               running--;
-              left--;
-              if (my !== token) return;
-              if (left <= 0) finish();
-              else pump();
+              if (!alive()) return;
+              pump();
+              checkGay(); // a lista de cima mudou de tamanho: a gay pode ter entrado na tela
+              finish();
             });
         }
       }
-      pump();
+
+      queue(sections[0]);
+      checkGay();
+      onSearchScroll = checkGay;
     }
     nav.focus(input);
   }
@@ -650,10 +1210,28 @@ export function NsfwView() {
     // O site do filtro pode ter sido desmarcado em Ajustes.
     if (!scopes().some((f) => f.id === scope)) scope = store.get('nsfwScope', null);
     renderFilters();
+    hero.wantFocus = true; // a aba abre com o foco em "Assistir", quando o destaque chegar
     renderBody();
   }
 
-  body.appendChild(h('div.hint', { text: t('Carregando addons...') }));
+  // Refaz a aba se ela está na tela; fora de vista só marca "sujo" (refaz ao voltar, em onShow).
+  function refresh() {
+    if (!shown()) {
+      dirty = true;
+      return;
+    }
+    dirty = false;
+    keepFocus(el, render, onRail);
+  }
+
+  // Antes dos sites: duas fileiras de esqueleto no formato final (capas vazias, sem brilho).
+  function loadingRows() {
+    const wrap = h('div.nsfw-loading');
+    [0, 1].forEach(() => wrap.appendChild(h('div.row', null, [h('div.row-track', null, skeletonCards(6, true))])));
+    return wrap;
+  }
+
+  body.appendChild(loadingRows());
   let ready = false;
 
   // Sem site: explica o porquê (o XVideos e o Pornhub vêm do serviço do Seraflix na TV).
@@ -675,12 +1253,8 @@ export function NsfwView() {
       .join(',');
   const stopWatch = addons.onChange(() => {
     if (!ready) return;
-    const key = providersKey();
-    if (key === lastKey) return;
-    const cur = nav.current();
-    const hadFocus = cur && el.contains(cur);
-    render();
-    if (hadFocus) onRail();
+    if (providersKey() === lastKey) return;
+    refresh();
   });
 
   const onRail = () => {
@@ -688,12 +1262,15 @@ export function NsfwView() {
     if (target) nav.focus(target);
   };
 
-  // Como em Streamings: ↓ da barra de cima vai para os sites, e ↑ do primeiro item do conteúdo volta para eles.
+  // ↓ da barra de cima vai para o palco (Assistir), se há destaque; senão, para os sites.
+  const onTopDown = () => (hero.item && shown() ? nav.focus(stage.buttons[0]) : onRail());
+
+  // ↓ da barra de cima vai para o palco; ↑ do primeiro item do conteúdo volta para os sites.
   function onKey(e) {
     const cur = nav.current();
     if (!cur || !filters.firstChild) return false;
     if (e.keyCode === KEY.DOWN && cur.closest('.topbar')) {
-      onRail();
+      onTopDown();
       return true;
     }
     if (e.keyCode === KEY.UP && body.contains(cur)) {
@@ -707,10 +1284,37 @@ export function NsfwView() {
     return false;
   }
 
-  // Voltar não sai da aba sem querer: do conteúdo vai para os sites; dos sites, pergunta.
+  // Carrega os addons. Em falha mostra o erro com "Tentar de novo" (antes ficava em "Carregando" para sempre).
+  function loadAddons(force) {
+    return addons
+      .load(force)
+      .then(() => {
+        ready = true;
+        if (shown()) {
+          render();
+          onRail(); // a aba abre com os sites em foco; o destaque leva o foco para "Assistir" quando chega
+        } else dirty = true;
+      })
+      .catch(() => {
+        clear(body);
+        const retry = h('div.btn.primary', {
+          focusable: true,
+          text: t('Tentar de novo'),
+          onSelect: () => {
+            clear(body);
+            body.appendChild(loadingRows());
+            loadAddons(true);
+          },
+        });
+        body.appendChild(stateBox('swap', t('Não foi possível carregar os sites agora.'), t('Confira a conexão e tente de novo.'), h('div.nsfw-state-act', null, retry)));
+        if (el.offsetParent !== null) nav.focus(retry);
+      });
+  }
+
+  // Voltar não sai da aba sem querer: do conteúdo (ou do palco) vai para os sites; dos sites, pergunta.
   function onBack() {
     const cur = nav.current();
-    if (cur && body.contains(cur) && filters.firstChild) {
+    if (cur && (body.contains(cur) || stage.el.contains(cur)) && filters.firstChild) {
       onRail();
       scroller.scrollTop = 0;
       return true;
@@ -719,29 +1323,55 @@ export function NsfwView() {
     return true;
   }
 
+  // Continuar/Favoritos/histórico mudam nos detalhes e no player: refaz só essa parte, com o foco.
+  function refreshPersonal() {
+    const all = sites();
+    const site = all.filter((s) => s.id === scope)[0];
+    if (!site || !personalSlot) return;
+    keepFocus(
+      personalSlot,
+      () => renderPersonal(site, all),
+      () => {
+        const c = personalSlot.querySelector('[data-focus]');
+        if (c) nav.focus(c);
+        else onRail();
+      }
+    );
+  }
+
   return {
     el: el,
     onKey: onKey,
     onBack: onBack,
     onShow: () => {
-      if (ready) {
-        if (scope !== 'search') {
-          const all = sites();
-          const site = all.filter((s) => s.id === scope)[0];
-          // Favoritos/Continuar mudam nos detalhes e no player: refaz só essa parte.
-          if (site && personalSlot && !personalSlot.contains(nav.current())) renderPersonal(site, all);
-        }
-        return loadNearby();
+      if (!ready) {
+        loadAddons(false);
+        return;
       }
-      addons.load().then(() => {
-        ready = true;
-        render();
-        onRail(); // a aba abre com o site atual em foco
-      });
+      if (dirty) {
+        dirty = false;
+        keepFocus(el, render, onRail);
+      } else if (scope !== 'search') refreshPersonal();
+      // Aberta pela barra (o foco caiu na própria aba): a aba abre com o foco em "Assistir".
+      const cur = nav.current();
+      if (hero.item && shown() && cur && cur.closest('.topbar')) nav.focus(stage.buttons[0]);
+      loadNearby();
     },
-    onScroll: () => loadNearby(),
-    onHide: () => stopPreview(),
+    onScroll: () => {
+      loadNearby();
+      if (onSearchScroll) onSearchScroll();
+    },
+    onHide: () => {
+      stopPreview();
+      token++; // o que estava em voo para de tocar no DOM; as fileiras paradas recarregam ao voltar
+      active = 0;
+      pending.forEach((p) => {
+        if (p.state === 'loading') p.state = 'idle';
+      });
+      if (stopSearch) stopSearch();
+    },
     destroy: () => {
+      token++;
       stopPreview();
       stopWatch();
       clearTimeout(switchTimer);
@@ -779,68 +1409,7 @@ function catName(entry) {
   return entry.title || tr.genre(entry.catalog.name || entry.catalog.id);
 }
 
-// Tamanho de página dos tubes (o serviço corta nisso); demais addons: 20.
-function pageSizeOf(entry) {
-  const id = entry && entry.addon && entry.addon.manifest && entry.addon.manifest.id;
-  if (id === 'seraflix.pornhub') return 24;
-  return 20;
-}
-
-// discovery: fileira de descoberta — 1 ou 2 páginas a partir de um offset sorteado na sessão,
-// misturadas e sem o que já foi aberto. Temas extras (discoveryLite) usam só 1 página.
-function catalogRow(entry, parent, discovery) {
-  const row = h('div.row', { 'data-anchor': '30' });
-  const sub = entry.extra && entry.extra.search ? t('busca no {site}', { site: siteName(entry.addon) }) : ROW_SUB[entry.catalog.id] ? t(ROW_SUB[entry.catalog.id]) : siteName(entry.addon);
-  const track = h('div.row-track.pending', { 'data-scroll-x': '', 'data-group': '', 'data-trap': '' }, skeletonCards(6, wideCatalog(entry)));
-  row.appendChild(h('div.row-title', null, [catName(entry), h('small', { text: sub })]));
-  row.appendChild(track);
-  parent.appendChild(row);
-  const out = { row: row };
-  const seedKey = SESSION_SEED + String(entry.catalog.id || '').length + (entry.title || '').length;
-  const fetchPage = (skip) => addons.fetchCatalog(entry, Object.assign(skip ? { skip: skip } : {}, entry.extra || {}));
-  const fetchRow = () => {
-    if (!discovery) return retrying(() => fetchPage(0));
-    const page = pageSizeOf(entry);
-    const start = ((SESSION_SEED + String(entry.catalog.id || entry.title || '').length * 17) % 4) * page;
-    // Temas da sessão: uma página sorteada basta.
-    if (entry.discoveryLite) {
-      return retrying(() => fetchPage(start || 0)).then((metas) => seededShuffle(unseen(metas || []), seedKey));
-    }
-    // Creampie e fileiras fortes: duas páginas a partir do offset (sem scrape extra só para medir).
-    return retrying(() => fetchPage(start || 0)).then((first) => {
-      if (!first.length) return first;
-      return fetchPage(start + first.length)
-        .catch(() => [])
-        .then((second) => {
-          const ids = {};
-          const both = [];
-          first.concat(second || []).forEach((m) => {
-            if (!m || !m.id || ids[m.id]) return;
-            ids[m.id] = true;
-            both.push(m);
-          });
-          return seededShuffle(unseen(both), seedKey);
-        });
-    });
-  };
-  const load = () =>
-    fetchRow()
-      .then((metas) => {
-        clear(track);
-        track.classList.remove('pending');
-        if (!metas.length) {
-          if (row.parentNode) row.parentNode.removeChild(row);
-          return;
-        }
-        metas.slice(0, ROW_LIMIT).forEach((m) => track.appendChild(itemCard(m, entry)));
-        if (metas.length >= ROW_LIMIT) track.appendChild(seeAllCard({ label: catName(entry), wide: wideCatalog(entry), onSelect: () => router.push(GridView(entry, entry.extra || {})) }));
-        loadVisibleImages(row);
-      })
-      .catch(() => showRetry(track, () => load()));
-  out.load = load;
-  return out;
-}
-
+// ---------- Grade ("Ver tudo" e categorias) ----------
 // Grade com o catálogo inteiro (opcionalmente filtrado por categoria ou busca), paginada pelo "skip".
 // Nas categorias de hentai, um subfiltro separa os títulos "uncensored" dos demais.
 const UNCENSORED_FILTERS = [
@@ -857,7 +1426,8 @@ const FILTER_KEEP = {
 // group/at: grupo de categorias do site e a atual. Com ele, a grade ganha a lista de categorias à
 // esquerda (como as estantes de gênero dos streamings): parar numa categoria troca a grade e →
 // entra nela; Voltar da grade volta para a lista, e da lista sai.
-function GridView(entry, extra, group, at) {
+// from: skip de onde a grade começa (a fileira de origem já andou essas páginas); sort vem no extra.
+function GridView(entry, extra, group, at, from) {
   const el = h('div.view.nsfw-view.nsfw-grid-view', { 'data-stay': '' });
   const crumb = h('div.reco-crumb');
   const filterRow = h('div.row.nsfw-filter', { 'data-anchor': '30' });
@@ -869,22 +1439,30 @@ function GridView(entry, extra, group, at) {
   let pg = null;
   let isHentai = false;
   let switchTimer = null;
+  let startAt = from || 0;
+  let buildNo = 0; // cada grade montada troca a anterior: a busca que ainda vem não entra nela
+  let viewDead = false;
 
   // Busca uma página do catálogo; no filtro, junta páginas até ter o bastante (ou o catálogo acabar).
-  function fetcher() {
-    let skip = 0;
+  // FILL_MIN: ~2 linhas da grade. A grade só mostra linhas cheias, então com menos a tela ficaria parada.
+  const FILL_MIN = 12;
+  function fetcher(alive) {
+    let skip = startAt;
     const keep = FILTER_KEEP[mode];
     const e = entry;
     const x = extra;
     return function load() {
       const got = [];
-      const step = (tries) =>
-        addons.fetchCatalog(e, Object.assign({ skip: skip || undefined }, x)).then((metas) => {
+      const step = (tries) => {
+        // Grade trocada ou tela fechada: não pede a próxima página.
+        if (!alive()) return Promise.resolve(got);
+        return addons.fetchCatalog(e, Object.assign({ skip: skip || undefined }, x), FG).then((metas) => {
           skip += metas.length;
           metas.forEach((m) => keep(m) && got.push(m));
-          if (!metas.length || got.length >= 20 || tries >= 5) return got;
+          if (!metas.length || got.length >= FILL_MIN || tries >= 5) return got;
           return step(tries + 1);
         });
+      };
       return step(0);
     };
   }
@@ -893,7 +1471,8 @@ function GridView(entry, extra, group, at) {
   function build(stay) {
     stopPreview();
     if (pg) pg.destroy();
-    const load = fetcher();
+    const mine = ++buildNo;
+    const load = fetcher(() => mine === buildNo && !viewDead);
     const e = entry;
     pg = pagedGrid({
       autoFocus: !stay,
@@ -901,7 +1480,13 @@ function GridView(entry, extra, group, at) {
       key: (m) => m.id,
       card: (m) => itemCard(m, e),
       skeleton: () => skeletonCards(hasSide ? 6 : 8, wideCatalog(e)),
-      onEmpty: () => pg.el.insertBefore(h('div.hint', { text: t('Nada por aqui.') }), pg.el.firstChild),
+      // Grade presa à margem: o cabeçalho e as colunas começam juntos, qualquer que seja o nº de colunas.
+      align: 'left',
+      insetLeft: hasSide ? 154 : 96,
+      insetRight: 96,
+      errorState: true,
+      partialRows: true,
+      onEmpty: () => pg.el.insertBefore(stateBox('eye', t('Nada por aqui.'), t('Tente outra categoria ou embaralhe os destaques.'), null), pg.el.firstChild),
     });
     clear(slot);
     slot.appendChild(pg.el);
@@ -941,7 +1526,8 @@ function GridView(entry, extra, group, at) {
     const c = group.cats[i];
     Array.prototype.forEach.call(side.children, (x, j) => x.classList.toggle('active', j === at));
     entry = c.e;
-    extra = { genre: c.g };
+    extra = Object.assign({ genre: c.g }, sortFor(c.e, extra.sort));
+    startAt = 0;
     mode = 'all';
     renderHead();
     build(true);
@@ -993,8 +1579,11 @@ function GridView(entry, extra, group, at) {
     },
     onHide: () => stopPreview(),
     destroy: () => {
+      viewDead = true;
+      buildNo++;
       clearTimeout(switchTimer);
       stopPreview();
+      if (pg) pg.destroy();
     },
   };
 }

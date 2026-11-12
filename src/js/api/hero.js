@@ -54,17 +54,18 @@ function interleave(a, b) {
 function cinemeta(catalogId) {
   return Promise.all(
     ['movie', 'series'].map((t) =>
-      cachedJSON(CINEMETA + t + '/' + catalogId + '.json', 3600000)
+      cachedJSON(CINEMETA + t + '/' + catalogId + '.json', 3600000, { cat: 'catalogo' })
         .then((r) => (r.metas || []).slice(0, 8).map(fromMeta))
         .catch(() => [])
     )
   ).then((r) => interleave(r[0], r[1]));
 }
 
+// Lista do MDBList (Snoak) fica 24 h no cache; a busca passa pelo proxy do PC se a TV bloquear.
 function mdblist() {
   return Promise.all(
     ['movie', 'series'].map((t) =>
-      getJSONViaProxy(MDBLIST[t], { timeout: 15000 })
+      cachedJSON(MDBLIST[t], 24 * 3600000, { timeout: 15000, fetch: getJSONViaProxy, cat: 'catalogo' })
         .then((list) =>
           Promise.all(
             (list || [])

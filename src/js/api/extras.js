@@ -166,7 +166,9 @@ function mdblist(meta) {
   const imdb = imdbOf(meta.id);
   if (!key || !imdb) return Promise.resolve({});
   const type = meta.type === 'series' ? 'show' : 'movie';
-  return getJSONViaProxy('https://api.mdblist.com/imdb/' + type + '/' + imdb + '?apikey=' + encodeURIComponent(key), { timeout: 12000 })
+  // Notas mudam pouco: ficam 24 h no cache (a busca continua passando pelo proxy do PC, se precisar).
+  const u = 'https://api.mdblist.com/imdb/' + type + '/' + imdb + '?apikey=' + encodeURIComponent(key);
+  return cachedJSON(u, 24 * 3600000, { timeout: 12000, fetch: getJSONViaProxy, cat: 'notas' })
     .then((d) => {
       const out = {};
       (d.ratings || []).forEach((r) => {

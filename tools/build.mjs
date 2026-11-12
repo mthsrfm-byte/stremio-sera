@@ -1,12 +1,14 @@
 // Build: esbuild junta os módulos e o Babel reescreve para navegadores antigos (Chromium 38+),
 // para rodar também nas TVs Samsung mais velhas.
-import { build, context } from 'esbuild';
+import { build, context, transform } from 'esbuild';
+import { parse } from 'acorn';
 import { transformAsync } from '@babel/core';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { tokens } from './tokens.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const src = path.join(root, 'src');
@@ -45,6 +47,20 @@ function copyDir(from, to) {
     if (entry.isDirectory()) copyDir(a, b);
     else fs.copyFileSync(a, b);
   }
+}
+
+// Tokens: `$nome` no CSS vira o valor de tools/tokens.mjs antes do minificador (a saída não tem var()).
+// Comentários, strings e url() ficam como estão; token desconhecido derruba o build com a linha do erro.
+function resolveTokens(css, file) {
+  const re = /(\/\*[\s\S]*?\*\/|"[^"]*"|'[^']*'|url\([^)]*\))|(?<![\w$])\$([a-z][a-z0-9-]*)/g;
+  return css.replace(re, (m, skip, name, offset) => {
+    if (skip) return m;
+    if (!Object.prototype.hasOwnProperty.call(tokens, name)) {
+      const linha = css.slice(0, offset).split('\n').length;
+      throw new Error(`token de CSS desconhecido "$${name}" em ${file}:${linha} (defina em tools/tokens.mjs)`);
+    }
+    return tokens[name];
+  });
 }
 
 async function downlevel(code) {
@@ -89,6 +105,12 @@ async function emit(result) {
   fs.rmSync(dist, { recursive: true, force: true });
   fs.mkdirSync(dist, { recursive: true });
   copyDir(path.join(src, 'static'), dist);
+  // CSS: tira os fallbacks .woff (ver fontes abaixo), troca os tokens $nome e minifica. O target chrome47 faz o esbuild
+  // manter a sintaxe antiga (sem #rrggbbaa nem "inset"): sem ele, a minificação reescreve para isso.
+  const cssRaw = fs.readFileSync(path.join(src, 'static', 'app.css'), 'utf8').replace(/,\s*url\('[^']+\.woff'\)\s*format\('woff'\)/g, '');
+  const cssSrc = resolveTokens(cssRaw, 'src/static/app.css');
+  const css = await transform(cssSrc, { loader: 'css', minify: !watch, target: ['chrome47'] });
+  fs.writeFileSync(path.join(dist, 'app.css'), css.code);
   if (web) {
     // Página de entrada da web (com a tranca), no lugar da de TV. A senha vai como hash salgado.
     copyDir(path.join(src, 'web'), dist);
@@ -99,11 +121,12 @@ async function emit(result) {
   fs.copyFileSync(path.join(root, 'appinfo.json'), path.join(dist, 'appinfo.json'));
   const version = JSON.parse(fs.readFileSync(path.join(root, 'appinfo.json'), 'utf8')).version;
   fs.writeFileSync(path.join(dist, 'build.json'), JSON.stringify({ version, ...buildInfo }, null, 2) + '\n');
+  // Fontes só em woff2 (Chromium 47 e WebView do Fire TV leem): o .woff de fallback nunca era baixado.
   const fonts = path.join(root, 'node_modules', '@fontsource', 'montserrat', 'files');
   fs.mkdirSync(path.join(dist, 'fonts'), { recursive: true });
   for (const w of [400, 600, 700, 800]) {
     for (const sub of ['latin', 'latin-ext']) {
-      for (const ext of ['woff2', 'woff']) {
+      for (const ext of ['woff2']) {
         const f = `montserrat-${sub}-${w}-normal.${ext}`;
         fs.copyFileSync(path.join(fonts, f), path.join(dist, 'fonts', f));
       }
@@ -113,7 +136,7 @@ async function emit(result) {
   const nata = path.join(root, 'node_modules', '@fontsource', 'nata-sans', 'files');
   for (const w of [500, 700]) {
     for (const sub of ['latin', 'latin-ext']) {
-      for (const ext of ['woff2', 'woff']) {
+      for (const ext of ['woff2']) {
         const f = `nata-sans-${sub}-${w}-normal.${ext}`;
         fs.copyFileSync(path.join(nata, f), path.join(dist, 'fonts', f));
       }
@@ -124,7 +147,7 @@ async function emit(result) {
     const dir = path.join(root, 'node_modules', '@fontsource', name, 'files');
     for (const w of weights) {
       for (const sub of subs) {
-        for (const ext of ['woff2', 'woff']) {
+        for (const ext of ['woff2']) {
           const f = `${name}-${sub}-${w}-normal.${ext}`;
           fs.copyFileSync(path.join(dir, f), path.join(dist, 'fonts', f));
         }
@@ -133,8 +156,9 @@ async function emit(result) {
   }
   // hls.js (já em ES5): o player baixa só quando abre um vídeo HLS (.m3u8), fora do app.js.
   fs.copyFileSync(path.join(root, 'node_modules', 'hls.js', 'dist', 'hls.min.js'), path.join(dist, 'hls.js'));
-  const code = await downlevel(result.outputFiles[0].text);
-  fs.writeFileSync(path.join(dist, 'app.js'), code);
+  let code = await downlevel(result.outputFiles[0].text);
+  // Produção minifica (o target es5 impede o esbuild de gerar sintaxe nova); --watch fica legível.
+  if (!watch) code = (await transform(code, { minify: true, target: 'es5', charset: 'utf8', legalComments: 'none' })).code;
   // Guarda simples: nada de sintaxe que o Chromium 38 não entende pode sobrar.
   for (const bad of ['=>', 'async function']) {
     if (code.includes(bad)) {
@@ -142,6 +166,13 @@ async function emit(result) {
       console.warn(`[aviso] "${bad}" ainda aparece no bundle perto de: ${code.slice(i - 60, i + 40).replace(/\n/g, ' ')}`);
     }
   }
+  // Checagem de verdade: o acorn no modo ES5 derruba o build se algo além de ES5 sobrar (a TV não abriria o app).
+  try {
+    parse(code, { ecmaVersion: 5, sourceType: 'script' });
+  } catch (e) {
+    throw new Error(`app.js não é ES5 (a TV não roda): ${e.message}`);
+  }
+  fs.writeFileSync(path.join(dist, 'app.js'), code);
   if (firetv) {
     // Lista dos arquivos com hash: o app Android baixa só o que mudou e confere cada arquivo.
     const files = [];
