@@ -72,18 +72,47 @@ export function getText(url, opts) {
   return request('GET', url, null, Object.assign({ raw: true }, opts));
 }
 
-// Cache em memória com validade, para catálogos e metadados.
+// Cache em memória com validade (LRU), para catálogos e metadados.
 const cache = new Map();
+const CACHE_MAX = 80;
 export function cachedJSON(url, ttlMs, opts) {
   const hit = cache.get(url);
   const now = Date.now();
-  if (hit && now - hit.t < (ttlMs || 600000)) return hit.p;
+  if (hit && now - hit.t < (ttlMs || 600000)) {
+    // Recoloca no fim: as entradas quentes saem por último quando o cache enche.
+    cache.delete(url);
+    cache.set(url, hit);
+    return hit.p;
+  }
   const p = getJSON(url, opts).catch((e) => {
     cache.delete(url);
     throw e;
   });
   cache.set(url, { t: now, p: p });
-  // Pouca RAM na TV: guarda só as últimas 60 respostas.
-  if (cache.size > 60) cache.delete(cache.keys().next().value);
+  // Pouca RAM na TV: guarda só as últimas respostas.
+  if (cache.size > CACHE_MAX) cache.delete(cache.keys().next().value);
   return p;
+}
+
+// Fila global de pedidos de catálogo: a TV e o serviço dos tubes engasgam com muitos
+// scrapes ao mesmo tempo (busca NSFW + fileiras de descoberta).
+const CAT_LIMIT = 2;
+let catActive = 0;
+const catWait = [];
+
+export function catalogSlot(fn) {
+  return new Promise((resolve, reject) => {
+    const run = () => {
+      catActive++;
+      Promise.resolve()
+        .then(fn)
+        .then(resolve, reject)
+        .then(() => {
+          catActive--;
+          if (catWait.length) catWait.shift()();
+        });
+    };
+    if (catActive < CAT_LIMIT) run();
+    else catWait.push(run);
+  });
 }

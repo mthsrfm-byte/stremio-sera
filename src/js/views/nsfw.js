@@ -402,6 +402,7 @@ export function NsfwView() {
       entries.unshift(Object.assign({}, searchable[0], { extra: { search: 'creampie' }, title: t('Creampie hétero'), order: 0 }));
     }
     // Temas extras desta sessão (mudam a cada abertura): mais variedade além do Creampie.
+    // discoveryLite: uma página só (não vale 2 scrapes por tema na TV).
     if (searchable.length) {
       nsfwSearch.sessionThemes(SESSION_SEED).forEach((theme) => {
         entries.push(
@@ -410,6 +411,7 @@ export function NsfwView() {
             title: t(theme.title),
             order: theme.order,
             discovery: true,
+            discoveryLite: true,
           })
         );
       });
@@ -496,6 +498,10 @@ export function NsfwView() {
   // Busca só nos catálogos adultos (a aba Buscar do app não mostra nada daqui).
   // Em todos os sites com busca (XVideos, Pornhub, TPB 4K Porn…), em português e inglês,
   // com duas listas: resultados hétero e resultados gay.
+  // No máximo 2 scrapes ao mesmo tempo; variante PT/EN só se a primeira busca vier magra.
+  const SEARCH_LIMIT = 15;
+  const SEARCH_MIN = 8;
+
   function renderSearch() {
     const input = h('input.input', {
       type: 'text',
@@ -518,8 +524,8 @@ export function NsfwView() {
       addons.adultAddons().forEach((a) =>
         addons.adultCatalogs(a).forEach((e) => {
           if (!addons.supportsSearch(e.catalog)) return;
-          // Uma busca por instalação/site: evita repetir o mesmo catálogo do mesmo addon.
-          const key = (a.manifest.id || a.transportUrl) + '|' + (e.catalog.id || e.catalog.name || '');
+          // transportUrl: instalações TPB (1/2) e (2/2) têm o mesmo manifest.id.
+          const key = (a.transportUrl || a.manifest.id) + '|' + (e.catalog.id || e.catalog.name || '');
           if (seen[key]) return;
           seen[key] = true;
           cats.push(e);
@@ -528,24 +534,32 @@ export function NsfwView() {
       return cats;
     }
 
-    // Junta páginas/variantes PT-EN do mesmo site, sem repetir vídeo.
-    function fetchMerged(entry, orientation, queries) {
+    function mergeMetas(into, metas, ids) {
+      (metas || []).forEach((m) => {
+        if (!m || !m.id || ids[m.id]) return;
+        ids[m.id] = true;
+        into.push(m);
+      });
+      return into;
+    }
+
+    // Primeiro o termo original; só pede a variante PT/EN se veio pouco resultado.
+    function fetchSmart(entry, orientation, queries) {
       const ids = {};
       const out = [];
-      let chain = Promise.resolve();
-      queries.forEach((q) => {
-        chain = chain
-          .then(() => addons.fetchCatalog(entry, nsfwSearch.searchExtra(entry, q, orientation)))
-          .then((metas) => {
-            (metas || []).forEach((m) => {
-              if (!m || !m.id || ids[m.id]) return;
-              ids[m.id] = true;
-              out.push(m);
-            });
-          })
-          .catch(() => {});
-      });
-      return chain.then(() => out);
+      const primary = queries[0];
+      const alt = queries[1];
+      return addons
+        .fetchCatalog(entry, nsfwSearch.searchExtra(entry, primary, orientation))
+        .then((metas) => {
+          mergeMetas(out, metas, ids);
+          if (out.length >= SEARCH_MIN || !alt) return out;
+          return addons
+            .fetchCatalog(entry, nsfwSearch.searchExtra(entry, alt, orientation))
+            .then((more) => mergeMetas(out, more, ids))
+            .catch(() => out);
+        })
+        .catch(() => out);
     }
 
     function run(q) {
@@ -561,9 +575,8 @@ export function NsfwView() {
         { id: 'straight', title: t('Resultados hétero'), orientation: 'straight' },
         { id: 'gay', title: t('Resultados gay'), orientation: 'gay' },
       ];
-      let left = sections.length * cats.length;
-      let found = 0;
       const slots = {};
+      const jobs = [];
 
       sections.forEach((sec) => {
         const block = h('div.nsfw-search-section');
@@ -572,15 +585,36 @@ export function NsfwView() {
         block.appendChild(host);
         results.appendChild(block);
         slots[sec.id] = { host: host, found: 0 };
+        cats.forEach((entry) => jobs.push({ sec: sec, entry: entry }));
+      });
 
-        cats.forEach((entry) => {
+      let left = jobs.length;
+      let found = 0;
+      let cursor = 0;
+      let running = 0;
+      const PARALLEL = 2;
+
+      function finish() {
+        if (my !== token) return;
+        sections.forEach((s) => {
+          const slot = slots[s.id];
+          if (!slot.found) slot.host.appendChild(h('div.hint', { text: t('Nada nesta lista para "{q}".', { q: query }) }));
+        });
+        if (!found) results.appendChild(h('div.hint', { text: t('Nada encontrado para "{q}".', { q: query }) }));
+      }
+
+      function pump() {
+        if (my !== token) return;
+        while (running < PARALLEL && cursor < jobs.length) {
+          const job = jobs[cursor++];
+          running++;
           const track = h('div.row-track', { 'data-scroll-x': '', 'data-group': '', 'data-trap': '' }, skeletonCards(6, true));
           const row = h('div.row', { 'data-anchor': '30' }, [
-            h('div.row-title', null, [siteName(entry.addon), h('small', { text: t('busca') })]),
+            h('div.row-title', null, [siteName(job.entry.addon), h('small', { text: t('busca') })]),
             track,
           ]);
-          host.appendChild(row);
-          fetchMerged(entry, sec.orientation, queries)
+          slots[job.sec.id].host.appendChild(row);
+          fetchSmart(job.entry, job.sec.orientation, queries)
             .then((metas) => {
               if (my !== token) return;
               clear(track);
@@ -589,8 +623,8 @@ export function NsfwView() {
                 return;
               }
               found++;
-              slots[sec.id].found++;
-              metas.slice(0, 30).forEach((m) => track.appendChild(itemCard(m, entry)));
+              slots[job.sec.id].found++;
+              metas.slice(0, SEARCH_LIMIT).forEach((m) => track.appendChild(itemCard(m, job.entry)));
               loadVisibleImages(row);
             })
             .catch(() => {
@@ -598,16 +632,15 @@ export function NsfwView() {
               if (row.parentNode) row.parentNode.removeChild(row);
             })
             .then(() => {
+              running--;
+              left--;
               if (my !== token) return;
-              if (--left > 0) return;
-              sections.forEach((s) => {
-                const slot = slots[s.id];
-                if (!slot.found) slot.host.appendChild(h('div.hint', { text: t('Nada nesta lista para "{q}".', { q: query }) }));
-              });
-              if (!found) results.appendChild(h('div.hint', { text: t('Nada encontrado para "{q}".', { q: query }) }));
+              if (left <= 0) finish();
+              else pump();
             });
-        });
-      });
+        }
+      }
+      pump();
     }
     nav.focus(input);
   }
@@ -746,8 +779,15 @@ function catName(entry) {
   return entry.title || tr.genre(entry.catalog.name || entry.catalog.id);
 }
 
-// discovery: fileira de descoberta — várias páginas a partir de um offset sorteado na sessão,
-// misturadas e sem o que já foi aberto, para não repetir sempre os mesmos vídeos.
+// Tamanho de página dos tubes (o serviço corta nisso); demais addons: 20.
+function pageSizeOf(entry) {
+  const id = entry && entry.addon && entry.addon.manifest && entry.addon.manifest.id;
+  if (id === 'seraflix.pornhub') return 24;
+  return 20;
+}
+
+// discovery: fileira de descoberta — 1 ou 2 páginas a partir de um offset sorteado na sessão,
+// misturadas e sem o que já foi aberto. Temas extras (discoveryLite) usam só 1 página.
 function catalogRow(entry, parent, discovery) {
   const row = h('div.row', { 'data-anchor': '30' });
   const sub = entry.extra && entry.extra.search ? t('busca no {site}', { site: siteName(entry.addon) }) : ROW_SUB[entry.catalog.id] ? t(ROW_SUB[entry.catalog.id]) : siteName(entry.addon);
@@ -756,35 +796,33 @@ function catalogRow(entry, parent, discovery) {
   row.appendChild(track);
   parent.appendChild(row);
   const out = { row: row };
-  const fetchPage = (skip) => addons.fetchCatalog(entry, Object.assign(skip ? { skip: skip } : {}, entry.extra || {})).catch(() => []);
-  const fetchRow = () =>
-    retrying(() => fetchPage(0)).then((first) => {
-      if (!discovery || !first.length) return first;
-      const page = first.length;
-      // Começa numa página sorteada (0–4) e pega 3 páginas a partir daí.
-      const start = ((SESSION_SEED + String(entry.catalog.id || entry.title || '').length * 17) % 5) * page;
-      const pages = [start, start + page, start + page * 2];
-      return Promise.all(pages.map((skip) => (skip === 0 ? Promise.resolve(first) : fetchPage(skip)))).then((lists) => {
-        const ids = {};
-        const both = [];
-        lists.forEach((list) =>
-          (list || []).forEach((m) => {
-            if (!m || !m.id || ids[m.id]) return;
-            ids[m.id] = true;
-            both.push(m);
-          })
-        );
-        // Se o offset caiu longe e veio pouco, completa com o começo do catálogo.
-        if (both.length < 8 && start > 0) {
-          first.forEach((m) => {
+  const seedKey = SESSION_SEED + String(entry.catalog.id || '').length + (entry.title || '').length;
+  const fetchPage = (skip) => addons.fetchCatalog(entry, Object.assign(skip ? { skip: skip } : {}, entry.extra || {}));
+  const fetchRow = () => {
+    if (!discovery) return retrying(() => fetchPage(0));
+    const page = pageSizeOf(entry);
+    const start = ((SESSION_SEED + String(entry.catalog.id || entry.title || '').length * 17) % 4) * page;
+    // Temas da sessão: uma página sorteada basta.
+    if (entry.discoveryLite) {
+      return retrying(() => fetchPage(start || 0)).then((metas) => seededShuffle(unseen(metas || []), seedKey));
+    }
+    // Creampie e fileiras fortes: duas páginas a partir do offset (sem scrape extra só para medir).
+    return retrying(() => fetchPage(start || 0)).then((first) => {
+      if (!first.length) return first;
+      return fetchPage(start + first.length)
+        .catch(() => [])
+        .then((second) => {
+          const ids = {};
+          const both = [];
+          first.concat(second || []).forEach((m) => {
             if (!m || !m.id || ids[m.id]) return;
             ids[m.id] = true;
             both.push(m);
           });
-        }
-        return seededShuffle(unseen(both), SESSION_SEED + String(entry.catalog.id || '').length + (entry.title || '').length);
-      });
+          return seededShuffle(unseen(both), seedKey);
+        });
     });
+  };
   const load = () =>
     fetchRow()
       .then((metas) => {

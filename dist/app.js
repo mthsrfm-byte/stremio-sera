@@ -5000,10 +5000,15 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }, opts));
   }
   var cache = /* @__PURE__ */new Map();
+  var CACHE_MAX = 80;
   function cachedJSON(url2, ttlMs, opts) {
     var hit = cache.get(url2);
     var now = Date.now();
-    if (hit && now - hit.t < (ttlMs || 6e5)) return hit.p;
+    if (hit && now - hit.t < (ttlMs || 6e5)) {
+      cache.delete(url2);
+      cache.set(url2, hit);
+      return hit.p;
+    }
     var p = getJSON(url2, opts).catch(function (e) {
       cache.delete(url2);
       throw e;
@@ -5012,8 +5017,23 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       t: now,
       p: p
     });
-    if (cache.size > 60) cache.delete(cache.keys().next().value);
+    if (cache.size > CACHE_MAX) cache.delete(cache.keys().next().value);
     return p;
+  }
+  var CAT_LIMIT = 2;
+  var catActive = 0;
+  var catWait = [];
+  function catalogSlot(fn) {
+    return new Promise(function (resolve2, reject) {
+      var run = function run() {
+        catActive++;
+        Promise.resolve().then(fn).then(resolve2, reject).then(function () {
+          catActive--;
+          if (catWait.length) catWait.shift()();
+        });
+      };
+      if (catActive < CAT_LIMIT) run();else catWait.push(run);
+    });
   }
 
   // src/js/lib/img.js
@@ -6875,9 +6895,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO = "mthsrfm-byte/stremio-sera";
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "29ab960a8a22bf673ab7858f6cba989bddcb56c1",
-    date: "2026-11-12T02:36:55-03:00",
-    message: "NSFW: busca bi em PT/EN (XV, PH, TPB) e mais variedade (#69)"
+    commit: "b29925d345368cc9f074aeb0640f99d6aea5d1bd",
+    date: "2026-11-12T05:37:17+00:00",
+    message: "Build da dist/ para a TV"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -7398,8 +7418,13 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return name + " · " + typeName;
   }
   function fetchCatalog(entry, extra2) {
-    return cachedJSON(url(entry.addon, "catalog", entry.catalog.type, entry.catalog.id, extra2), 15 * 6e4, {
-      timeout: 12e3
+    var u = url(entry.addon, "catalog", entry.catalog.type, entry.catalog.id, extra2);
+    var isSearch = !!(extra2 && extra2.search);
+    var ttl = isSearch ? 3 * 6e4 : 15 * 6e4;
+    return catalogSlot(function () {
+      return cachedJSON(u, ttl, {
+        timeout: 12e3
+      });
     }).then(function (r) {
       return r && r.metas || [];
     });
@@ -7956,7 +7981,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var timer = null;
   var inFlight = null;
   var listeners2 = [];
-  var BUILTIN = true ? "https://calendar.google.com/calendar/ical/matheus.serafim%40pagaleve.com.br/private-9d7111ae13c15982affb7c795403fcdd/basic.ics" : "";
+  var BUILTIN = true ? "" : "";
   function urls() {
     return String(settings().calendarUrl || BUILTIN || "").split(/[\s,]+/).filter(function (u) {
       return /^(https?|webcal):\/\//i.test(u);
@@ -9436,8 +9461,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return m ? m[0] : null;
   }
   var BUILTIN_KEYS = {
-    tmdbKey: true ? "9c57ed7ea044b2f01eea2fcc2e954c2e" : "",
-    mdblistKey: true ? "t9e4f1z29b3c36i1j25rul1wx" : ""
+    tmdbKey: true ? "" : "",
+    mdblistKey: true ? "" : ""
   };
   function keyOf(name) {
     return (settings()[name] || "").trim() || BUILTIN_KEYS[name];
@@ -13703,6 +13728,28 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       load: load4
     };
   }
+  function loadRowsCapped(built, onFirst) {
+    var i = 0;
+    var active = 0;
+    var _pump = function pump() {
+      var _loop5 = function _loop5() {
+        var b = built[i++];
+        active++;
+        var p = Promise.resolve().then(function () {
+          return b.load();
+        }).catch(function () {});
+        if (i === 1 && onFirst) p.then(onFirst);
+        p.then(function () {
+          active--;
+          _pump();
+        });
+      };
+      while (active < 2 && i < built.length) {
+        _loop5();
+      }
+    };
+    _pump();
+  }
   function CuratedView(cfg) {
     var el2 = h("div.view.reco");
     var bar = topbar(cfg.tabId, goTab);
@@ -13738,12 +13785,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       built.forEach(function (b) {
         return rows.appendChild(b.row);
       });
-      built[0].load().then(function () {
+      loadRowsCapped(built, function () {
         var first = rows.firstChild && rows.firstChild.querySelector("[data-focus]");
         if (first && current2() && current2().closest(".topbar")) focus(first);
-      });
-      built.slice(1).forEach(function (b) {
-        return b.load();
       });
     }
     var onVisibility = function onVisibility() {
@@ -13862,13 +13906,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         return rows.appendChild(b.row);
       });
       firstItemOf = p;
-      built[0].load().then(function () {
+      loadRowsCapped(built, function () {
         var first = rows.querySelector(".card");
         if (current3 === p && first && first.__focus && !current2().closest(".reco-rows")) first.__focus(first);
         if (enterRows && current3 === p) focusFirstCard();
-      });
-      built.slice(1).forEach(function (b) {
-        return b.load();
       });
     }
     function focusFirstCard() {
@@ -15434,7 +15475,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     function loadNearby() {
       if (el2.offsetParent === null) return;
       var limit = window.innerHeight * 2.2;
-      var _loop5 = function _loop5() {
+      var _loop6 = function _loop6() {
           var p = pending[i];
           if (p.state !== "idle") return 0; // continue
           if (!p.row.parentNode) {
@@ -15452,7 +15493,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         },
         _ret3;
       for (var i = 0; i < pending.length && active < 2; i++) {
-        _ret3 = _loop5();
+        _ret3 = _loop6();
         if (_ret3 === 0) continue;
         if (_ret3 === 1) break;
       }
@@ -15883,7 +15924,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var seen = {};
     var out = [];
     list4.forEach(function (x) {
-      var k = String(x || "").trim().toLowerCase();
+      var k = stripAccents(String(x || "")).trim().toLowerCase();
       if (!k || seen[k]) return;
       seen[k] = true;
       out.push(String(x).trim());
@@ -15914,7 +15955,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     if (!raw) return [];
     var en = mapWords(raw, PT_EN);
     var pt = mapWords(raw, EN_PT);
-    return uniq([raw, en, pt].filter(Boolean));
+    var all = uniq([raw, en, pt].filter(Boolean));
+    if (all.length <= 2) return all;
+    return [all[0], all[1]];
   }
   function isTubeAddon(addon) {
     var id = addon && addon.manifest && addon.manifest.id;
@@ -16459,7 +16502,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             extra: searchExtra(searchable[0], theme.search, theme.orientation),
             title: t(theme.title),
             order: theme.order,
-            discovery: true
+            discovery: true,
+            discoveryLite: true
           }));
         });
       }
@@ -16596,6 +16640,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         })]), track]));
       });
     }
+    var SEARCH_LIMIT = 15;
+    var SEARCH_MIN = 8;
     function renderSearch() {
       var input = h("input.input", {
         type: "text",
@@ -16627,7 +16673,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         adultAddons().forEach(function (a) {
           return adultCatalogs(a).forEach(function (e) {
             if (!supportsSearch(e.catalog)) return;
-            var key = (a.manifest.id || a.transportUrl) + "|" + (e.catalog.id || e.catalog.name || "");
+            var key = (a.transportUrl || a.manifest.id) + "|" + (e.catalog.id || e.catalog.name || "");
             if (seen[key]) return;
             seen[key] = true;
             cats.push(e);
@@ -16635,22 +16681,28 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         });
         return cats;
       }
-      function fetchMerged(entry, orientation, queries) {
+      function mergeMetas(into, metas, ids) {
+        (metas || []).forEach(function (m) {
+          if (!m || !m.id || ids[m.id]) return;
+          ids[m.id] = true;
+          into.push(m);
+        });
+        return into;
+      }
+      function fetchSmart(entry, orientation, queries) {
         var ids = {};
         var out = [];
-        var chain = Promise.resolve();
-        queries.forEach(function (q) {
-          chain = chain.then(function () {
-            return fetchCatalog(entry, searchExtra(entry, q, orientation));
-          }).then(function (metas) {
-            (metas || []).forEach(function (m) {
-              if (!m || !m.id || ids[m.id]) return;
-              ids[m.id] = true;
-              out.push(m);
-            });
-          }).catch(function () {});
-        });
-        return chain.then(function () {
+        var primary = queries[0];
+        var alt = queries[1];
+        return fetchCatalog(entry, searchExtra(entry, primary, orientation)).then(function (metas) {
+          mergeMetas(out, metas, ids);
+          if (out.length >= SEARCH_MIN || !alt) return out;
+          return fetchCatalog(entry, searchExtra(entry, alt, orientation)).then(function (more) {
+            return mergeMetas(out, more, ids);
+          }).catch(function () {
+            return out;
+          });
+        }).catch(function () {
           return out;
         });
       }
@@ -16675,9 +16727,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           title: t("Resultados gay"),
           orientation: "gay"
         }];
-        var left = sections.length * cats.length;
-        var found = 0;
         var slots = {};
+        var jobs = [];
         sections.forEach(function (sec) {
           var block = h("div.nsfw-search-section");
           block.appendChild(h("div.row-title", null, [sec.title, h("small", {
@@ -16691,6 +16742,38 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             found: 0
           };
           cats.forEach(function (entry) {
+            return jobs.push({
+              sec: sec,
+              entry: entry
+            });
+          });
+        });
+        var left = jobs.length;
+        var found = 0;
+        var cursor = 0;
+        var running = 0;
+        var PARALLEL = 2;
+        function finish2() {
+          if (my !== token) return;
+          sections.forEach(function (s) {
+            var slot = slots[s.id];
+            if (!slot.found) slot.host.appendChild(h("div.hint", {
+              text: t('Nada nesta lista para "{q}".', {
+                q: query
+              })
+            }));
+          });
+          if (!found) results.appendChild(h("div.hint", {
+            text: t('Nada encontrado para "{q}".', {
+              q: query
+            })
+          }));
+        }
+        function pump() {
+          if (my !== token) return;
+          var _loop7 = function _loop7() {
+            var job = jobs[cursor++];
+            running++;
             var track = h("div.row-track", {
               "data-scroll-x": "",
               "data-group": "",
@@ -16698,11 +16781,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             }, skeletonCards(6, true));
             var row = h("div.row", {
               "data-anchor": "30"
-            }, [h("div.row-title", null, [siteName(entry.addon), h("small", {
+            }, [h("div.row-title", null, [siteName(job.entry.addon), h("small", {
               text: t("busca")
             })]), track]);
-            host.appendChild(row);
-            fetchMerged(entry, sec.orientation, queries).then(function (metas) {
+            slots[job.sec.id].host.appendChild(row);
+            fetchSmart(job.entry, job.sec.orientation, queries).then(function (metas) {
               if (my !== token) return;
               clear(track);
               if (!metas.length) {
@@ -16710,33 +16793,26 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
                 return;
               }
               found++;
-              slots[sec.id].found++;
-              metas.slice(0, 30).forEach(function (m) {
-                return track.appendChild(itemCard(m, entry));
+              slots[job.sec.id].found++;
+              metas.slice(0, SEARCH_LIMIT).forEach(function (m) {
+                return track.appendChild(itemCard(m, job.entry));
               });
               loadVisibleImages(row);
             }).catch(function () {
               if (my !== token) return;
               if (row.parentNode) row.parentNode.removeChild(row);
             }).then(function () {
+              running--;
+              left--;
               if (my !== token) return;
-              if (--left > 0) return;
-              sections.forEach(function (s) {
-                var slot = slots[s.id];
-                if (!slot.found) slot.host.appendChild(h("div.hint", {
-                  text: t('Nada nesta lista para "{q}".', {
-                    q: query
-                  })
-                }));
-              });
-              if (!found) results.appendChild(h("div.hint", {
-                text: t('Nada encontrado para "{q}".', {
-                  q: query
-                })
-              }));
+              if (left <= 0) finish2();else pump();
             });
-          });
-        });
+          };
+          while (running < PARALLEL && cursor < jobs.length) {
+            _loop7();
+          }
+        }
+        pump();
       }
       focus(input);
     }
@@ -16879,6 +16955,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   function catName(entry) {
     return entry.title || genre(entry.catalog.name || entry.catalog.id);
   }
+  function pageSizeOf(entry) {
+    var id = entry && entry.addon && entry.addon.manifest && entry.addon.manifest.id;
+    if (id === "seraflix.pornhub") return 24;
+    return 20;
+  }
   function catalogRow(entry, parent, discovery) {
     var row = h("div.row", {
       "data-anchor": "30"
@@ -16899,41 +16980,40 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var out = {
       row: row
     };
+    var seedKey = SESSION_SEED + String(entry.catalog.id || "").length + (entry.title || "").length;
     var fetchPage = function fetchPage(skip) {
       return fetchCatalog(entry, Object.assign(skip ? {
         skip: skip
-      } : {}, entry.extra || {})).catch(function () {
-        return [];
-      });
+      } : {}, entry.extra || {}));
     };
     var fetchRow = function fetchRow() {
-      return retrying(function () {
+      if (!discovery) return retrying(function () {
         return fetchPage(0);
+      });
+      var page = pageSizeOf(entry);
+      var start5 = (SESSION_SEED + String(entry.catalog.id || entry.title || "").length * 17) % 4 * page;
+      if (entry.discoveryLite) {
+        return retrying(function () {
+          return fetchPage(start5 || 0);
+        }).then(function (metas) {
+          return seededShuffle(unseen(metas || []), seedKey);
+        });
+      }
+      return retrying(function () {
+        return fetchPage(start5 || 0);
       }).then(function (first) {
-        if (!discovery || !first.length) return first;
-        var page = first.length;
-        var start5 = (SESSION_SEED + String(entry.catalog.id || entry.title || "").length * 17) % 5 * page;
-        var pages2 = [start5, start5 + page, start5 + page * 2];
-        return Promise.all(pages2.map(function (skip) {
-          return skip === 0 ? Promise.resolve(first) : fetchPage(skip);
-        })).then(function (lists) {
+        if (!first.length) return first;
+        return fetchPage(start5 + first.length).catch(function () {
+          return [];
+        }).then(function (second) {
           var ids = {};
           var both = [];
-          lists.forEach(function (list4) {
-            return (list4 || []).forEach(function (m) {
-              if (!m || !m.id || ids[m.id]) return;
-              ids[m.id] = true;
-              both.push(m);
-            });
+          first.concat(second || []).forEach(function (m) {
+            if (!m || !m.id || ids[m.id]) return;
+            ids[m.id] = true;
+            both.push(m);
           });
-          if (both.length < 8 && start5 > 0) {
-            first.forEach(function (m) {
-              if (!m || !m.id || ids[m.id]) return;
-              ids[m.id] = true;
-              both.push(m);
-            });
-          }
-          return seededShuffle(unseen(both), SESSION_SEED + String(entry.catalog.id || "").length + (entry.title || "").length);
+          return seededShuffle(unseen(both), seedKey);
         });
       });
     };
