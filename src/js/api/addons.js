@@ -71,9 +71,9 @@ const TUBES = ['xv', 'ph'];
 const TUBE_PREFIXES = ['xv:', 'ph:'];
 const TUBE_PORT = 8092;
 const SERVICE_MIN = 12;
-// Versão mais nova do serviço (catálogos e categorias novos). Com uma mais velha os vídeos tocam do
-// mesmo jeito; o app só pede ao TizenBrew a nova e troca os addons quando ela responder.
-const SERVICE_WANT = 13;
+// Versão mais nova do serviço (busca com orientation gay/hétero). Com uma mais velha os vídeos
+// tocam do mesmo jeito; o app só pede ao TizenBrew a nova e troca os addons quando ela responder.
+const SERVICE_WANT = 14;
 let upgradeTimer = null;
 function awaitUpgrade(tries) {
   clearTimeout(upgradeTimer);

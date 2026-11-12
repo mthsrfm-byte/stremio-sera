@@ -6875,9 +6875,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var REPO = "mthsrfm-byte/stremio-sera";
   var VERSION = "1.2.0";
   var BUILD = {
-    commit: "5a4c7fa248bad4465df176c71dce158ae138453e",
-    date: "2026-11-07T06:11:06-03:00",
-    message: "Pornhub abre direto no HLS pela TV; cada site lembra a variante que tocou"
+    commit: "55cf52c1c7ddda2f004ad3f3f9321eec22c8f20a",
+    date: "2026-11-07T09:11:28+00:00",
+    message: "Build da dist/ para a TV"
   };
   var MODULE_PREFIX = "/module/";
   function formatDate(iso) {
@@ -7033,7 +7033,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var TUBE_PREFIXES = ["xv:", "ph:"];
   var TUBE_PORT = 8092;
   var SERVICE_MIN = 12;
-  var SERVICE_WANT = 13;
+  var SERVICE_WANT = 14;
   var upgradeTimer = null;
   function awaitUpgrade(tries) {
     clearTimeout(upgradeTimer);
@@ -7956,7 +7956,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   var timer = null;
   var inFlight = null;
   var listeners2 = [];
-  var BUILTIN = true ? "https://calendar.google.com/calendar/ical/matheus.serafim%40pagaleve.com.br/private-9d7111ae13c15982affb7c795403fcdd/basic.ics" : "";
+  var BUILTIN = true ? "" : "";
   function urls() {
     return String(settings().calendarUrl || BUILTIN || "").split(/[\s,]+/).filter(function (u) {
       return /^(https?|webcal):\/\//i.test(u);
@@ -9436,8 +9436,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     return m ? m[0] : null;
   }
   var BUILTIN_KEYS = {
-    tmdbKey: true ? "9c57ed7ea044b2f01eea2fcc2e954c2e" : "",
-    mdblistKey: true ? "t9e4f1z29b3c36i1j25rul1wx" : ""
+    tmdbKey: true ? "" : "",
+    mdblistKey: true ? "" : ""
   };
   function keyOf(name) {
     return (settings()[name] || "").trim() || BUILTIN_KEYS[name];
@@ -15765,6 +15765,239 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     });
   }
 
+  // src/js/lib/nsfwSearch.js
+  var PT_EN = {
+    amador: "amateur",
+    amadora: "amateur",
+    amadores: "amateur",
+    amadoras: "amateur",
+    anal: "anal",
+    asiatica: "asian",
+    asiaticas: "asian",
+    asiático: "asian",
+    asiáticos: "asian",
+    bareback: "bareback",
+    brasileira: "brazilian",
+    brasileiras: "brazilian",
+    brasileiro: "brazilian",
+    brasileiros: "brazilian",
+    brinquedo: "toys",
+    brinquedos: "toys",
+    bunduda: "big ass",
+    bundudas: "big ass",
+    caseiro: "homemade",
+    caseira: "homemade",
+    casal: "couple",
+    casais: "couples",
+    creampie: "creampie",
+    daddy: "daddy",
+    dotado: "big cock",
+    dotados: "big cock",
+    gozada: "cumshot",
+    gozadas: "cumshot",
+    grupo: "group",
+    hentai: "hentai",
+    interacial: "interracial",
+    interracial: "interracial",
+    "inter-racial": "interracial",
+    japonesa: "japanese",
+    japonesas: "japanese",
+    japones: "japanese",
+    japoneses: "japanese",
+    latina: "latina",
+    latinas: "latina",
+    latino: "latino",
+    latinos: "latino",
+    lesbica: "lesbian",
+    lesbicas: "lesbian",
+    loira: "blonde",
+    loiras: "blonde",
+    madura: "mature",
+    maduras: "mature",
+    massagem: "massage",
+    masturbacao: "masturbation",
+    menage: "threesome",
+    ménage: "threesome",
+    milf: "milf",
+    morena: "brunette",
+    morenas: "brunette",
+    musculoso: "muscle",
+    musculosos: "muscle",
+    negra: "ebony",
+    negras: "ebony",
+    negro: "black",
+    negros: "black",
+    novinha: "teen",
+    novinhas: "teen",
+    oral: "blowjob",
+    orgia: "orgy",
+    peituda: "big tits",
+    peitudas: "big tits",
+    publico: "public",
+    "em publico": "public",
+    romantico: "romantic",
+    ruiva: "redhead",
+    ruivas: "redhead",
+    sexo: "sex",
+    squirt: "squirt",
+    twink: "twink",
+    twinks: "twink",
+    urso: "bear",
+    ursos: "bear",
+    gay: "gay",
+    hetero: "straight",
+    hétero: "straight",
+    bissexual: "bisexual",
+    trans: "trans"
+  };
+  var EN_PT = {};
+  Object.keys(PT_EN).forEach(function (pt) {
+    var en = PT_EN[pt];
+    if (!EN_PT[en]) EN_PT[en] = pt;
+  });
+  EN_PT.amateur = "amador";
+  EN_PT.asian = "asiáticas";
+  EN_PT.brazilian = "brasileira";
+  EN_PT["big ass"] = "bunduda";
+  EN_PT["big cock"] = "dotado";
+  EN_PT["big tits"] = "peituda";
+  EN_PT.blonde = "loira";
+  EN_PT.brunette = "morena";
+  EN_PT.blowjob = "oral";
+  EN_PT.cumshot = "gozada";
+  EN_PT.ebony = "negra";
+  EN_PT.homemade = "caseiro";
+  EN_PT.lesbian = "lésbica";
+  EN_PT.mature = "madura";
+  EN_PT.muscle = "musculoso";
+  EN_PT.redhead = "ruiva";
+  EN_PT.teen = "novinha";
+  EN_PT.threesome = "ménage";
+  EN_PT.toys = "brinquedos";
+  EN_PT.bear = "urso";
+  EN_PT.straight = "hétero";
+  function stripAccents(s) {
+    return String(s || "").replace(/[áàâãä]/gi, "a").replace(/[éèêë]/gi, "e").replace(/[íìîï]/gi, "i").replace(/[óòôõö]/gi, "o").replace(/[úùûü]/gi, "u").replace(/ç/gi, "c");
+  }
+  function uniq(list4) {
+    var seen = {};
+    var out = [];
+    list4.forEach(function (x) {
+      var k = String(x || "").trim().toLowerCase();
+      if (!k || seen[k]) return;
+      seen[k] = true;
+      out.push(String(x).trim());
+    });
+    return out;
+  }
+  function mapWords(query, dict) {
+    var raw = String(query || "").trim();
+    if (!raw) return "";
+    var left = stripAccents(raw.toLowerCase());
+    var parts2 = [];
+    while (left) {
+      var two = left.match(/^(\S+\s+\S+)/);
+      if (two && dict[two[1]]) {
+        parts2.push(dict[two[1]]);
+        left = left.slice(two[1].length).trim();
+        continue;
+      }
+      var one = left.match(/^(\S+)/);
+      if (!one) break;
+      parts2.push(dict[one[1]] || one[1]);
+      left = left.slice(one[1].length).trim();
+    }
+    return parts2.join(" ");
+  }
+  function expandQueries(q) {
+    var raw = String(q || "").trim();
+    if (!raw) return [];
+    var en = mapWords(raw, PT_EN);
+    var pt = mapWords(raw, EN_PT);
+    return uniq([raw, en, pt].filter(Boolean));
+  }
+  function isTubeAddon(addon) {
+    var id = addon && addon.manifest && addon.manifest.id;
+    return id === "seraflix.xvideos" || id === "seraflix.pornhub";
+  }
+  function searchExtra(entry, query, orientation) {
+    if (isTubeAddon(entry.addon)) {
+      return {
+        search: query,
+        orientation: orientation === "gay" ? "gay" : "straight"
+      };
+    }
+    if (orientation === "gay" && !/\bgay\b/i.test(query)) return {
+      search: query + " gay"
+    };
+    return {
+      search: query
+    };
+  }
+  var THEME_H = [{
+    title: "Brasileiras em alta",
+    search: "brasileira"
+  }, {
+    title: "Amador em alta",
+    search: "amateur"
+  }, {
+    title: "MILF em alta",
+    search: "milf"
+  }, {
+    title: "Anal em alta",
+    search: "anal"
+  }, {
+    title: "Lésbicas em alta",
+    search: "lesbian"
+  }, {
+    title: "POV em alta",
+    search: "pov"
+  }, {
+    title: "Bundudas em alta",
+    search: "big ass"
+  }, {
+    title: "Peitudas em alta",
+    search: "big tits"
+  }];
+  var THEME_G = [{
+    title: "Brasileiros gay em alta",
+    search: "brasileiro"
+  }, {
+    title: "Bareback em alta",
+    search: "bareback"
+  }, {
+    title: "Twinks em alta",
+    search: "twink"
+  }, {
+    title: "Musculosos em alta",
+    search: "muscle"
+  }, {
+    title: "Ursos em alta",
+    search: "bear"
+  }, {
+    title: "Daddy em alta",
+    search: "daddy"
+  }, {
+    title: "Amador gay em alta",
+    search: "amateur"
+  }];
+  function sessionThemes(seed) {
+    var s = seed || 1;
+    var h2 = THEME_H[s % THEME_H.length];
+    var g = THEME_G[Math.floor(s / 7) % THEME_G.length];
+    return [{
+      title: h2.title,
+      search: h2.search,
+      orientation: "straight",
+      order: 0.5
+    }, {
+      title: g.title,
+      search: g.search,
+      orientation: "gay",
+      order: 1.5
+    }];
+  }
+
   // src/js/views/nsfw.js
   var ROW_LIMIT3 = 20;
   var ICON_SEARCH = '<svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg>';
@@ -16196,31 +16429,39 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           if (isBoardable(e.catalog) && !isHiddenCategory(e.catalog.name || e.catalog.id)) entries.push(e);
         });
       });
+      var searchable = [];
+      site.addons.forEach(function (a) {
+        return adultCatalogs(a).forEach(function (e) {
+          return supportsSearch(e.catalog) && searchable.push(e);
+        });
+      });
       if (!entries.some(function (e) {
         return catalogOrder(e) < 3;
-      })) {
-        var searchable = [];
-        site.addons.forEach(function (a) {
-          return adultCatalogs(a).forEach(function (e) {
-            return supportsSearch(e.catalog) && searchable.push(e);
-          });
+      }) && searchable.length) {
+        entries.unshift(Object.assign({}, searchable[0], {
+          extra: {
+            search: "gay creampie"
+          },
+          title: t("Creampie gay"),
+          order: 1
+        }));
+        entries.unshift(Object.assign({}, searchable[0], {
+          extra: {
+            search: "creampie"
+          },
+          title: t("Creampie hétero"),
+          order: 0
+        }));
+      }
+      if (searchable.length) {
+        sessionThemes(SESSION_SEED).forEach(function (theme) {
+          entries.push(Object.assign({}, searchable[0], {
+            extra: searchExtra(searchable[0], theme.search, theme.orientation),
+            title: t(theme.title),
+            order: theme.order,
+            discovery: true
+          }));
         });
-        if (searchable.length) {
-          entries.unshift(Object.assign({}, searchable[0], {
-            extra: {
-              search: "gay creampie"
-            },
-            title: t("Creampie gay"),
-            order: 1
-          }));
-          entries.unshift(Object.assign({}, searchable[0], {
-            extra: {
-              search: "creampie"
-            },
-            title: t("Creampie hétero"),
-            order: 0
-          }));
-        }
       }
       var orderOf = function orderOf(e) {
         return e.order !== void 0 ? e.order : catalogOrder(e);
@@ -16239,7 +16480,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           catsDone = true;
           categoryRows(site);
         }
-        pending.push(Object.assign(catalogRow(x.e, body, orderOf(x.e) < 3), {
+        pending.push(Object.assign(catalogRow(x.e, body, orderOf(x.e) < 3 || x.e.discovery), {
           state: "idle"
         }));
       });
@@ -16358,7 +16599,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     function renderSearch() {
       var input = h("input.input", {
         type: "text",
-        placeholder: t("Buscar em todos os sites..."),
+        placeholder: t("Buscar em português ou inglês..."),
         focusable: true
       });
       var go = h("div.btn.primary.search-go", {
@@ -16375,8 +16616,44 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       body.appendChild(h("div.search-box", {
         "data-group": ""
       }, [input, go]));
+      body.appendChild(h("div.hint", {
+        text: t("Resultados do XVideos, Pornhub e dos seus addons adultos (ex.: TPB 4K), em listas hétero e gay.")
+      }));
       body.appendChild(results);
       var token = 0;
+      function searchCats() {
+        var cats = [];
+        var seen = {};
+        adultAddons().forEach(function (a) {
+          return adultCatalogs(a).forEach(function (e) {
+            if (!supportsSearch(e.catalog)) return;
+            var key = (a.manifest.id || a.transportUrl) + "|" + (e.catalog.id || e.catalog.name || "");
+            if (seen[key]) return;
+            seen[key] = true;
+            cats.push(e);
+          });
+        });
+        return cats;
+      }
+      function fetchMerged(entry, orientation, queries) {
+        var ids = {};
+        var out = [];
+        var chain = Promise.resolve();
+        queries.forEach(function (q) {
+          chain = chain.then(function () {
+            return fetchCatalog(entry, searchExtra(entry, q, orientation));
+          }).then(function (metas) {
+            (metas || []).forEach(function (m) {
+              if (!m || !m.id || ids[m.id]) return;
+              ids[m.id] = true;
+              out.push(m);
+            });
+          }).catch(function () {});
+        });
+        return chain.then(function () {
+          return out;
+        });
+      }
       function run(q) {
         var query = (q || "").trim();
         clear(results);
@@ -16384,41 +16661,80 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           text: t("Digite pelo menos 2 letras e aperte Buscar.")
         }));
         var my = ++token;
-        var cats = [];
-        adultAddons().forEach(function (a) {
-          return adultCatalogs(a).forEach(function (e) {
-            return supportsSearch(e.catalog) && cats.push(e);
-          });
-        });
-        var left = cats.length;
+        var queries = expandQueries(query);
+        var cats = searchCats();
+        if (!cats.length) return results.appendChild(h("div.hint", {
+          text: t("Nenhum site com busca disponível agora.")
+        }));
+        var sections = [{
+          id: "straight",
+          title: t("Resultados hétero"),
+          orientation: "straight"
+        }, {
+          id: "gay",
+          title: t("Resultados gay"),
+          orientation: "gay"
+        }];
+        var left = sections.length * cats.length;
         var found = 0;
-        cats.forEach(function (entry) {
-          var track = h("div.row-track", {
-            "data-scroll-x": "",
-            "data-group": "",
-            "data-trap": ""
-          });
-          var row = h("div.row", {
-            "data-anchor": "30"
-          }, [h("div.row-title", null, [siteName(entry.addon), h("small", {
-            text: catName(entry)
-          })]), track]);
-          fetchCatalog(entry, {
-            search: query
-          }).then(function (metas) {
-            if (my !== token || !metas.length) return;
-            found++;
-            metas.slice(0, 30).forEach(function (m) {
-              return track.appendChild(itemCard(m, entry));
+        var slots = {};
+        sections.forEach(function (sec) {
+          var block = h("div.nsfw-search-section");
+          block.appendChild(h("div.row-title", null, [sec.title, h("small", {
+            text: t("em todos os sites")
+          })]));
+          var host = h("div.rows");
+          block.appendChild(host);
+          results.appendChild(block);
+          slots[sec.id] = {
+            host: host,
+            found: 0
+          };
+          cats.forEach(function (entry) {
+            var track = h("div.row-track", {
+              "data-scroll-x": "",
+              "data-group": "",
+              "data-trap": ""
+            }, skeletonCards(6, true));
+            var row = h("div.row", {
+              "data-anchor": "30"
+            }, [h("div.row-title", null, [siteName(entry.addon), h("small", {
+              text: t("busca")
+            })]), track]);
+            host.appendChild(row);
+            fetchMerged(entry, sec.orientation, queries).then(function (metas) {
+              if (my !== token) return;
+              clear(track);
+              if (!metas.length) {
+                if (row.parentNode) row.parentNode.removeChild(row);
+                return;
+              }
+              found++;
+              slots[sec.id].found++;
+              metas.slice(0, 30).forEach(function (m) {
+                return track.appendChild(itemCard(m, entry));
+              });
+              loadVisibleImages(row);
+            }).catch(function () {
+              if (my !== token) return;
+              if (row.parentNode) row.parentNode.removeChild(row);
+            }).then(function () {
+              if (my !== token) return;
+              if (--left > 0) return;
+              sections.forEach(function (s) {
+                var slot = slots[s.id];
+                if (!slot.found) slot.host.appendChild(h("div.hint", {
+                  text: t('Nada nesta lista para "{q}".', {
+                    q: query
+                  })
+                }));
+              });
+              if (!found) results.appendChild(h("div.hint", {
+                text: t('Nada encontrado para "{q}".', {
+                  q: query
+                })
+              }));
             });
-            results.appendChild(row);
-            loadVisibleImages(row);
-          }).catch(function () {}).then(function () {
-            if (--left === 0 && my === token && !found) results.appendChild(h("div.hint", {
-              text: t('Nada encontrado para "{q}".', {
-                q: query
-              })
-            }));
           });
         });
       }
@@ -16583,21 +16899,41 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     var out = {
       row: row
     };
+    var fetchPage = function fetchPage(skip) {
+      return fetchCatalog(entry, Object.assign(skip ? {
+        skip: skip
+      } : {}, entry.extra || {})).catch(function () {
+        return [];
+      });
+    };
     var fetchRow = function fetchRow() {
       return retrying(function () {
-        return fetchCatalog(entry, entry.extra);
+        return fetchPage(0);
       }).then(function (first) {
         if (!discovery || !first.length) return first;
-        return fetchCatalog(entry, Object.assign({
-          skip: first.length
-        }, entry.extra)).catch(function () {
-          return [];
-        }).then(function (second) {
+        var page = first.length;
+        var start5 = (SESSION_SEED + String(entry.catalog.id || entry.title || "").length * 17) % 5 * page;
+        var pages2 = [start5, start5 + page, start5 + page * 2];
+        return Promise.all(pages2.map(function (skip) {
+          return skip === 0 ? Promise.resolve(first) : fetchPage(skip);
+        })).then(function (lists) {
           var ids = {};
-          var both = first.concat(second).filter(function (m) {
-            return !ids[m.id] && (ids[m.id] = true);
+          var both = [];
+          lists.forEach(function (list4) {
+            return (list4 || []).forEach(function (m) {
+              if (!m || !m.id || ids[m.id]) return;
+              ids[m.id] = true;
+              both.push(m);
+            });
           });
-          return seededShuffle(unseen(both), SESSION_SEED + entry.catalog.id.length);
+          if (both.length < 8 && start5 > 0) {
+            first.forEach(function (m) {
+              if (!m || !m.id || ids[m.id]) return;
+              ids[m.id] = true;
+              both.push(m);
+            });
+          }
+          return seededShuffle(unseen(both), SESSION_SEED + String(entry.catalog.id || "").length + (entry.title || "").length);
         });
       });
     };
