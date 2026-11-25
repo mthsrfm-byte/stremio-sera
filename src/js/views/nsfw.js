@@ -444,9 +444,17 @@ export function NsfwView() {
   let seed = newSeed(); // semente da aba: muda a cada abertura e a cada "Embaralhar"
   let overrides = {}; // fileira -> quantas vezes foi trocada nesta semente
 
+  const channelId = 'ph-sadie-swoon';
+  let channelGrid = null;
+
   function scopes() {
     const list = sites();
     const out = list.map((s) => ({ id: s.id, label: s.name, sub: siteSub(s), site: s }));
+    const ph = list.find((s) => s.id === 'seraflix.pornhub');
+    if (ph) {
+      const entry = ph.addons.map((a) => addons.adultCatalogs(a).find((e) => e.catalog.id === channelId)).find(Boolean);
+      if (entry) out.push({ id: channelId, label: entry.catalog.name, sub: ph.name, site: ph, entry });
+    }
     if (list.some((s) => s.addons.some((a) => addons.adultCatalogs(a).some((e) => addons.supportsSearch(e.catalog)))))
       out.push({ id: 'search', label: t('Buscar'), sub: t('em todos os sites'), icon: ICON_SEARCH });
     return out;
@@ -870,14 +878,33 @@ export function NsfwView() {
     pending = [];
     active = 0;
     stopSearch = null;
+    if (channelGrid) channelGrid.destroy();
+    channelGrid = null;
     clear(body);
     onSearchScroll = null;
     hero.pool = [];
     hero.favIds = {};
     hero.replace = !!keep;
     if (!keep) clearHero();
-    stage.el.style.display = scope === 'search' ? 'none' : '';
+    stage.el.style.display = scope === 'search' || scope === channelId ? 'none' : '';
     if (scope === 'search') return renderSearch();
+    if (scope === channelId) {
+      const entry = scopes().find((f) => f.id === channelId).entry;
+      let skip = 0;
+      channelGrid = pagedGrid({
+        autoFocus: false, partialRows: true, errorState: true,
+        load: () => addons.fetchCatalog(entry, { skip }, FG).then((items) => {
+          skip += items.length;
+          return items;
+        }),
+        key: (m) => m.id,
+        card: (m) => itemCard(m, entry),
+        skeleton: () => skeletonCards(8, true),
+      });
+      body.appendChild(channelGrid.el);
+      channelGrid.start();
+      return;
+    }
     const all = sites();
     const site = all.filter((s) => s.id === scope)[0];
     if (!site) {
@@ -891,7 +918,7 @@ export function NsfwView() {
     const entries = [];
     site.addons.forEach((a) =>
       addons.adultCatalogs(a).forEach((e) => {
-        if (addons.isBoardable(e.catalog) && !tr.isHiddenCategory(e.catalog.name || e.catalog.id)) entries.push(e);
+        if (e.catalog.id !== channelId && addons.isBoardable(e.catalog) && !tr.isHiddenCategory(e.catalog.name || e.catalog.id)) entries.push(e);
       })
     );
     // Site sem catálogo de creampie (ex.: TPB): usa a busca dele, se tiver.
@@ -1388,6 +1415,7 @@ export function NsfwView() {
     destroy: () => {
       token++;
       stopPreview();
+      if (channelGrid) channelGrid.destroy();
       stopWatch();
       clearTimeout(switchTimer);
       if (bar.__destroy) bar.__destroy();

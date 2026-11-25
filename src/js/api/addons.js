@@ -88,9 +88,9 @@ const TUBES = ['xv', 'ph'];
 const TUBE_PREFIXES = ['xv:', 'ph:'];
 const TUBE_PORT = 8092;
 const SERVICE_MIN = 12;
-// Versão mais nova do serviço (16). Com uma mais velha os vídeos tocam do mesmo jeito; o app só pede
+// Versão mais nova do serviço (17). Com uma mais velha os vídeos tocam do mesmo jeito; o app só pede
 // ao TizenBrew a nova e troca os addons quando ela responder (ver awaitUpgrade e attachTubes).
-const SERVICE_WANT = 16;
+const SERVICE_WANT = 17;
 let upgradeTimer = null;
 function awaitUpgrade(tries) {
   clearTimeout(upgradeTimer);

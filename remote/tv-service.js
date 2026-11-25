@@ -12,7 +12,7 @@ var urlLib = require('url');
 
 var OLD_PORT = 8090; // controle remoto das versões antigas (até a 14): só para pedir que saiam
 var ADDON_PORT = 8092; // addons XVideos/Pornhub e vídeo (porta nova a cada mudança que versões antigas não sabem largar)
-var SERVICE_VERSION = 16; // 16: catálogo sem corte (skip = n × pageSize), sort, cache e orçamento de tempo; 15: sem o controle pelo celular (8090 saiu; /api/info e /api/torrent-test foram para a 8092)
+var SERVICE_VERSION = 17; // 16: catálogo sem corte (skip = n × pageSize), sort, cache e orçamento de tempo; 15: sem o controle pelo celular (8090 saiu; /api/info e /api/torrent-test foram para a 8092)
 var TIZENBREW_CONFIG = '/home/owner/share/tizenbrewConfig.json';
 var MODULE_NAME = 'mthsrfm-byte/stremio-sera'; // como o TizenBrew chama o módulo na lista de serviços
 
@@ -703,6 +703,7 @@ var TUBES = {
         { type: 'movie', id: 'ph-cp', name: 'Creampie hétero', extra: [{ name: 'skip' }, SORT_PH] },
         { type: 'movie', id: 'ph-cpgay', name: 'Creampie gay', extra: [{ name: 'skip' }, SORT_PH] },
         { type: 'movie', id: 'ph-cpnew', name: 'Creampie: lançamentos', extra: [{ name: 'skip' }, SORT_PH] },
+        { type: 'movie', id: 'ph-sadie-swoon', name: 'Sadie Swoon', extra: [{ name: 'skip' }] },
         { type: 'movie', id: 'ph-new', name: 'Novidades', extra: [{ name: 'skip' }] },
         { type: 'movie', id: 'ph-hot', name: 'Em alta', extra: [{ name: 'skip' }, SORT_PH] },
         { type: 'movie', id: 'ph-top', name: 'Mais vistos do mês', extra: [{ name: 'skip' }, SORT_PH] },
@@ -730,11 +731,18 @@ var TUBES = {
         if (!c) return '';
         return 'https://www.pornhub.com/' + (cat === 'ph-gaycat' ? 'gay/' : '') + 'video?c=' + c + '&' + (s || 'o=mv&t=m') + p; // mais vistos do mês: novo e sempre com a página cheia
       }
+      if (cat === 'ph-sadie-swoon') return 'https://pt.pornhub.com/model/sadie-swoon/videos?page=' + ((page || 0) + 1);
       if (cat === 'ph-new') return 'https://www.pornhub.com/video?o=cm' + p;
       if (cat === 'ph-top') return 'https://www.pornhub.com/video?' + (s || 'o=mv&t=m') + p;
       return 'https://www.pornhub.com/video?' + (s || 'o=ht') + p; // ph-hot (em alta) e o padrão
     },
-    parseList: function (html) {
+    parseList: function (html, cat) {
+      if (cat === 'ph-sadie-swoon') {
+        var list = /<ul\b[^>]*\bid=["'](?:moreData|videoUList|modelVideos|pornstarsVideoSection|mostRecentVideosSection)["'][^>]*>/i.exec(html);
+        if (!list) return [];
+        var end = closingUl(html, list.index);
+        return end < 0 ? [] : phItems(html.slice(list.index, end));
+      }
       // Recorte da lista principal; se o recorte não tiver vídeo (o site mudou o marcador), vale a página inteira
       var out = phItems(phScope(html));
       return out.length ? out : phItems(html);
@@ -995,9 +1003,9 @@ function pageKind(html) {
 // Catálogo: uma tentativa (até 6 s) e, se falhar ou vier vazio, mais uma depois de uma pausa curta
 // (a 2ª já com os cookies da sessão). No total ~10 s; o app espera 12 s. Sem resultado: lista vazia.
 var CATALOG_BUDGET_MS = 9500;
-function listParser(tube) {
+function listParser(tube, cat) {
   return function (html) {
-    var metas = tube.parseList(html);
+    var metas = tube.parseList(html, cat);
     return { metas: metas, kind: metas.length ? '' : pageKind(html) };
   };
 }
@@ -1012,7 +1020,7 @@ function catalogRoute(tube, r, res) {
     var left = CATALOG_BUDGET_MS - (Date.now() - t0);
     var limit = n === 0 ? Math.min(6000, left) : Math.max(1000, left);
     var opts = { ttl: LIST_TTL, fresh: n > 0, limit: limit, ok: function (v) { return v.metas.length > 0; } };
-    cachedFetch(listUrl, opts, listParser(tube), function (err, got, stale) {
+    cachedFetch(listUrl, opts, listParser(tube, r.id), function (err, got, stale) {
       try {
         var metas = got && got.metas ? got.metas : [];
         if (!metas.length && n === 0 && CATALOG_BUDGET_MS - (Date.now() - t0) > 2000) return setTimeout(function () { attempt(1); }, 700);
