@@ -1,6 +1,6 @@
 {
  "version": "1.2.0",
- "commit": "167bd4ec30411dfae6d7180b564d6573e6ab5f9e",
+ "commit": "4ee589e16e5d926c54e1c5b83d230d6c8aaa2518",
  "files": [
   {
    "path": "app.css",
@@ -9,8 +9,8 @@
   },
   {
    "path": "app.js",
-   "sha256": "13844d402042ec86b8737591cbfd85af146ec9f5947240f9f6a54ddecf161bcb",
-   "size": 369738
+   "sha256": "c765a9a493f32ffd0f6f8bf73f9c106ca7f1b123d134f5766dbc8779c68ee2e6",
+   "size": 370313
   },
   {
    "path": "appinfo.json",
@@ -19,8 +19,8 @@
   },
   {
    "path": "build.json",
-   "sha256": "746ff015ea040daf4fb2922193b41d273c57b5caeaff8d7262a193a840a41c16",
-   "size": 207
+   "sha256": "46eb43ba4f7d050a640addae92136a39c554145af81d3a494097ae9525261ada",
+   "size": 212
   },
   {
    "path": "fonts/bricolage-grotesque-latin-600-normal.woff2",
