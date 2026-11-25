@@ -109,7 +109,8 @@ function start() {
   // O servidor do PC é revalidado em paralelo (check() nunca rejeita: se falhar, o status fica offline
   // como antes). A tela inicial não espera mais o timeout de 4 s.
   server.check();
-  Promise.all([addons.load().catch(() => null), introDone]).then(() => {
+  addons.load().catch(() => {});
+  introDone.then(() => {
     router.goTab('home');
     intro.finish(); // a abertura some em fade por cima da tela inicial já pronta
     calendar.start(); // agenda do Google (se tiver link em Ajustes)

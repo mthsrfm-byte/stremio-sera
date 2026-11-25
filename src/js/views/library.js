@@ -59,7 +59,7 @@ export function LibraryView() {
   }
 
   function renderGrid() {
-    if (!alive) return;
+    if (!alive || !addons.loaded()) return;
     const items = stremio
       .cachedLibrary()
       .filter((it) => !it.removed && (filter === 'all' || it.type === filter) && !addons.isAdultId(it._id))
@@ -92,6 +92,7 @@ export function LibraryView() {
     el: el,
     onShow: () => {
       renderGrid();
+      if (!addons.loaded()) addons.load().then(renderGrid).catch(() => {});
       stremio
         .getLibrary()
         .then(() => renderGrid()) // só redesenha se a biblioteca mudou

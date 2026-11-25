@@ -185,12 +185,20 @@ export function HomeView() {
       });
   }
 
+  // O foco e a barra já funcionam enquanto os catálogos vêm da rede.
+  if (!addons.loaded()) {
+    rows.appendChild(spinnerLine(t('Carregando catálogos...')));
+    addons.load().then(() => {
+      if (router.currentView() === view) view.onShow();
+    }).catch(() => {});
+  }
   heroUi.load();
 
   const view = {
     el: el,
     onShow: () => {
       renderAgenda();
+      if (!addons.loaded()) return;
       renderContinue();
       if (!loadedBoard) renderBoard();
       else loadNearby(); // fileiras que ficaram esperando enquanto a tela estava escondida
@@ -208,7 +216,7 @@ export function HomeView() {
     onKey: (e) => heroUi.onKey(e),
     reload: () => {
       heroUi.load();
-      renderBoard();
+      if (addons.loaded()) renderBoard();
     },
     destroy: () => {
       offCalendar();

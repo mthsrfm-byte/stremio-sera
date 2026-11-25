@@ -39,13 +39,28 @@ function changed(list) {
   return list;
 }
 
+// Um catálogo incompleto vindo da conta não deve impedir a abertura dos outros.
+function array(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+function normalizeManifest(manifest) {
+  const catalogs = array(manifest.catalogs)
+    .filter((c) => c && c.id && c.type)
+    .map((c) => Object.assign({}, c, { extra: array(c.extra).filter((e) => e && e.name) }));
+  return Object.assign({}, manifest, {
+    catalogs,
+    resources: array(manifest.resources).filter(Boolean),
+  });
+}
+
 function normalize(list) {
-  return (list || [])
-    .filter((a) => a && a.transportUrl && a.manifest)
+  return array(list)
+    .filter((a) => a && typeof a.transportUrl === 'string' && a.manifest)
     .filter((a) => /^https?:/.test(a.transportUrl))
     .map((a) => ({
       transportUrl: a.transportUrl,
-      manifest: a.manifest,
+      manifest: normalizeManifest(a.manifest),
       base: a.transportUrl.replace(/\/manifest\.json(\?.*)?$/, ''),
       query: (a.transportUrl.match(/\/manifest\.json(\?.*)$/) || [])[1] || '',
     }));
@@ -198,23 +213,37 @@ function attachTubes() {
   });
 }
 
+let loading = null;
+
 export function load(force) {
   attachTubes();
-  if (addons && !force) return Promise.resolve(addons);
-  if (stremio.isLoggedIn()) {
-    const cached = stremio.cachedAddons();
-    const fresh = stremio.getAddonCollection().then((list) => changed(withTubes(normalize(list))));
-    if (cached && cached.length && !force) {
-      addons = withTubes(normalize(cached));
-      fresh.catch((e) => log.warn('Addons: usando cache', e.message));
-      return Promise.resolve(addons);
+  if (!force && addons) return Promise.resolve(addons);
+  if (!force && loading) return loading;
+
+  const loggedIn = stremio.isLoggedIn();
+  const cached = loggedIn && stremio.cachedAddons();
+  if (!force && cached && cached.length) addons = withTubes(normalize(cached));
+
+  const request = loggedIn ? stremio.getAddonCollection() : defaultAddons();
+  const pending = request.then(
+    (list) => (loading === pending ? changed(withTubes(normalize(list))) : addons || []),
+    (error) => {
+      if (loading !== pending) return addons || [];
+      if (loggedIn) log.warn('Addons: usando cache', error.message);
+      return changed(withTubes(normalize(cached || [])));
     }
-    return fresh.catch(() => {
-      addons = withTubes(normalize(cached || []));
-      return addons;
-    });
-  }
-  return defaultAddons().then((list) => changed(withTubes(normalize(list))));
+  );
+  loading = pending;
+  const finish = () => {
+    if (loading === pending) loading = null;
+  };
+  pending.then(finish, finish);
+  return !force && addons ? Promise.resolve(addons) : pending;
+}
+
+// A interface pode abrir enquanto a lista ainda carrega. O histórico espera os filtros dos addons.
+export function loaded() {
+  return addons !== null;
 }
 
 // No Fire TV não tem conteúdo adulto nenhum: os addons adultos da conta ficam de fora de tudo
@@ -285,7 +314,7 @@ function adultGenres(m) {
   let n = 0;
   (m.catalogs || []).forEach((c) =>
     (c.extra || []).forEach((e) => {
-      if (e.name === 'genre') (e.options || []).forEach((o) => ADULT_GENRES.test(String(o).trim()) && n++);
+      if (e.name === 'genre') array(e.options).forEach((o) => ADULT_GENRES.test(String(o).trim()) && n++);
     })
   );
   return n >= 2;
