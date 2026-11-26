@@ -12,7 +12,7 @@ var urlLib = require('url');
 
 var OLD_PORT = 8090; // controle remoto das versões antigas (até a 14): só para pedir que saiam
 var ADDON_PORT = 8092; // addons XVideos/Pornhub e vídeo (porta nova a cada mudança que versões antigas não sabem largar)
-var SERVICE_VERSION = 17; // 16: catálogo sem corte (skip = n × pageSize), sort, cache e orçamento de tempo; 15: sem o controle pelo celular (8090 saiu; /api/info e /api/torrent-test foram para a 8092)
+var SERVICE_VERSION = 18; // resolve os links temporários do Pornhub a cada reprodução
 var TIZENBREW_CONFIG = '/home/owner/share/tizenbrewConfig.json';
 var MODULE_NAME = 'mthsrfm-byte/stremio-sera'; // como o TizenBrew chama o módulo na lista de serviços
 
@@ -193,14 +193,27 @@ function fetchText(url, cb, hops, limitMs) {
 }
 
 // O link responde? (só o status; a playlist HLS é pequena e o corpo é descartado)
-function urlOk(url, cb, limitMs) {
+function urlOk(url, cb, limitMs, hops) {
+  var started = Date.now();
   var done = false;
   function end(ok) { if (!done) { done = true; cb(ok); } }
   var opts = urlLib.parse(url);
-  opts.headers = { 'User-Agent': UA, Accept: '*/*' };
+  opts.headers = { 'User-Agent': UA, Referer: 'https://www.pornhub.com/', Origin: 'https://www.pornhub.com', Accept: '*/*' };
   var req;
   try {
-    req = https.get(agentFor(withCa(opts)), function (r) { r.resume(); end(r.statusCode === 200); });
+    req = https.get(agentFor(withCa(opts)), function (r) {
+      r.resume();
+      if (done) return;
+      var left = limitMs - (Date.now() - started);
+      if (r.statusCode >= 300 && r.statusCode < 400 && r.headers.location && (hops || 0) < 4 && left > 0) {
+        var next = urlLib.resolve(url, r.headers.location);
+        var target = urlLib.parse(next);
+        if (target.protocol !== 'https:' || !PX_HOSTS.test(target.hostname || '')) return end(false);
+        done = true;
+        return urlOk(next, cb, left, (hops || 0) + 1);
+      }
+      end(r.statusCode === 200 || r.statusCode === 206);
+    });
   } catch (e) {
     return end(false);
   }
@@ -208,7 +221,7 @@ function urlOk(url, cb, limitMs) {
     if (isCertError(e) && !caOn(opts.hostname) && !done) {
       caSet(opts.hostname);
       done = true;
-      return urlOk(url, cb, limitMs);
+      return urlOk(url, cb, limitMs, hops);
     }
     end(false);
   });
@@ -222,7 +235,7 @@ var CACHE = Object.create(null);
 var CACHE_MAX = 40;
 var STALE_MS = 60 * 60000;
 var LIST_TTL = 10 * 60000; // catálogo e busca
-var PAGE_TTL = 5 * 60000; // página de vídeo (meta e stream) e lista MP4
+var PAGE_TTL = 5 * 60000; // metadados de vídeo e fontes do XVideos
 var STREAM_BUDGET_MS = 20000; // stream do Pornhub: o que tiver até aqui sai (o app desiste em 30 s)
 var inflight = Object.create(null); // url → callbacks à espera (um pedido só para todos)
 
@@ -246,11 +259,7 @@ function cachedFetch(url, o, parse, cb) {
   if (!o.fresh && hit && Date.now() - hit.at < hit.ttl) return cb(null, hit.value, false);
   if (inflight[url]) return inflight[url].push(cb);
   var waiting = (inflight[url] = [cb]);
-  fetchText(url, function (err, html) {
-    var value = null;
-    if (!err) {
-      try { value = parse(html); } catch (e) { err = e; }
-    }
+  fetchParsed(url, o.limit, parse, function (err, value) {
     var good = !err && (!o.ok || o.ok(value));
     if (good) cacheSet(url, value, o.ttl);
     delete inflight[url];
@@ -258,7 +267,16 @@ function cachedFetch(url, o, parse, cb) {
     var stale = good ? null : CACHE[url];
     if (stale && Date.now() - stale.at < STALE_MS) return callAll(waiting, [null, stale.value, true]);
     callAll(waiting, [err || null, value, false]);
-  }, 0, o.limit);
+  });
+}
+
+function fetchParsed(url, limit, parse, cb) {
+  fetchText(url, function (err, text) {
+    if (err) return cb(err);
+    var value;
+    try { value = parse(text); } catch (e) { return cb(e); }
+    cb(null, value);
+  }, 0, limit);
 }
 
 // Paginação. Contrato: skip = n × pageSize ⇒ página n do site. Quem soma os itens recebidos (skip = soma
@@ -751,7 +769,7 @@ var TUBES = {
     parseMeta: function (id, html) {
       return { id: id, type: 'movie', name: ogTag(html, 'title') || 'Pornhub', poster: ogTag(html, 'image'), background: ogTag(html, 'image'), posterShape: 'landscape', description: ogTag(html, 'description'), stats: phPageStats(html) };
     },
-    // Uma leitura da página do vídeo (cache de 5 min): meta, playlists HLS, link da lista MP4 e miniaturas.
+    // Os metadados podem vir do cache. No play, os links assinados precisam de uma leitura nova.
     parsePage: function (id, html) {
       var hls = phHls(html);
       var gm = '';
@@ -783,25 +801,24 @@ var TUBES = {
       function load(tries) {
         if (finished) return;
         var last = tries >= 2;
-        var opts = { ttl: PAGE_TTL, fresh: tries > 0, limit: left(), ok: function (v) { return v.good; } };
-        cachedFetch(page, opts, function (html) { return self.parsePage(id, html); }, function (err, v) {
+        fetchParsed(page, left(), function (html) { return self.parsePage(id, html); }, function (err, v) {
           if (finished) return;
           if (err) return finish(err);
-          st.hls = v.hls;
+          st.hls = [];
+          st.mp4 = null;
           st.thumbs = v.thumbs;
-          var okHls = false;
           var jobs = 2; // a playlist e a lista MP4
           function job() { if (--jobs === 0) decide(); }
           function decide() {
             if (finished) return;
-            if (okHls || last) return finish(null);
+            if (st.hls.length || last) return finish(null);
             load(tries + 1);
           }
-          if (v.hls.length) urlOk(v.hls[0].videoUrl, function (ok) { okHls = ok; job(); }, left());
+          if (v.hls.length) urlOk(v.hls[0].videoUrl, function (ok) { if (ok) st.hls = v.hls; job(); }, left());
           else job();
           if (v.gm) {
-            cachedFetch(v.gm, { ttl: PAGE_TTL, limit: left(), ok: Array.isArray }, function (text) { return JSON.parse(text); }, function (e, list) {
-              st.mp4 = e ? [] : list;
+            fetchParsed(v.gm, left(), JSON.parse, function (e, list) {
+              st.mp4 = !e && Array.isArray(list) ? list : [];
               job();
             });
           } else job();

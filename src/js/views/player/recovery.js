@@ -28,14 +28,29 @@ export function createRecovery(st) {
 
   // Erro do <video> (código 1–4) ou do hls.js (why: o que ele disse). Um aviso por fonte.
   let errorToken = -1;
+  let refreshedTube = false;
   function playbackError(code, why) {
     log.warn('Erro de vídeo', code || why, st.mediaUrl);
     if (!st.alive || errorToken === st.sourceToken) return;
-    errorToken = st.sourceToken;
+    const token = st.sourceToken;
+    errorToken = token;
     const failed = st.stream;
-    errorDetails(code, why).then((details) => {
-      if (!st.alive || failed !== st.stream) return;
-      const next = autoFallback();
+    const current = () => st.alive && token === st.sourceToken && failed === st.stream;
+    errorDetails(code, why).then(async (details) => {
+      if (!current()) return;
+      let next = autoFallback();
+      // Uma pausa longa ou uma lista de fontes deixada aberta pode vencer todos os links.
+      if (!next && !refreshedTube && addons.hasTemporaryTubeLinks(st.video.id)) {
+        refreshedTube = true;
+        clearTimeout(st.slowTimer);
+        const fresh = await addons.fetchStreams(st.meta.type, st.video.id);
+        if (!current()) return;
+        const usable = fresh.filter((s) => s.url && !st.tried.some((old) => old.url === s.url));
+        if (usable.length) {
+          st.opts.streams = usable;
+          next = addons.orderTube(usable)[0];
+        }
+      }
       if (next) {
         st.failedNotes.push(details);
         const what = addons.isTubeStream(next) ? String(next.name || '').split('\n').join(' ') : si.summary(si.parse(next)) || si.parse(next).addon;

@@ -88,9 +88,9 @@ const TUBES = ['xv', 'ph'];
 const TUBE_PREFIXES = ['xv:', 'ph:'];
 const TUBE_PORT = 8092;
 const SERVICE_MIN = 12;
-// Versão mais nova do serviço (17). Com uma mais velha os vídeos tocam do mesmo jeito; o app só pede
+// Versão mais nova do serviço. Com uma mais velha os vídeos tocam do mesmo jeito; o app só pede
 // ao TizenBrew a nova e troca os addons quando ela responder (ver awaitUpgrade e attachTubes).
-const SERVICE_WANT = 17;
+const SERVICE_WANT = 18;
 let upgradeTimer = null;
 function awaitUpgrade(tries) {
   clearTimeout(upgradeTimer);
@@ -120,6 +120,11 @@ export function tubeStatus() {
 // reserva (direto e pelo serviço), e o player tenta a próxima sozinho quando uma não abre.
 export function isTubeStream(s) {
   return !!(s && tubes && tubes.some((a) => a.manifest && a.manifest.name === s.addon));
+}
+
+// As URLs deste addon expiram. Só compartilhamos a consulta enquanto ela está em voo.
+export function hasTemporaryTubeLinks(id) {
+  return /^ph:/.test(id);
 }
 
 // Variante de uma fonte do serviço: 'tv' (passando pelo serviço da TV), 'mp4' ou 'hls' (direto).
@@ -573,7 +578,7 @@ export function fetchStreams(type, id, onAddon) {
     job.pending = false;
     job.subs = [];
     // Nenhum addon respondeu: não guarda, a próxima vez refaz a busca.
-    forget(job.ok ? STREAMS_KEEP_MS : 0);
+    forget(job.ok && !hasTemporaryTubeLinks(id) ? STREAMS_KEEP_MS : 0);
     return all.reduce((acc, x) => acc.concat(x), []);
   });
   streamJobs.set(key, job);

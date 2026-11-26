@@ -513,7 +513,8 @@ function DetailsView(type, id, opts) {
     let resolve = null;
     const pick = new Promise((ok) => (resolve = ok));
     let done = false;
-    const serverReady = server.isAvailable() ? Promise.resolve(true) : server.check().then((r) => !!(r && r.ok), () => false);
+    const temporaryLinks = addons.hasTemporaryTubeLinks(video.id);
+    const serverReady = temporaryLinks || server.isAvailable() ? Promise.resolve(server.isAvailable()) : server.check().then((r) => !!(r && r.ok), () => false);
     const finish = () => {
       if (done) return;
       done = true;
@@ -530,7 +531,8 @@ function DetailsView(type, id, opts) {
         resolve(p ? p.stream : null);
       });
     };
-    const timer = setTimeout(finish, 12000);
+    // O serviço pode levar 20 s para renovar e conferir os links. O próprio pedido tem timeout.
+    const timer = temporaryLinks ? null : setTimeout(finish, 12000);
     serverReady
       .then(() =>
         addons.fetchStreams(meta.type, video.id, (addon, streams) => {
